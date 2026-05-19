@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,6 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class LoanProductController {
 
     private final LoanProductService service;
+
+    @Operation(summary = "상품 단건 조회", description = "prodId 로 대출 상품 단건을 조회한다.")
+    @GetMapping("/{prodId}")
+    public ApiResponse<LoanProductResponse> get(@PathVariable Long prodId) {
+        return ApiResponse.ok(service.get(prodId));
+    }
 
     @Operation(summary = "상품 등록", description = "신규 대출 상품을 등록한다. 초기 상태는 DRAFT.")
     @PostMapping

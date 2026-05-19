@@ -9,5 +9,7 @@ public interface LoanProductRepository extends JpaRepository<LoanProduct, Long> 
 
     Optional<LoanProduct> findByProdCdAndDeletedAtIsNull(String prodCd);
 
+    Optional<LoanProduct> findByProdIdAndDeletedAtIsNull(Long prodId);
+
     boolean existsByProdCdAndDeletedAtIsNull(String prodCd);
 }

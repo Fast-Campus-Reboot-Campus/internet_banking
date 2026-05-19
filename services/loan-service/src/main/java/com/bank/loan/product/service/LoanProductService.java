@@ -19,6 +19,13 @@ public class LoanProductService {
 
     private final LoanProductRepository repository;
 
+    @Transactional(readOnly = true)
+    public LoanProductResponse get(Long prodId) {
+        LoanProduct product = repository.findByProdIdAndDeletedAtIsNull(prodId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_002));
+        return LoanProductResponse.of(product);
+    }
+
     @Transactional
     public LoanProductResponse create(CreateLoanProductRequest req) {
         validateRanges(req);
