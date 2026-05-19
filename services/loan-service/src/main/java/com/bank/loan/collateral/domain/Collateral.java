@@ -78,4 +78,26 @@ public class Collateral extends BaseEntity {
     public String currentStatus() {
         return colStatusCd;
     }
+
+    /**
+     * 부분 수정. null 인 인자는 해당 필드 미변경.
+     * col_no / appl_id / col_status_cd 는 변경 불가 (식별자·상태 전이는 별도 메서드).
+     */
+    public void update(
+            String colTypeCd,
+            String colName, String colAddress, String colRegistryNo,
+            Long declaredValue,
+            String currencyCd, String ownershipTypeCd,
+            String seniorLienYn, Long seniorLienAmount
+    ) {
+        if (colTypeCd != null) this.colTypeCd = colTypeCd;
+        if (colName != null) this.colName = colName;
+        if (colAddress != null) this.colAddress = colAddress;
+        if (colRegistryNo != null) this.colRegistryNo = colRegistryNo;
+        if (declaredValue != null) this.declaredValue = declaredValue;
+        if (currencyCd != null) this.currencyCd = currencyCd;
+        if (ownershipTypeCd != null) this.ownershipTypeCd = ownershipTypeCd;
+        if (seniorLienYn != null) this.seniorLienYn = seniorLienYn;
+        if (seniorLienAmount != null) this.seniorLienAmount = seniorLienAmount;
+    }
 }

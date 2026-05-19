@@ -7,6 +7,7 @@ import com.bank.loan.collateral.domain.Collateral;
 import com.bank.loan.collateral.dto.CollateralListResponse;
 import com.bank.loan.collateral.dto.CollateralResponse;
 import com.bank.loan.collateral.dto.CreateCollateralRequest;
+import com.bank.loan.collateral.dto.UpdateCollateralRequest;
 import com.bank.loan.collateral.repository.CollateralRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,25 @@ public class CollateralService {
     private final CollateralRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final CollateralNumberGenerator colNoGenerator;
+
+    @Transactional
+    public CollateralResponse update(Long colId, UpdateCollateralRequest req) {
+        Collateral collateral = repository.findByColIdAndDeletedAtIsNull(colId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_050));
+
+        if (collateral.isReleased()) {
+            throw new BusinessException(LoanErrorCode.LOAN_051);
+        }
+
+        collateral.update(
+                req.colTypeCd(),
+                req.colName(), req.colAddress(), req.colRegistryNo(),
+                req.declaredValue(),
+                req.currencyCd(), req.ownershipTypeCd(),
+                req.seniorLienYn(), req.seniorLienAmount()
+        );
+        return CollateralResponse.of(collateral);
+    }
 
     @Transactional(readOnly = true)
     public CollateralListResponse list(Long applId) {
