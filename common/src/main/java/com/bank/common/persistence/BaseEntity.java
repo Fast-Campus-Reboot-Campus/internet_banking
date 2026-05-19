@@ -17,13 +17,14 @@ import java.time.OffsetDateTime;
  * 등록계 엔티티의 공통 감사 컬럼. ERD 의 공통 감사 컬럼 7종을 매핑한다.
  *   created_at / created_by / updated_at / updated_by / deleted_at / deleted_by / version
  *
- * Soft delete 동작(softDelete 메서드)·전용 Specification 헬퍼는 Phase 2 에서 추가된다.
- * 이 클래스는 컬럼만 보유하며, deletedAt 값 채움은 도메인 측이 명시적으로 수행한다.
+ * Soft delete 는 SoftDeletable 인터페이스로 노출하고 softDelete() 호출 시점에
+ * deleted_at / deleted_by 가 채워진다. 조회 측은 SoftDeleteSpecifications.activeOnly()
+ * 또는 repository 메서드에서 명시적으로 deleted_at IS NULL 필터를 적용한다.
  */
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public abstract class BaseEntity {
+public abstract class BaseEntity implements SoftDeletable {
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -51,6 +52,14 @@ public abstract class BaseEntity {
     @Column(name = "version", nullable = false)
     private Integer version;
 
+    @Override
+    public void softDelete(Long actorId) {
+        if (this.deletedAt != null) return;
+        this.deletedAt = OffsetDateTime.now();
+        this.deletedBy = actorId;
+    }
+
+    @Override
     public boolean isDeleted() {
         return deletedAt != null;
     }
