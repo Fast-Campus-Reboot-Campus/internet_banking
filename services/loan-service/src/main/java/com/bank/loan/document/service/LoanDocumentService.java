@@ -1,5 +1,6 @@
 package com.bank.loan.document.service;
 
+import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
@@ -25,6 +26,16 @@ public class LoanDocumentService {
     private final LoanDocumentRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final DocumentStorage storage;
+    private final CurrentActorProvider currentActor;
+
+    @Transactional
+    public LoanDocumentResponse delete(Long docId) {
+        LoanDocument doc = repository.findByDocIdAndDeletedAtIsNull(docId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_041));
+        doc.markDeleted();
+        doc.softDelete(currentActor.currentActorId());
+        return LoanDocumentResponse.of(doc);
+    }
 
     @Transactional(readOnly = true)
     public LoanDocumentDownload download(Long docId) {

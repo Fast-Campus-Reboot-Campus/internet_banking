@@ -77,4 +77,9 @@ public class LoanDocument extends BaseEntity {
 
     @Column(name = "retention_until", length = 8)
     private String retentionUntil;
+
+    /** 상태 전이만 수행. soft delete (deleted_at/by) 는 BaseEntity.softDelete() 로 별도 호출. */
+    public void markDeleted() {
+        this.docStatusCd = STATUS_DELETED;
+    }
 }
