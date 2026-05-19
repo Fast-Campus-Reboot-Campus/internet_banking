@@ -100,4 +100,8 @@ public class Collateral extends BaseEntity {
         if (seniorLienYn != null) this.seniorLienYn = seniorLienYn;
         if (seniorLienAmount != null) this.seniorLienAmount = seniorLienAmount;
     }
+
+    public void release() {
+        this.colStatusCd = STATUS_RELEASED;
+    }
 }

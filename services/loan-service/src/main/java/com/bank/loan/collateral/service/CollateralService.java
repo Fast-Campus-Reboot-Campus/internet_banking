@@ -1,5 +1,8 @@
 package com.bank.loan.collateral.service;
 
+import com.bank.common.audit.StatusChangeEvent;
+import com.bank.common.audit.StatusHistoryPublisher;
+import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
@@ -7,6 +10,7 @@ import com.bank.loan.collateral.domain.Collateral;
 import com.bank.loan.collateral.dto.CollateralListResponse;
 import com.bank.loan.collateral.dto.CollateralResponse;
 import com.bank.loan.collateral.dto.CreateCollateralRequest;
+import com.bank.loan.collateral.dto.ReleaseCollateralRequest;
 import com.bank.loan.collateral.dto.UpdateCollateralRequest;
 import com.bank.loan.collateral.repository.CollateralRepository;
 import com.bank.loan.support.LoanErrorCode;
@@ -21,12 +25,42 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CollateralService {
 
+    private static final String DOMAIN_CD = "LOAN";
+    private static final String TARGET_TABLE_CD = "COLLATERAL";
     private static final String DEFAULT_CURRENCY = "KRW";
     private static final String DEFAULT_NO = "N";
 
     private final CollateralRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final CollateralNumberGenerator colNoGenerator;
+    private final StatusHistoryPublisher statusHistoryPublisher;
+    private final CurrentActorProvider currentActor;
+
+    @Transactional
+    public CollateralResponse release(Long colId, ReleaseCollateralRequest req) {
+        Collateral collateral = repository.findByColIdAndDeletedAtIsNull(colId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_050));
+
+        if (collateral.isReleased()) {
+            throw new BusinessException(LoanErrorCode.LOAN_051);
+        }
+
+        String before = collateral.currentStatus();
+        collateral.release();
+
+        String remark = req.releaseRemark();
+        if (req.releaseDate() != null) {
+            remark = (remark == null ? "" : remark + " / ") + "releaseDate=" + req.releaseDate();
+        }
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_TABLE_CD, collateral.getColId(),
+                before, Collateral.STATUS_RELEASED,
+                req.releaseReasonCd(), remark,
+                currentActor.currentActorId()
+        ));
+
+        return CollateralResponse.of(collateral);
+    }
 
     @Transactional
     public CollateralResponse update(Long colId, UpdateCollateralRequest req) {

@@ -2,6 +2,7 @@ package com.bank.loan.collateral.controller;
 
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.collateral.dto.CollateralResponse;
+import com.bank.loan.collateral.dto.ReleaseCollateralRequest;
 import com.bank.loan.collateral.dto.UpdateCollateralRequest;
 import com.bank.loan.collateral.service.CollateralService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,5 +33,13 @@ public class CollateralDirectController {
     public ApiResponse<CollateralResponse> update(@PathVariable Long colId,
                                                    @Valid @RequestBody UpdateCollateralRequest req) {
         return ApiResponse.ok(service.update(colId, req));
+    }
+
+    @Operation(summary = "담보 해제",
+            description = "담보 상태를 RELEASED 로 전이한다. status_history 에 사유·해제일 기록.")
+    @PostMapping("/{colId}/release")
+    public ApiResponse<CollateralResponse> release(@PathVariable Long colId,
+                                                    @Valid @RequestBody ReleaseCollateralRequest req) {
+        return ApiResponse.ok(service.release(colId, req));
     }
 }
