@@ -40,6 +40,9 @@ configure(subprojects.findAll { it.path.startsWith(':services:') }) {
         implementation 'org.springframework.boot:spring-boot-starter-actuator'
         implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+        // OpenAPI / Swagger UI
+        implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+
         implementation 'io.micrometer:micrometer-registry-prometheus'
 
         runtimeOnly 'org.postgresql:postgresql'

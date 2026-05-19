@@ -3,7 +3,7 @@ package com.bank.customer;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.bank.customer", "com.bank.common"})
 public class CustomerServiceApplication {
 
     public static void main(String[] args) {

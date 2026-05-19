@@ -31,3 +31,17 @@ management:
   endpoint:
     health:
       show-details: always
+
+# ---- OpenAPI / Swagger UI ----
+# 접속: http://localhost:${CUSTOMER_APP_PORT}/swagger-ui.html
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  packages-to-scan: com.bank.customer
+  default-produces-media-type: application/json
