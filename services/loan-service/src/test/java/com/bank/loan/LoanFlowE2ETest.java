@@ -87,11 +87,13 @@ class LoanFlowE2ETest extends AbstractLoanIntegrationTest {
 
     @Test @Order(3)
     void 상품_목록() throws Exception {
+        // 다른 테스트 클래스가 같은 DB 를 공유하므로 totalCount 절대값 대신
+        // 우리가 등록한 prodCd 가 결과에 포함되는지 확인한다.
         mockMvc.perform(get("/api/loan-products")
-                        .param("loanTypeCd", "CREDIT"))
+                        .param("loanTypeCd", "CREDIT")
+                        .param("size", "100"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalCount").value(1))
-                .andExpect(jsonPath("$.data.items[0].prodCd").value("E2E_001"));
+                .andExpect(jsonPath("$.data.items[?(@.prodCd == 'E2E_001')]").exists());
     }
 
     @Test @Order(4)

@@ -12,33 +12,34 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * 통합 테스트 베이스. 컨테이너(Postgres / Redis) 와 MockMvc / ObjectMapper 를 공유.
+ * 통합 테스트 베이스. 컨테이너(Postgres / Redis) 와 MockMvc / ObjectMapper 를 공유한다.
  *
- *  - JPA ddl-auto = create-drop (테스트 컨테이너 부팅 시 신규 스키마 생성)
+ * 싱글톤 컨테이너 패턴 — @Testcontainers / @Container 미사용.
+ * 컨테이너 lifecycle 을 JVM 전체에 맞춰 두어, 여러 테스트 클래스가 캐시된 Spring 컨텍스트를
+ * 재사용해도 동일한 컨테이너에 계속 접속할 수 있게 한다.
+ * Ryuk 데몬이 JVM 종료 시 자동 정리한다.
+ *
+ *  - JPA ddl-auto = create-drop (Spring 컨텍스트 초기화 시점에 스키마 신규 생성)
  *  - 서류 스토리지 = OS 임시 디렉터리
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractLoanIntegrationTest {
 
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @Container
-    static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
+    static final PostgreSQLContainer<?> POSTGRES;
+    static final GenericContainer<?> REDIS;
 
     static {
-        // @DynamicPropertySource 평가 전에 컨테이너가 기동되어 있어야 getJdbcUrl 등이 동작한다.
+        POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
         POSTGRES.start();
+
+        REDIS = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
         REDIS.start();
     }
 
