@@ -3,10 +3,15 @@ package com.bank.loan.product.service;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.dto.CreateLoanProductRequest;
+import com.bank.loan.product.dto.LoanProductListItem;
+import com.bank.loan.product.dto.LoanProductListResponse;
 import com.bank.loan.product.dto.LoanProductResponse;
 import com.bank.loan.product.repository.LoanProductRepository;
+import com.bank.loan.product.repository.LoanProductSpecifications;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +23,15 @@ public class LoanProductService {
     private static final String DEFAULT_NO = "N";
 
     private final LoanProductRepository repository;
+
+    @Transactional(readOnly = true)
+    public LoanProductListResponse list(String loanTypeCd, String prodStatusCd, Pageable pageable) {
+        Specification<LoanProduct> spec = Specification
+                .where(LoanProductSpecifications.activeOnly())
+                .and(LoanProductSpecifications.hasLoanType(loanTypeCd))
+                .and(LoanProductSpecifications.hasStatus(prodStatusCd));
+        return LoanProductListResponse.of(repository.findAll(spec, pageable).map(LoanProductListItem::of));
+    }
 
     @Transactional(readOnly = true)
     public LoanProductResponse get(Long prodId) {

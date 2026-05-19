@@ -2,12 +2,14 @@ package com.bank.loan.product.controller;
 
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.product.dto.CreateLoanProductRequest;
+import com.bank.loan.product.dto.LoanProductListResponse;
 import com.bank.loan.product.dto.LoanProductResponse;
 import com.bank.loan.product.service.LoanProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "대출상품", description = "LoanProduct - 대출 상품 관리")
@@ -24,6 +27,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class LoanProductController {
 
     private final LoanProductService service;
+
+    @Operation(summary = "상품 목록", description = "loanTypeCd / prodStatusCd 필터 + 페이지네이션으로 상품 목록을 조회한다.")
+    @GetMapping
+    public ApiResponse<LoanProductListResponse> list(
+            @RequestParam(required = false) String loanTypeCd,
+            @RequestParam(required = false) String prodStatusCd,
+            Pageable pageable) {
+        return ApiResponse.ok(service.list(loanTypeCd, prodStatusCd, pageable));
+    }
 
     @Operation(summary = "상품 단건 조회", description = "prodId 로 대출 상품 단건을 조회한다.")
     @GetMapping("/{prodId}")
