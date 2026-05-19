@@ -4,6 +4,7 @@ import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.collateral.domain.Collateral;
+import com.bank.loan.collateral.dto.CollateralListResponse;
 import com.bank.loan.collateral.dto.CollateralResponse;
 import com.bank.loan.collateral.dto.CreateCollateralRequest;
 import com.bank.loan.collateral.repository.CollateralRepository;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,17 @@ public class CollateralService {
     private final CollateralRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final CollateralNumberGenerator colNoGenerator;
+
+    @Transactional(readOnly = true)
+    public CollateralListResponse list(Long applId) {
+        applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+
+        List<CollateralResponse> items = repository
+                .findByApplIdAndDeletedAtIsNullOrderByCreatedAtAsc(applId)
+                .stream().map(CollateralResponse::of).toList();
+        return CollateralListResponse.of(items);
+    }
 
     @Transactional
     public CollateralResponse register(Long applId, CreateCollateralRequest req) {

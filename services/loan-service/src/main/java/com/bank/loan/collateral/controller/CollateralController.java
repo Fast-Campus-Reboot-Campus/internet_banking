@@ -1,6 +1,7 @@
 package com.bank.loan.collateral.controller;
 
 import com.bank.common.web.ApiResponse;
+import com.bank.loan.collateral.dto.CollateralListResponse;
 import com.bank.loan.collateral.dto.CollateralResponse;
 import com.bank.loan.collateral.dto.CreateCollateralRequest;
 import com.bank.loan.collateral.service.CollateralService;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class CollateralController {
 
     private final CollateralService service;
+
+    @Operation(summary = "대출별 담보 목록",
+            description = "신청에 등록된 활성 담보 목록을 created_at 오름차순으로 반환한다.")
+    @GetMapping
+    public ApiResponse<CollateralListResponse> list(@PathVariable Long applId) {
+        return ApiResponse.ok(service.list(applId));
+    }
 
     @Operation(summary = "담보 등록",
             description = "신청에 담보를 등록한다. 초기 상태 REGISTERED, col_no 자동 생성.")
