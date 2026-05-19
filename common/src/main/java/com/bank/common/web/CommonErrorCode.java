@@ -14,7 +14,9 @@ public enum CommonErrorCode implements ErrorCode {
     COMMON_404(HttpStatus.NOT_FOUND,             "리소스를 찾을 수 없습니다."),
     COMMON_409(HttpStatus.CONFLICT,              "리소스 충돌입니다."),
     COMMON_422(HttpStatus.UNPROCESSABLE_ENTITY,  "요청을 처리할 수 없습니다."),
-    COMMON_500(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
+    COMMON_500(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
+
+    COMMON_INVALID_CODE(HttpStatus.BAD_REQUEST,  "유효하지 않은 코드값입니다.");
 
     private final HttpStatus status;
     private final String message;
