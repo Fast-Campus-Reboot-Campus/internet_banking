@@ -5,6 +5,7 @@ import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
+import com.bank.loan.application.dto.CancelLoanApplicationRequest;
 import com.bank.loan.application.dto.CreateLoanApplicationRequest;
 import com.bank.loan.application.dto.LoanApplicationResponse;
 import com.bank.loan.application.repository.LoanApplicationRepository;
@@ -24,6 +25,7 @@ public class LoanApplicationService {
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_TABLE_CD = "LOAN_APPLICATION";
     private static final String REASON_SUBMITTED = "APPLICATION_SUBMITTED";
+    private static final String REASON_CANCELED  = "CUSTOMER_CANCEL";
 
     private final LoanApplicationRepository repository;
     private final LoanProductRepository productRepository;
@@ -76,6 +78,29 @@ public class LoanApplicationService {
         ));
 
         return LoanApplicationResponse.of(saved);
+    }
+
+    @Transactional
+    public LoanApplicationResponse cancel(Long applId, CancelLoanApplicationRequest req) {
+        LoanApplication application = repository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+
+        if (!application.isCancellable()) {
+            throw new BusinessException(LoanErrorCode.LOAN_013);
+        }
+
+        String before = application.currentStatus();
+        application.cancel();
+
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_TABLE_CD, application.getApplId(),
+                before, LoanApplication.STATUS_CANCELED,
+                req.cancelReasonCd() == null ? REASON_CANCELED : req.cancelReasonCd(),
+                req.cancelRemark(),
+                currentActor.currentActorId()
+        ));
+
+        return LoanApplicationResponse.of(application);
     }
 
     private void validateProductSellable(LoanProduct product) {
