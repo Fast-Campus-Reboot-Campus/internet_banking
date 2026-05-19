@@ -1,27 +1,26 @@
 server:
-  port: ${PAYMENT_APP_PORT:8084}
+  port: ${PAYMENT_APP_PORT:8080}
 
 spring:
   application:
     name: payment-service
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: ${SPRING_PROFILES_ACTIVE:}
   datasource:
     url: jdbc:postgresql://${PAYMENT_DB_HOST:localhost}:${PAYMENT_DB_PORT:5435}/${PAYMENT_DB_NAME:payment_db}
     username: ${PAYMENT_DB_USER:payment}
     password: ${PAYMENT_DB_PASSWORD:payment}
     driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
-    properties:
-      hibernate:
-        format_sql: true
-    open-in-view: false
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}   # Stage 3 마이그레이션 추가 후 true로 전환
+    locations: classpath:db/migration
+
+mybatis:
+  mapper-locations: classpath:mappers/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 100
+    default-statement-timeout: 30
 
 management:
   endpoints:
@@ -31,3 +30,16 @@ management:
   endpoint:
     health:
       show-details: always
+
+payment:
+  bank-code: ${BANK_CODE:A}
+  kafka:
+    kftc:
+      bootstrap-servers: ${KFTC_KAFKA_BOOTSTRAP:localhost:9092}
+      consumer-group: ${KFTC_CONSUMER_GROUP:payment-kftc}
+    bok:
+      bootstrap-servers: ${BOK_KAFKA_BOOTSTRAP:localhost:9093}
+      consumer-group: ${BOK_CONSUMER_GROUP:payment-bok}
+    internal:
+      bootstrap-servers: ${INTERNAL_KAFKA_BOOTSTRAP:localhost:9094}
+      consumer-group: ${INTERNAL_CONSUMER_GROUP:payment-internal}
