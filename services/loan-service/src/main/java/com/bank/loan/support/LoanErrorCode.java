@@ -23,7 +23,10 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_010(HttpStatus.BAD_REQUEST, "판매 중인 상품이 아닙니다."),
     LOAN_011(HttpStatus.BAD_REQUEST, "요청 금액 또는 기간이 상품 범위를 벗어났습니다."),
     LOAN_012(HttpStatus.NOT_FOUND,   "대출 신청을 찾을 수 없습니다."),
-    LOAN_013(HttpStatus.CONFLICT,    "현재 상태에서는 신청을 취소할 수 없습니다.");
+    LOAN_013(HttpStatus.CONFLICT,    "현재 상태에서는 신청을 취소할 수 없습니다."),
+
+    LOAN_020(HttpStatus.BAD_REQUEST, "본인확인에 실패했습니다."),
+    LOAN_021(HttpStatus.NOT_FOUND,   "본인확인 내역을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
