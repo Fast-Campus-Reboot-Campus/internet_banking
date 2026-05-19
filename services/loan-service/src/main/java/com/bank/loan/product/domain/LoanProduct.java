@@ -91,4 +91,41 @@ public class LoanProduct extends BaseEntity {
 
     @Column(name = "prod_terms_hash", length = 128)
     private String prodTermsHash;
+
+    /**
+     * 부분 수정. 각 인자 null 이면 해당 필드는 변경하지 않는다.
+     * prodCd / productId 는 식별자라 본 메서드에서 변경 불가.
+     */
+    public void update(
+            String prodName,
+            String loanTypeCd, String targetCustomerCd,
+            String repaymentMethodCd, String rateTypeCd,
+            Integer baseRateBps, Integer minRateBps, Integer maxRateBps,
+            Long minAmount, Long maxAmount,
+            Integer minPeriodMo, Integer maxPeriodMo,
+            String collateralRequiredYn, String guarantorRequiredYn,
+            String saleStartDate, String saleEndDate,
+            String prodTermsUrl, String prodTermsHash,
+            String prodStatusCd
+    ) {
+        if (prodName != null) this.prodName = prodName;
+        if (loanTypeCd != null) this.loanTypeCd = loanTypeCd;
+        if (targetCustomerCd != null) this.targetCustomerCd = targetCustomerCd;
+        if (repaymentMethodCd != null) this.repaymentMethodCd = repaymentMethodCd;
+        if (rateTypeCd != null) this.rateTypeCd = rateTypeCd;
+        if (baseRateBps != null) this.baseRateBps = baseRateBps;
+        if (minRateBps != null) this.minRateBps = minRateBps;
+        if (maxRateBps != null) this.maxRateBps = maxRateBps;
+        if (minAmount != null) this.minAmount = minAmount;
+        if (maxAmount != null) this.maxAmount = maxAmount;
+        if (minPeriodMo != null) this.minPeriodMo = minPeriodMo;
+        if (maxPeriodMo != null) this.maxPeriodMo = maxPeriodMo;
+        if (collateralRequiredYn != null) this.collateralRequiredYn = collateralRequiredYn;
+        if (guarantorRequiredYn != null) this.guarantorRequiredYn = guarantorRequiredYn;
+        if (saleStartDate != null) this.saleStartDate = saleStartDate;
+        if (saleEndDate != null) this.saleEndDate = saleEndDate;
+        if (prodTermsUrl != null) this.prodTermsUrl = prodTermsUrl;
+        if (prodTermsHash != null) this.prodTermsHash = prodTermsHash;
+        if (prodStatusCd != null) this.prodStatusCd = prodStatusCd;
+    }
 }

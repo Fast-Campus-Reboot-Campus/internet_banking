@@ -4,6 +4,7 @@ import com.bank.common.web.ApiResponse;
 import com.bank.loan.product.dto.CreateLoanProductRequest;
 import com.bank.loan.product.dto.LoanProductListResponse;
 import com.bank.loan.product.dto.LoanProductResponse;
+import com.bank.loan.product.dto.UpdateLoanProductRequest;
 import com.bank.loan.product.service.LoanProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -48,5 +50,12 @@ public class LoanProductController {
     public ResponseEntity<ApiResponse<LoanProductResponse>> create(@Valid @RequestBody CreateLoanProductRequest req) {
         LoanProductResponse saved = service.create(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(saved));
+    }
+
+    @Operation(summary = "상품 수정", description = "지정된 필드만 부분 수정한다. prodCd 는 변경 불가.")
+    @PatchMapping("/{prodId}")
+    public ApiResponse<LoanProductResponse> update(@PathVariable Long prodId,
+                                                   @Valid @RequestBody UpdateLoanProductRequest req) {
+        return ApiResponse.ok(service.update(prodId, req));
     }
 }

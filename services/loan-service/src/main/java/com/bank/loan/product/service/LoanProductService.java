@@ -6,6 +6,7 @@ import com.bank.loan.product.dto.CreateLoanProductRequest;
 import com.bank.loan.product.dto.LoanProductListItem;
 import com.bank.loan.product.dto.LoanProductListResponse;
 import com.bank.loan.product.dto.LoanProductResponse;
+import com.bank.loan.product.dto.UpdateLoanProductRequest;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.product.repository.LoanProductSpecifications;
 import com.bank.loan.support.LoanErrorCode;
@@ -75,6 +76,28 @@ public class LoanProductService {
         return LoanProductResponse.of(saved);
     }
 
+    @Transactional
+    public LoanProductResponse update(Long prodId, UpdateLoanProductRequest req) {
+        LoanProduct product = repository.findByProdIdAndDeletedAtIsNull(prodId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_002));
+
+        product.update(
+                req.prodName(),
+                req.loanTypeCd(), req.targetCustomerCd(),
+                req.repaymentMethodCd(), req.rateTypeCd(),
+                req.baseRateBps(), req.minRateBps(), req.maxRateBps(),
+                req.minAmount(), req.maxAmount(),
+                req.minPeriodMo(), req.maxPeriodMo(),
+                req.collateralRequiredYn(), req.guarantorRequiredYn(),
+                req.saleStartDate(), req.saleEndDate(),
+                req.prodTermsUrl(), req.prodTermsHash(),
+                req.prodStatusCd()
+        );
+
+        validateRanges(product);
+        return LoanProductResponse.of(product);
+    }
+
     private void validateRanges(CreateLoanProductRequest req) {
         if (req.minAmount() > req.maxAmount()) {
             throw new BusinessException(LoanErrorCode.LOAN_003, "minAmount > maxAmount");
@@ -83,6 +106,18 @@ public class LoanProductService {
             throw new BusinessException(LoanErrorCode.LOAN_003, "minPeriodMo > maxPeriodMo");
         }
         if (req.minRateBps() != null && req.maxRateBps() != null && req.minRateBps() > req.maxRateBps()) {
+            throw new BusinessException(LoanErrorCode.LOAN_003, "minRateBps > maxRateBps");
+        }
+    }
+
+    private void validateRanges(LoanProduct p) {
+        if (p.getMinAmount() > p.getMaxAmount()) {
+            throw new BusinessException(LoanErrorCode.LOAN_003, "minAmount > maxAmount");
+        }
+        if (p.getMinPeriodMo() > p.getMaxPeriodMo()) {
+            throw new BusinessException(LoanErrorCode.LOAN_003, "minPeriodMo > maxPeriodMo");
+        }
+        if (p.getMinRateBps() != null && p.getMaxRateBps() != null && p.getMinRateBps() > p.getMaxRateBps()) {
             throw new BusinessException(LoanErrorCode.LOAN_003, "minRateBps > maxRateBps");
         }
     }
