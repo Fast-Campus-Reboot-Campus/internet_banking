@@ -4,6 +4,7 @@ import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.document.domain.LoanDocument;
+import com.bank.loan.document.dto.LoanDocumentDownload;
 import com.bank.loan.document.dto.LoanDocumentListResponse;
 import com.bank.loan.document.dto.LoanDocumentResponse;
 import com.bank.loan.document.repository.LoanDocumentRepository;
@@ -24,6 +25,18 @@ public class LoanDocumentService {
     private final LoanDocumentRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final DocumentStorage storage;
+
+    @Transactional(readOnly = true)
+    public LoanDocumentDownload download(Long docId) {
+        LoanDocument doc = repository.findByDocIdAndDeletedAtIsNull(docId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_041));
+        return new LoanDocumentDownload(
+                storage.load(doc.getDocUrl()),
+                doc.getFileSizeBytes() == null ? -1L : doc.getFileSizeBytes(),
+                doc.getMimeType(),
+                doc.getDocName()
+        );
+    }
 
     @Transactional(readOnly = true)
     public LoanDocumentListResponse list(Long applId) {

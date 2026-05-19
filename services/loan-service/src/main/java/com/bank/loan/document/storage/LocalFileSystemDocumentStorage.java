@@ -3,11 +3,14 @@ package com.bank.loan.document.storage;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.support.LoanErrorCode;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -60,6 +63,22 @@ public class LocalFileSystemDocumentStorage implements DocumentStorage {
             );
         } catch (IOException e) {
             throw new BusinessException(LoanErrorCode.LOAN_040, e.getMessage());
+        }
+    }
+
+    @Override
+    public Resource load(String url) {
+        if (url == null || url.isBlank()) {
+            throw new BusinessException(LoanErrorCode.LOAN_041, "doc_url 이 비어있습니다.");
+        }
+        try {
+            Path target = Paths.get(URI.create(url)).normalize();
+            if (!Files.exists(target) || !Files.isReadable(target)) {
+                throw new BusinessException(LoanErrorCode.LOAN_041, "파일을 찾을 수 없습니다: " + url);
+            }
+            return new FileSystemResource(target);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(LoanErrorCode.LOAN_041, "잘못된 doc_url: " + url);
         }
     }
 

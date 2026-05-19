@@ -1,5 +1,6 @@
 package com.bank.loan.document.storage;
 
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -8,6 +9,8 @@ import org.springframework.web.multipart.MultipartFile;
 public interface DocumentStorage {
 
     StoredFile store(Long applId, MultipartFile file);
+
+    Resource load(String url);
 
     record StoredFile(
             String url,
