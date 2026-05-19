@@ -2,6 +2,7 @@ package com.bank.loan.product.controller;
 
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.product.dto.CreateLoanProductRequest;
+import com.bank.loan.product.dto.DiscontinueLoanProductRequest;
 import com.bank.loan.product.dto.LoanProductListResponse;
 import com.bank.loan.product.dto.LoanProductResponse;
 import com.bank.loan.product.dto.UpdateLoanProductRequest;
@@ -57,5 +58,13 @@ public class LoanProductController {
     public ApiResponse<LoanProductResponse> update(@PathVariable Long prodId,
                                                    @Valid @RequestBody UpdateLoanProductRequest req) {
         return ApiResponse.ok(service.update(prodId, req));
+    }
+
+    @Operation(summary = "상품 단종",
+            description = "판매 종료일과 사유를 받아 상태를 DISCONTINUED 로 전환한다. status_history 에 이력 기록.")
+    @PostMapping("/{prodId}/discontinue")
+    public ApiResponse<LoanProductResponse> discontinue(@PathVariable Long prodId,
+                                                        @Valid @RequestBody DiscontinueLoanProductRequest req) {
+        return ApiResponse.ok(service.discontinue(prodId, req));
     }
 }

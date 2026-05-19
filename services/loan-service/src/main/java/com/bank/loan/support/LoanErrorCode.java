@@ -16,7 +16,8 @@ public enum LoanErrorCode implements ErrorCode {
 
     LOAN_001(HttpStatus.CONFLICT,  "이미 존재하는 상품 코드입니다."),
     LOAN_002(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
-    LOAN_003(HttpStatus.BAD_REQUEST, "상품 금리/금액/기간 범위가 유효하지 않습니다.");
+    LOAN_003(HttpStatus.BAD_REQUEST, "상품 금리/금액/기간 범위가 유효하지 않습니다."),
+    LOAN_004(HttpStatus.CONFLICT,  "이미 단종된 상품입니다.");
 
     private final HttpStatus status;
     private final String message;

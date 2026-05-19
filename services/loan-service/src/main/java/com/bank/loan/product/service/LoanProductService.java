@@ -1,8 +1,12 @@
 package com.bank.loan.product.service;
 
+import com.bank.common.audit.StatusChangeEvent;
+import com.bank.common.audit.StatusHistoryPublisher;
+import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.dto.CreateLoanProductRequest;
+import com.bank.loan.product.dto.DiscontinueLoanProductRequest;
 import com.bank.loan.product.dto.LoanProductListItem;
 import com.bank.loan.product.dto.LoanProductListResponse;
 import com.bank.loan.product.dto.LoanProductResponse;
@@ -20,10 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class LoanProductService {
 
-    private static final String DEFAULT_STATUS_CD = "DRAFT";
+    private static final String DOMAIN_CD = "LOAN";
+    private static final String TARGET_TABLE_CD = "LOAN_PRODUCT";
     private static final String DEFAULT_NO = "N";
 
     private final LoanProductRepository repository;
+    private final StatusHistoryPublisher statusHistoryPublisher;
+    private final CurrentActorProvider currentActor;
 
     @Transactional(readOnly = true)
     public LoanProductListResponse list(String loanTypeCd, String prodStatusCd, Pageable pageable) {
@@ -68,7 +75,7 @@ public class LoanProductService {
                 .guarantorRequiredYn(nvl(req.guarantorRequiredYn()))
                 .saleStartDate(req.saleStartDate())
                 .saleEndDate(req.saleEndDate())
-                .prodStatusCd(DEFAULT_STATUS_CD)
+                .prodStatusCd(LoanProduct.STATUS_DRAFT)
                 .prodTermsUrl(req.prodTermsUrl())
                 .prodTermsHash(req.prodTermsHash())
                 .build());
@@ -95,6 +102,28 @@ public class LoanProductService {
         );
 
         validateRanges(product);
+        return LoanProductResponse.of(product);
+    }
+
+    @Transactional
+    public LoanProductResponse discontinue(Long prodId, DiscontinueLoanProductRequest req) {
+        LoanProduct product = repository.findByProdIdAndDeletedAtIsNull(prodId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_002));
+
+        if (product.isDiscontinued()) {
+            throw new BusinessException(LoanErrorCode.LOAN_004);
+        }
+
+        String before = product.currentStatus();
+        product.discontinue(req.saleEndDate());
+
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_TABLE_CD, product.getProdId(),
+                before, LoanProduct.STATUS_DISCONTINUED,
+                req.reasonCd(), req.reasonRemark(),
+                currentActor.currentActorId()
+        ));
+
         return LoanProductResponse.of(product);
     }
 

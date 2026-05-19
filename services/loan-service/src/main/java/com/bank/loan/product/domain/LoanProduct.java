@@ -24,6 +24,11 @@ import lombok.NoArgsConstructor;
 @Builder
 public class LoanProduct extends BaseEntity {
 
+    public static final String STATUS_DRAFT         = "DRAFT";
+    public static final String STATUS_ACTIVE        = "ACTIVE";
+    public static final String STATUS_DISCONTINUED  = "DISCONTINUED";
+
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "prod_id")
@@ -127,5 +132,20 @@ public class LoanProduct extends BaseEntity {
         if (prodTermsUrl != null) this.prodTermsUrl = prodTermsUrl;
         if (prodTermsHash != null) this.prodTermsHash = prodTermsHash;
         if (prodStatusCd != null) this.prodStatusCd = prodStatusCd;
+    }
+
+    public boolean isDiscontinued() {
+        return STATUS_DISCONTINUED.equals(this.prodStatusCd);
+    }
+
+    /** 상태를 DISCONTINUED 로 전이하고 판매 종료일을 기록한다. */
+    public void discontinue(String saleEndDate) {
+        this.prodStatusCd = STATUS_DISCONTINUED;
+        this.saleEndDate = saleEndDate;
+    }
+
+    /** STATUS_DRAFT 등 외부에서 직전 상태 비교 시 사용. */
+    public String currentStatus() {
+        return this.prodStatusCd;
     }
 }
