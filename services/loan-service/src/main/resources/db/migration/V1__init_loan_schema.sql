@@ -91,6 +91,31 @@ CREATE TABLE loan_product (
     version                  INT          NOT NULL DEFAULT 0
 );
 
+CREATE TABLE preferential_rate_policy (
+    policy_id              BIGSERIAL    PRIMARY KEY,
+    prod_id                BIGINT       NOT NULL REFERENCES loan_product(prod_id),
+    policy_name            VARCHAR(200) NOT NULL,
+    condition_cd           VARCHAR(50)  NOT NULL,
+    preferential_rate_bps  INT          NOT NULL,
+    max_stack_bps          INT,
+    active_yn              CHAR(1)      NOT NULL DEFAULT 'Y',
+    effective_start_date   VARCHAR(8),
+    effective_end_date     VARCHAR(8),
+    policy_remark          VARCHAR(500),
+    created_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_by             BIGINT       NOT NULL,
+    updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_by             BIGINT       NOT NULL,
+    deleted_at             TIMESTAMPTZ,
+    deleted_by             BIGINT,
+    version                INT          NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_pref_rate_policy_prod
+    ON preferential_rate_policy (prod_id, active_yn);
+CREATE UNIQUE INDEX uk_pref_rate_policy_prod_condition_active
+    ON preferential_rate_policy (prod_id, condition_cd)
+    WHERE deleted_at IS NULL AND active_yn = 'Y';
+
 -- ============================================================
 -- STAGE 2. 신청 · 가심사 · 동의 · 본인확인
 -- ============================================================
