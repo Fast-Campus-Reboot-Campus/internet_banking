@@ -74,4 +74,21 @@ public class RepaymentSchedule extends BaseEntity {
 
     @Column(name = "rsch_version_cd", nullable = false, length = 50)
     private String rschVersionCd;
+
+    public boolean isPayable() {
+        return STATUS_DUE.equals(rschStatusCd) || STATUS_OVERDUE.equals(rschStatusCd);
+    }
+
+    public boolean isPaid() {
+        return STATUS_PAID.equals(rschStatusCd);
+    }
+
+    public String currentStatus() {
+        return rschStatusCd;
+    }
+
+    /** DUE 또는 OVERDUE 회차를 PAID 로 전이. 다른 상태에서는 호출자에서 차단. */
+    public void markPaid() {
+        this.rschStatusCd = STATUS_PAID;
+    }
 }
