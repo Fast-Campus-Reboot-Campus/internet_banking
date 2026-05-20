@@ -34,4 +34,13 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
                and s.deletedAt is null
             """)
     String findMaxVersion(@Param("cntrId") Long cntrId);
+
+    @Query("""
+            select coalesce(sum(s.scheduledPrincipal), 0)
+              from RepaymentSchedule s
+             where s.cntrId = :cntrId
+               and s.rschStatusCd = 'PAID'
+               and s.deletedAt is null
+            """)
+    long sumPaidPrincipal(@Param("cntrId") Long cntrId);
 }
