@@ -10,6 +10,7 @@ import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.dto.CreateContractRequest;
 import com.bank.loan.contract.dto.LoanContractResponse;
 import com.bank.loan.contract.repository.LoanContractRepository;
+import com.bank.loan.maturity.service.MaturityService;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,7 @@ public class LoanContractService {
     private final LoanContractRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final ContractNumberGenerator cntrNoGenerator;
+    private final MaturityService maturityService;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -112,6 +114,9 @@ public class LoanContractService {
                 applBefore, LoanApplication.STATUS_CONTRACTED,
                 REASON_CONTRACT_SIGNED, null, actor
         ));
+
+        // 만기 정보 자동 생성 (original = current = cntr_end_date)
+        maturityService.createOnContract(saved);
 
         return LoanContractResponse.of(saved);
     }

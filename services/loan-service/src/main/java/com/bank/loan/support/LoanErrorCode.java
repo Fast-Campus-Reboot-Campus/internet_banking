@@ -60,7 +60,10 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_121(HttpStatus.UNPROCESSABLE_ENTITY, "잔여 원금이 남아있어 정상 종결할 수 없습니다."),
     LOAN_122(HttpStatus.UNPROCESSABLE_ENTITY, "활성 회차(DUE/OVERDUE)가 남아있어 정상 종결할 수 없습니다."),
     LOAN_123(HttpStatus.CONFLICT,             "이미 종결된 계약입니다."),
-    LOAN_124(HttpStatus.NOT_FOUND,            "종결 정보가 없습니다.");
+    LOAN_124(HttpStatus.NOT_FOUND,            "종결 정보가 없습니다."),
+
+    LOAN_130(HttpStatus.NOT_FOUND,            "만기 정보를 찾을 수 없습니다."),
+    LOAN_131(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 만기 연장이 불가합니다. (ACTIVE/MATURED 필요)");
 
     private final HttpStatus status;
     private final String message;
