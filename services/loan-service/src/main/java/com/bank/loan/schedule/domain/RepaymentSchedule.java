@@ -91,4 +91,13 @@ public class RepaymentSchedule extends BaseEntity {
     public void markPaid() {
         this.rschStatusCd = STATUS_PAID;
     }
+
+    /** DUE 회차를 OVERDUE 로 전이 (연체 rollover 배치). 다른 상태에서는 호출자에서 차단. */
+    public void markOverdue() {
+        this.rschStatusCd = STATUS_OVERDUE;
+    }
+
+    public boolean isOverdue() {
+        return STATUS_OVERDUE.equals(rschStatusCd);
+    }
 }
