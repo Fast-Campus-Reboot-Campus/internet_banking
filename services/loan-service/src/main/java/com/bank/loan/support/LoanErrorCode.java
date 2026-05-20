@@ -46,7 +46,8 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_080(HttpStatus.NOT_FOUND,            "상환계좌를 찾을 수 없습니다."),
     LOAN_081(HttpStatus.CONFLICT,             "이미 등록된 상환계좌입니다. (계약당 1건)"),
     LOAN_082(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 상환계좌를 검증할 수 없습니다. (REGISTERED 필요)"),
-    LOAN_083(HttpStatus.UNPROCESSABLE_ENTITY, "상환계좌가 검증되지 않았습니다. (drawdown 사전조건)");
+    LOAN_083(HttpStatus.UNPROCESSABLE_ENTITY, "상환계좌가 검증되지 않았습니다. (drawdown 사전조건)"),
+    LOAN_084(HttpStatus.UNPROCESSABLE_ENTITY, "지원하지 않는 상환방식입니다. (현재 EQUAL 만 지원)");
 
     private final HttpStatus status;
     private final String message;

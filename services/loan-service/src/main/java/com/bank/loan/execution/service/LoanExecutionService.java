@@ -12,6 +12,7 @@ import com.bank.loan.execution.dto.LoanExecutionResponse;
 import com.bank.loan.execution.repository.LoanExecutionRepository;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
 import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
+import com.bank.loan.schedule.service.RepaymentScheduleService;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ import java.util.UUID;
  *   2) 계약 활성 검증 (LOAN_062 / LOAN_063)
  *   3) 누적 인출 + 신청 ≤ contracted_amount 검증 (LOAN_064)
  *   4) loan_execution INSERT (status=DONE, executed_at=now, journal_entry_no 자체 채번)
- *   5) 최초 인출이면 계약 상태 SIGNED → ACTIVE 전이 + status_history
+ *   5) 최초 인출이면 계약 상태 SIGNED → ACTIVE 전이 + status_history + 상환스케줄 일괄 생성
  *
  * journal_entry_no 및 transaction_id 자체 채번 — 결제·회계 도메인 도입 시 외부 거래 ID 로 교체.
  */
@@ -44,6 +45,7 @@ public class LoanExecutionService {
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
     private final RepaymentAccountRepository repaymentAccountRepository;
+    private final RepaymentScheduleService repaymentScheduleService;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -99,7 +101,7 @@ public class LoanExecutionService {
                 .journalEntryNo("JE-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase())
                 .build());
 
-        // 5) 최초 인출 시 계약 상태 전이
+        // 5) 최초 인출 시 계약 상태 전이 + 상환스케줄 일괄 생성 (flows §1.1 부수효과)
         if (LoanContract.STATUS_SIGNED.equals(contract.currentStatus())) {
             String before = contract.currentStatus();
             contract.markActiveOnFirstDrawdown();
@@ -109,6 +111,7 @@ public class LoanExecutionService {
                     REASON_FIRST_DRAWDOWN, "execId=" + saved.getExecId(),
                     currentActor.currentActorId()
             ));
+            repaymentScheduleService.generateForFirstDrawdown(contract);
         }
 
         long cumul = drawnSoFar + requested;
