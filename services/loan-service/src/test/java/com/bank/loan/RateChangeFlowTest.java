@@ -2,7 +2,6 @@ package com.bank.loan;
 
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
-import com.bank.loan.delinquency.domain.Delinquency;
 import com.bank.loan.support.AbstractLoanIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -15,7 +14,6 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -23,35 +21,33 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 연체 라이프사이클 통합 테스트.
+ * 금리 변경 + 스케줄 재생성 통합 테스트.
  *
- * 세팅 (cntrStartDate=20300101 → 회차1 due=20300201, 회차2 due=20300301):
- *   - 자동이체 미설정 (auto_debit_yn=N) — DUE 가 자동 PAID 안 됨
+ * 세팅 (cntrStartDate=20400101 — 다른 테스트와 격리):
+ *   - 12회차 / EQUAL / 1200만 / 6% / 자동이체 N
+ *   - 1·2회차 수동 상환 → PAID
  *
  * 시나리오:
- *   10) baseDate=20300201 → due_date 와 같음 → 0건 (< 비교)
- *   11) baseDate=20300202 → 회차1 OVERDUE, dlq 신규 ACTIVE, dlq_days=1, STAGE_0
- *   12) 동일 baseDate 재실행 → 멱등 (스냅샷 중복 없음, 회차 그대로)
- *   13) baseDate=20300206 → dlq_days=5, STAGE_1, 스냅샷 2건
- *   14) baseDate=20300302 → 회차2도 OVERDUE, principal/interest 누적
- *   15) 활성 dlq 조회 OK
- *   16) 스냅샷 목록 조회 (3건)
- *   17) 회차1·2 수동 상환 후 다음 rollover → RESOLVED
- *   18) 해소된 계약 활성 dlq 조회 → 404 LOAN_100
- *   20) Delinquency.stageOf unit
+ *   10) 변경 전 history 빈 리스트
+ *   11) 6%→8% 변경, applied=20400301 → 3~12회차 SUPERSEDED + V2 신규 10건
+ *   12) 계약 단건 조회로 totalRateBps=800 확인
+ *   13) history 1건 (previous=600, new=800, reason=BASE_RATE_RESET)
+ *   14) 8%→7% 다시 변경, applied=20400701 → V3 신규
+ *   15) history 2건
+ *   20) 모든 회차 PAID 후 변경 → 스케줄 재생성 안 함 (superseded/newCount=0)
+ *   21) 잘못된 금리 (newTotalRateBps 음수) → 400 LOAN_110
+ *   30) 미존재 계약 조회 → 404 LOAN_062
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class DelinquencyFlowTest extends AbstractLoanIntegrationTest {
+class RateChangeFlowTest extends AbstractLoanIntegrationTest {
 
     @Autowired
     private LoanApplicationRepository applicationRepository;
 
-    private static final String CNTR_START_DATE = "20300101";
-    private static final String DUE_1 = "20300201";
-    private static final String DUE_2 = "20300301";
+    private static final String CNTR_START_DATE = "20400101";
     private static final long CONTRACTED_AMOUNT = 12_000_000L;
     private static final int  PERIOD_MONTHS     = 12;
-    private static final int  RATE_BPS          = 600;
+    private static final int  INITIAL_RATE_BPS  = 600;
 
     private Long cntrId;
 
@@ -64,121 +60,126 @@ class DelinquencyFlowTest extends AbstractLoanIntegrationTest {
         cntrId = createContract(applId);
         registerAndVerifyRepaymentAccount(cntrId);
         triggerDrawdown(cntrId, CONTRACTED_AMOUNT);
+        repay(cntrId, 1);
+        repay(cntrId, 2);
     }
 
     @Test @Order(10)
-    void baseDate_가_due와_같으면_자기계약_overdue_없음() throws Exception {
-        // 글로벌 카운트는 다른 테스트의 회차에 영향받으므로 자기 cntrId 만 검증
-        mockMvc.perform(post("/api/internal/delinquency/rollover").param("baseDate", DUE_1))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/repayment-schedules", cntrId))
+    void 변경전_history_빈리스트() throws Exception {
+        mockMvc.perform(get("/api/loan-contracts/{cntrId}/rate-changes", cntrId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].rschStatusCd").value("DUE"));
+                .andExpect(jsonPath("$.data.totalCount").value(0));
     }
 
     @Test @Order(11)
-    void 회차1_overdue_dlq_신규생성() throws Exception {
-        mockMvc.perform(post("/api/internal/delinquency/rollover").param("baseDate", "20300202"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency", cntrId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.dlqStatusCd").value("ACTIVE"))
-                .andExpect(jsonPath("$.data.dlqDays").value(1))
-                .andExpect(jsonPath("$.data.dlqStageCd").value("STAGE_0"))
-                .andExpect(jsonPath("$.data.dlqStartDate").value("20300202"));
-
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/repayment-schedules", cntrId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].rschStatusCd").value("OVERDUE"));
+    void 첫_금리변경_V1_SUPERSEDED_V2_신규() throws Exception {
+        mockMvc.perform(post("/api/loan-contracts/{cntrId}/rate-changes", cntrId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "newBaseRateBps":800,
+                                  "appliedStartDate":"20400301",
+                                  "rateChangeReasonCd":"BASE_RATE_RESET"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.previousRateBps").value(INITIAL_RATE_BPS))
+                .andExpect(jsonPath("$.data.newRateBps").value(800))
+                .andExpect(jsonPath("$.data.newScheduleVersionCd").value("V2"))
+                .andExpect(jsonPath("$.data.supersededInstallments").value(10))
+                .andExpect(jsonPath("$.data.newInstallments").value(10));
     }
 
     @Test @Order(12)
-    void 동일_baseDate_재실행_멱등() throws Exception {
-        mockMvc.perform(post("/api/internal/delinquency/rollover").param("baseDate", "20300202"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency/snapshots", cntrId))
+    void 계약_totalRateBps_갱신_확인() throws Exception {
+        mockMvc.perform(get("/api/loan-contracts/{cntrId}", cntrId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalCount").value(1));
+                .andExpect(jsonPath("$.data.totalRateBps").value(800))
+                .andExpect(jsonPath("$.data.baseRateBps").value(800));
     }
 
     @Test @Order(13)
-    void 오일후_stage1_전환() throws Exception {
-        mockMvc.perform(post("/api/internal/delinquency/rollover").param("baseDate", "20300206"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency", cntrId))
+    void history_1건() throws Exception {
+        mockMvc.perform(get("/api/loan-contracts/{cntrId}/rate-changes", cntrId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.dlqDays").value(5))
-                .andExpect(jsonPath("$.data.dlqStageCd").value("STAGE_1"));
-
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency/snapshots", cntrId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalCount").value(2));
+                .andExpect(jsonPath("$.data.totalCount").value(1))
+                .andExpect(jsonPath("$.data.items[0].previousRateBps").value(INITIAL_RATE_BPS))
+                .andExpect(jsonPath("$.data.items[0].newRateBps").value(800))
+                .andExpect(jsonPath("$.data.items[0].rateChangeReasonCd").value("BASE_RATE_RESET"))
+                .andExpect(jsonPath("$.data.items[0].appliedStartDate").value("20400301"));
     }
 
     @Test @Order(14)
-    void 회차2_overdue_누적() throws Exception {
-        mockMvc.perform(post("/api/internal/delinquency/rollover").param("baseDate", "20300302"))
-                .andExpect(status().isOk());
-
-        MvcResult result = mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency", cntrId))
-                .andExpect(status().isOk())
-                .andReturn();
-        long total = extractData(result).get("dlqTotalAmt").asLong();
-        long principal = extractData(result).get("dlqPrincipalAmt").asLong();
-        long interest = extractData(result).get("dlqInterestAmt").asLong();
-        assertThat(total).isEqualTo(principal + interest);
-        // 회차1+회차2 합계 — EQUAL 원리금균등 1200만/6%/12m 기준 약 2,065,xxx
-        assertThat(total).isBetween(2_064_000L, 2_066_000L);
+    void 두번째_금리변경_V3() throws Exception {
+        mockMvc.perform(post("/api/loan-contracts/{cntrId}/rate-changes", cntrId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "newBaseRateBps":700,
+                                  "appliedStartDate":"20400701",
+                                  "rateChangeReasonCd":"PREF_CHANGE"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.previousRateBps").value(800))
+                .andExpect(jsonPath("$.data.newRateBps").value(700))
+                .andExpect(jsonPath("$.data.newScheduleVersionCd").value("V3"));
     }
 
     @Test @Order(15)
-    void 스냅샷_3건_누적() throws Exception {
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency/snapshots", cntrId))
+    void history_2건() throws Exception {
+        mockMvc.perform(get("/api/loan-contracts/{cntrId}/rate-changes", cntrId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalCount").value(3))
-                .andExpect(jsonPath("$.data.items[0].snapshotDate").value("20300202"))
-                .andExpect(jsonPath("$.data.items[1].snapshotDate").value("20300206"))
-                .andExpect(jsonPath("$.data.items[2].snapshotDate").value("20300302"));
-    }
-
-    @Test @Order(16)
-    void 회차_상환후_해소() throws Exception {
-        repay(cntrId, 1);
-        repay(cntrId, 2);
-
-        mockMvc.perform(post("/api/internal/delinquency/rollover").param("baseDate", "20300303"))
-                .andExpect(status().isOk());
-        // 자기 dlq 가 RESOLVED 됐는지는 다음 테스트의 LOAN_100 응답으로 검증
-    }
-
-    @Test @Order(17)
-    void 해소후_활성_dlq_조회_404() throws Exception {
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency", cntrId))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("LOAN_100"));
-    }
-
-    @Test @Order(18)
-    void 미존재_계약_조회_404() throws Exception {
-        mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency", 999_999_999L))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("LOAN_062"));
+                .andExpect(jsonPath("$.data.totalCount").value(2))
+                .andExpect(jsonPath("$.data.items[0].appliedStartDate").value("20400301"))
+                .andExpect(jsonPath("$.data.items[1].appliedStartDate").value("20400701"));
     }
 
     @Test @Order(20)
-    void stageOf_unit() {
-        assertThat(Delinquency.stageOf(0)).isEqualTo("STAGE_0");
-        assertThat(Delinquency.stageOf(4)).isEqualTo("STAGE_0");
-        assertThat(Delinquency.stageOf(5)).isEqualTo("STAGE_1");
-        assertThat(Delinquency.stageOf(29)).isEqualTo("STAGE_1");
-        assertThat(Delinquency.stageOf(30)).isEqualTo("STAGE_2");
-        assertThat(Delinquency.stageOf(89)).isEqualTo("STAGE_2");
-        assertThat(Delinquency.stageOf(90)).isEqualTo("STAGE_3");
-        assertThat(Delinquency.stageOf(365)).isEqualTo("STAGE_3");
+    void 모든회차_PAID_상태_금리변경_스케줄_재생성_없음() throws Exception {
+        // 본 테스트 cntrId 와 분리된 계약 생성 — 모든 회차 한꺼번에 상환
+        Long isolatedCntrId = setupPaidContract();
+
+        MvcResult result = mockMvc.perform(post("/api/loan-contracts/{cntrId}/rate-changes", isolatedCntrId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "newBaseRateBps":900,
+                                  "appliedStartDate":"20400301",
+                                  "rateChangeReasonCd":"DELINQ_PENALTY"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.supersededInstallments").value(0))
+                .andExpect(jsonPath("$.data.newInstallments").value(0))
+                .andReturn();
+
+        long rchgId = extractData(result).get("rchgId").asLong();
+        assert rchgId > 0;
+    }
+
+    @Test @Order(21)
+    void 음수금리_400() throws Exception {
+        mockMvc.perform(post("/api/loan-contracts/{cntrId}/rate-changes", cntrId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "newBaseRateBps":0,
+                                  "newSpreadBps":0,
+                                  "newPreferentialRateBps":0,
+                                  "newTotalRateBps":-1,
+                                  "appliedStartDate":"20410101",
+                                  "rateChangeReasonCd":"BASE_RATE_RESET"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(30)
+    void 미존재_계약_조회_404() throws Exception {
+        mockMvc.perform(get("/api/loan-contracts/{cntrId}/rate-changes", 999_999_999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LOAN_062"));
     }
 
     // ============================================================
@@ -189,11 +190,25 @@ class DelinquencyFlowTest extends AbstractLoanIntegrationTest {
         return UUID.randomUUID().toString().substring(0, 8);
     }
 
+    private Long setupPaidContract() throws Exception {
+        Long prodId = createProduct();
+        activateProduct(prodId);
+        Long applId = createApplication(prodId);
+        forceApprove(applId);
+        Long c = createContract(applId);
+        registerAndVerifyRepaymentAccount(c);
+        triggerDrawdown(c, CONTRACTED_AMOUNT);
+        for (int i = 1; i <= PERIOD_MONTHS; i++) {
+            repay(c, i);
+        }
+        return c;
+    }
+
     private Long createProduct() throws Exception {
-        String code = "DLQ_" + uniq();
+        String code = "RCHG_" + uniq();
         String body = """
                 {
-                  "prodCd":"%s", "prodName":"연체 테스트 상품", "loanTypeCd":"CREDIT",
+                  "prodCd":"%s", "prodName":"금리변경 테스트", "loanTypeCd":"CREDIT",
                   "repaymentMethodCd":"EQUAL", "rateTypeCd":"FIXED",
                   "baseRateBps":600,
                   "minAmount":1000000, "maxAmount":100000000,
@@ -249,7 +264,7 @@ class DelinquencyFlowTest extends AbstractLoanIntegrationTest {
                   "repaymentMethodCd":"EQUAL",
                   "cntrStartDate":"%s"
                 }
-                """.formatted(applId, CONTRACTED_AMOUNT, PERIOD_MONTHS, RATE_BPS, CNTR_START_DATE);
+                """.formatted(applId, CONTRACTED_AMOUNT, PERIOD_MONTHS, INITIAL_RATE_BPS, CNTR_START_DATE);
         MvcResult result = mockMvc.perform(post("/api/loan-contracts")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
@@ -272,7 +287,7 @@ class DelinquencyFlowTest extends AbstractLoanIntegrationTest {
 
     private void triggerDrawdown(Long cntrId, long amount) throws Exception {
         mockMvc.perform(post("/api/loan-contracts/{cntrId}/executions", cntrId)
-                        .header("Idempotency-Key", "dlq-drawdown-" + UUID.randomUUID())
+                        .header("Idempotency-Key", "rchg-drawdown-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -286,7 +301,7 @@ class DelinquencyFlowTest extends AbstractLoanIntegrationTest {
 
     private void repay(Long cntrId, int installmentNo) throws Exception {
         mockMvc.perform(post("/api/loan-contracts/{cntrId}/repayments", cntrId)
-                        .header("Idempotency-Key", "dlq-repay-" + installmentNo + "-" + UUID.randomUUID())
+                        .header("Idempotency-Key", "rchg-repay-" + installmentNo + "-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "installmentNo":%d, "channelCd":"MANUAL" }
