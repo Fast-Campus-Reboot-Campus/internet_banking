@@ -1,0 +1,140 @@
+package com.bank.payment.domain.service;
+
+import com.bank.payment.common.IdGenerator;
+import com.bank.payment.common.exception.PaymentValidationException;
+import com.bank.payment.domain.ExternalCall;
+import com.bank.payment.domain.PaymentInstruction;
+import com.bank.payment.outbound.feign.DepositAccountClient;
+import com.bank.payment.outbound.feign.DepositBalanceClient;
+import com.bank.payment.outbound.feign.dto.AccountInquiryData;
+import com.bank.payment.outbound.feign.dto.BalanceInquiryData;
+import com.bank.payment.outbound.feign.dto.DepositResponse;
+import com.bank.payment.outbound.feign.dto.HolderInquiryData;
+import com.bank.payment.outbound.feign.dto.LimitInquiryData;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+/**
+ * P-028 5단계 흐름 구현. 외부호출(Feign)은 여기서 트랜잭션 밖. DB 작업은 PaymentTransactionService 위임.
+ *
+ * Stage 5-3: txStep1 → step2 외부검증 → authorize.
+ * Stage 5-4: step3 출금/입금 + txStep4 (분개/COMPLETED/Outbox) — TODO.
+ */
+@Service
+public class PaymentOrchestratorImpl implements PaymentOrchestrator {
+
+    private final PaymentTransactionService txService;
+    private final DepositAccountClient depositAccountClient;
+    private final DepositBalanceClient depositBalanceClient;
+    private final IdGenerator idGenerator;
+
+    @Value("${payment.bank-code:A}")
+    private String bankCode;
+
+    public PaymentOrchestratorImpl(
+            PaymentTransactionService txService,
+            DepositAccountClient depositAccountClient,
+            DepositBalanceClient depositBalanceClient,
+            IdGenerator idGenerator) {
+        this.txService = txService;
+        this.depositAccountClient = depositAccountClient;
+        this.depositBalanceClient = depositBalanceClient;
+        this.idGenerator = idGenerator;
+    }
+
+    @Override
+    public PaymentResult processPayment(PaymentCommand command) {
+        boolean isIntraBank = isIntraBank(command.receiverBankCode());
+        String routingNetworkType = isIntraBank ? "INTERNAL" : "EXTERNAL";
+
+        PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
+
+        step2_externalValidation(pi, command);
+
+        txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
+
+        // TODO Stage 5-4: step3 출금/입금 + txStep4 (분개/COMPLETED/Outbox)
+        throw new UnsupportedOperationException("Stage 5-4: txStep4 미구현");
+    }
+
+    // receiverBankCode == 자행코드(A은행=004, B은행=088) → 자행
+    private boolean isIntraBank(String receiverBankCode) {
+        String myBankCode = "B".equalsIgnoreCase(bankCode) ? "088" : "004";
+        return myBankCode.equals(receiverBankCode);
+    }
+
+    private void step2_externalValidation(PaymentInstruction pi, PaymentCommand command) {
+        String piId = pi.getPaymentInstructionId();
+        String sender = command.senderAccountId();
+        String receiver = command.receiverAccountNo();
+
+        // A-1 계좌조회 (송신계좌)
+        DepositResponse<AccountInquiryData> accountResp = depositAccountClient.getAccount(sender);
+        recordCall(piId, "ACCOUNT_INQUIRY", "deposit", "GET",
+                "/api/v1/accounts/" + sender, accountResp.code());
+        AccountInquiryData account = accountResp.data();
+        if (!"ACTIVE".equals(account.accountStatus())) {
+            throw new PaymentValidationException("ACCOUNT_INACTIVE",
+                    "송신계좌 비활성: " + account.accountStatus());
+        }
+        if (Boolean.TRUE.equals(account.fraudFlag())) {
+            throw new PaymentValidationException("FRAUD_REPORTED", "송신계좌 사고신고");
+        }
+
+        // A-2 예금주조회 (수신계좌)
+        DepositResponse<HolderInquiryData> holderResp = depositAccountClient.getHolder(receiver);
+        recordCall(piId, "HOLDER_INQUIRY", "deposit", "GET",
+                "/api/v1/accounts/" + receiver + "/holder", holderResp.code());
+        HolderInquiryData holder = holderResp.data();
+        if (Boolean.TRUE.equals(holder.deceasedFlag())) {
+            throw new PaymentValidationException("HOLDER_DECEASED", "수신예금주 사망");
+        }
+        // TODO F1: 수신예금주명 매칭 (command.receiverHolderName() vs holder.holderName()) → HOLDER_MISMATCH
+
+        // B-1 잔액조회 (송신계좌)
+        DepositResponse<BalanceInquiryData> balanceResp = depositBalanceClient.getBalance(sender);
+        recordCall(piId, "BALANCE_INQUIRY", "deposit", "GET",
+                "/api/v1/balances/" + sender, balanceResp.code());
+        BalanceInquiryData balance = balanceResp.data();
+        long needed = command.transferAmount().longValueExact();
+        if (balance.availableBalance() < needed) {
+            throw new PaymentValidationException("INSUFFICIENT_BALANCE",
+                    "잔액 부족: 가용 " + balance.availableBalance() + " < 필요 " + needed);
+        }
+
+        // B-2 한도조회 (송신계좌)
+        DepositResponse<LimitInquiryData> limitResp = depositBalanceClient.getLimit(sender, null);
+        recordCall(piId, "LIMIT_INQUIRY", "deposit", "GET",
+                "/api/v1/limits/" + sender, limitResp.code());
+        LimitInquiryData limit = limitResp.data();
+        if (needed > limit.perTxLimit()) {
+            throw new PaymentValidationException("SINGLE_TX_LIMIT", "1회 한도 초과");
+        }
+        if (needed > limit.dailyRemaining()) {
+            throw new PaymentValidationException("DAILY_LIMIT_EXCEEDED", "일일 한도 초과");
+        }
+        if (needed > limit.monthlyRemaining()) {
+            throw new PaymentValidationException("MONTHLY_LIMIT_EXCEEDED", "월 한도 초과");
+        }
+    }
+
+    // S1 단순화: 요청+응답 한 번에 insert. 타임아웃/실패 추적 필요 시 insert→update 분리 (TODO).
+    private void recordCall(String piId, String callType, String targetSystem,
+                            String httpMethod, String endpointUrl, String responseCode) {
+        LocalDateTime now = LocalDateTime.now();
+        String callId = idGenerator.nextCallId();
+        ExternalCall ec = ExternalCall.of(
+                callId,
+                callType + "-" + piId + "-001",    // callIdempotencyKey: {호출종류}-{PI}-{시도번호}
+                piId,
+                callType, targetSystem, endpointUrl, httpMethod,
+                UUID.randomUUID().toString(),       // requestId: 호출별 고유 UUID
+                "{}", "{}", "",
+                500, now);
+        ec.recordResponse(200, "{}", "{}", responseCode, "SUCCESS", "SUCCESS", 50, now);
+        txService.recordExternalCall(ec);
+    }
+}
