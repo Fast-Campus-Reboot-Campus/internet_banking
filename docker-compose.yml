@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  deposit-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${DEPOSIT_DB_NAME:-deposit_db}
+      POSTGRES_USER: ${DEPOSIT_DB_USER:-deposit}
+      POSTGRES_PASSWORD: ${DEPOSIT_DB_PASSWORD:-deposit}
+    ports:
+      - "${DEPOSIT_DB_PORT:-5433}:5432"
+    volumes:
+      - deposit-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DEPOSIT_DB_USER:-deposit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  deposit-db-data:
