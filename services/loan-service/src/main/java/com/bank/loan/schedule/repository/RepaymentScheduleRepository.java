@@ -15,4 +15,7 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
 
     Optional<RepaymentSchedule> findByCntrIdAndInstallmentNoAndRschVersionCdAndDeletedAtIsNull(
             Long cntrId, Integer installmentNo, String rschVersionCd);
+
+    List<RepaymentSchedule> findByDueDateAndRschStatusCdAndRschVersionCdAndDeletedAtIsNullOrderByCntrIdAscInstallmentNoAsc(
+            String dueDate, String rschStatusCd, String rschVersionCd);
 }
