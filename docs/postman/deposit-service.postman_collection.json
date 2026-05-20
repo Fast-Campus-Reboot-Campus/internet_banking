@@ -1,0 +1,276 @@
+{
+  "info": {
+    "name": "Internet Banking Deposit Service",
+    "description": "Local Postman collection for deposit-service. Seed IDs come from V2__seed_postman_data.sql.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8082"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Products",
+      "item": [
+        {
+          "name": "List products",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products"
+          }
+        },
+        {
+          "name": "Get product 1",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/1"
+          }
+        },
+        {
+          "name": "Create deposit product",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productType\": \"DEPOSIT\",\n  \"productName\": \"포스트맨 신규 예금\",\n  \"description\": \"Postman으로 등록한 예금 상품\",\n  \"departmentId\": 1,\n  \"baseInterestRate\": 3.10,\n  \"minJoinAmount\": 100000,\n  \"maxJoinAmount\": 50000000,\n  \"minPeriodMonth\": 6,\n  \"maxPeriodMonth\": 24,\n  \"isEarlyTerminationAllowed\": true,\n  \"isTaxBenefitAvailable\": true,\n  \"isAutoRenewalAvailable\": false,\n  \"releasedAt\": \"20260519\"\n}"
+            },
+            "url": "{{baseUrl}}/products"
+          }
+        },
+        {
+          "name": "Get deposit detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/1/deposit"
+          }
+        },
+        {
+          "name": "List interest rates",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/1/interest-rates"
+          }
+        },
+        {
+          "name": "List join channels",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/1/join-channels"
+          }
+        },
+        {
+          "name": "List product target groups",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/1/target-groups"
+          }
+        },
+        {
+          "name": "List product special terms",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/1/special-terms"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Contracts",
+      "item": [
+        {
+          "name": "List contracts",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/contracts"
+          }
+        },
+        {
+          "name": "List contracts by customer",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/contracts?customerId=CUST001"
+          }
+        },
+        {
+          "name": "Get contract 1",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/contracts/1"
+          }
+        },
+        {
+          "name": "Create contract",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"CUST002\",\n  \"productId\": 1,\n  \"joinAmount\": 700000,\n  \"contractPeriodMonth\": 12,\n  \"joinChannel\": \"WEB\",\n  \"contractInterestRate\": 3.20,\n  \"totalPreferentialRate\": 0.30,\n  \"taxBenefitType\": \"GENERAL\",\n  \"isAutoRenewal\": true,\n  \"autoTransferEnabled\": false,\n  \"autoTransferDay\": null,\n  \"branchId\": null,\n  \"managerId\": 1,\n  \"savingType\": null,\n  \"accountPassword\": \"1234\"\n}"
+            },
+            "url": "{{baseUrl}}/contracts"
+          }
+        },
+        {
+          "name": "Get deposit contract",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/contracts/1/deposit"
+          }
+        },
+        {
+          "name": "List applied rates",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/contracts/1/applied-rates"
+          }
+        },
+        {
+          "name": "List special term agreements",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/contracts/1/special-term-agreements"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Accounts",
+      "item": [
+        {
+          "name": "List accounts by customer",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/accounts?customerId=CUST001"
+          }
+        },
+        {
+          "name": "Get account 1",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/accounts/1"
+          }
+        },
+        {
+          "name": "Update alias",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountAlias\": \"포스트맨 수정 예금계좌\"\n}"
+            },
+            "url": "{{baseUrl}}/accounts/1/alias"
+          }
+        },
+        {
+          "name": "Update limits",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dailyWithdrawLimit\": 2000000,\n  \"dailyWithdrawCountLimit\": 5,\n  \"atmWithdrawLimit\": 300000\n}"
+            },
+            "url": "{{baseUrl}}/accounts/1/limits"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Transactions",
+      "item": [
+        {
+          "name": "Deposit",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": 1,\n  \"amount\": 50000,\n  \"channelType\": \"INTERNET\",\n  \"transactionMemo\": \"Postman 입금\",\n  \"depositorCustomerId\": \"CUST001\",\n  \"depositorName\": \"테스트고객\"\n}"
+            },
+            "url": "{{baseUrl}}/transactions/deposit"
+          }
+        },
+        {
+          "name": "Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": 1,\n  \"amount\": 10000,\n  \"channelType\": \"INTERNET\",\n  \"transactionMemo\": \"Postman 출금\"\n}"
+            },
+            "url": "{{baseUrl}}/transactions/withdraw"
+          }
+        },
+        {
+          "name": "Internal transfer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": 1,\n  \"toAccountId\": 2,\n  \"toAccountNo\": \"ACC-20260519-0002\",\n  \"amount\": 20000,\n  \"transferType\": \"INTERNAL\",\n  \"counterpartyBankCode\": \"001\",\n  \"counterpartyBankName\": \"테스트은행\",\n  \"counterpartyName\": \"테스트고객\",\n  \"channelType\": \"MOBILE\",\n  \"transactionMemo\": \"Postman 이체\"\n}"
+            },
+            "url": "{{baseUrl}}/transactions/transfer"
+          }
+        },
+        {
+          "name": "Savings payment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": 2,\n  \"contractId\": 2,\n  \"amount\": 50000,\n  \"paymentRound\": 2,\n  \"channelType\": \"MOBILE\"\n}"
+            },
+            "url": "{{baseUrl}}/transactions/savings-payment"
+          }
+        },
+        {
+          "name": "List account transactions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/transactions?accountId=1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Reference",
+      "item": [
+        {
+          "name": "Departments",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/departments"
+          }
+        },
+        {
+          "name": "Target groups",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/target-groups"
+          }
+        },
+        {
+          "name": "Special terms",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/special-terms"
+          }
+        },
+        {
+          "name": "Interest summary",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/contracts/1/interest-summary"
+          }
+        }
+      ]
+    }
+  ]
+}
