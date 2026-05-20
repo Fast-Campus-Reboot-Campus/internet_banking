@@ -39,7 +39,9 @@ public enum LoanErrorCode implements ErrorCode {
 
     LOAN_060(HttpStatus.UNPROCESSABLE_ENTITY, "약정 가능한 신청 상태가 아닙니다. (APPROVED 필요)"),
     LOAN_061(HttpStatus.BAD_REQUEST,          "약정 조건이 신청 범위를 벗어났습니다."),
-    LOAN_062(HttpStatus.NOT_FOUND,            "대출 계약을 찾을 수 없습니다.");
+    LOAN_062(HttpStatus.NOT_FOUND,            "대출 계약을 찾을 수 없습니다."),
+    LOAN_063(HttpStatus.UNPROCESSABLE_ENTITY, "현재 계약 상태에서는 자금 인출이 불가합니다."),
+    LOAN_064(HttpStatus.BAD_REQUEST,          "약정한도를 초과하여 인출할 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
