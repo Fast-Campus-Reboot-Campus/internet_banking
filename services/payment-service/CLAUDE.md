@@ -96,11 +96,13 @@
 | **0** | CLAUDE.md + 디렉토리 구조 + 산출물 박제 | ✅ 완료 (2026-05-19) |
 | **1** | `services/payment-service/docker-compose-kafka.yml` (Kafka 3 클러스터 + UI) + 토픽 18개 + payment-db A/B | ✅ 완료 (2026-05-19) |
 | **2** | build.gradle 확장 + Spring Boot 골격 + 멀티 Kafka Config + MyBatis 전환 (Redis/JPA 제거) | ✅ 완료 (2026-05-19) |
-| **3** | Flyway V1~V5 마이그레이션 (결제지시/멱등키/외부호출/Outbox/상태이력 5개 테이블) | 🔜 다음 |
-| **4** | 결제지시 Aggregate Root + 도메인 모델 + 단위테스트 | 대기 |
-| **5** | API 컨트롤러 + 자행 이체(S1) end-to-end + Testcontainers 통합테스트 | 대기 |
-| **6** | 외부 도메인 Mock(deposit/loan/customer) + Feign 클라이언트 + 박제 검증 | 대기 |
-| **7+** | 외부망 통신 (S2-A/S2-B/IN-01) + 보상 흐름 (F2/F5) + 운영자 강제 취소 (F6/F7) | 대기 |
+| **3** | Flyway V1~V6 마이그레이션 (141 컬럼, 38 CHECK, 10 FK) | ✅ 완료 (2026-05-19) |
+| **4-A** | 도메인 6개 박제 (한 라운드 한 도메인) | 🔄 진행 중 |
+| **4-A-1** | PaymentInstruction (36 필드) | 🔄 진행 중 |
+| **4-A-2~6** | 나머지 도메인 5개 | 대기 |
+| **4-B** | 자행이체 Mapper + Service + Controller | 대기 |
+| **5** | 후속 시나리오 | 대기 |
+| **7+** | 외부망 KFTC/BOK — 외부망 통신 + 보상 흐름 + 운영자 강제 취소 | 대기 |
 
 ---
 
