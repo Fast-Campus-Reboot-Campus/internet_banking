@@ -31,6 +31,7 @@ public class LoanApplication extends BaseEntity {
     public static final String STATUS_REVIEWING   = "REVIEWING";
     public static final String STATUS_APPROVED    = "APPROVED";
     public static final String STATUS_REJECTED    = "REJECTED";
+    public static final String STATUS_CONTRACTED  = "CONTRACTED";
     public static final String STATUS_CANCELED    = "CANCELED";
     public static final String STATUS_WITHDRAWN   = "WITHDRAWN";
 
@@ -96,6 +97,20 @@ public class LoanApplication extends BaseEntity {
 
     public void cancel() {
         this.applStatusCd = STATUS_CANCELED;
+    }
+
+    /** 본심사 통과 후 호출. 추후 본심사 API 가 정식 구현되면 그곳에서 직접 호출. */
+    public void markApproved() {
+        this.applStatusCd = STATUS_APPROVED;
+    }
+
+    public boolean isApproved() {
+        return STATUS_APPROVED.equals(this.applStatusCd);
+    }
+
+    /** 약정 체결 시 LoanContractService 가 호출. */
+    public void markContracted() {
+        this.applStatusCd = STATUS_CONTRACTED;
     }
 
     public String currentStatus() {

@@ -35,7 +35,11 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_041(HttpStatus.NOT_FOUND,   "서류를 찾을 수 없습니다."),
 
     LOAN_050(HttpStatus.NOT_FOUND,   "담보를 찾을 수 없습니다."),
-    LOAN_051(HttpStatus.CONFLICT,    "이미 해제된 담보입니다.");
+    LOAN_051(HttpStatus.CONFLICT,    "이미 해제된 담보입니다."),
+
+    LOAN_060(HttpStatus.UNPROCESSABLE_ENTITY, "약정 가능한 신청 상태가 아닙니다. (APPROVED 필요)"),
+    LOAN_061(HttpStatus.BAD_REQUEST,          "약정 조건이 신청 범위를 벗어났습니다."),
+    LOAN_062(HttpStatus.NOT_FOUND,            "대출 계약을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;

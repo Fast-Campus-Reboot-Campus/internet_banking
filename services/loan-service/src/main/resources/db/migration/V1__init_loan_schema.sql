@@ -474,7 +474,8 @@ CREATE TABLE loan_contract (
     cntr_no                VARCHAR(30)   NOT NULL UNIQUE,
     contract_id            BIGINT,
     appl_id                BIGINT        NOT NULL REFERENCES loan_application(appl_id),
-    rev_id                 BIGINT        NOT NULL REFERENCES loan_review(rev_id),
+    rev_id                 BIGINT        REFERENCES loan_review(rev_id), -- nullable: 본심사 API 도입 전 임시
+
     customer_id            BIGINT        NOT NULL,
     prod_id                BIGINT        NOT NULL REFERENCES loan_product(prod_id),
     contracted_amount      BIGINT        NOT NULL,
