@@ -12,7 +12,7 @@ spring:
     password: ${PAYMENT_DB_PASSWORD:payment}
     driver-class-name: org.postgresql.Driver
   flyway:
-    enabled: ${FLYWAY_ENABLED:false}   # Stage 3 마이그레이션 추가 후 true로 전환
+    enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
 
 mybatis:

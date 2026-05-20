@@ -148,3 +148,33 @@
 | Saga / 보상 트랜잭션 | 외부 자금 변동 후 실패 시 역 호출로 원상복구하는 패턴 (P-014) |
 | CANCEL_REQUESTED | 운영자/외부 트리거로 강제 취소 요청된 상태. REVERSING 직전 단계 (enum v9) |
 | 청산상태 ACK | Kafka Producer acks=all 응답 수신 시점 = KFTC 접수 신호로 간주 (enum v9 재정의) |
+
+---
+
+## 10. 작업 범위 격리 (영구 규칙)
+
+이 프로젝트는 팀 모노레포. 작업 범위는 엄격히 격리:
+
+### 절대 금지 (팀 자산)
+- 루트 build.gradle 수정/생성
+- 루트 settings.gradle 수정/생성
+- 루트 .gitignore 수정/생성
+- 루트 gradlew, gradlew.bat, gradle/wrapper/ 생성 (이미 있으면 그대로 둠)
+- common/, services/customer-service/, services/deposit-service/, services/loan-service/ 진입/수정/삭제
+- 위 영역에서 발견된 문제는 보고만, 임의 처리 금지
+
+### 허용 작업 범위
+- services/payment-service/** 만 작업
+- 컨테이너 기반 빌드/실행 (Dockerfile, docker-compose-kafka.yml)
+- payment-db, payment-kafka 인프라 검증
+- 호스트 ./gradlew 호출 금지. 컨테이너 검증만.
+
+### 작업 패턴
+- 모노레포 멀티프로젝트 구조 유지
+- 루트 파일은 한 줄도 안 건드림
+- 격리 작업/디렉토리 이동/정리 작업 절대 안 함
+
+### Git 작업 제약
+- git add, git commit, git push 등 git 변경 명령 절대 실행 금지
+- git status, git log, git diff 등 읽기 명령만 허용
+- 모든 커밋은 사용자가 직접 진행
