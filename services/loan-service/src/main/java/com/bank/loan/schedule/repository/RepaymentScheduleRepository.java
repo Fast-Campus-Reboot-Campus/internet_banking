@@ -43,4 +43,13 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
                and s.deletedAt is null
             """)
     long sumPaidPrincipal(@Param("cntrId") Long cntrId);
+
+    @Query("""
+            select case when count(s) > 0 then true else false end
+              from RepaymentSchedule s
+             where s.cntrId = :cntrId
+               and s.rschStatusCd in ('DUE','OVERDUE')
+               and s.deletedAt is null
+            """)
+    boolean existsActiveInstallment(@Param("cntrId") Long cntrId);
 }

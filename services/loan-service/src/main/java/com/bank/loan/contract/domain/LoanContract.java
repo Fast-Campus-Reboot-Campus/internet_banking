@@ -135,4 +135,17 @@ public class LoanContract extends BaseEntity {
         this.preferentialRateBps = newPreferentialBps;
         this.totalRateBps = newTotalBps;
     }
+
+    public boolean isClosable() {
+        return STATUS_ACTIVE.equals(cntrStatusCd);
+    }
+
+    public boolean isClosed() {
+        return STATUS_CLOSED.equals(cntrStatusCd);
+    }
+
+    /** 약정 종결 — ACTIVE → CLOSED. 다른 상태에서는 호출자에서 차단. */
+    public void markClosed() {
+        this.cntrStatusCd = STATUS_CLOSED;
+    }
 }
