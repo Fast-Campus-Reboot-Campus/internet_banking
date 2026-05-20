@@ -97,9 +97,9 @@
 | **1** | `services/payment-service/docker-compose-kafka.yml` (Kafka 3 클러스터 + UI) + 토픽 18개 + payment-db A/B | ✅ 완료 (2026-05-19) |
 | **2** | build.gradle 확장 + Spring Boot 골격 + 멀티 Kafka Config + MyBatis 전환 (Redis/JPA 제거) | ✅ 완료 (2026-05-19) |
 | **3** | Flyway V1~V6 마이그레이션 (141 컬럼, 38 CHECK, 10 FK) | ✅ 완료 (2026-05-19) |
-| **4-A** | 도메인 6개 박제 (한 라운드 한 도메인) | 🔄 진행 중 |
-| **4-A-1** | PaymentInstruction (36 필드) | 🔄 진행 중 |
-| **4-A-2~6** | 나머지 도메인 5개 | 대기 |
+| **4-A** | 도메인 6개 박제 (한 라운드 한 도메인) | ✅ 완료 (2026-05-20) |
+| **4-A-1** | PaymentInstruction (36 필드) | ✅ 완료 (2026-05-20) |
+| **4-A-2~6** | 나머지 도메인 5개 (IdempotencyKey/Ledger/ExternalCall/OutboxMessage/StatusHistory) | ✅ 완료 (2026-05-20) |
 | **4-B** | 자행이체 Mapper + Service + Controller | 대기 |
 | **5** | 후속 시나리오 | 대기 |
 | **7+** | 외부망 KFTC/BOK — 외부망 통신 + 보상 흐름 + 운영자 강제 취소 | 대기 |
