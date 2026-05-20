@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.PaymentInstructionMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.PaymentInstruction">
+        INSERT INTO payment_instruction (
+            payment_instruction_id,
+            idempotency_key,
+            sender_user_id,
+            sender_account_id,
+            auth_token_id,
+            original_payment_id,
+            transaction_no,
+            sender_account_no_snap,
+            sender_account_alias_snap,
+            receiver_bank_code,
+            receiver_account_no,
+            receiver_holder_name_snap,
+            holder_inquiry_at,
+            is_intra_bank,
+            routing_network_type,
+            transfer_amount,
+            fee_amount,
+            receiver_passbook_sender_display,
+            receiver_memo,
+            sender_memo,
+            status,
+            failure_category,
+            channel,
+            requested_at,
+            completed_at,
+            business_date,
+            next_retry_at,
+            next_timeout_at,
+            version,
+            trigger_source,
+            is_scheduled,
+            scheduled_execution_at,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{paymentInstructionId},
+            #{idempotencyKey},
+            #{senderUserId},
+            #{senderAccountId},
+            #{authTokenId},
+            #{originalPaymentId},
+            #{transactionNo},
+            #{senderAccountNoSnap},
+            #{senderAccountAliasSnap},
+            #{receiverBankCode},
+            #{receiverAccountNo},
+            #{receiverHolderNameSnap},
+            #{holderInquiryAt},
+            #{isIntraBank},
+            #{routingNetworkType},
+            #{transferAmount},
+            #{feeAmount},
+            #{receiverPassbookSenderDisplay},
+            #{receiverMemo},
+            #{senderMemo},
+            #{status},
+            #{failureCategory},
+            #{channel},
+            #{requestedAt},
+            #{completedAt},
+            #{businessDate},
+            #{nextRetryAt},
+            #{nextTimeoutAt},
+            #{version},
+            #{triggerSource},
+            #{isScheduled},
+            #{scheduledExecutionAt},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <select id="selectById" resultType="com.bank.payment.domain.PaymentInstruction">
+        SELECT *
+        FROM payment_instruction
+        WHERE payment_instruction_id = #{paymentInstructionId}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE payment_instruction
+        SET status             = #{status},
+            completed_at       = #{completedAt},
+            failure_category   = #{failureCategory},
+            version            = version + 1,
+            last_modified_at   = now()
+        WHERE payment_instruction_id = #{paymentInstructionId}
+          AND version = #{version}
+    </update>
+
+</mapper>

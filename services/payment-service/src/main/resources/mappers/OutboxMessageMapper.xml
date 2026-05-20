@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.OutboxMessageMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.OutboxMessage">
+        INSERT INTO outbox_message (
+            message_id,
+            payment_instruction_id,
+            event_type,
+            event_schema_version,
+            payload,
+            publish_status,
+            attempt_count,
+            available_at,
+            last_error,
+            published_at,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{messageId},
+            #{paymentInstructionId},
+            #{eventType},
+            #{eventSchemaVersion},
+            #{payload}::jsonb,
+            #{publishStatus},
+            #{attemptCount},
+            #{availableAt},
+            #{lastError},
+            #{publishedAt},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+</mapper>
