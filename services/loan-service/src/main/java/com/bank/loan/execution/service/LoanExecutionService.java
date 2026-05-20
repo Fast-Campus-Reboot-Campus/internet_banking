@@ -10,6 +10,8 @@ import com.bank.loan.execution.domain.LoanExecution;
 import com.bank.loan.execution.dto.DrawdownRequest;
 import com.bank.loan.execution.dto.LoanExecutionResponse;
 import com.bank.loan.execution.repository.LoanExecutionRepository;
+import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
+import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -41,6 +43,7 @@ public class LoanExecutionService {
 
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
+    private final RepaymentAccountRepository repaymentAccountRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -60,6 +63,14 @@ public class LoanExecutionService {
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_062));
         if (!contract.isDrawdownAllowed()) {
             throw new BusinessException(LoanErrorCode.LOAN_063);
+        }
+
+        // 2-1) 상환계좌 사전조건 — flows §1.1 CONTRACTED→DISBURSED
+        RepaymentAccount racct = repaymentAccountRepository.findByCntrIdAndDeletedAtIsNull(cntrId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_080));
+        if (!racct.isVerified()) {
+            throw new BusinessException(LoanErrorCode.LOAN_083,
+                    "racctStatusCd=" + racct.currentStatus());
         }
 
         // 3) 한도 검증
