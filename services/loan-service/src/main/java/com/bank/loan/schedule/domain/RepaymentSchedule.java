@@ -100,4 +100,9 @@ public class RepaymentSchedule extends BaseEntity {
     public boolean isOverdue() {
         return STATUS_OVERDUE.equals(rschStatusCd);
     }
+
+    /** 금리 변경 등으로 새 버전이 생성될 때 기존 행을 비활성화 (append-only — 행 삭제 금지). */
+    public void markSuperseded() {
+        this.rschStatusCd = STATUS_SUPERSEDED;
+    }
 }

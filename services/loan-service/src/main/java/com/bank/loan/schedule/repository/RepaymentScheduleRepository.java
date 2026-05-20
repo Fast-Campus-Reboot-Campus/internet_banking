@@ -2,6 +2,8 @@ package com.bank.loan.schedule.repository;
 
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,4 +26,12 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
 
     List<RepaymentSchedule> findByCntrIdAndRschStatusCdAndRschVersionCdAndDeletedAtIsNullOrderByInstallmentNoAsc(
             Long cntrId, String rschStatusCd, String rschVersionCd);
+
+    @Query("""
+            select coalesce(max(s.rschVersionCd), '')
+              from RepaymentSchedule s
+             where s.cntrId = :cntrId
+               and s.deletedAt is null
+            """)
+    String findMaxVersion(@Param("cntrId") Long cntrId);
 }

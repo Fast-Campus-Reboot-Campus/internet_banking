@@ -127,4 +127,12 @@ public class LoanContract extends BaseEntity {
     public String currentStatus() {
         return cntrStatusCd;
     }
+
+    /** 금리 변경. 적용 시점·이력 관리는 RateChangeHistory 가 담당. */
+    public void updateRate(int newBaseBps, int newSpreadBps, int newPreferentialBps, int newTotalBps) {
+        this.baseRateBps = newBaseBps;
+        this.spreadBps = newSpreadBps;
+        this.preferentialRateBps = newPreferentialBps;
+        this.totalRateBps = newTotalBps;
+    }
 }
