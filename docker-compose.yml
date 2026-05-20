@@ -1,8 +1,26 @@
-version: '3.8'
+name: internet-banking
 
 services:
+  customer-db:
+    image: postgres:16-alpine
+    container_name: ib-customer-db
+    environment:
+      POSTGRES_DB: ${CUSTOMER_DB_NAME:-customer_db}
+      POSTGRES_USER: ${CUSTOMER_DB_USER:-customer}
+      POSTGRES_PASSWORD: ${CUSTOMER_DB_PASSWORD:-customer}
+    ports:
+      - "${CUSTOMER_DB_PORT:-5432}:5432"
+    volumes:
+      - customer-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CUSTOMER_DB_USER:-customer} -d ${CUSTOMER_DB_NAME:-customer_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   deposit-db:
-    image: postgres:16
+    image: postgres:16-alpine
+    container_name: ib-deposit-db
     environment:
       POSTGRES_DB: ${DEPOSIT_DB_NAME:-deposit_db}
       POSTGRES_USER: ${DEPOSIT_DB_USER:-deposit}
@@ -12,10 +30,86 @@ services:
     volumes:
       - deposit-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DEPOSIT_DB_USER:-deposit}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DEPOSIT_DB_USER:-deposit} -d ${DEPOSIT_DB_NAME:-deposit_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  loan-db:
+    image: postgres:16-alpine
+    container_name: ib-loan-db
+    environment:
+      POSTGRES_DB: ${LOAN_DB_NAME:-loan_db}
+      POSTGRES_USER: ${LOAN_DB_USER:-loan}
+      POSTGRES_PASSWORD: ${LOAN_DB_PASSWORD:-loan}
+    ports:
+      - "${LOAN_DB_PORT:-5434}:5432"
+    volumes:
+      - loan-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOAN_DB_USER:-loan} -d ${LOAN_DB_NAME:-loan_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: ib-payment-db
+    environment:
+      POSTGRES_DB: ${PAYMENT_DB_NAME:-payment_db}
+      POSTGRES_USER: ${PAYMENT_DB_USER:-payment}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment}
+    ports:
+      - "${PAYMENT_DB_PORT:-5435}:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PAYMENT_DB_USER:-payment} -d ${PAYMENT_DB_NAME:-payment_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ib-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ib-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ib-grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
+  customer-db-data:
   deposit-db-data:
+  loan-db-data:
+  payment-db-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
