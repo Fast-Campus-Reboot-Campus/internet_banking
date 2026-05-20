@@ -104,6 +104,20 @@ public class LoanApplication extends BaseEntity {
         this.applStatusCd = STATUS_APPROVED;
     }
 
+    public boolean isPrescreenable() {
+        return STATUS_SUBMITTED.equals(applStatusCd);
+    }
+
+    /** 가심사 PASS 시 호출. SUBMITTED → PRESCREENED. */
+    public void markPrescreened() {
+        this.applStatusCd = STATUS_PRESCREENED;
+    }
+
+    /** 가심사 REJECT / 본심사 거절 등 거절 시 호출. */
+    public void markRejected() {
+        this.applStatusCd = STATUS_REJECTED;
+    }
+
     public boolean isApproved() {
         return STATUS_APPROVED.equals(this.applStatusCd);
     }
