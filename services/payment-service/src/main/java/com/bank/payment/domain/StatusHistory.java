@@ -78,4 +78,26 @@ public class StatusHistory {
 
     // 최종수정자식별번호
     private String lastModifierId;
+
+    // ── 상태이력 생성 [공통] ─────────────────────────────
+    /**
+     * 상태이력 생성. eventType은 enum 시트 status_history.event_type 37개 중 하나.
+     * 자행 S1 순번: INSTRUCTION_CREATED(null→DRAFT) / AUTH_PASSED(DRAFT→AUTHORIZED)
+     *              / PROCESSING_STARTED(AUTHORIZED→PROCESSING) / PAYMENT_COMPLETED(PROCESSING→COMPLETED)
+     */
+    public static StatusHistory of(
+            String historyId, String paymentInstructionId, Integer sequenceInPayment,
+            String previousStatus, String nextStatus, String eventType,
+            String triggeredBy, LocalDateTime eventOccurredAt) {
+        return StatusHistory.builder()
+                .historyId(historyId)
+                .paymentInstructionId(paymentInstructionId)
+                .sequenceInPayment(sequenceInPayment)
+                .previousStatus(previousStatus)
+                .nextStatus(nextStatus)
+                .eventType(eventType)
+                .triggeredBy(triggeredBy)
+                .eventOccurredAt(eventOccurredAt)
+                .build();
+    }
 }

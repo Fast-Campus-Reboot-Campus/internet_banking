@@ -64,4 +64,21 @@ public class OutboxMessage {
 
     // 최종수정자식별번호
     private String lastModifierId;
+
+    // ── Outbox 이벤트 생성 [공통] ────────────────────────
+    /** Outbox 메시지 생성. publishStatus=PENDING 초기. eventType은 enum 시트 19개 중 하나 */
+    public static OutboxMessage of(
+            String messageId, String paymentInstructionId, String eventType,
+            String eventSchemaVersion, String payload, LocalDateTime availableAt) {
+        return OutboxMessage.builder()
+                .messageId(messageId)
+                .paymentInstructionId(paymentInstructionId)
+                .eventType(eventType)
+                .eventSchemaVersion(eventSchemaVersion)
+                .payload(payload)
+                .publishStatus("PENDING")
+                .attemptCount(0)
+                .availableAt(availableAt)
+                .build();
+    }
 }

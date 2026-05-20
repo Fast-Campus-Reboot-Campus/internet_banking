@@ -131,4 +131,48 @@ public class PaymentInstruction {
 
     // 최종수정자식별번호
     private String lastModifierId;
+
+    // ── 상태전이 가드 (private) ──────────────────────────
+    private void requireStatus(String expected) {
+        if (!expected.equals(this.status)) {
+            throw new IllegalStateException(
+                "전이 불가: 현재 상태=" + this.status + ", 기대 상태=" + expected);
+        }
+    }
+
+    // ── DRAFT → AUTHORIZED [공통] ───────────────────────
+    /** 인증 완료. DRAFT → AUTHORIZED */
+    public void authorize() {
+        requireStatus("DRAFT");
+        this.status = "AUTHORIZED";
+    }
+
+    // ── AUTHORIZED → PROCESSING [공통] ──────────────────
+    /** 처리 시작. AUTHORIZED → PROCESSING */
+    public void startProcessing() {
+        requireStatus("AUTHORIZED");
+        this.status = "PROCESSING";
+    }
+
+    // ── PROCESSING → COMPLETED [★자행전용] ──────────────
+    /** 자행이체 완료. PROCESSING → COMPLETED (자행만 직행, 전이매트릭스 Y(자행)) */
+    public void completeIntra(LocalDateTime completedAt) {
+        requireStatus("PROCESSING");
+        if (!Boolean.TRUE.equals(this.isIntraBank)) {
+            throw new IllegalStateException("자행이체(isIntraBank=true)만 PROCESSING→COMPLETED 직행 가능");
+        }
+        this.status = "COMPLETED";
+        this.completedAt = completedAt;
+    }
+
+    // ── → FAILED [공통] ─────────────────────────────────
+    /** 실패 처리. 종료 상태(COMPLETED/FAILED/CANCELED) 제외 모든 상태에서 가능 */
+    public void markFailed(String failureCategory) {
+        if ("COMPLETED".equals(this.status) || "FAILED".equals(this.status)
+                || "CANCELED".equals(this.status)) {
+            throw new IllegalStateException("종료 상태에서 FAILED 전이 불가: " + this.status);
+        }
+        this.status = "FAILED";
+        this.failureCategory = failureCategory;
+    }
 }

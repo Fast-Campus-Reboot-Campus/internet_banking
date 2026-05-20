@@ -116,4 +116,46 @@ public class ExternalCall {
 
     // 최종수정자식별번호
     private String lastModifierId;
+
+    // ── 외부호출 생성 (요청만 박제, 응답 NULL) [공통] ─────
+    /** 외부호출 생성. 합의서 패턴: 요청 INSERT 후 응답 받으면 recordResponse로 UPDATE */
+    public static ExternalCall of(
+            String callId, String callIdempotencyKey, String paymentInstructionId,
+            String callType, String targetSystem, String endpointUrl, String httpMethod,
+            String requestId, String requestHeader, String requestBody, String requestBodyHash,
+            Integer timeoutMs, LocalDateTime requestedAt) {
+        return ExternalCall.builder()
+                .callId(callId)
+                .callIdempotencyKey(callIdempotencyKey)
+                .compensationType("ORIGINAL")
+                .paymentInstructionId(paymentInstructionId)
+                .callType(callType)
+                .targetSystem(targetSystem)
+                .endpointUrl(endpointUrl)
+                .httpMethod(httpMethod)
+                .requestId(requestId)
+                .requestHeader(requestHeader)
+                .requestBody(requestBody)
+                .requestBodyHash(requestBodyHash)
+                .attemptNo(1)
+                .timeoutMs(timeoutMs)
+                .requestedAt(requestedAt)
+                .build();
+    }
+
+    // ── 응답 박제 (UPDATE 패턴) [공통] ───────────────────
+    /** deposit 응답 수신 후 응답 필드 박제. 합의서 "외부호출 INSERT 후 UPDATE" */
+    public void recordResponse(
+            Integer responseStatusCode, String responseHeader, String responseBody,
+            String businessResponseCode, String responseMessage, String result,
+            Integer responseTimeMs, LocalDateTime respondedAt) {
+        this.responseStatusCode = responseStatusCode;
+        this.responseHeader = responseHeader;
+        this.responseBody = responseBody;
+        this.businessResponseCode = businessResponseCode;
+        this.responseMessage = responseMessage;
+        this.result = result;
+        this.responseTimeMs = responseTimeMs;
+        this.respondedAt = respondedAt;
+    }
 }

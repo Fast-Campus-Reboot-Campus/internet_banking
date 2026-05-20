@@ -62,4 +62,41 @@ public class IdempotencyKey {
 
     // 최종수정자식별번호
     private String lastModifierId;
+
+    // ── 멱등키 생성 [공통] ───────────────────────────────
+    /** 멱등키 생성. idempotencyStatus=PROCESSING 초기 */
+    public static IdempotencyKey of(
+            String idempotencyKey, String clientId, String requestHash,
+            LocalDateTime firstReceivedAt, LocalDateTime lastReceivedAt,
+            LocalDateTime expiresAt) {
+        return IdempotencyKey.builder()
+                .idempotencyKey(idempotencyKey)
+                .clientId(clientId)
+                .requestHash(requestHash)
+                .idempotencyStatus("PROCESSING")
+                .retryCount(0)
+                .firstReceivedAt(firstReceivedAt)
+                .lastReceivedAt(lastReceivedAt)
+                .expiresAt(expiresAt)
+                .build();
+    }
+
+    // ── PROCESSING → COMPLETED ──────────────────────────
+    /** 멱등키 성공 확정. 최초 성공 응답 박제 */
+    public void markCompleted(String firstResponseSnap) {
+        if (!"PROCESSING".equals(this.idempotencyStatus)) {
+            throw new IllegalStateException("PROCESSING 상태에서만 COMPLETED 전이 가능: " + this.idempotencyStatus);
+        }
+        this.idempotencyStatus = "COMPLETED";
+        this.firstResponseSnap = firstResponseSnap;
+    }
+
+    // ── PROCESSING → FAILED ─────────────────────────────
+    /** 멱등키 실패 확정 */
+    public void markFailed() {
+        if (!"PROCESSING".equals(this.idempotencyStatus)) {
+            throw new IllegalStateException("PROCESSING 상태에서만 FAILED 전이 가능: " + this.idempotencyStatus);
+        }
+        this.idempotencyStatus = "FAILED";
+    }
 }

@@ -111,4 +111,66 @@ public class Ledger {
 
     // 최종수정자식별번호
     private String lastModifierId;
+
+    // ── 자행 출금 분개 [자행] ────────────────────────────
+    /** 자행이체 출금 분개. 송신계좌 DEBIT TRANSFER_OUT. (P-014, 정책 v7.2 §2) */
+    public static Ledger intraTransferOut(
+            String ledgerId, String paymentInstructionId, String accountId,
+            String journalNo, String accountNoSnap, String holderNameSnap,
+            BigDecimal amount, BigDecimal balanceBefore, BigDecimal balanceAfter,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("DEBIT")
+                .journalType("TRANSFER_OUT")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(balanceAfter)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── 자행 입금 분개 [자행] ────────────────────────────
+    /** 자행이체 입금 분개. 수신계좌 CREDIT TRANSFER_IN. (P-014, 정책 v7.2 §2) */
+    public static Ledger intraTransferIn(
+            String ledgerId, String paymentInstructionId, String accountId,
+            String journalNo, String accountNoSnap, String holderNameSnap,
+            BigDecimal amount, BigDecimal balanceBefore, BigDecimal balanceAfter,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("CREDIT")
+                .journalType("TRANSFER_IN")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(balanceAfter)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
 }
