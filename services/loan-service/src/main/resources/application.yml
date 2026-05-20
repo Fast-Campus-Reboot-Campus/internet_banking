@@ -1,0 +1,33 @@
+server:
+  port: ${LOAN_APP_PORT:8083}
+
+spring:
+  application:
+    name: loan-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  datasource:
+    url: jdbc:postgresql://${LOAN_DB_HOST:localhost}:${LOAN_DB_PORT:5434}/${LOAN_DB_NAME:loan_db}
+    username: ${LOAN_DB_USER:loan}
+    password: ${LOAN_DB_PASSWORD:loan}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
