@@ -86,6 +86,24 @@ services:
       timeout: 5s
       retries: 5
 
+
+  ai-db:
+    image: postgres:16-alpine
+    container_name: ib-ai-db
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME:-ai_db}
+      POSTGRES_USER: ${AI_DB_USER:-ai}
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD:-ai}
+    ports:
+      - "${AI_DB_PORT:-5437}:5432"
+    volumes:
+      - ai-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-ai} -d ${AI_DB_NAME:-ai_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: ib-redis
@@ -128,6 +146,8 @@ volumes:
   loan-db-data:
   payment-db-data:
   master-db-data:
+
+  ai-db-data:
   redis-data:
   prometheus-data:
   grafana-data:

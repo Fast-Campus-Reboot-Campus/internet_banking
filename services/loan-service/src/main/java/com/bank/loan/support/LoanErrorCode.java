@@ -36,7 +36,7 @@ public enum LoanErrorCode implements ErrorCode {
 
     LOAN_050(HttpStatus.NOT_FOUND,   "담보를 찾을 수 없습니다."),
     LOAN_051(HttpStatus.CONFLICT,    "이미 해제된 담보입니다.");
-
+  
     private final HttpStatus status;
     private final String message;
 
