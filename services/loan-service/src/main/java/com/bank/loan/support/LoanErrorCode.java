@@ -65,7 +65,9 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_130(HttpStatus.NOT_FOUND,            "만기 정보를 찾을 수 없습니다."),
     LOAN_131(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 만기 연장이 불가합니다. (ACTIVE/MATURED 필요)"),
 
-    LOAN_140(HttpStatus.NOT_FOUND,            "증명서를 찾을 수 없습니다.");
+    LOAN_140(HttpStatus.NOT_FOUND,            "증명서를 찾을 수 없습니다."),
+
+    LOAN_150(HttpStatus.NOT_FOUND,            "신용정보 신고 내역을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
