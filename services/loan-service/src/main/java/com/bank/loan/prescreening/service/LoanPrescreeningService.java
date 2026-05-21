@@ -57,12 +57,13 @@ public class LoanPrescreeningService {
         LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
 
+        // 중복 가심사 먼저 검증 — "이미 수행됨" 이 더 구체적인 사용자 신호
+        if (repository.findByApplIdAndDeletedAtIsNull(applId).isPresent()) {
+            throw new BusinessException(LoanErrorCode.LOAN_046);
+        }
         if (!application.isPrescreenable()) {
             throw new BusinessException(LoanErrorCode.LOAN_047,
                     "current=" + application.currentStatus());
-        }
-        if (repository.findByApplIdAndDeletedAtIsNull(applId).isPresent()) {
-            throw new BusinessException(LoanErrorCode.LOAN_046);
         }
 
         boolean pass = LoanPrescreening.RESULT_PASS.equals(req.prescResultCd());
