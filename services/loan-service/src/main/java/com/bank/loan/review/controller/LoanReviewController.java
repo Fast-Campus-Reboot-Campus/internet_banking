@@ -55,4 +55,14 @@ public class LoanReviewController {
             @Valid @RequestBody ReviseReviewRequest req) {
         return ApiResponse.ok(service.revise(applId, req));
     }
+
+    @Operation(summary = "본심사 자동 결정",
+            description = "운영자 입력 없이 누적된 CB·DSR·LTV 결과만으로 APPROVED/REJECTED 자동 산출. "
+                    + "CB.REJECT/DSR.FAIL/LTV.FAIL 은 자동 REJECTED, CB.REVIEW 는 LOAN_048 (수동 본심사 권유). "
+                    + "한도/금리/기간은 기존 자동 산정 룰을 그대로 사용.")
+    @PostMapping("/auto-decide")
+    public ResponseEntity<ApiResponse<LoanReviewResponse>> autoDecide(@PathVariable Long applId) {
+        LoanReviewResponse saved = service.autoDecide(applId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(saved));
+    }
 }

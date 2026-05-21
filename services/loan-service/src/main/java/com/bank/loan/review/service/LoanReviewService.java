@@ -57,6 +57,11 @@ public class LoanReviewService {
     private static final String REASON_REVIEW_REVISITED_APPROVED = "REVIEW_REVISITED_APPROVED";
     private static final String REASON_REVIEW_REVISITED_REJECTED = "REVIEW_REVISITED_REJECTED";
 
+    // 자동 결정 거절 사유 코드
+    private static final String REJECT_CB  = "CB_REJECT";
+    private static final String REJECT_DSR = "DSR_OVER";
+    private static final String REJECT_LTV = "LTV_FAIL";
+
     private final LoanReviewRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final LoanProductRepository productRepository;
@@ -270,6 +275,200 @@ public class LoanReviewService {
         }
 
         return LoanReviewResponse.of(review);
+    }
+
+    /**
+     * 본심사 자동 결정 — 외부 호출이나 운영자 입력 없이 CB·DSR·LTV 결과만으로 결정.
+     *
+     * 데이터 부족(CB/DSR 미수행 또는 담보 필수인데 LTV 미수행)은 LOAN_038,
+     * CB.REVIEW 는 LOAN_048 (수동 본심사 권유).
+     *
+     * 결정 룰:
+     *   CB.REJECT     → REJECTED (CB_REJECT)
+     *   DSR.FAIL      → REJECTED (DSR_OVER)
+     *   LTV.FAIL      → REJECTED (LTV_FAIL, 담보 필수 케이스)
+     *   APPROVE/PASS  → APPROVED, 한도/금리/기간 자동 산정
+     */
+    @Transactional
+    public LoanReviewResponse autoDecide(Long applId) {
+        LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+
+        if (repository.findByApplIdAndDeletedAtIsNull(applId).isPresent()) {
+            throw new BusinessException(LoanErrorCode.LOAN_039);
+        }
+        if (!application.isReviewable()) {
+            throw new BusinessException(LoanErrorCode.LOAN_038,
+                    "current=" + application.currentStatus());
+        }
+
+        CreditEvaluation ceval = creditEvaluationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
+                        "credit-evaluation required"));
+        if (CreditEvaluation.DECISION_REVIEW.equals(ceval.getCevalDecisionCd())) {
+            throw new BusinessException(LoanErrorCode.LOAN_048,
+                    "cevalDecision=REVIEW");
+        }
+
+        DsrCalculation dsr = dsrCalculationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
+                        "dsr-calculation required"));
+
+        LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
+                .orElse(null);
+        boolean collateralRequired = product != null && product.isCollateralRequired();
+        LtvCalculation chosenLtv = null;
+        if (collateralRequired) {
+            chosenLtv = resolveActiveLtvForAuto(applId);
+        }
+
+        // 결정 룰 — 우선순위: CB.REJECT → DSR.FAIL → LTV.FAIL → APPROVED
+        String decision;
+        String rejectReasonCd = null;
+        if (CreditEvaluation.DECISION_REJECT.equals(ceval.getCevalDecisionCd())) {
+            decision = LoanReview.DECISION_REJECTED;
+            rejectReasonCd = REJECT_CB;
+        } else if (!DsrCalculation.STATUS_PASS.equals(dsr.getDsrStatusCd())) {
+            decision = LoanReview.DECISION_REJECTED;
+            rejectReasonCd = REJECT_DSR;
+        } else if (collateralRequired && !LtvCalculation.STATUS_PASS.equals(chosenLtv.getLtvStatusCd())) {
+            decision = LoanReview.DECISION_REJECTED;
+            rejectReasonCd = REJECT_LTV;
+        } else {
+            decision = LoanReview.DECISION_APPROVED;
+        }
+
+        boolean approved = LoanReview.DECISION_APPROVED.equals(decision);
+        OffsetDateTime now = OffsetDateTime.now();
+        Long actorId = currentActor.currentActorId();
+
+        Long approvedAmount = null;
+        Integer approvedRate = null;
+        Integer approvedPeriod = null;
+        OffsetDateTime approvedAt = null;
+        if (approved) {
+            approvedAmount = determineApprovedAmount(application, ceval, product);
+            approvedRate = ceval.getEvalRateBps() != null
+                    ? ceval.getEvalRateBps()
+                    : (product != null ? product.getBaseRateBps() : null);
+            approvedPeriod = application.getRequestedPeriodMo();
+            approvedAt = now;
+        }
+
+        LoanReview saved = repository.save(LoanReview.builder()
+                .applId(applId)
+                .revTypeCd(LoanReview.TYPE_AUTO)
+                .revStatusCd(LoanReview.STATUS_COMPLETED)
+                .revDecisionCd(decision)
+                .approvedAmount(approvedAmount)
+                .approvedRateBps(approvedRate)
+                .approvedPeriodMo(approvedPeriod)
+                .rejectReasonCd(rejectReasonCd)
+                .revRemark(null)
+                .reviewerId(null)
+                .reviewedAt(now)
+                .approvedAt(approvedAt)
+                .build());
+
+        logAutoChecks(saved.getRevId(), ceval, dsr, chosenLtv, collateralRequired, approved, rejectReasonCd);
+
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
+                null, LoanReview.STATUS_COMPLETED,
+                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                approved
+                        ? "auto, approvedAmount=" + approvedAmount + ", rateBps=" + approvedRate
+                        : "auto, rejectReasonCd=" + rejectReasonCd,
+                actorId
+        ));
+
+        String applBefore = application.currentStatus();
+        if (approved) {
+            application.markApproved();
+        } else {
+            application.markRejected();
+        }
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_APPLICATION, applId,
+                applBefore, application.currentStatus(),
+                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                "auto, revId=" + saved.getRevId(),
+                actorId
+        ));
+
+        return LoanReviewResponse.of(saved);
+    }
+
+    /**
+     * 담보 필수 상품에서 자동 결정용 LTV 선택 — 활성 담보 1건의 LTV 를 반환.
+     * 담보 자체 미첨부 또는 LTV 미수행 시 LOAN_038 (데이터 부족 — 자동 결정 불가).
+     */
+    private LtvCalculation resolveActiveLtvForAuto(Long applId) {
+        List<Collateral> all = collateralRepository.findByApplIdAndDeletedAtIsNullOrderByCreatedAtAsc(applId);
+        List<Collateral> active = all.stream()
+                .filter(c -> !Collateral.STATUS_RELEASED.equals(c.currentStatus())
+                          && !Collateral.STATUS_REJECTED.equals(c.currentStatus()))
+                .toList();
+        if (active.isEmpty()) {
+            throw new BusinessException(LoanErrorCode.LOAN_038,
+                    "collateral required but none attached");
+        }
+        Collateral first = active.get(0);
+        return ltvCalculationRepository.findByColIdAndDeletedAtIsNull(first.getColId())
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
+                        "ltv required colId=" + first.getColId()));
+    }
+
+    /**
+     * 자동 결정용 체크로그 5건. 입력 데이터가 검증을 통과한 사유/위반한 사유를 항목별로 기록.
+     */
+    private void logAutoChecks(Long revId, CreditEvaluation ceval, DsrCalculation dsr,
+                               LtvCalculation ltv, boolean collateralRequired,
+                               boolean approved, String autoRejectReasonCd) {
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_PRESCREEN_PASS,
+                ReviewCheckLog.RESULT_PASS,
+                "application=PRESCREENED, auto",
+                null);
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_CB_DECISION,
+                CreditEvaluation.DECISION_APPROVE.equals(ceval.getCevalDecisionCd())
+                        ? ReviewCheckLog.RESULT_PASS
+                        : ReviewCheckLog.RESULT_FAIL,
+                "decision=" + ceval.getCevalDecisionCd() + ", engine=" + ceval.getCevalEngine(),
+                null);
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_DSR_CHECK,
+                DsrCalculation.STATUS_PASS.equals(dsr.getDsrStatusCd())
+                        ? ReviewCheckLog.RESULT_PASS
+                        : ReviewCheckLog.RESULT_FAIL,
+                "ratioBps=" + dsr.getDsrRatioBps() + ", limit=" + dsr.getDsrLimitBps(),
+                null);
+
+        if (collateralRequired) {
+            reviewCheckLogger.log(revId,
+                    ReviewCheckLog.ITEM_LTV_CHECK,
+                    LtvCalculation.STATUS_PASS.equals(ltv.getLtvStatusCd())
+                            ? ReviewCheckLog.RESULT_PASS
+                            : ReviewCheckLog.RESULT_FAIL,
+                    "ltvStatus=" + ltv.getLtvStatusCd() + ", colId=" + ltv.getColId(),
+                    null);
+        } else {
+            reviewCheckLogger.log(revId,
+                    ReviewCheckLog.ITEM_LTV_CHECK,
+                    ReviewCheckLog.RESULT_N_A,
+                    "collateral not required",
+                    null);
+        }
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_FINAL_DECISION,
+                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
+                "auto, decision=" + (approved ? "APPROVED" : "REJECTED")
+                        + (approved ? "" : ", rejectReasonCd=" + autoRejectReasonCd),
+                null);
     }
 
     /**
