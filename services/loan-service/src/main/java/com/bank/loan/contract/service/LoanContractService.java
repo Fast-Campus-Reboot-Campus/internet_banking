@@ -13,8 +13,10 @@ import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.guarantor.domain.GuarantorAgreement;
 import com.bank.loan.guarantor.repository.GuarantorAgreementRepository;
 import com.bank.loan.maturity.service.MaturityService;
+import com.bank.loan.notification.event.ContractSignedEvent;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +57,7 @@ public class LoanContractService {
     private final MaturityService maturityService;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoanContractResponse create(CreateContractRequest req) {
@@ -123,6 +126,13 @@ public class LoanContractService {
 
         // 만기 정보 자동 생성 (original = current = cntr_end_date)
         maturityService.createOnContract(saved);
+
+        // 약정서·안내서 발송 트리거 (fire-and-forget) — AFTER_COMMIT 시점에 별도 스레드에서 실행.
+        // ContractNotificationListener 가 PDF 생성/SMS/알림톡/이메일 stub 수행.
+        eventPublisher.publishEvent(new ContractSignedEvent(
+                saved.getCntrId(), saved.getCntrNo(),
+                application.getApplId(), application.getCustomerId()
+        ));
 
         return LoanContractResponse.of(saved);
     }
