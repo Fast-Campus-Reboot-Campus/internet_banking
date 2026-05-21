@@ -37,6 +37,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   24) 담보 필수 상품 + 담보 무첨부 → 422 LOAN_038
  *   25) 담보 필수 상품 + LTV 미수행 담보 → 422 LOAN_038
  *   26) 담보 필수 상품 + LTV FAIL 담보 → 422 LOAN_038
+ *   30) APPROVED → REJECTED 정정 → 신청 REJECTED, rejectReasonCd 갱신, approvedAt 제거
+ *   31) REJECTED → APPROVED 정정 → 신청 APPROVED, 한도 자동 산정
+ *   32) revisitReasonCd 누락 → 400 (DTO @NotBlank)
+ *   33) 미존재 applId 정정 → 404 LOAN_012
+ *   34) 본심사 없는 신청 정정 → 404 LOAN_042
+ *   35) 약정 체결 후 정정 차단 → 422 LOAN_044
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanReviewFlowTest extends AbstractLoanIntegrationTest {
@@ -330,6 +336,123 @@ class LoanReviewFlowTest extends AbstractLoanIntegrationTest {
                                 """))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOAN_038"));
+    }
+
+    @Test @Order(30)
+    void 정정_APPROVED를_REJECTED로() throws Exception {
+        // approveApplId 는 시나리오 10 에서 APPROVED 상태
+        String body = """
+                {
+                  "revDecisionCd":"REJECTED",
+                  "rejectReasonCd":"POLICY_REVIEW",
+                  "revRemark":"심사 정정 - 정책 재검토",
+                  "revisitReasonCd":"APPEAL",
+                  "reviewerId":99010
+                }
+                """;
+        mockMvc.perform(patch("/api/loan-applications/{applId}/review", approveApplId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.revDecisionCd").value("REJECTED"))
+                .andExpect(jsonPath("$.data.rejectReasonCd").value("POLICY_REVIEW"))
+                .andExpect(jsonPath("$.data.approvedAmount").doesNotExist())
+                .andExpect(jsonPath("$.data.approvedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.reviewerId").value(99010));
+
+        // 체크로그 정정 기록(FINAL_DECISION) 누적 — 자동 5건 + 정정 1건 = 6건
+        Long revId = extractData(mockMvc.perform(
+                        get("/api/loan-applications/{applId}/review", approveApplId))
+                        .andReturn()).get("revId").asLong();
+        mockMvc.perform(get("/api/loan-reviews/{revId}/checks", revId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(6))
+                .andExpect(jsonPath("$.data[5].checkItemCd").value("FINAL_DECISION"))
+                .andExpect(jsonPath("$.data[5].checkResultCd").value("FAIL"))
+                .andExpect(jsonPath("$.data[5].checkRemark").value(
+                        org.hamcrest.Matchers.containsString("revisit(APPEAL)")));
+    }
+
+    @Test @Order(31)
+    void 정정_REJECTED를_APPROVED로_자동산정() throws Exception {
+        // rejectApplId 는 시나리오 13 에서 REJECTED 상태
+        String body = """
+                {
+                  "revDecisionCd":"APPROVED",
+                  "revisitReasonCd":"NEW_EVIDENCE",
+                  "reviewerId":99011
+                }
+                """;
+        mockMvc.perform(patch("/api/loan-applications/{applId}/review", rejectApplId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.revDecisionCd").value("APPROVED"))
+                // CB.evalLimit=50M >= req=30M, product max=100M → approved=30M
+                .andExpect(jsonPath("$.data.approvedAmount").value(AMOUNT))
+                .andExpect(jsonPath("$.data.approvedRateBps").value(BASE_BPS))
+                .andExpect(jsonPath("$.data.approvedPeriodMo").value(MONTHS))
+                .andExpect(jsonPath("$.data.approvedAt").exists())
+                .andExpect(jsonPath("$.data.rejectReasonCd").doesNotExist());
+    }
+
+    @Test @Order(32)
+    void 정정_revisitReasonCd_누락_400() throws Exception {
+        mockMvc.perform(patch("/api/loan-applications/{applId}/review", approveApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revDecisionCd":"APPROVED" }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(33)
+    void 정정_미존재_applId_404() throws Exception {
+        mockMvc.perform(patch("/api/loan-applications/{applId}/review", 999_999_999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revDecisionCd":"APPROVED", "revisitReasonCd":"APPEAL" }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LOAN_012"));
+    }
+
+    @Test @Order(34)
+    void 정정_본심사_없는_신청_404() throws Exception {
+        // pristineApplId 는 시나리오 19 에서 본심사 없음 확인됨
+        mockMvc.perform(patch("/api/loan-applications/{applId}/review", pristineApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revDecisionCd":"APPROVED", "revisitReasonCd":"APPEAL" }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LOAN_042"));
+    }
+
+    @Test @Order(35)
+    void 정정_약정체결_후_차단_422() throws Exception {
+        // overrideApplId 는 시나리오 21 에서 APPROVED(20M/420bps/24개월). 약정 체결까지 진행
+        String contractBody = """
+                {
+                  "applId":%d,
+                  "contractedAmount":20000000,
+                  "contractedPeriodMo":24,
+                  "baseRateBps":420,
+                  "rateTypeCd":"FIXED",
+                  "repaymentMethodCd":"EQUAL",
+                  "cntrStartDate":"20260601"
+                }
+                """.formatted(overrideApplId);
+        mockMvc.perform(post("/api/loan-contracts")
+                        .contentType(MediaType.APPLICATION_JSON).content(contractBody))
+                .andExpect(status().isCreated());
+
+        // 약정 체결 후 신청 = CONTRACTED → 정정 차단
+        mockMvc.perform(patch("/api/loan-applications/{applId}/review", overrideApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revDecisionCd":"REJECTED", "revisitReasonCd":"ERROR_CORRECTION" }
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("LOAN_044"));
     }
 
     // ============================================================
