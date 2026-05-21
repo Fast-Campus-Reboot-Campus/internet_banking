@@ -41,6 +41,7 @@ public class RepaymentTransaction extends BaseEntity {
     public static final String TYPE_REVERSAL    = "REVERSAL";    // 역분개 (후속)
 
     public static final String YN_N = "N";
+    public static final String YN_Y = "Y";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

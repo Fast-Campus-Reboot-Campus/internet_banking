@@ -12,7 +12,23 @@ public interface RepaymentTransactionRepository extends JpaRepository<RepaymentT
 
     Optional<RepaymentTransaction> findByIdempotencyKey(String idempotencyKey);
 
+    Optional<RepaymentTransaction> findByRtxIdAndDeletedAtIsNull(Long rtxId);
+
     List<RepaymentTransaction> findByCntrIdAndDeletedAtIsNullOrderByPaidAtAsc(Long cntrId);
+
+    /**
+     * 해당 거래(rtxId) 를 가리키는 SUCCESS 상태의 역분개 row 가 있는지.
+     * 중복 역분개 차단에 사용.
+     */
+    @Query("""
+            select case when count(t) > 0 then true else false end
+              from RepaymentTransaction t
+             where t.reversalTargetRtxId = :targetRtxId
+               and t.reversalYn = 'Y'
+               and t.rtxStatusCd = 'SUCCESS'
+               and t.deletedAt is null
+            """)
+    boolean existsActiveReversal(@Param("targetRtxId") Long targetRtxId);
 
     @Query("""
             select coalesce(sum(t.interestAmount), 0)
