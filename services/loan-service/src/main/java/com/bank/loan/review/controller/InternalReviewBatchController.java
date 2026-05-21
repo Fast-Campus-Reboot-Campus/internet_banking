@@ -2,7 +2,7 @@ package com.bank.loan.review.controller;
 
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.review.dto.ExpirePendingReviewsResponse;
-import com.bank.loan.review.service.LoanReviewService;
+import com.bank.loan.review.service.LoanReviewAutoDecideService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Min;
@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class InternalReviewBatchController {
 
-    private final LoanReviewService service;
+    private final LoanReviewAutoDecideService service;
 
     @Operation(summary = "권고 만료 배치",
             description = "reviewedAt 이 olderThanDays 일 이전인 PENDING_APPROVAL 본심사를 일괄 EXPIRED 로 전이. "

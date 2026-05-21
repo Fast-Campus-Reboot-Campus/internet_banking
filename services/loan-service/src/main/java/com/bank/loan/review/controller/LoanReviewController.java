@@ -5,6 +5,8 @@ import com.bank.loan.review.dto.ConfirmReviewRequest;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
+import com.bank.loan.review.service.LoanReviewAutoDecideService;
+import com.bank.loan.review.service.LoanReviewReviseService;
 import com.bank.loan.review.service.LoanReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class LoanReviewController {
 
     private final LoanReviewService service;
+    private final LoanReviewReviseService reviseService;
+    private final LoanReviewAutoDecideService autoDecideService;
 
     @Operation(summary = "본심사 실행",
             description = "사전조건: 신청 PRESCREENED + CB(APPROVE/REVIEW) + DSR PASS. " +
@@ -54,7 +58,7 @@ public class LoanReviewController {
     public ApiResponse<LoanReviewResponse> revise(
             @PathVariable Long applId,
             @Valid @RequestBody ReviseReviewRequest req) {
-        return ApiResponse.ok(service.revise(applId, req));
+        return ApiResponse.ok(reviseService.revise(applId, req));
     }
 
     @Operation(summary = "본심사 자동 결정(권고)",
@@ -64,7 +68,7 @@ public class LoanReviewController {
                     + "CB.REJECT/DSR.FAIL/LTV.FAIL 은 자동 REJECTED, CB.REVIEW 는 LOAN_048 (수동 본심사 권유).")
     @PostMapping("/auto-decide")
     public ResponseEntity<ApiResponse<LoanReviewResponse>> autoDecide(@PathVariable Long applId) {
-        LoanReviewResponse saved = service.autoDecide(applId);
+        LoanReviewResponse saved = autoDecideService.autoDecide(applId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(saved));
     }
 
@@ -76,6 +80,6 @@ public class LoanReviewController {
     public ApiResponse<LoanReviewResponse> confirm(
             @PathVariable Long applId,
             @Valid @RequestBody ConfirmReviewRequest req) {
-        return ApiResponse.ok(service.confirm(applId, req));
+        return ApiResponse.ok(autoDecideService.confirm(applId, req));
     }
 }
