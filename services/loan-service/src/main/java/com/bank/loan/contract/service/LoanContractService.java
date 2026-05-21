@@ -10,6 +10,8 @@ import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.dto.CreateContractRequest;
 import com.bank.loan.contract.dto.LoanContractResponse;
 import com.bank.loan.contract.repository.LoanContractRepository;
+import com.bank.loan.guarantor.domain.GuarantorAgreement;
+import com.bank.loan.guarantor.repository.GuarantorAgreementRepository;
 import com.bank.loan.maturity.service.MaturityService;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -25,12 +27,14 @@ import java.time.format.DateTimeFormatter;
  *
  * 흐름:
  *   1) 신청이 APPROVED 인지 검증 (LOAN_060)
- *   2) 약정금액·기간이 신청 범위 이내인지 검증 (LOAN_061)
+ *   2) 신청에 미서명(REGISTERED) 보증 약정이 잔존하면 차단 (LOAN_175)
+ *      flows §1.1 — 약정 체결 전제조건: GUARANTOR_AGREEMENT.gagr_status_cd=SIGNED
+ *   3) 약정금액·기간이 신청 범위 이내인지 검증 (LOAN_061)
  *      - 본심사(loan_review) 미구현이므로 application.requested_* 를 상한으로 사용
  *      - 본심사 도입 시 loan_review.approved_* 로 교체
- *   3) loan_contract INSERT (status=SIGNED)
- *   4) application status APPROVED → CONTRACTED
- *   5) status_history 양쪽 모두 기록 (BEFORE_COMMIT 동일 트랜잭션)
+ *   4) loan_contract INSERT (status=SIGNED)
+ *   5) application status APPROVED → CONTRACTED
+ *   6) status_history 양쪽 모두 기록 (BEFORE_COMMIT 동일 트랜잭션)
  */
 @Service
 @RequiredArgsConstructor
@@ -46,6 +50,7 @@ public class LoanContractService {
 
     private final LoanContractRepository repository;
     private final LoanApplicationRepository applicationRepository;
+    private final GuarantorAgreementRepository guarantorAgreementRepository;
     private final ContractNumberGenerator cntrNoGenerator;
     private final MaturityService maturityService;
     private final StatusHistoryPublisher statusHistoryPublisher;
@@ -60,6 +65,7 @@ public class LoanContractService {
             throw new BusinessException(LoanErrorCode.LOAN_060);
         }
 
+        validateGuarantorsSigned(application.getApplId());
         validateRanges(req, application);
 
         int spread = req.spreadBps() == null ? 0 : req.spreadBps();
@@ -126,6 +132,17 @@ public class LoanContractService {
         return repository.findByCntrIdAndDeletedAtIsNull(cntrId)
                 .map(LoanContractResponse::of)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_062));
+    }
+
+    /**
+     * 신청에 등록된 보증 약정 중 REGISTERED(미서명) 상태가 잔존하면 약정 체결 차단.
+     * CANCELED 는 검증 대상에서 제외. 보증 약정이 한 건도 없는 신용대출은 자동 통과.
+     */
+    private void validateGuarantorsSigned(Long applId) {
+        if (guarantorAgreementRepository.existsByApplIdAndGagrStatusCdAndDeletedAtIsNull(
+                applId, GuarantorAgreement.STATUS_REGISTERED)) {
+            throw new BusinessException(LoanErrorCode.LOAN_175, "applId=" + applId);
+        }
     }
 
     private void validateRanges(CreateContractRequest req, LoanApplication application) {

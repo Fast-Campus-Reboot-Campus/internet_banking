@@ -106,7 +106,8 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_171(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 서명할 수 없습니다. (REGISTERED 필요)"),
     LOAN_172(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 취소할 수 없습니다."),
     LOAN_173(HttpStatus.UNPROCESSABLE_ENTITY, "보증 약정 등록 가능한 신청 상태가 아닙니다. (SUBMITTED/PRESCREENED/REVIEWING/APPROVED 필요)"),
-    LOAN_174(HttpStatus.CONFLICT,             "동일 신청에 동일 보증인의 활성 약정이 이미 존재합니다.");
+    LOAN_174(HttpStatus.CONFLICT,             "동일 신청에 동일 보증인의 활성 약정이 이미 존재합니다."),
+    LOAN_175(HttpStatus.UNPROCESSABLE_ENTITY, "미서명(REGISTERED) 보증 약정이 남아있어 약정 체결이 불가합니다.");
 
     private final HttpStatus status;
     private final String message;
