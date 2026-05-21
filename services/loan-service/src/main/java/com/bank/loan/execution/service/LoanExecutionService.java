@@ -10,6 +10,8 @@ import com.bank.loan.execution.domain.LoanExecution;
 import com.bank.loan.execution.dto.DrawdownRequest;
 import com.bank.loan.execution.dto.LoanExecutionResponse;
 import com.bank.loan.execution.repository.LoanExecutionRepository;
+import com.bank.loan.guaranteeinsurance.domain.GuaranteeInsurance;
+import com.bank.loan.guaranteeinsurance.repository.GuaranteeInsuranceRepository;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
 import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
 import com.bank.loan.schedule.service.RepaymentScheduleService;
@@ -27,6 +29,9 @@ import java.util.UUID;
  * 흐름:
  *   1) 멱등성 키가 이미 처리됐으면 기존 응답 그대로 반환
  *   2) 계약 활성 검증 (LOAN_062 / LOAN_063)
+ *   2-1) 상환계좌 VERIFIED 검증 (LOAN_080/LOAN_083)
+ *   2-2) 보증보험 등록된 계약이면 활성 ISSUED 1건 필요 (LOAN_184) — flows §1.1
+ *        보증보험 row 가 한 건도 없는 신용대출은 통과.
  *   3) 누적 인출 + 신청 ≤ contracted_amount 검증 (LOAN_064)
  *   4) loan_execution INSERT (status=DONE, executed_at=now, journal_entry_no 자체 채번)
  *   5) 최초 인출이면 계약 상태 SIGNED → ACTIVE 전이 + status_history + 상환스케줄 일괄 생성
@@ -45,6 +50,7 @@ public class LoanExecutionService {
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
     private final RepaymentAccountRepository repaymentAccountRepository;
+    private final GuaranteeInsuranceRepository guaranteeInsuranceRepository;
     private final RepaymentScheduleService repaymentScheduleService;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
@@ -74,6 +80,10 @@ public class LoanExecutionService {
             throw new BusinessException(LoanErrorCode.LOAN_083,
                     "racctStatusCd=" + racct.currentStatus());
         }
+
+        // 2-2) 보증보험 사전조건 (필요시) — flows §1.1
+        // row 가 한 건도 없으면 신용대출로 보고 통과. 발급 이력이 있다면 활성 ISSUED 1건 필요.
+        validateGuaranteeInsuranceIfApplicable(cntrId);
 
         // 3) 한도 검증
         long drawnSoFar = repository.sumDoneAmount(contract.getCntrId());
@@ -116,5 +126,19 @@ public class LoanExecutionService {
 
         long cumul = drawnSoFar + requested;
         return LoanExecutionResponse.of(saved, cumul);
+    }
+
+    /**
+     * 보증보험 사전조건. 계약에 보증보험 row 가 한 건도 없으면 통과(신용대출).
+     * 어떤 상태든 row 가 한 번이라도 등록됐다면 그 중 ISSUED 1건이 있어야 drawdown 가능.
+     */
+    private void validateGuaranteeInsuranceIfApplicable(Long cntrId) {
+        if (!guaranteeInsuranceRepository.existsByCntrIdAndDeletedAtIsNull(cntrId)) {
+            return;
+        }
+        if (!guaranteeInsuranceRepository.existsByCntrIdAndGinsStatusCdAndDeletedAtIsNull(
+                cntrId, GuaranteeInsurance.STATUS_ISSUED)) {
+            throw new BusinessException(LoanErrorCode.LOAN_184, "cntrId=" + cntrId);
+        }
     }
 }

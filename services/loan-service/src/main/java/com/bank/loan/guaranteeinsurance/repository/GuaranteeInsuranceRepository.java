@@ -16,4 +16,10 @@ public interface GuaranteeInsuranceRepository extends JpaRepository<GuaranteeIns
     Optional<GuaranteeInsurance> findByCntrIdAndGinsStatusCdAndDeletedAtIsNull(Long cntrId, String ginsStatusCd);
 
     Optional<GuaranteeInsurance> findByGinsPolicyNoAndDeletedAtIsNull(String ginsPolicyNo);
+
+    /** 계약에 어떤 상태든 보증보험 row 가 한 번이라도 등록됐는지 (CANCELED 포함). drawdown 사전조건 분기에 사용. */
+    boolean existsByCntrIdAndDeletedAtIsNull(Long cntrId);
+
+    /** 계약에 특정 상태의 보증보험이 있는지. drawdown 시 ISSUED 잔존 검증에 사용. */
+    boolean existsByCntrIdAndGinsStatusCdAndDeletedAtIsNull(Long cntrId, String ginsStatusCd);
 }
