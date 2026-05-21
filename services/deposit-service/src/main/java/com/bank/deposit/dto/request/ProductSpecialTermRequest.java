@@ -2,7 +2,7 @@ package com.bank.deposit.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 
-public record ProductCommonTermRequest(
-        @NotNull Long termsTemplateId,
+public record ProductSpecialTermRequest(
+        @NotNull Long specialTermId,
         Boolean isRequired
 ) {}

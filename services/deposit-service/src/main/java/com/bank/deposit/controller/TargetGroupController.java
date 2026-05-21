@@ -28,4 +28,9 @@ public class TargetGroupController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(targetGroupService.create(req.targetGroupName(), req.description()));
     }
+
+    @PutMapping("/{id}")
+    public TargetGroup update(@PathVariable Long id, @Valid @RequestBody TargetGroupCreateRequest req) {
+        return targetGroupService.update(id, req.targetGroupName(), req.description());
+    }
 }

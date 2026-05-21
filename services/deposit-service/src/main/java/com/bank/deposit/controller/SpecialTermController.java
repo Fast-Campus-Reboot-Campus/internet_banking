@@ -1,9 +1,8 @@
 package com.bank.deposit.controller;
 
 import com.bank.deposit.domain.entity.SpecialTerm;
-import com.bank.deposit.domain.entity.SpecialTermHistory;
-import com.bank.deposit.domain.enums.SpecialTermStatus;
 import com.bank.deposit.dto.request.SpecialTermCreateRequest;
+import com.bank.deposit.dto.request.SpecialTermStatusUpdateRequest;
 import com.bank.deposit.dto.request.SpecialTermUpdateRequest;
 import com.bank.deposit.service.SpecialTermService;
 import jakarta.validation.Valid;
@@ -42,18 +41,12 @@ public class SpecialTermController {
     @PutMapping("/{specialTermId}")
     public SpecialTerm update(@PathVariable Long specialTermId, @Valid @RequestBody SpecialTermUpdateRequest req) {
         return specialTermService.update(specialTermId, req.specialTermName(), req.specialTermContent(),
-                req.specialTermVersion(), req.changeReason());
+                req.specialTermVersion());
     }
 
     @PatchMapping("/{specialTermId}/status")
     public SpecialTerm changeStatus(@PathVariable Long specialTermId,
-                                    @RequestBody java.util.Map<String, String> body) {
-        SpecialTermStatus status = SpecialTermStatus.valueOf(body.get("status"));
-        return specialTermService.changeStatus(specialTermId, status);
-    }
-
-    @GetMapping("/{specialTermId}/histories")
-    public List<SpecialTermHistory> getHistory(@PathVariable Long specialTermId) {
-        return specialTermService.findHistory(specialTermId);
+                                    @Valid @RequestBody SpecialTermStatusUpdateRequest req) {
+        return specialTermService.changeStatus(specialTermId, req.status());
     }
 }

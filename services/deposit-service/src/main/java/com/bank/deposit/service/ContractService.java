@@ -58,6 +58,9 @@ public class ContractService {
         if (product.getProductStatus() != ProductStatus.SELLING) {
             throw new BusinessException(ErrorCode.PRODUCT_NOT_SELLING);
         }
+        if (accountPassword == null || accountPassword.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS, "계좌 비밀번호는 필수입니다.");
+        }
 
         BigDecimal baseRate = contractInterestRate != null ? contractInterestRate : product.getBaseInterestRate();
         BigDecimal prefRate = totalPreferentialRate != null ? totalPreferentialRate : BigDecimal.ZERO;
@@ -96,7 +99,7 @@ public class ContractService {
                 .savingType(savingType)
                 .openedAt(today)
                 .maturityAt(maturityAt)
-                .accountPassword(accountPassword != null ? accountPassword : "0000")
+                .accountPassword(accountPassword)
                 .build());
 
         return contract;
@@ -171,7 +174,6 @@ public class ContractService {
         findById(contractId);
         return appliedRateRepository.save(ContractAppliedRate.builder()
                 .contractId(contractId)
-                .conditionName(conditionName)
                 .appliedRate(appliedRate)
                 .conditionVerifiedYn(appliedYn != null && appliedYn)
                 .build());

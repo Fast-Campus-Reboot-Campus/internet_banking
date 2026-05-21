@@ -24,5 +24,5 @@ public record ContractCreateRequest(
         Long branchId,
         Long managerId,
         SavingType savingType,
-        String accountPassword
+        @NotBlank String accountPassword
 ) {}

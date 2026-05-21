@@ -203,11 +203,9 @@ public class ProductController {
 
     @PostMapping("/products/{productId}/special-terms")
     public ResponseEntity<ProductSpecialTerm> linkSpecialTerm(@PathVariable Long productId,
-                                                              @RequestBody java.util.Map<String, Object> body) {
-        Long specialTermId = Long.valueOf(body.get("specialTermId").toString());
-        Boolean isRequired = body.containsKey("isRequired") ? (Boolean) body.get("isRequired") : false;
+                                                              @Valid @RequestBody ProductSpecialTermRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(productService.linkSpecialTerm(productId, specialTermId, isRequired));
+                .body(productService.linkSpecialTerm(productId, req.specialTermId(), req.isRequired()));
     }
 
     @DeleteMapping("/products/{productId}/special-terms/{specialTermId}")

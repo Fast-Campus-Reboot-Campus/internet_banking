@@ -1,11 +1,9 @@
 package com.bank.deposit.service;
 
 import com.bank.deposit.domain.entity.SpecialTerm;
-import com.bank.deposit.domain.entity.SpecialTermHistory;
 import com.bank.deposit.domain.enums.SpecialTermStatus;
 import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.exception.ErrorCode;
-import com.bank.deposit.repository.SpecialTermHistoryRepository;
 import com.bank.deposit.repository.SpecialTermRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,7 +17,6 @@ import java.util.List;
 public class SpecialTermService {
 
     private final SpecialTermRepository specialTermRepository;
-    private final SpecialTermHistoryRepository specialTermHistoryRepository;
 
     public List<SpecialTerm> findAll(Boolean isActive) {
         if (isActive != null) {
@@ -48,17 +45,9 @@ public class SpecialTermService {
     }
 
     @Transactional
-    public SpecialTerm update(Long id, String specialTermName, String specialTermContent, String specialTermVersion, String changeReason) {
+    public SpecialTerm update(Long id, String specialTermName, String specialTermContent, String specialTermVersion) {
         SpecialTerm term = findById(id);
-        String previousVersion = term.getSpecialTermVersion();
         term.update(specialTermName, specialTermContent, specialTermVersion);
-        specialTermHistoryRepository.save(SpecialTermHistory.builder()
-                .specialTermId(id)
-                .previousVersion(previousVersion)
-                .changedVersion(specialTermVersion)
-                .changeReason(changeReason)
-                .changedAt(java.time.LocalDate.now().toString().replace("-", ""))
-                .build());
         return term;
     }
 
@@ -67,10 +56,5 @@ public class SpecialTermService {
         SpecialTerm term = findById(id);
         term.changeStatus(status, java.time.LocalDate.now().toString().replace("-", ""));
         return term;
-    }
-
-    public List<SpecialTermHistory> findHistory(Long specialTermId) {
-        findById(specialTermId);
-        return specialTermHistoryRepository.findBySpecialTermIdOrderByCreatedAtDesc(specialTermId);
     }
 }
