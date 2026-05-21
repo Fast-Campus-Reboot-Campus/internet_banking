@@ -100,7 +100,13 @@ public enum LoanErrorCode implements ErrorCode {
 
     LOAN_160(HttpStatus.NOT_FOUND,            "영업일 캘린더 항목을 찾을 수 없습니다."),
     LOAN_161(HttpStatus.CONFLICT,             "이미 등록된 캘린더 일자입니다."),
-    LOAN_162(HttpStatus.BAD_REQUEST,          "캘린더 일자 형식이 유효하지 않습니다. (YYYYMMDD)");
+    LOAN_162(HttpStatus.BAD_REQUEST,          "캘린더 일자 형식이 유효하지 않습니다. (YYYYMMDD)"),
+
+    LOAN_170(HttpStatus.NOT_FOUND,            "보증 약정을 찾을 수 없습니다."),
+    LOAN_171(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 서명할 수 없습니다. (REGISTERED 필요)"),
+    LOAN_172(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 취소할 수 없습니다."),
+    LOAN_173(HttpStatus.UNPROCESSABLE_ENTITY, "보증 약정 등록 가능한 신청 상태가 아닙니다. (SUBMITTED/PRESCREENED/REVIEWING/APPROVED 필요)"),
+    LOAN_174(HttpStatus.CONFLICT,             "동일 신청에 동일 보증인의 활성 약정이 이미 존재합니다.");
 
     private final HttpStatus status;
     private final String message;
