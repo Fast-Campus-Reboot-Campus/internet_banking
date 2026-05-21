@@ -1,5 +1,7 @@
 package com.bank.loan.document.service;
 
+import com.bank.common.audit.StatusChangeEvent;
+import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
@@ -23,17 +25,32 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LoanDocumentService {
 
+    private static final String DOMAIN_CD = "LOAN";
+    private static final String TARGET_TABLE_CD = "LOAN_DOCUMENT";
+    private static final String REASON_UPLOADED = "DOCUMENT_UPLOADED";
+    private static final String REASON_DELETED  = "DOCUMENT_DELETED";
+
     private final LoanDocumentRepository repository;
     private final LoanApplicationRepository applicationRepository;
     private final DocumentStorage storage;
     private final CurrentActorProvider currentActor;
+    private final StatusHistoryPublisher statusHistoryPublisher;
 
     @Transactional
     public LoanDocumentResponse delete(Long docId) {
         LoanDocument doc = repository.findByDocIdAndDeletedAtIsNull(docId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_041));
+        String before = doc.getDocStatusCd();
         doc.markDeleted();
         doc.softDelete(currentActor.currentActorId());
+
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_TABLE_CD, doc.getDocId(),
+                before, LoanDocument.STATUS_DELETED,
+                REASON_DELETED, null,
+                currentActor.currentActorId()
+        ));
+
         return LoanDocumentResponse.of(doc);
     }
 
@@ -81,6 +98,13 @@ public class LoanDocumentService {
                 .fileSizeBytes(stored.sizeBytes())
                 .submittedAt(OffsetDateTime.now())
                 .build());
+
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_TABLE_CD, saved.getDocId(),
+                null, LoanDocument.STATUS_UPLOADED,
+                REASON_UPLOADED, "applId=" + application.getApplId() + ", docTypeCd=" + docTypeCd,
+                currentActor.currentActorId()
+        ));
 
         return LoanDocumentResponse.of(saved);
     }
