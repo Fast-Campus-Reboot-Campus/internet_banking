@@ -26,6 +26,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *       (LTV_CHECK=PASS)
  *   12) 본심사 REJECTED → FINAL_DECISION=FAIL
  *   13) GET 미존재 revId → 404 LOAN_042
+ *   20) POST 수동 추가(DOCUMENT_CHECK PASS) → 201 + 목록 6건
+ *   21) POST IDENTITY/CROSS_TRANSACTION/ETC 연속 추가 → 목록 9건
+ *   22) POST 자동 적재 코드(PRESCREEN_PASS) → 400 (DTO @Pattern)
+ *   23) POST 알 수 없는 result 코드 → 400 (DTO @Pattern)
+ *   24) POST 미존재 revId → 404 LOAN_042
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ReviewCheckLogFlowTest extends AbstractLoanIntegrationTest {
@@ -113,9 +118,103 @@ class ReviewCheckLogFlowTest extends AbstractLoanIntegrationTest {
                 .andExpect(jsonPath("$.code").value("LOAN_042"));
     }
 
+    @Test @Order(20)
+    void POST_수동_DOCUMENT_CHECK_추가_201() throws Exception {
+        mockMvc.perform(post("/api/loan-reviews/{revId}/checks", creditRevId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checkItemCd":"DOCUMENT_CHECK",
+                                  "checkResultCd":"PASS",
+                                  "checkRemark":"재직증명서·소득증빙 원본 확인",
+                                  "checkerId":77001
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.revId").value(creditRevId))
+                .andExpect(jsonPath("$.data.checkItemCd").value("DOCUMENT_CHECK"))
+                .andExpect(jsonPath("$.data.checkResultCd").value("PASS"))
+                .andExpect(jsonPath("$.data.checkerId").value(77001));
+
+        // 자동 5건 + 수동 1건 = 6건
+        mockMvc.perform(get("/api/loan-reviews/{revId}/checks", creditRevId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(6))
+                .andExpect(jsonPath("$.data[5].checkItemCd").value("DOCUMENT_CHECK"));
+    }
+
+    @Test @Order(21)
+    void POST_IDENTITY_CROSS_ETC_연속추가_9건() throws Exception {
+        addManual(creditRevId, "IDENTITY_CHECK",    "PASS",   "신분증·얼굴인증 일치");
+        addManual(creditRevId, "CROSS_TRANSACTION", "REVIEW", "급여이체 미등록 — 우대 보류");
+        addManual(creditRevId, "ETC",               "PASS",   "특이사항 없음");
+
+        mockMvc.perform(get("/api/loan-reviews/{revId}/checks", creditRevId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(9))
+                .andExpect(jsonPath("$.data[6].checkItemCd").value("IDENTITY_CHECK"))
+                .andExpect(jsonPath("$.data[7].checkItemCd").value("CROSS_TRANSACTION"))
+                .andExpect(jsonPath("$.data[7].checkResultCd").value("REVIEW"))
+                .andExpect(jsonPath("$.data[8].checkItemCd").value("ETC"));
+    }
+
+    @Test @Order(22)
+    void POST_자동적재_코드_거부_400() throws Exception {
+        mockMvc.perform(post("/api/loan-reviews/{revId}/checks", creditRevId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checkItemCd":"PRESCREEN_PASS",
+                                  "checkResultCd":"PASS"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(23)
+    void POST_알수없는_result_400() throws Exception {
+        mockMvc.perform(post("/api/loan-reviews/{revId}/checks", creditRevId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checkItemCd":"ETC",
+                                  "checkResultCd":"UNKNOWN"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(24)
+    void POST_미존재_revId_404() throws Exception {
+        mockMvc.perform(post("/api/loan-reviews/{revId}/checks", 999_999_999L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "checkItemCd":"ETC",
+                                  "checkResultCd":"PASS"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LOAN_042"));
+    }
+
     // ============================================================
     // helpers
     // ============================================================
+
+    private void addManual(Long revId, String itemCd, String resultCd, String remark) throws Exception {
+        String body = """
+                {
+                  "checkItemCd":"%s",
+                  "checkResultCd":"%s",
+                  "checkRemark":"%s",
+                  "checkerId":77001
+                }
+                """.formatted(itemCd, resultCd, remark);
+        mockMvc.perform(post("/api/loan-reviews/{revId}/checks", revId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+    }
 
     private String uniq() {
         return UUID.randomUUID().toString().substring(0, 8);
