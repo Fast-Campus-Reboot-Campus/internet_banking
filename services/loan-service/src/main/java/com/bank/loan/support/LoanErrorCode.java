@@ -53,6 +53,7 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_047(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 가심사를 수행할 수 없습니다. (SUBMITTED 필요)"),
 
     LOAN_048(HttpStatus.UNPROCESSABLE_ENTITY, "본심사 자동 결정 불가. CB 결정이 REVIEW 인 경우 수동 본심사가 필요합니다."),
+    LOAN_049(HttpStatus.UNPROCESSABLE_ENTITY, "본심사가 권고(PENDING_APPROVAL) 상태가 아닙니다. (확정 불가)"),
 
     LOAN_050(HttpStatus.NOT_FOUND,   "담보를 찾을 수 없습니다."),
     LOAN_051(HttpStatus.CONFLICT,    "이미 해제된 담보입니다."),

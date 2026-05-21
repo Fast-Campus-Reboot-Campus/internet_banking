@@ -41,7 +41,8 @@ public class LoanReview extends BaseEntity {
     public static final String DECISION_APPROVED = "APPROVED";
     public static final String DECISION_REJECTED = "REJECTED";
 
-    public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
+    public static final String STATUS_COMPLETED         = "COMPLETED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -86,6 +87,23 @@ public class LoanReview extends BaseEntity {
 
     public boolean isApproved() {
         return DECISION_APPROVED.equals(revDecisionCd);
+    }
+
+    public boolean isPendingApproval() {
+        return STATUS_PENDING_APPROVAL.equals(revStatusCd);
+    }
+
+    /**
+     * 자동 권고(PENDING_APPROVAL) 결과를 사람이 확정. revStatusCd → COMPLETED,
+     * reviewerId/reviewedAt 갱신. APPROVED 권고일 때만 approvedAt 도 같이 채운다.
+     */
+    public void confirm(Long reviewerId, OffsetDateTime confirmedAt) {
+        this.revStatusCd = STATUS_COMPLETED;
+        this.reviewerId = reviewerId;
+        this.reviewedAt = confirmedAt;
+        if (DECISION_APPROVED.equals(revDecisionCd) && approvedAt == null) {
+            this.approvedAt = confirmedAt;
+        }
     }
 
     /**

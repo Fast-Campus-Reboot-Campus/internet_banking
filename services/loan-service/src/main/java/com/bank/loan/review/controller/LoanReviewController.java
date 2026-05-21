@@ -1,6 +1,7 @@
 package com.bank.loan.review.controller;
 
 import com.bank.common.web.ApiResponse;
+import com.bank.loan.review.dto.ConfirmReviewRequest;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
@@ -56,13 +57,25 @@ public class LoanReviewController {
         return ApiResponse.ok(service.revise(applId, req));
     }
 
-    @Operation(summary = "본심사 자동 결정",
+    @Operation(summary = "본심사 자동 결정(권고)",
             description = "운영자 입력 없이 누적된 CB·DSR·LTV 결과만으로 APPROVED/REJECTED 자동 산출. "
-                    + "CB.REJECT/DSR.FAIL/LTV.FAIL 은 자동 REJECTED, CB.REVIEW 는 LOAN_048 (수동 본심사 권유). "
-                    + "한도/금리/기간은 기존 자동 산정 룰을 그대로 사용.")
+                    + "결정은 권고(PENDING_APPROVAL) 만 적재되고 신청 상태는 PRESCREENED 그대로 유지된다. "
+                    + "사람이 POST /review/confirm 호출로 확정해야 신청 상태가 전이된다. "
+                    + "CB.REJECT/DSR.FAIL/LTV.FAIL 은 자동 REJECTED, CB.REVIEW 는 LOAN_048 (수동 본심사 권유).")
     @PostMapping("/auto-decide")
     public ResponseEntity<ApiResponse<LoanReviewResponse>> autoDecide(@PathVariable Long applId) {
         LoanReviewResponse saved = service.autoDecide(applId);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(saved));
+    }
+
+    @Operation(summary = "본심사 자동 권고 확정",
+            description = "PENDING_APPROVAL 상태인 본심사를 권고된 결정 그대로 COMPLETED 로 마감하고 "
+                    + "신청 상태를 전이한다. 결정·한도 정정이 필요하면 PATCH /review (revise) 사용. "
+                    + "권고 상태가 아니면 LOAN_049.")
+    @PostMapping("/confirm")
+    public ApiResponse<LoanReviewResponse> confirm(
+            @PathVariable Long applId,
+            @Valid @RequestBody ConfirmReviewRequest req) {
+        return ApiResponse.ok(service.confirm(applId, req));
     }
 }

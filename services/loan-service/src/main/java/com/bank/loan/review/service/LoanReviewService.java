@@ -18,6 +18,7 @@ import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.domain.ReviewCheckLog;
+import com.bank.loan.review.dto.ConfirmReviewRequest;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
@@ -56,6 +57,9 @@ public class LoanReviewService {
     private static final String REASON_REVIEW_REJECTED = "REVIEW_REJECTED";
     private static final String REASON_REVIEW_REVISITED_APPROVED = "REVIEW_REVISITED_APPROVED";
     private static final String REASON_REVIEW_REVISITED_REJECTED = "REVIEW_REVISITED_REJECTED";
+    private static final String REASON_AUTO_RECOMMENDED_APPROVED = "AUTO_RECOMMENDED_APPROVED";
+    private static final String REASON_AUTO_RECOMMENDED_REJECTED = "AUTO_RECOMMENDED_REJECTED";
+    private static final String REASON_REVIEW_CONFIRMED          = "REVIEW_CONFIRMED";
 
     // 자동 결정 거절 사유 코드
     private static final String REJECT_CB  = "CB_REJECT";
@@ -278,7 +282,11 @@ public class LoanReviewService {
     }
 
     /**
-     * 본심사 자동 결정 — 외부 호출이나 운영자 입력 없이 CB·DSR·LTV 결과만으로 결정.
+     * 본심사 자동 결정(권고). CB·DSR·LTV 결과로 결정 산출만 하고
+     * 사람이 {@link #confirm(Long, ConfirmReviewRequest)} 로 확정해야 효과 발생.
+     *
+     * 저장: revStatusCd = PENDING_APPROVAL, revDecisionCd 권고값, 한도/금리/기간 미리 계산.
+     * 신청 상태는 PRESCREENED 그대로 유지 — confirm 시점에 전이된다.
      *
      * 데이터 부족(CB/DSR 미수행 또는 담보 필수인데 LTV 미수행)은 LOAN_038,
      * CB.REVIEW 는 LOAN_048 (수동 본심사 권유).
@@ -345,20 +353,19 @@ public class LoanReviewService {
         Long approvedAmount = null;
         Integer approvedRate = null;
         Integer approvedPeriod = null;
-        OffsetDateTime approvedAt = null;
         if (approved) {
             approvedAmount = determineApprovedAmount(application, ceval, product);
             approvedRate = ceval.getEvalRateBps() != null
                     ? ceval.getEvalRateBps()
                     : (product != null ? product.getBaseRateBps() : null);
             approvedPeriod = application.getRequestedPeriodMo();
-            approvedAt = now;
         }
 
+        // 권고만 — revStatusCd=PENDING_APPROVAL, approvedAt 은 confirm 시점에 채운다.
         LoanReview saved = repository.save(LoanReview.builder()
                 .applId(applId)
                 .revTypeCd(LoanReview.TYPE_AUTO)
-                .revStatusCd(LoanReview.STATUS_COMPLETED)
+                .revStatusCd(LoanReview.STATUS_PENDING_APPROVAL)
                 .revDecisionCd(decision)
                 .approvedAmount(approvedAmount)
                 .approvedRateBps(approvedRate)
@@ -367,18 +374,65 @@ public class LoanReviewService {
                 .revRemark(null)
                 .reviewerId(null)
                 .reviewedAt(now)
-                .approvedAt(approvedAt)
+                .approvedAt(null)
                 .build());
 
         logAutoChecks(saved.getRevId(), ceval, dsr, chosenLtv, collateralRequired, approved, rejectReasonCd);
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
-                null, LoanReview.STATUS_COMPLETED,
-                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                null, LoanReview.STATUS_PENDING_APPROVAL,
+                approved ? REASON_AUTO_RECOMMENDED_APPROVED : REASON_AUTO_RECOMMENDED_REJECTED,
                 approved
                         ? "auto, approvedAmount=" + approvedAmount + ", rateBps=" + approvedRate
                         : "auto, rejectReasonCd=" + rejectReasonCd,
+                actorId
+        ));
+
+        // 신청 상태는 confirm 단계에서 전이. 권고 단계엔 PRESCREENED 그대로 유지.
+
+        return LoanReviewResponse.of(saved);
+    }
+
+    /**
+     * 자동 권고(PENDING_APPROVAL) 결과를 사람이 확정. 권고된 결정 그대로 COMPLETED 로 마감하고
+     * 신청 상태를 그 결정에 맞춰 전이한다. 결정·한도 정정이 필요하면 본 endpoint 대신
+     * {@link #revise(Long, ReviseReviewRequest)} 사용.
+     *
+     * 사전조건: 본심사가 PENDING_APPROVAL 상태여야 함 (LOAN_049).
+     * 체크로그에 FINAL_DECISION 확정 1건 추가, status_history 양쪽 publish.
+     */
+    @Transactional
+    public LoanReviewResponse confirm(Long applId, ConfirmReviewRequest req) {
+        LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+
+        LoanReview review = repository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+
+        if (!review.isPendingApproval()) {
+            throw new BusinessException(LoanErrorCode.LOAN_049,
+                    "revStatus=" + review.getRevStatusCd());
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Long actorId = currentActor.currentActorId();
+        boolean approved = review.isApproved();
+
+        review.confirm(req.reviewerId(), now);
+
+        reviewCheckLogger.log(review.getRevId(),
+                ReviewCheckLog.ITEM_FINAL_DECISION,
+                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
+                "confirmed by reviewerId=" + req.reviewerId()
+                        + (req.confirmRemark() != null ? ", remark=" + req.confirmRemark() : ""),
+                req.reviewerId());
+
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
+                LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_COMPLETED,
+                REASON_REVIEW_CONFIRMED,
+                "reviewerId=" + req.reviewerId(),
                 actorId
         ));
 
@@ -392,11 +446,11 @@ public class LoanReviewService {
                 DOMAIN_CD, TARGET_APPLICATION, applId,
                 applBefore, application.currentStatus(),
                 approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
-                "auto, revId=" + saved.getRevId(),
+                "confirm, revId=" + review.getRevId(),
                 actorId
         ));
 
-        return LoanReviewResponse.of(saved);
+        return LoanReviewResponse.of(review);
     }
 
     /**
