@@ -27,7 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   14) 잘못된 상태 (예: PRESCREENED 후 다시 시도) → 위 11번과 별도로 다른 신청에서 한 번
  *   15) GET 미존재 신청 → 404 LOAN_012
  *   16) GET 가심사 안 한 신청 → 404 LOAN_045
- *   17) prescResultCd 누락 → 400
+ *   17) prescResultCd 미입력 + 소득 미제출 → 엔진 자동 REJECT (INCOME_NOT_PROVIDED)
+ *   18) prescResultCd 미입력 + 소득 충분 → 엔진 자동 PASS (score/grade/한도 적재)
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanPrescreeningFlowTest extends AbstractLoanIntegrationTest {
@@ -40,6 +41,8 @@ class LoanPrescreeningFlowTest extends AbstractLoanIntegrationTest {
     private Long passApplId;
     private Long rejectApplId;
     private Long pristineApplId;
+    private Long autoRejectApplId;     // 소득 미제출 → 엔진 자동 REJECT
+    private Long autoPassApplId;       // 소득 충분 → 엔진 자동 PASS
 
     @org.junit.jupiter.api.BeforeAll
     void setup() throws Exception {
@@ -48,6 +51,8 @@ class LoanPrescreeningFlowTest extends AbstractLoanIntegrationTest {
         passApplId = createApplication(prodId);
         rejectApplId = createApplication(prodId);
         pristineApplId = createApplication(prodId);
+        autoRejectApplId = createApplication(prodId);
+        autoPassApplId   = createApplicationWithIncome(prodId, /*income*/ 60_000_000L, "EMPLOYEE");
     }
 
     @Test @Order(10)
@@ -124,13 +129,34 @@ class LoanPrescreeningFlowTest extends AbstractLoanIntegrationTest {
     }
 
     @Test @Order(17)
-    void prescResultCd_누락_400() throws Exception {
-        mockMvc.perform(post("/api/loan-applications/{applId}/prescreening", pristineApplId)
+    void 자동결정_소득미제출_엔진_REJECT() throws Exception {
+        // 신청에 estimatedIncomeAmt/employmentTypeCd 없음 → MockCreditScoreEngine 가 INCOME_NOT_PROVIDED
+        mockMvc.perform(post("/api/loan-applications/{applId}/prescreening", autoRejectApplId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "estimatedGrade":"AAA" }
-                                """))
-                .andExpect(status().isBadRequest());
+                        .content("{}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.prescResultCd").value("REJECT"))
+                .andExpect(jsonPath("$.data.rejectReasonCd").value("INCOME_NOT_PROVIDED"))
+                .andExpect(jsonPath("$.data.estimatedLimitAmt").doesNotExist())
+                .andExpect(jsonPath("$.data.estimatedRateBps").doesNotExist())
+                .andExpect(jsonPath("$.data.prescEngineVersion").value("MOCK-v1"));
+    }
+
+    @Test @Order(18)
+    void 자동결정_소득_EMPLOYEE_엔진_PASS() throws Exception {
+        // income 60M, requested 5M, EMPLOYEE → PASS, score 720, grade BBB
+        mockMvc.perform(post("/api/loan-applications/{applId}/prescreening", autoPassApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.prescResultCd").value("PASS"))
+                .andExpect(jsonPath("$.data.estimatedScore").value(720))
+                .andExpect(jsonPath("$.data.estimatedGrade").value("BBB"))
+                // 한도: 입력 없음 → 엔진 결과 min(requested 5M, income×5=300M) = 5M
+                .andExpect(jsonPath("$.data.estimatedLimitAmt").value(AMOUNT))
+                .andExpect(jsonPath("$.data.estimatedRateBps").value(BASE_BPS))
+                .andExpect(jsonPath("$.data.prescEngineVersion").value("MOCK-v1"))
+                .andExpect(jsonPath("$.data.rejectReasonCd").doesNotExist());
     }
 
     // ============================================================
@@ -177,6 +203,22 @@ class LoanPrescreeningFlowTest extends AbstractLoanIntegrationTest {
                   "loanPurposeCd":"LIVING", "repaymentMethodCd":"EQUAL"
                 }
                 """.formatted(prodId, AMOUNT, MONTHS);
+        MvcResult result = mockMvc.perform(post("/api/loan-applications")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return extractData(result).get("applId").asLong();
+    }
+
+    private Long createApplicationWithIncome(Long prodId, long income, String empType) throws Exception {
+        String body = """
+                {
+                  "customerId":5001, "prodId":%d, "channelCd":"MOBILE",
+                  "requestedAmount":%d, "requestedPeriodMo":%d,
+                  "loanPurposeCd":"LIVING", "repaymentMethodCd":"EQUAL",
+                  "estimatedIncomeAmt":%d, "employmentTypeCd":"%s"
+                }
+                """.formatted(prodId, AMOUNT, MONTHS, income, empType);
         MvcResult result = mockMvc.perform(post("/api/loan-applications")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
