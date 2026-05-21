@@ -53,6 +53,10 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_050(HttpStatus.NOT_FOUND,   "담보를 찾을 수 없습니다."),
     LOAN_051(HttpStatus.CONFLICT,    "이미 해제된 담보입니다."),
 
+    LOAN_052(HttpStatus.UNPROCESSABLE_ENTITY, "LTV 산정 사전조건이 충족되지 않았습니다. (담보 감정평가 DONE 필요 또는 담보 상태 위반)"),
+    LOAN_053(HttpStatus.CONFLICT,             "이미 LTV 산정이 수행되었습니다. (담보당 1건)"),
+    LOAN_054(HttpStatus.NOT_FOUND,            "LTV 산정 내역을 찾을 수 없습니다."),
+
     LOAN_060(HttpStatus.UNPROCESSABLE_ENTITY, "약정 가능한 신청 상태가 아닙니다. (APPROVED 필요)"),
     LOAN_061(HttpStatus.BAD_REQUEST,          "약정 조건이 신청 범위를 벗어났습니다."),
     LOAN_062(HttpStatus.NOT_FOUND,            "대출 계약을 찾을 수 없습니다."),
