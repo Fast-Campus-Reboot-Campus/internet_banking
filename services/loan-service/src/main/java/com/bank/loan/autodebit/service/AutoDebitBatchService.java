@@ -1,6 +1,7 @@
 package com.bank.loan.autodebit.service;
 
 import com.bank.loan.autodebit.dto.AutoDebitRunResponse;
+import com.bank.loan.calendar.service.BusinessDayService;
 import com.bank.loan.repayment.dto.RepayInstallmentRequest;
 import com.bank.loan.repayment.service.RepaymentService;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
@@ -29,7 +30,8 @@ import java.util.Optional;
  * 멱등성: 회차당 idempotency_key = "AUTO-{cntrId}-{rschId}-{baseDate}" 자체 채번.
  * 같은 baseDate 재실행 시 RepaymentTransaction.idempotency_key UNIQUE 제약으로 중복 출금 차단.
  *
- * 휴일 보정(BUSINESS_CALENDAR) 은 본 단계 외 — 호출자가 영업일을 baseDate 로 넘긴다고 가정.
+ * 휴일 보정(BUSINESS_CALENDAR): 호출 시 baseDate 가 비영업일이면 출금을 수행하지 않고 skipReason=NON_BUSINESS_DAY
+ * 로 즉시 반환 (flows §2.2 — 휴일에는 INTEREST_ACCRUAL 만 발생, 출금은 익영업일로 이월).
  */
 @Service
 @RequiredArgsConstructor
@@ -42,8 +44,14 @@ public class AutoDebitBatchService {
     private final RepaymentScheduleRepository scheduleRepository;
     private final RepaymentAccountRepository repaymentAccountRepository;
     private final RepaymentService repaymentService;
+    private final BusinessDayService businessDayService;
 
     public AutoDebitRunResponse run(String baseDate) {
+        if (!businessDayService.isBusinessDay(baseDate)) {
+            log.info("auto-debit skipped: baseDate={} is non-business day", baseDate);
+            return AutoDebitRunResponse.skippedNonBusinessDay(baseDate);
+        }
+
         List<RepaymentSchedule> candidates = scheduleRepository
                 .findByDueDateAndRschStatusCdAndRschVersionCdAndDeletedAtIsNullOrderByCntrIdAscInstallmentNoAsc(
                         baseDate, RepaymentSchedule.STATUS_DUE, RepaymentSchedule.VERSION_INITIAL);

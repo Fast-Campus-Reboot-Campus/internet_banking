@@ -28,7 +28,8 @@ public class AutoDebitController {
 
     @Operation(summary = "자동이체 일배치 실행",
             description = "baseDate 의 due_date 와 일치하는 DUE 회차 중 자동이체 설정된 계약만 출금 처리한다. " +
-                          "휴일 보정은 호출자 책임. 미설정/미검증/이미 PAID 회차는 skip.")
+                          "baseDate 가 비영업일(BUSINESS_CALENDAR) 이면 출금 미수행하고 skipReason=NON_BUSINESS_DAY 로 반환. " +
+                          "미설정/미검증/이미 PAID 회차는 skip.")
     @PostMapping("/run")
     public ApiResponse<AutoDebitRunResponse> run(
             @RequestParam("baseDate") @Pattern(regexp = "\\d{8}") String baseDate) {
