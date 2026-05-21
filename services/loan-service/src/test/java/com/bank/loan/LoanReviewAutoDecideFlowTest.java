@@ -48,6 +48,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   42) 만료된 권고 confirm 시도 → 422 LOAN_049
  *   43) GET pending → 빈 응답 (EXPIRED 미포함)
  *   44) olderThanDays 음수 → 400
+ *
+ * 통계 (stats):
+ *   50) 오늘 포함 기간 stats — totalCount ≥ 본 클래스 적재 row 수, byTypeDecision/byStatus/byRejectReason 키 포함
+ *   51) 과거 기간 stats (data 없음) — totalCount 0, empty maps
+ *   52) from/to 형식 오류(yyyy-MM-dd) → 400
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
@@ -309,6 +314,46 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
     void expire_olderThanDays_음수_400() throws Exception {
         mockMvc.perform(post("/api/internal/loan-reviews/expire-pending")
                         .param("olderThanDays", "-1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(50)
+    void stats_오늘기간_응답_schema_검증() throws Exception {
+        // 오늘 날짜 기준 wide range — 본 클래스가 적재한 본심사 row 가 모두 포함된 응답이어야 함.
+        java.time.LocalDate today = java.time.LocalDate.now();
+        String from = today.minusDays(1).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String to   = today.plusDays(1).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+
+        mockMvc.perform(get("/api/loan-reviews/stats")
+                        .param("from", from).param("to", to))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.from").value(from))
+                .andExpect(jsonPath("$.data.to").value(to))
+                .andExpect(jsonPath("$.data.totalCount",
+                        org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.data.byTypeDecision").exists())
+                .andExpect(jsonPath("$.data.byStatus").exists())
+                .andExpect(jsonPath("$.data.byRejectReason").exists())
+                // 본 클래스가 적재한 사유들 — 최소 한 건 이상 포함되어야 함
+                .andExpect(jsonPath("$.data.byRejectReason.CB_REJECT",
+                        org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
+    }
+
+    @Test @Order(51)
+    void stats_과거기간_데이터없음_0건() throws Exception {
+        mockMvc.perform(get("/api/loan-reviews/stats")
+                        .param("from", "19990101").param("to", "19990131"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalCount").value(0))
+                .andExpect(jsonPath("$.data.byTypeDecision.length()").value(0))
+                .andExpect(jsonPath("$.data.byStatus.length()").value(0))
+                .andExpect(jsonPath("$.data.byRejectReason.length()").value(0));
+    }
+
+    @Test @Order(52)
+    void stats_날짜형식_오류_400() throws Exception {
+        mockMvc.perform(get("/api/loan-reviews/stats")
+                        .param("from", "2026-05-01").param("to", "2026-05-21"))
                 .andExpect(status().isBadRequest());
     }
 
