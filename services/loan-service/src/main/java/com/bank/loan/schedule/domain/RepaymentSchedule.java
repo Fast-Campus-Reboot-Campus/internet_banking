@@ -33,10 +33,11 @@ import lombok.NoArgsConstructor;
 @Builder
 public class RepaymentSchedule extends BaseEntity {
 
-    public static final String STATUS_DUE        = "DUE";
-    public static final String STATUS_PAID       = "PAID";
-    public static final String STATUS_OVERDUE    = "OVERDUE";
-    public static final String STATUS_SUPERSEDED = "SUPERSEDED";
+    public static final String STATUS_DUE          = "DUE";
+    public static final String STATUS_PAID         = "PAID";
+    public static final String STATUS_OVERDUE      = "OVERDUE";
+    public static final String STATUS_SUPERSEDED   = "SUPERSEDED";
+    public static final String STATUS_PARTIAL_PAID = "PARTIAL_PAID";
 
     public static final String VERSION_INITIAL = "V1";
 
@@ -100,6 +101,18 @@ public class RepaymentSchedule extends BaseEntity {
     /** PAID 회차를 DUE 로 되돌림 (역분개). 다른 상태에서는 호출자에서 차단. */
     public void markDue() {
         this.rschStatusCd = STATUS_DUE;
+    }
+
+    /** 부분상환으로 회차가 일부 납부된 상태. DUE/OVERDUE → PARTIAL_PAID. 다른 상태는 호출자에서 차단. */
+    public void markPartialPaid() {
+        this.rschStatusCd = STATUS_PARTIAL_PAID;
+    }
+
+    /** 부분상환 추가 호출 가능 여부 — DUE / OVERDUE / PARTIAL_PAID 에서만 허용. */
+    public boolean isPartialPayable() {
+        return STATUS_DUE.equals(rschStatusCd)
+                || STATUS_OVERDUE.equals(rschStatusCd)
+                || STATUS_PARTIAL_PAID.equals(rschStatusCd);
     }
 
     public boolean isOverdue() {

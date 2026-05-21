@@ -30,7 +30,8 @@ public class RepaymentController {
     @Operation(summary = "회차 상환",
             description = "지정된 회차(installmentNo)의 예정 금액을 정확히 상환한다. Idempotency-Key 헤더 권장. " +
                           "중도상환은 POST /api/loan-contracts/{cntrId}/prepayments, " +
-                          "역분개는 POST /api/loan-contracts/{cntrId}/repayments/{rtxId}/reversal 사용. 부분상환은 미지원.")
+                          "부분상환은 POST /api/loan-contracts/{cntrId}/repayments/partial, " +
+                          "역분개는 POST /api/loan-contracts/{cntrId}/repayments/{rtxId}/reversal 사용.")
     @PostMapping
     public ResponseEntity<ApiResponse<RepaymentTransactionResponse>> repay(
             @PathVariable Long cntrId,

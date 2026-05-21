@@ -54,4 +54,19 @@ public interface RepaymentTransactionRepository extends JpaRepository<RepaymentT
                and t.deletedAt is null
             """)
     long sumEarlyPrincipal(@Param("cntrId") Long cntrId);
+
+    /**
+     * 회차당 누적 납부합 — SCHEDULED + PARTIAL SUCCESS 이고 reversal_yn='N' 인 row 의 total_amount 합.
+     * 부분상환 잔액 검증과 PAID 자동 전이에 사용.
+     */
+    @Query("""
+            select coalesce(sum(t.totalAmount), 0)
+              from RepaymentTransaction t
+             where t.rschId = :rschId
+               and t.rtxTypeCd in ('SCHEDULED','PARTIAL')
+               and t.rtxStatusCd = 'SUCCESS'
+               and t.reversalYn = 'N'
+               and t.deletedAt is null
+            """)
+    long sumPaidByRschId(@Param("rschId") Long rschId);
 }

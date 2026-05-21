@@ -37,8 +37,9 @@ public class RepaymentTransaction extends BaseEntity {
     public static final String STATUS_FAILED    = "FAILED";
 
     public static final String TYPE_SCHEDULED   = "SCHEDULED";   // 예정 회차 정확액
-    public static final String TYPE_EARLY       = "EARLY";       // 중도상환 (후속)
-    public static final String TYPE_REVERSAL    = "REVERSAL";    // 역분개 (후속)
+    public static final String TYPE_PARTIAL     = "PARTIAL";     // 회차 부분상환
+    public static final String TYPE_EARLY       = "EARLY";       // 중도상환
+    public static final String TYPE_REVERSAL    = "REVERSAL";    // 역분개
 
     public static final String YN_N = "N";
     public static final String YN_Y = "Y";
