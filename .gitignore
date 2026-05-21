@@ -23,6 +23,7 @@ Thumbs.db
 .env
 .env.local
 *.local
+.venv/
 
 # Logs
 *.log
@@ -31,6 +32,10 @@ logs/
 # Java
 *.class
 hs_err_pid*
+
+# Python
+__pycache__/
+*.py[cod]
 
 # Docker volumes (compose local 데이터)
 data/

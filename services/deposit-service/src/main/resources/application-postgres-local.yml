@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/deposit_postman
-    username: deposit
-    password: deposit
+    url: jdbc:postgresql://${DEPOSIT_DB_HOST:localhost}:${DEPOSIT_DB_PORT:5433}/${DEPOSIT_DB_NAME:deposit_db}
+    username: ${DEPOSIT_DB_USER:deposit}
+    password: ${DEPOSIT_DB_PASSWORD:deposit}
     driver-class-name: org.postgresql.Driver
 
   flyway:
