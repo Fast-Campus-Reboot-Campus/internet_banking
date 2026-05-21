@@ -16,22 +16,37 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * 상환 거래 역분개(Reversal) 서비스 — TYPE_REVERSAL.
  *
- * 처리 절차:
+ * 공통 절차:
  *   1) 멱등성 키 검사 — 동일 키 재호출 시 기존 reversal row 반환
  *   2) 대상 tx 조회 (cntrId 일치 + SUCCESS + reversalYn=N)
- *   3) 본 단계 지원 범위: rtxTypeCd = SCHEDULED 만 허용 (EARLY 역분개는 스케줄 V 재되돌리기가
- *      필요해 별도 작업으로 분리). 그 외 LOAN_096.
- *   4) 이미 활성 reversal 이 존재하면 LOAN_097.
- *   5) 새 RepaymentTransaction row (TYPE_REVERSAL, reversal_yn=Y, reversal_target_rtx_id=원본).
+ *   3) 중복 reversal 차단 (LOAN_097)
+ *   4) 새 RepaymentTransaction row (TYPE_REVERSAL, reversal_yn=Y, reversal_target_rtx_id=원본)
  *      금액은 원본과 동일 양수 — 회계 반대분개(common_transaction) 는 본 단계 외.
- *   6) 대응 RepaymentSchedule (PAID) 가 있으면 DUE 로 되돌리고 status_history append.
- *      EARLY 원본은 rschId 가 null 이라 단계 3 에서 이미 차단.
  *
- * 정정의 정정(역분개의 역분개) 는 미지원 — 동일 원본에 활성 reversal 이 한 건이라도 있으면 LOAN_097.
+ * 타입별 분기:
+ *
+ *   [SCHEDULED]
+ *     대응 RepaymentSchedule (PAID) 를 DUE 로 되돌리고 status_history append.
+ *
+ *   [EARLY]
+ *     스케줄 V 되돌리기 — V_new (현재 max) 의 회차들을 SUPERSEDED, V_prev 회차들을 DUE 부활.
+ *     제약 (LOAN_099 — 위반 시 차단):
+ *       - 대상 EARLY 이후 같은 계약에 또 다른 EARLY 가 없어야 함 (V 추론 깨짐 방지)
+ *       - V_new 회차 전체가 DUE/OVERDUE 상태여야 함 (PAID/PARTIAL_PAID 가 있으면 V_prev 부활 시 충돌)
+ *       - V_prev 가 존재해야 함 (즉 V_new = V2 이상)
+ *     단순화 가정:
+ *       - 금리변경(RateChange) 으로 EARLY 이후 또 다른 V 가 만들어진 경우도 위 제약(V_new 회차 모두 활성)
+ *         으로 사실상 차단된다 — 금리변경은 SUPERSEDED 가 아닌 새 V_new+1 을 만들어 V_new 회차가 SUPERSEDED 되기 때문.
+ *
+ *   [PARTIAL / REVERSAL]
+ *     본 단계 미지원 (LOAN_096).
+ *
+ * 정정의 정정(역분개의 역분개) 는 미지원.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,6 +55,7 @@ public class ReversalService {
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_TABLE_CD = "REPAYMENT_SCHEDULE";
     private static final String REASON_REVERSED = "REPAYMENT_REVERSED";
+    private static final String REASON_PREPAY_REVERSED = "PREPAY_REVERSED";
     private static final String DEFAULT_CHANNEL = "MANUAL";
 
     private final RepaymentTransactionRepository txRepository;
@@ -75,41 +91,24 @@ public class ReversalService {
                     "target is itself a reversal row");
         }
 
-        // 3) SCHEDULED 만 허용 (본 단계)
-        if (!RepaymentTransaction.TYPE_SCHEDULED.equals(target.getRtxTypeCd())) {
-            throw new BusinessException(LoanErrorCode.LOAN_096,
-                    "type=" + target.getRtxTypeCd() + " (only SCHEDULED supported)");
-        }
-
-        // 4) 중복 reversal 차단
+        // 3) 중복 reversal 차단
         if (txRepository.existsActiveReversal(target.getRtxId())) {
             throw new BusinessException(LoanErrorCode.LOAN_097);
         }
 
-        OffsetDateTime now = OffsetDateTime.now();
+        // 4) 타입 분기
+        return switch (target.getRtxTypeCd()) {
+            case RepaymentTransaction.TYPE_SCHEDULED -> reverseScheduled(target, req, idempotencyKey);
+            case RepaymentTransaction.TYPE_EARLY     -> reverseEarly(target, req, idempotencyKey);
+            default -> throw new BusinessException(LoanErrorCode.LOAN_096,
+                    "type=" + target.getRtxTypeCd() + " (only SCHEDULED / EARLY supported)");
+        };
+    }
 
-        // 5) 새 reversal row
-        RepaymentTransaction reversal = txRepository.save(RepaymentTransaction.builder()
-                .cntrId(cntrId)
-                .rschId(target.getRschId())
-                .rtxTypeCd(RepaymentTransaction.TYPE_REVERSAL)
-                .totalAmount(target.getTotalAmount())
-                .principalAmount(target.getPrincipalAmount())
-                .interestAmount(target.getInterestAmount())
-                .overdueInterestAmount(target.getOverdueInterestAmount())
-                .feeAmount(target.getFeeAmount())
-                .currencyCd(target.getCurrencyCd())
-                .channelCd(DEFAULT_CHANNEL)
-                .rtxStatusCd(RepaymentTransaction.STATUS_SUCCESS)
-                .paidAt(now)
-                .valueDate(null)
-                .balanceAfter(null)
-                .idempotencyKey(idempotencyKey)
-                .reversalYn(RepaymentTransaction.YN_Y)
-                .reversalTargetRtxId(target.getRtxId())
-                .build());
+    private ReversalResponse reverseScheduled(RepaymentTransaction target, ReverseRepaymentRequest req,
+                                              String idempotencyKey) {
+        RepaymentTransaction reversal = saveReversalRow(target, idempotencyKey);
 
-        // 6) 대응 스케줄 되돌림 (SCHEDULED 는 rschId 보장)
         Long restoredRschId = null;
         if (target.getRschId() != null) {
             RepaymentSchedule schedule = scheduleRepository.findById(target.getRschId())
@@ -130,7 +129,123 @@ public class ReversalService {
                 restoredRschId = schedule.getRschId();
             }
         }
-
         return ReversalResponse.of(reversal, restoredRschId);
+    }
+
+    private ReversalResponse reverseEarly(RepaymentTransaction target, ReverseRepaymentRequest req,
+                                          String idempotencyKey) {
+        Long cntrId = target.getCntrId();
+
+        // [EARLY-1] 대상 이후 또 다른 EARLY 가 없어야 함
+        if (txRepository.existsLaterEarly(cntrId, target.getRtxId(), target.getPaidAt())) {
+            throw new BusinessException(LoanErrorCode.LOAN_099,
+                    "later EARLY exists after rtxId=" + target.getRtxId());
+        }
+
+        // [EARLY-2] V_new(=max) / V_prev(=max-1) 식별
+        String vNew = scheduleRepository.findMaxVersion(cntrId);
+        if (vNew == null || vNew.isBlank()) {
+            throw new BusinessException(LoanErrorCode.LOAN_099, "no schedule version");
+        }
+        String vPrev = decrementVersion(vNew);
+        if (vPrev == null) {
+            throw new BusinessException(LoanErrorCode.LOAN_099,
+                    "V_prev not derivable from V_new=" + vNew);
+        }
+
+        List<RepaymentSchedule> newRows = scheduleRepository
+                .findByCntrIdAndRschVersionCdAndDeletedAtIsNullOrderByInstallmentNoAsc(cntrId, vNew);
+        if (newRows.isEmpty()) {
+            throw new BusinessException(LoanErrorCode.LOAN_099, "V_new=" + vNew + " has no rows");
+        }
+
+        // [EARLY-3] V_new 회차 전부 DUE/OVERDUE 여야 함
+        for (RepaymentSchedule s : newRows) {
+            String st = s.currentStatus();
+            if (!RepaymentSchedule.STATUS_DUE.equals(st) && !RepaymentSchedule.STATUS_OVERDUE.equals(st)) {
+                throw new BusinessException(LoanErrorCode.LOAN_099,
+                        "V_new=" + vNew + " has non-active schedule: rschId="
+                                + s.getRschId() + ", status=" + st);
+            }
+        }
+
+        // [EARLY-4] V_prev 회차들 — SUPERSEDED 상태여야 부활 의미가 있음
+        List<RepaymentSchedule> prevRows = scheduleRepository
+                .findByCntrIdAndRschVersionCdAndDeletedAtIsNullOrderByInstallmentNoAsc(cntrId, vPrev);
+        if (prevRows.isEmpty()) {
+            throw new BusinessException(LoanErrorCode.LOAN_099, "V_prev=" + vPrev + " has no rows");
+        }
+        List<RepaymentSchedule> toRestore = prevRows.stream()
+                .filter(s -> RepaymentSchedule.STATUS_SUPERSEDED.equals(s.currentStatus()))
+                .toList();
+
+        // 5) 새 reversal row 저장
+        RepaymentTransaction reversal = saveReversalRow(target, idempotencyKey);
+
+        // 6) V_new 회차들 → SUPERSEDED (publish per row)
+        int supersededCount = 0;
+        for (RepaymentSchedule s : newRows) {
+            String before = s.currentStatus();
+            s.markSuperseded();
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_TABLE_CD, s.getRschId(),
+                    before, RepaymentSchedule.STATUS_SUPERSEDED,
+                    REASON_PREPAY_REVERSED,
+                    "reversalRtxId=" + reversal.getRtxId() + ", supersededVersion=" + vNew,
+                    currentActor.currentActorId()
+            ));
+            supersededCount++;
+        }
+
+        // 7) V_prev SUPERSEDED 회차들 → DUE 부활 (publish per row)
+        int restoredCount = 0;
+        for (RepaymentSchedule s : toRestore) {
+            String before = s.currentStatus();
+            s.markDue();
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_TABLE_CD, s.getRschId(),
+                    before, RepaymentSchedule.STATUS_DUE,
+                    REASON_PREPAY_REVERSED,
+                    "reversalRtxId=" + reversal.getRtxId() + ", restoredVersion=" + vPrev,
+                    currentActor.currentActorId()
+            ));
+            restoredCount++;
+        }
+
+        return ReversalResponse.ofEarly(reversal, vNew, supersededCount, vPrev, restoredCount);
+    }
+
+    private RepaymentTransaction saveReversalRow(RepaymentTransaction target, String idempotencyKey) {
+        OffsetDateTime now = OffsetDateTime.now();
+        return txRepository.save(RepaymentTransaction.builder()
+                .cntrId(target.getCntrId())
+                .rschId(target.getRschId())
+                .rtxTypeCd(RepaymentTransaction.TYPE_REVERSAL)
+                .totalAmount(target.getTotalAmount())
+                .principalAmount(target.getPrincipalAmount())
+                .interestAmount(target.getInterestAmount())
+                .overdueInterestAmount(target.getOverdueInterestAmount())
+                .feeAmount(target.getFeeAmount())
+                .currencyCd(target.getCurrencyCd())
+                .channelCd(DEFAULT_CHANNEL)
+                .rtxStatusCd(RepaymentTransaction.STATUS_SUCCESS)
+                .paidAt(now)
+                .valueDate(null)
+                .balanceAfter(null)
+                .idempotencyKey(idempotencyKey)
+                .reversalYn(RepaymentTransaction.YN_Y)
+                .reversalTargetRtxId(target.getRtxId())
+                .build());
+    }
+
+    /** "V1" → null (V0 없음), "V2" → "V1", "V12" → "V11". 파싱 실패 또는 V1 이하면 null. */
+    private String decrementVersion(String current) {
+        if (current == null || current.length() < 2 || current.charAt(0) != 'V') return null;
+        try {
+            int n = Integer.parseInt(current.substring(1));
+            return n <= 1 ? null : "V" + (n - 1);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

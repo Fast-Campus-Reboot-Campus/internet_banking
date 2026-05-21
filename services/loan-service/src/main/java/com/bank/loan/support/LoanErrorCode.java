@@ -85,6 +85,7 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_096(HttpStatus.UNPROCESSABLE_ENTITY, "역분개 대상 조건을 충족하지 않습니다. (SUCCESS + SCHEDULED 필요)"),
     LOAN_097(HttpStatus.CONFLICT,             "이미 역분개된 상환 거래입니다."),
     LOAN_098(HttpStatus.UNPROCESSABLE_ENTITY, "부분상환 금액이 회차 잔액을 초과합니다."),
+    LOAN_099(HttpStatus.UNPROCESSABLE_ENTITY, "EARLY 역분개 사전조건 미충족. (최신 EARLY 만 지원 + V_new 회차 모두 DUE/OVERDUE 필요)"),
 
     LOAN_100(HttpStatus.NOT_FOUND,            "활성 연체 정보가 없습니다."),
 
