@@ -93,7 +93,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // A-2 예금주조회 (수신계좌)
         DepositResponse<HolderInquiryData> holderResp = depositAccountClient.getHolder(receiver);
-        recordCall(piId, "HOLDER_INQUIRY", "deposit", "GET",
+        recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "deposit", "GET",
                 "/api/v1/accounts/" + receiver + "/holder", holderResp.code());
         HolderInquiryData holder = holderResp.data();
         if (Boolean.TRUE.equals(holder.deceasedFlag())) {
@@ -114,7 +114,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // B-2 한도조회 (송신계좌)
         DepositResponse<LimitInquiryData> limitResp = depositBalanceClient.getLimit(sender, null);
-        recordCall(piId, "LIMIT_INQUIRY", "deposit", "GET",
+        recordCall(piId, "LIMIT_CHECK", "deposit", "GET",
                 "/api/v1/limits/" + sender, limitResp.code());
         LimitInquiryData limit = limitResp.data();
         if (needed > limit.perTxLimit()) {
