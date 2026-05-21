@@ -73,6 +73,9 @@ public enum LoanErrorCode implements ErrorCode {
 
     LOAN_090(HttpStatus.NOT_FOUND,            "상환 회차를 찾을 수 없습니다."),
     LOAN_091(HttpStatus.CONFLICT,             "이미 납부되었거나 상환 가능한 상태가 아닌 회차입니다."),
+    LOAN_092(HttpStatus.UNPROCESSABLE_ENTITY, "현재 계약 상태에서는 중도상환이 불가합니다. (ACTIVE 필요)"),
+    LOAN_093(HttpStatus.BAD_REQUEST,          "중도상환 금액이 유효하지 않습니다. (1 이상)"),
+    LOAN_094(HttpStatus.UNPROCESSABLE_ENTITY, "중도상환 금액이 잔여 원금을 초과합니다."),
 
     LOAN_100(HttpStatus.NOT_FOUND,            "활성 연체 정보가 없습니다."),
 

@@ -52,4 +52,20 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
                and s.deletedAt is null
             """)
     boolean existsActiveInstallment(@Param("cntrId") Long cntrId);
+
+    /**
+     * 특정 버전에서 DUE/OVERDUE 인 회차를 installmentNo 오름차순으로 반환.
+     * 중도상환 시 SUPERSEDED 대상 + 다음 버전 재생성 베이스가 된다.
+     */
+    @Query("""
+            select s
+              from RepaymentSchedule s
+             where s.cntrId = :cntrId
+               and s.rschVersionCd = :version
+               and s.rschStatusCd in ('DUE','OVERDUE')
+               and s.deletedAt is null
+             order by s.installmentNo asc
+            """)
+    List<RepaymentSchedule> findActiveByVersion(@Param("cntrId") Long cntrId,
+                                                @Param("version") String rschVersionCd);
 }
