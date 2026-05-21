@@ -250,6 +250,58 @@ public class PaymentTransactionService {
         // 8. 멱등키 완료 (스냅샷 = Outbox payload 재활용)
         idempotencyKeyMapper.updateStatus(command.idempotencyKey(), "COMPLETED", payload);
 
-        return new PaymentResult(piId, pi.getTransactionNo(), "COMPLETED", now);
+        return new PaymentResult(piId, pi.getTransactionNo(), "COMPLETED", null, now);
+    }
+
+    /**
+     * TX-FAIL: 비즈니스 검증 실패(PaymentValidationException) 시 DRAFT→FAILED 확정 트랜잭션.
+     * CHECK 3개 충족: failure_category SET / completed_at SET / next_retry_at·next_timeout_at=NULL(updateStatus XML).
+     * @param pi txStep1 직후 PI (version=0, status=DRAFT)
+     * @param failureCategory INSUFFICIENT_BALANCE / HOLDER_MISMATCH 등 실패 원인 enum
+     * @param failedEventType 상태이력 검증실패 이벤트 (BALANCE_CHECK_FAILED 등)
+     */
+    @Transactional
+    public PaymentResult txStepFail(PaymentInstruction pi, String failureCategory, String failedEventType) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+
+        // 1. DRAFT→FAILED (낙관락: F1은 authorize 미거쳐 version=0 → FAILED version=1)
+        int updated = paymentInstructionMapper.updateStatus(
+                piId, "FAILED", now, failureCategory, pi.getVersion());
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(FAILED): " + piId);
+        }
+
+        // 2. 상태이력 seq2: 검증실패 이벤트 (상태 DRAFT 유지, 원인 기록)
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        int seq2 = (maxSeq == null ? 0 : maxSeq) + 1;
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq2,
+                "DRAFT", "DRAFT", failedEventType, "SYSTEM", now));
+
+        // 3. 상태이력 seq3: PAYMENT_FAILED (DRAFT→FAILED 전이 확정)
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq2 + 1,
+                "DRAFT", "FAILED", "PAYMENT_FAILED", "SYSTEM", now));
+
+        // 4. Outbox (PAYMENT_FAILED, PENDING) — Outbox 워커가 Kafka 발행
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(Map.of(
+                    "paymentInstructionId", piId,
+                    "status", "FAILED",
+                    "failureCategory", failureCategory,
+                    "failedAt", now.toString()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox payload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "PAYMENT_FAILED",
+                "v1", payload, now));
+
+        // 5. 멱등키 FAILED (재시도 시 동일 응답 반환)
+        idempotencyKeyMapper.updateStatus(pi.getIdempotencyKey(), "FAILED", payload);
+
+        return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", failureCategory, now);
     }
 }

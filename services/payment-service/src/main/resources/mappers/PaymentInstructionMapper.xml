@@ -86,11 +86,13 @@
 
     <update id="updateStatus">
         UPDATE payment_instruction
-        SET status             = #{status},
-            completed_at       = #{completedAt},
-            failure_category   = #{failureCategory},
-            version            = version + 1,
-            last_modified_at   = now()
+        SET status            = #{status},
+            completed_at      = #{completedAt},
+            failure_category  = #{failureCategory},
+            next_retry_at     = NULL,
+            next_timeout_at   = NULL,
+            version           = version + 1,
+            last_modified_at  = now()
         WHERE payment_instruction_id = #{paymentInstructionId}
           AND version = #{version}
     </update>

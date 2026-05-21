@@ -53,19 +53,32 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         boolean isIntraBank = isIntraBank(command.receiverBankCode());
         String routingNetworkType = isIntraBank ? "INTERNAL" : "EXTERNAL";
 
+        // TX-1: PI DRAFT INSERT — 실패 시 예외가 PaymentValidationException이 아니므로 try 밖
         PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
 
-        ExternalValidationResult validation = step2_externalValidation(pi, command);
+        try {
+            ExternalValidationResult validation = step2_externalValidation(pi, command);
 
-        txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
+            txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
 
-        // Step 3: 출금(B-3) + 입금(B-4) — 트랜잭션 밖
-        BalanceTxData withdrawResult = step3_withdraw(pi, command);
-        BalanceTxData depositResult = step3b_deposit(pi, command);
+            // Step 3: 출금(B-3) + 입금(B-4) — 트랜잭션 밖
+            BalanceTxData withdrawResult = step3_withdraw(pi, command);
+            BalanceTxData depositResult = step3b_deposit(pi, command);
 
-        // TX-2: 분개 2건 + COMPLETED + Outbox + 멱등키완료
-        return txService.txStep4(pi, withdrawResult, depositResult, command,
-                validation.senderHolderName(), validation.receiverHolderName());
+            // TX-2: 분개 2건 + COMPLETED + Outbox + 멱등키완료
+            return txService.txStep4(pi, withdrawResult, depositResult, command,
+                    validation.senderHolderName(), validation.receiverHolderName());
+        } catch (PaymentValidationException e) {
+            // 비즈니스 거절 → DRAFT→FAILED. 200 OK + status=FAILED 반환 (잔액부족 등은 정상 비즈니스 결과)
+            return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()));
+        }
+    }
+
+    private static String failedEventTypeFor(String failureCategory) {
+        return switch (failureCategory) {
+            case "INSUFFICIENT_BALANCE" -> "BALANCE_CHECK_FAILED";
+            default -> "VALIDATION_FAILED";
+        };
     }
 
     // receiverBankCode == 자행코드(A은행=004, B은행=088) → 자행
@@ -135,16 +148,18 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         // PI receiver_holder_name_snap 박제 — version 변경 없음 (authorize 낙관락 보호)
         txService.updateReceiverHolderSnap(piId, receiverHolderName, receiverHolderInquiryAt);
 
-        // B-1 잔액조회 (송신계좌)
+        // B-1 잔액조회 (송신계좌) — 결과 확인 후 박제 (FAIL/SUCCESS 분기)
         DepositResponse<BalanceInquiryData> balanceResp = depositBalanceClient.getBalance(sender);
-        recordCall(piId, "BALANCE_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/balances/" + sender, balanceResp.code());
         BalanceInquiryData balance = balanceResp.data();
         long needed = command.transferAmount().longValueExact();
         if (balance.availableBalance() < needed) {
+            recordCall(piId, "BALANCE_INQUIRY", "SENDER", "deposit", "GET",
+                    "/api/v1/balances/" + sender, balanceResp.code(), "FAIL");
             throw new PaymentValidationException("INSUFFICIENT_BALANCE",
                     "잔액 부족: 가용 " + balance.availableBalance() + " < 필요 " + needed);
         }
+        recordCall(piId, "BALANCE_INQUIRY", "SENDER", "deposit", "GET",
+                "/api/v1/balances/" + sender, balanceResp.code());
 
         // B-2 한도조회 (송신계좌)
         DepositResponse<LimitInquiryData> limitResp = depositBalanceClient.getLimit(sender, null);
@@ -168,9 +183,16 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
      * 외부호출 박제. call_idempotency_key 형식: {piId}-{callType}-{accountRole}-1
      * accountRole: SENDER / RECEIVER. 동일 callType 2회 호출(A-1/A-2) UNIQUE 충돌 방지.
      * B-1~B-4도 일관 적용 (1회 호출이라 충돌 없으나 형식 통일).
+     * result: "SUCCESS"(기본) 또는 "FAIL"(B-1 잔액부족 등 비즈니스 거절).
      */
     private void recordCall(String piId, String callType, String accountRole,
                             String targetSystem, String httpMethod, String endpointUrl, String responseCode) {
+        recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl, responseCode, "SUCCESS");
+    }
+
+    private void recordCall(String piId, String callType, String accountRole,
+                            String targetSystem, String httpMethod, String endpointUrl,
+                            String responseCode, String result) {
         LocalDateTime now = LocalDateTime.now();
         String callId = idGenerator.nextCallId();
         String callIdemKey = piId + "-" + callType + "-" + accountRole + "-1";
@@ -182,7 +204,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 UUID.randomUUID().toString(),       // requestId: 호출별 고유 UUID
                 "{}", "{}", "",
                 500, now);
-        ec.recordResponse(200, "{}", "{}", responseCode, "SUCCESS", "SUCCESS", 50, now);
+        ec.recordResponse(200, "{}", "{}", responseCode, result, result, 50, now);
         txService.recordExternalCall(ec);
     }
 

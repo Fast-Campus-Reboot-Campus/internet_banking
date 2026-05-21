@@ -53,15 +53,16 @@ public class PaymentController {
         // 오케스트레이션
         PaymentResult result = paymentOrchestrator.processPayment(command);
 
-        // 도메인 출력 → api 출력 매핑
+        // 도메인 출력 → api 출력 매핑 (COMPLETED=null, FAILED=원인코드)
         PaymentResponse response = new PaymentResponse(
                 result.paymentInstructionId(),
                 result.transactionNo(),
                 result.status(),
-                result.completedAt()
+                result.completedAt(),
+                result.failureCategory()
         );
 
-        // 자행 동기 완결 → 200 OK
+        // 자행 동기 완결 → 200 OK (COMPLETED/FAILED 모두 비즈니스 정상결과)
         return ResponseEntity.ok(response);
     }
 }
