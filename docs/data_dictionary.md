@@ -9,41 +9,41 @@
 
 ## 1. 도메인 접두어 (테이블별 한정어)
 
-| 테이블 | 한국어 접두어 | 영문 접두어 |
+| Table Name | Korean Prefix | English Prefix |
 |---|---|---|
-| CODE_MASTER | 코드 | code |
-| STATUS_HISTORY | 상태이력 | sthist |
-| LOAN_PRODUCT | 상품 | prod |
-| BUSINESS_CALENDAR | 영업일 | cal |
-| LOAN_APPLICATION | 대출신청 | appl |
-| LOAN_PRESCREENING | 가심사 | presc |
-| CREDIT_CONSENT | 신용정보동의 | csnt |
-| LOAN_IDENTITY_VERIFICATION | 본인확인 | idv |
-| LOAN_DOCUMENT | 서류 | doc |
-| LOAN_DOCUMENT_OCR | OCR | ocr |
-| GUARANTOR_MASTER | 보증인 | gmst |
-| GUARANTOR_AGREEMENT | 보증계약 | gagr |
-| CREDIT_EVALUATION | 신용평가 | ceval |
-| DSR_CALCULATION | DSR | dsr |
-| LOAN_REVIEW | 심사 | rev |
-| REVIEW_CHECK_LOG | 심사점검 | rchk |
-| LTV_CALCULATION | LTV | ltv |
-| COLLATERAL | 담보 | col |
-| COLLATERAL_EVALUATION | 담보평가 | ceval |
-| LOAN_CONTRACT | 계약 | cntr |
-| REPAYMENT_ACCOUNT | 상환계좌 | racct |
-| LOAN_EXECUTION | 대출실행 | exec |
-| GUARANTEE_INSURANCE | 보증보험 | gins |
-| REPAYMENT_SCHEDULE | 상환스케줄 | rsch |
-| INTEREST_ACCRUAL | 이자발생 | iacc |
-| REPAYMENT_TRANSACTION | 상환거래 | rtx |
-| RATE_CHANGE_HISTORY | 금리변경 | rchg |
-| MATURITY | 만기 | mat |
-| DELINQUENCY | 연체 | dlq |
-| DELINQUENCY_DAILY_SNAPSHOT | 연체일별 | dlqs |
-| CREDIT_INFO_REPORT | 신용정보신고 | crpt |
-| LOAN_CLOSURE | 약정종료 | clos |
-| LOAN_CERTIFICATE | 증명서 | cert |
+| status_history | 상태이력 | sthist |
+| business_calendar | 영업일 | cal |
+| loan_product | 상품 | prod |
+| preferential_rate_policy | 우대금리정책 | policy |
+| loan_application | 대출신청 | appl |
+| loan_prescreening | 가심사 | presc |
+| credit_consent | 신용동의 | csnt |
+| loan_identity_verification | 본인확인 | idv |
+| loan_document | 서류 | doc |
+| loan_document_ocr | OCR | ocr |
+| guarantor_master | 보증인 | gmst |
+| guarantor_agreement | 보증약정 | gagr |
+| collateral | 담보 | col |
+| collateral_evaluation | 담보평가 | coev |
+| ltv_calculation | LTV산출 | ltv |
+| credit_evaluation | 신용평가 | crev |
+| dsr_calculation | DSR산출 | dsr |
+| loan_review | 심사 | rev |
+| review_check_log | 심사점검 | rchk |
+| loan_contract | 계약 | cntr |
+| repayment_account | 상환계좌 | racct |
+| loan_execution | 대출실행 | exec |
+| guarantee_insurance | 보증보험 | gins |
+| repayment_schedule | 상환스케줄 | rsch |
+| interest_accrual | 이자발생 | iacc |
+| repayment_transaction | 상환거래 | rtx |
+| rate_change_history | 금리변경이력 | rchg |
+| maturity | 만기 | mat |
+| delinquency | 연체 | dlq |
+| delinquency_daily_snapshot | 연체일별스냅샷 | dlqs |
+| credit_info_report | 신용정보신고 | crpt |
+| loan_closure | 약정종료 | clos |
+| loan_certificate | 증명서 | cert |
 
 ---
 
@@ -52,12 +52,12 @@
 | 한국어 | 영문 | 비고 |
 |---|---|---|
 | 식별번호 / ID | id | PK 또는 FK |
-| 코드 | cd / code | |
-| 명칭 / 이름 | name / nm | |
+| 코드 | cd | |
+| 명칭 / 이름 | name | |
 | 종류 / 유형 | type | |
-| 상태 | status | 상태는 모두 공통 상태 코드 테이블에 저장한다.|
+| 상태 | status | |
 | 사유 | reason | |
-| 설명 | desc / description | |
+| 설명 | desc | |
 | 비고 | remark | |
 | 결과 | result | |
 | 결정 | decision | |
@@ -81,13 +81,12 @@
 | 대상 | target | |
 | 권한 | scope | |
 | 경로 | path | |
-| 유형 | type | |
 
 ## 3. 시간/일자 단어
 
 | 한국어 | 영문 | 타입 | 설명 |
 |---|---|---|---|
-| 월 | mo | VARCHAR(6)) | 월(month), YYYYMM |
+| 월 | _mo | VARCHAR(6)) | 월(month), YYYYMM |
 | 일자 | date | VARCHAR(8) | 날(day), YYYYMMDD |
 | 일시 | _at | TIMESTAMPTZ(3) | 시점(moment) |
 
@@ -99,19 +98,15 @@
 | IP | client_ip | VARCHAR(45) | IPv4/IPv6 (FDS·중복방지) |
 | 멱등성키 | idempotency_key | VARCHAR(100) | 이중 처리 방지 |
 | 디바이스 | device | VARCHAR | 동의 시점 디바이스 |
-| 콘텐츠해시 | content_hash | VARCHAR(64) | SHA256 |
+| 해시 | _hash | VARCHAR(64) | SHA256 |
 | 멱등성토큰 | consent_token | VARCHAR | 동의 토큰 |
 
 ## 4. 수식어 (Modifier)
 
 | 한국어 | 영문 |
 |---|---|
-| 최초 | first / initial |
-| 최종 | last / final |
-| 신규 | new |
-| 기존 | existing |
 | 현재 | current |
-| 이전 | previous / old |
+| 이전 | previous |
 | 예상 | estimated |
 | 적용 | applied |
 | 승인 | approved |
@@ -136,7 +131,6 @@
 | updated_by | 최종수정자ID | BIGINT |
 | deleted_at | 삭제일시 | TIMESTAMPTZ(3) |
 | deleted_by | 삭제자ID | BIGINT |
-| version | 버전 | INT |
 
 ---
 
@@ -171,7 +165,7 @@ LOAN_CONTRACT 테이블의 total_rate_bps
 ### 삭제 컬럼 (모든 테이블 공통)
 | 컬럼 | 타입 | 의미 |
 |---|---|---|
-| `deleted_at` | TIMESTAMPTZ | NULL = 활성, 값 있음 = 삭제됨 |
+| `deleted_at` | TIMESTAMPTZ(3) | NULL = 활성, 값 있음 = 삭제됨 |
 | `deleted_by` | BIGINT | 삭제 수행자 ID |
 
 ### 판단 기준
