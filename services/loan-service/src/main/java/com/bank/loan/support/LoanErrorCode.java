@@ -28,6 +28,8 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_020(HttpStatus.BAD_REQUEST, "본인확인에 실패했습니다."),
     LOAN_021(HttpStatus.NOT_FOUND,   "본인확인 내역을 찾을 수 없습니다."),
 
+    LOAN_029(HttpStatus.SERVICE_UNAVAILABLE, "외부 신용평가 엔진 일시 장애로 가심사를 수행할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+
     LOAN_030(HttpStatus.NOT_FOUND,   "신용조회 동의 내역을 찾을 수 없습니다."),
     LOAN_031(HttpStatus.CONFLICT,    "이미 철회된 동의입니다."),
 

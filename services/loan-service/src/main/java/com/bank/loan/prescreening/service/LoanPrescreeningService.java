@@ -10,6 +10,7 @@ import com.bank.loan.prescreening.domain.LoanPrescreening;
 import com.bank.loan.prescreening.dto.LoanPrescreeningResponse;
 import com.bank.loan.prescreening.dto.RunPrescreeningRequest;
 import com.bank.loan.prescreening.engine.CreditScoreEngine;
+import com.bank.loan.prescreening.engine.CreditScoreEngineException;
 import com.bank.loan.prescreening.engine.CreditScoreRequest;
 import com.bank.loan.prescreening.engine.CreditScoreResult;
 import com.bank.loan.prescreening.repository.LoanPrescreeningRepository;
@@ -76,7 +77,11 @@ public class LoanPrescreeningService {
         CreditScoreResult engineResult = null;
         String prescResultCd = req.prescResultCd();
         if (prescResultCd == null) {
-            engineResult = creditScoreEngine.evaluate(toEngineRequest(application));
+            try {
+                engineResult = creditScoreEngine.evaluate(toEngineRequest(application));
+            } catch (CreditScoreEngineException e) {
+                throw new BusinessException(LoanErrorCode.LOAN_029, e.getMessage());
+            }
             prescResultCd = engineResult.decision();
         }
 

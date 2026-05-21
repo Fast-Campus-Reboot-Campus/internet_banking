@@ -1,10 +1,13 @@
 package com.bank.loan.creditscore.service;
 
+import com.bank.common.web.BusinessException;
 import com.bank.loan.creditscore.dto.CreditScorePreviewRequest;
 import com.bank.loan.creditscore.dto.CreditScorePreviewResponse;
 import com.bank.loan.prescreening.engine.CreditScoreEngine;
+import com.bank.loan.prescreening.engine.CreditScoreEngineException;
 import com.bank.loan.prescreening.engine.CreditScoreRequest;
 import com.bank.loan.prescreening.engine.CreditScoreResult;
+import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,15 +24,20 @@ public class CreditScorePreviewService {
     private final CreditScoreEngine creditScoreEngine;
 
     public CreditScorePreviewResponse preview(CreditScorePreviewRequest req) {
-        CreditScoreResult result = creditScoreEngine.evaluate(new CreditScoreRequest(
-                req.customerId(),
-                req.loanTypeCd(),
-                req.requestedAmount(),
-                req.requestedPeriodMo(),
-                req.loanPurposeCd(),
-                req.employmentTypeCd(),
-                req.estimatedIncomeAmt()
-        ));
+        CreditScoreResult result;
+        try {
+            result = creditScoreEngine.evaluate(new CreditScoreRequest(
+                    req.customerId(),
+                    req.loanTypeCd(),
+                    req.requestedAmount(),
+                    req.requestedPeriodMo(),
+                    req.loanPurposeCd(),
+                    req.employmentTypeCd(),
+                    req.estimatedIncomeAmt()
+            ));
+        } catch (CreditScoreEngineException e) {
+            throw new BusinessException(LoanErrorCode.LOAN_029, e.getMessage());
+        }
         return CreditScorePreviewResponse.of(result);
     }
 }
