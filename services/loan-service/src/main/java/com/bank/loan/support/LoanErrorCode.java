@@ -31,6 +31,10 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_030(HttpStatus.NOT_FOUND,   "신용조회 동의 내역을 찾을 수 없습니다."),
     LOAN_031(HttpStatus.CONFLICT,    "이미 철회된 동의입니다."),
 
+    LOAN_032(HttpStatus.UNPROCESSABLE_ENTITY, "신용평가 사전조건이 충족되지 않았습니다. (가심사 PASS 필요)"),
+    LOAN_033(HttpStatus.CONFLICT,             "이미 신용평가가 수행되었습니다. (신청당 1건)"),
+    LOAN_034(HttpStatus.NOT_FOUND,            "신용평가 내역을 찾을 수 없습니다."),
+
     LOAN_040(HttpStatus.BAD_REQUEST, "서류 업로드에 실패했습니다."),
     LOAN_041(HttpStatus.NOT_FOUND,   "서류를 찾을 수 없습니다."),
 
