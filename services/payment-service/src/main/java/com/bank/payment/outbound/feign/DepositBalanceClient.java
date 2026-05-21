@@ -5,6 +5,8 @@ import com.bank.payment.outbound.feign.dto.BalanceTxData;
 import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
+import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
+import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,4 +45,10 @@ public interface DepositBalanceClient {
     DepositResponse<BalanceTxData> deposit(
             @RequestHeader("X-Idempotency-Key") String idempotencyKey,
             @RequestBody DepositRequest request);
+
+    // B-5 출금취소 — Saga 보상 호출 (합의서 v1.0 시트13)
+    @PostMapping("/api/v1/balances/withdraw/cancel")
+    DepositResponse<WithdrawCancelData> withdrawCancel(
+            @RequestHeader("X-Idempotency-Key") String idempotencyKey,
+            @RequestBody WithdrawCancelRequest request);
 }

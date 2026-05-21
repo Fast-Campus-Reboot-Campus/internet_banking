@@ -14,8 +14,11 @@ import org.springframework.stereotype.Component;
 public class DepositAccountClientMock implements DepositAccountClient {
 
     // S1 마스터: 이몽룡 12345678901234 / 성춘향 12345678905678
-    private static final String SENDER = "12345678901234";
-    private static final String RECEIVER = "12345678905678";
+    private static final String SENDER           = "12345678901234";
+    private static final String RECEIVER         = "12345678905678";
+
+    // F8 계좌: 홍판서 12345678909999 (B-4 입금 실패 트리거용)
+    private static final String F8_FAIL_RECEIVER = "12345678909999";
 
     @Override
     public DepositResponse<AccountInquiryData> getAccount(String accountNo) {
@@ -27,7 +30,14 @@ public class DepositAccountClientMock implements DepositAccountClient {
 
     @Override
     public DepositResponse<HolderInquiryData> getHolder(String accountNo) {
-        String holder = RECEIVER.equals(accountNo) ? "성춘향" : "이몽룡";
+        String holder;
+        if (F8_FAIL_RECEIVER.equals(accountNo)) {
+            holder = "홍판서";
+        } else if (RECEIVER.equals(accountNo)) {
+            holder = "성춘향";
+        } else {
+            holder = "이몽룡";
+        }
         HolderInquiryData data = new HolderInquiryData(
                 accountNo, holder, "INDIVIDUAL", "CUST-0001", false, 1);
         return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);

@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * 결제 처리의 메인 엔티티. IN/OUT 거래 모두 수용.
  * - V1__create_payment_instruction.sql 정합
  * - 컬럼명세서 v12.2 본문 #1~#36 기반
- * - 상태 전이: DRAFT → AUTHORIZED → SCHEDULED → PROCESSING → CLEARING → ... → COMPLETED/FAILED/CANCELED
+ * - 상태 전이: DRAFT → AUTHORIZED → SCHEDULED → PROCESSING → CLEARING → REVERSING → ... → COMPLETED/FAILED/CANCELED
  * - 비즈니스 메서드는 Stage 5에서 추가 (Stage 4-A는 데이터 구조만)
  */
 @Getter
@@ -163,6 +163,16 @@ public class PaymentInstruction {
         }
         this.status = "COMPLETED";
         this.completedAt = completedAt;
+    }
+
+    // ── AUTHORIZED → REVERSING [보상 전용] ──────────────
+    /** B-3 출금 성공 후 후속 실패(B-4 입금 실패 등). AUTHORIZED → REVERSING (v9 전이매트릭스 Y(외부)) */
+    public void markReversing() {
+        if ("COMPLETED".equals(this.status) || "FAILED".equals(this.status)
+                || "CANCELED".equals(this.status)) {
+            throw new IllegalStateException("종료 상태에서 REVERSING 전이 불가: " + this.status);
+        }
+        this.status = "REVERSING";
     }
 
     // ── → FAILED [공통] ─────────────────────────────────

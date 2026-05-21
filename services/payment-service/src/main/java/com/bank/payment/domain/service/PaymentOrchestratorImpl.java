@@ -1,6 +1,7 @@
 package com.bank.payment.domain.service;
 
 import com.bank.payment.common.IdGenerator;
+import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.common.exception.PaymentValidationException;
 import com.bank.payment.domain.ExternalCall;
 import com.bank.payment.domain.PaymentInstruction;
@@ -13,6 +14,7 @@ import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.HolderInquiryData;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
+import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ import java.util.UUID;
  * P-028 5단계 흐름 구현. 외부호출(Feign)은 여기서 트랜잭션 밖. DB 작업은 PaymentTransactionService 위임.
  *
  * Stage 5-6: 자행 S1 8건 (수신검증 추가).
+ * F8 (다2): B-4 입금실패 → AUTHORIZED→REVERSING→FAILED + B-5 출금취소. 역분개 0건.
  * call_idempotency_key 형식: {piId}-{callType}-{accountRole}-{attemptNo}
  */
 @Service
@@ -56,21 +59,47 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         // TX-1: PI DRAFT INSERT — 실패 시 예외가 PaymentValidationException이 아니므로 try 밖
         PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
 
+        // B-4 실패 보상 경로에서 B-5 target에 넣을 원 B-3 callId 보관
+        WithdrawStepResult withdrawStep = null;
+
         try {
             ExternalValidationResult validation = step2_externalValidation(pi, command);
 
             txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
 
             // Step 3: 출금(B-3) + 입금(B-4) — 트랜잭션 밖
-            BalanceTxData withdrawResult = step3_withdraw(pi, command);
+            withdrawStep = step3_withdraw(pi, command);
             BalanceTxData depositResult = step3b_deposit(pi, command);
 
             // TX-2: 분개 2건 + COMPLETED + Outbox + 멱등키완료
-            return txService.txStep4(pi, withdrawResult, depositResult, command,
+            return txService.txStep4(pi, withdrawStep.txData(), depositResult, command,
                     validation.senderHolderName(), validation.receiverHolderName());
+
         } catch (PaymentValidationException e) {
-            // 비즈니스 거절 → DRAFT→FAILED. 200 OK + status=FAILED 반환 (잔액부족 등은 정상 비즈니스 결과)
+            // 비즈니스 거절 → DRAFT→FAILED. 자금변동 없음(B-3 미도달). 200 OK + status=FAILED
             return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()));
+
+        } catch (DepositInboundFailureException e) {
+            // B-4 입금 실패: B-3 출금은 성공 → 자금변동 발생 → 보상 필수 (P-002)
+            // withdrawStep은 B-3 성공 후 B-4 실패이므로 non-null 보장
+            String piId = pi.getPaymentInstructionId();
+
+            // 이중보상 가드: 이미 FAILED/CANCELED이면 skip (합의서 시트15 1차 방어)
+            PaymentInstruction freshPi = txService.selectById(piId);
+            if ("FAILED".equals(freshPi.getStatus()) || "CANCELED".equals(freshPi.getStatus())) {
+                return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", null);
+            }
+
+            // TX-A: AUTHORIZED→REVERSING + 이력 2건
+            // pi.getVersion()=0 → authorize 후 DB version=1 → txMarkReversing WHERE version=1 → version=2
+            txService.txMarkReversing(pi, pi.getVersion() + 1);
+
+            // B-5: 출금취소 (TX 밖)
+            step3c_withdrawCancel(pi, command, withdrawStep.callId(), withdrawStep.txData());
+
+            // TX-B: REVERSING→FAILED + 이력 2건 + Outbox + 멱등키
+            // WHERE version=2 → version=3
+            return txService.txCompleteReversal(pi, command.idempotencyKey(), pi.getVersion() + 2);
         }
     }
 
@@ -179,37 +208,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         return new ExternalValidationResult(senderHolderName, receiverHolderName);
     }
 
-    /**
-     * 외부호출 박제. call_idempotency_key 형식: {piId}-{callType}-{accountRole}-1
-     * accountRole: SENDER / RECEIVER. 동일 callType 2회 호출(A-1/A-2) UNIQUE 충돌 방지.
-     * B-1~B-4도 일관 적용 (1회 호출이라 충돌 없으나 형식 통일).
-     * result: "SUCCESS"(기본) 또는 "FAIL"(B-1 잔액부족 등 비즈니스 거절).
-     */
-    private void recordCall(String piId, String callType, String accountRole,
-                            String targetSystem, String httpMethod, String endpointUrl, String responseCode) {
-        recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl, responseCode, "SUCCESS");
-    }
-
-    private void recordCall(String piId, String callType, String accountRole,
-                            String targetSystem, String httpMethod, String endpointUrl,
-                            String responseCode, String result) {
-        LocalDateTime now = LocalDateTime.now();
-        String callId = idGenerator.nextCallId();
-        String callIdemKey = piId + "-" + callType + "-" + accountRole + "-1";
-        ExternalCall ec = ExternalCall.of(
-                callId,
-                callIdemKey,
-                piId,
-                callType, targetSystem, endpointUrl, httpMethod,
-                UUID.randomUUID().toString(),       // requestId: 호출별 고유 UUID
-                "{}", "{}", "",
-                500, now);
-        ec.recordResponse(200, "{}", "{}", responseCode, result, result, 50, now);
-        txService.recordExternalCall(ec);
-    }
-
-    // ── Step 3: 출금 (B-3, 트랜잭션 밖) ─────────────────
-    private BalanceTxData step3_withdraw(PaymentInstruction pi, PaymentCommand command) {
+    // ── Step 3: 출금 (B-3, 트랜잭션 밖) ─────────────────────────────────────
+    // WithdrawStepResult: BalanceTxData + callId (B-4 실패 시 B-5 compensation_target_call_id 참조용)
+    private WithdrawStepResult step3_withdraw(PaymentInstruction pi, PaymentCommand command) {
         String piId = pi.getPaymentInstructionId();
         long amount = command.transferAmount().longValueExact();
         String callIdemKey = piId + "-BALANCE_WITHDRAW-SENDER-1";
@@ -221,14 +222,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 command.senderMemo());
 
         DepositResponse<BalanceTxData> resp = depositBalanceClient.withdraw(callIdemKey, request);
-        recordCall(piId, "BALANCE_WITHDRAW", "SENDER", "deposit", "POST",
+        String callId = recordCall(piId, "BALANCE_WITHDRAW", "SENDER", "deposit", "POST",
                 "/api/v1/balances/withdraw", resp.code());
-        return resp.data();
+        return new WithdrawStepResult(resp.data(), callId);
     }
 
-    // ── Step 3b: 입금 (B-4, 트랜잭션 밖, 자행 수신) ──────
-    // ★ 보상 공백: 출금 성공 후 입금 실패 시 출금만 됨 → 보상(REVERSAL_TRANSFER_OUT) 필요.
-    //   S1 mock 항상 성공이라 안 탐. 보상 흐름은 P-026/F8 (Stage 7). 현재 예외 전파.
+    // ── Step 3b: 입금 (B-4, 트랜잭션 밖, 자행 수신) ──────────────────────────
+    // DEP-0000 외 응답 코드 → DepositInboundFailureException (보상 필요 신호, P-002)
     private BalanceTxData step3b_deposit(PaymentInstruction pi, PaymentCommand command) {
         String piId = pi.getPaymentInstructionId();
         long amount = command.transferAmount().longValueExact();
@@ -242,8 +242,81 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 command.receiverMemo());
 
         DepositResponse<BalanceTxData> resp = depositBalanceClient.deposit(callIdemKey, request);
+        boolean success = "DEP-0000".equals(resp.code());
         recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
-                "/api/v1/balances/deposit", resp.code());
+                "/api/v1/balances/deposit", resp.code(), success ? "SUCCESS" : "FAIL");
+        if (!success) {
+            throw new DepositInboundFailureException(resp.code(),
+                    "B-4 입금 실패: " + resp.code() + " / " + resp.message());
+        }
         return resp.data();
+    }
+
+    // ── Step 3c: 출금취소 (B-5, 트랜잭션 밖, F8 보상 전용) ──────────────────
+    // compensation_type=COMPENSATION, compensation_target_call_id=원 B-3 callId
+    private void step3c_withdrawCancel(PaymentInstruction pi, PaymentCommand command,
+                                        String originalWithdrawCallId, BalanceTxData withdrawTxData) {
+        String piId = pi.getPaymentInstructionId();
+        long amount = command.transferAmount().longValueExact();
+        String callIdemKey = piId + "-BALANCE_WITHDRAW_CANCEL-SENDER-1";
+
+        WithdrawCancelRequest request = new WithdrawCancelRequest(
+                withdrawTxData.depositTransactionNo(),  // 원 B-3 deposit common_transaction no
+                command.senderAccountId(),
+                amount,
+                "PAYMENT_FAILED",
+                piId);
+
+        var resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
+        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
+                "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
+                originalWithdrawCallId);  // ← compensation_target_call_id = 원 B-3 callId
+    }
+
+    // ── recordCall 오버로드 ───────────────────────────────────────────────────
+
+    /**
+     * 외부호출 박제 (ORIGINAL). callId 반환 — B-3 callId를 B-5 target에 넣기 위해 필요.
+     * call_idempotency_key 형식: {piId}-{callType}-{accountRole}-1
+     * result: SUCCESS(기본) 또는 FAIL(B-1 잔액부족 등 비즈니스 거절).
+     */
+    private String recordCall(String piId, String callType, String accountRole,
+                              String targetSystem, String httpMethod, String endpointUrl,
+                              String responseCode) {
+        return recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl,
+                responseCode, "SUCCESS");
+    }
+
+    private String recordCall(String piId, String callType, String accountRole,
+                              String targetSystem, String httpMethod, String endpointUrl,
+                              String responseCode, String result) {
+        LocalDateTime now = LocalDateTime.now();
+        String callId = idGenerator.nextCallId();
+        String callIdemKey = piId + "-" + callType + "-" + accountRole + "-1";
+        ExternalCall ec = ExternalCall.of(
+                callId, callIdemKey, piId,
+                callType, targetSystem, endpointUrl, httpMethod,
+                UUID.randomUUID().toString(), "{}", "{}", "",
+                500, now);
+        ec.recordResponse(200, "{}", "{}", responseCode, result, result, 50, now);
+        txService.recordExternalCall(ec);
+        return callId;
+    }
+
+    /** 보상 외부호출 박제. compensation_type=COMPENSATION + compensationTargetCallId 필수 (V4 CHECK). */
+    private String recordCall(String piId, String callType, String accountRole,
+                              String targetSystem, String httpMethod, String endpointUrl,
+                              String responseCode, String result, String compensationTargetCallId) {
+        LocalDateTime now = LocalDateTime.now();
+        String callId = idGenerator.nextCallId();
+        String callIdemKey = piId + "-" + callType + "-" + accountRole + "-1";
+        ExternalCall ec = ExternalCall.ofCompensation(
+                callId, callIdemKey, piId, compensationTargetCallId,
+                callType, targetSystem, endpointUrl, httpMethod,
+                UUID.randomUUID().toString(), "{}", "{}", "",
+                500, now);
+        ec.recordResponse(200, "{}", "{}", responseCode, result, result, 50, now);
+        txService.recordExternalCall(ec);
+        return callId;
     }
 }

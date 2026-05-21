@@ -253,6 +253,86 @@ public class PaymentTransactionService {
         return new PaymentResult(piId, pi.getTransactionNo(), "COMPLETED", null, now);
     }
 
+    /** PI 재조회 — 이중보상 가드용. 보상 진입 직전 현재 상태 확인. */
+    public PaymentInstruction selectById(String paymentInstructionId) {
+        return paymentInstructionMapper.selectById(paymentInstructionId);
+    }
+
+    /**
+     * TX-A (F8 보상): AUTHORIZED→REVERSING 전이 + 이력 2건.
+     * 이력: SYSTEM_FAILURE_DETECTED(원인 감지) + COMPENSATION_STARTED(보상 시작).
+     * @param pi txStep1 직후 PI (version=0). WHERE version = pi.getVersion()+1 (authorize 후 1)
+     * @param version WHERE 조건 버전 (pi.getVersion()+1 = 1, DB version 1→2)
+     */
+    @Transactional
+    public void txMarkReversing(PaymentInstruction pi, Integer version) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+
+        int updated = paymentInstructionMapper.updateStatus(
+                piId, "REVERSING", null, null, version);
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(REVERSING): " + piId);
+        }
+
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        int seq = (maxSeq == null ? 0 : maxSeq) + 1;
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq,
+                "AUTHORIZED", "REVERSING", "SYSTEM_FAILURE_DETECTED", "SYSTEM", now));
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq + 1,
+                "AUTHORIZED", "REVERSING", "COMPENSATION_STARTED", "SYSTEM", now));
+    }
+
+    /**
+     * TX-B (F8 보상): REVERSING→FAILED 확정 + 이력 2건 + Outbox + 멱등키.
+     * ★역분개 0건 (다2 확정 — B-4 입금 자체 안 됐으므로 ledger row 없음).
+     * 이력: COMPENSATION_COMPLETED + PAYMENT_FAILED. REVERSAL_STARTED/COMPLETED 없음.
+     * @param pi txStep1 직후 PI (version=0). WHERE version = pi.getVersion()+2 (txMarkReversing 후 2)
+     * @param idempotencyKey 멱등키 (멱등키 테이블 FAILED 처리용)
+     * @param version WHERE 조건 버전 (pi.getVersion()+2 = 2, DB version 2→3)
+     */
+    @Transactional
+    public PaymentResult txCompleteReversal(PaymentInstruction pi, String idempotencyKey, Integer version) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+
+        // ★역분개 INSERT 없음 (다2: B-4 입금 분개 자체가 없으므로 역분개도 없음, P-026)
+
+        int updated = paymentInstructionMapper.updateStatus(
+                piId, "FAILED", now, "SYSTEM_ERROR", version);
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(FAILED/REVERSAL): " + piId);
+        }
+
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        int seq = (maxSeq == null ? 0 : maxSeq) + 1;
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq,
+                "REVERSING", "FAILED", "COMPENSATION_COMPLETED", "SYSTEM", now));
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq + 1,
+                "REVERSING", "FAILED", "PAYMENT_FAILED", "SYSTEM", now));
+
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(Map.of(
+                    "paymentInstructionId", piId,
+                    "status", "FAILED",
+                    "failureCategory", "SYSTEM_ERROR",
+                    "failedAt", now.toString()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox payload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "PAYMENT_FAILED", "v1", payload, now));
+
+        idempotencyKeyMapper.updateStatus(idempotencyKey, "FAILED", payload);
+
+        return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", now);
+    }
+
     /**
      * TX-FAIL: 비즈니스 검증 실패(PaymentValidationException) 시 DRAFT→FAILED 확정 트랜잭션.
      * CHECK 3개 충족: failure_category SET / completed_at SET / next_retry_at·next_timeout_at=NULL(updateStatus XML).

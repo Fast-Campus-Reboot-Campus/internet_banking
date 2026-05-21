@@ -143,6 +143,37 @@ public class ExternalCall {
                 .build();
     }
 
+    // ── 보상 외부호출 생성 [Saga 보상 전용] ──────────────
+    /**
+     * 보상 외부호출 생성. compensation_type=COMPENSATION + compensation_target_call_id NOT NULL.
+     * V4 chk_external_call_compensation_consistency: COMPENSATION → target NOT NULL 필수.
+     */
+    public static ExternalCall ofCompensation(
+            String callId, String callIdempotencyKey, String paymentInstructionId,
+            String compensationTargetCallId,
+            String callType, String targetSystem, String endpointUrl, String httpMethod,
+            String requestId, String requestHeader, String requestBody, String requestBodyHash,
+            Integer timeoutMs, LocalDateTime requestedAt) {
+        return ExternalCall.builder()
+                .callId(callId)
+                .callIdempotencyKey(callIdempotencyKey)
+                .compensationType("COMPENSATION")
+                .compensationTargetCallId(compensationTargetCallId)
+                .paymentInstructionId(paymentInstructionId)
+                .callType(callType)
+                .targetSystem(targetSystem)
+                .endpointUrl(endpointUrl)
+                .httpMethod(httpMethod)
+                .requestId(requestId)
+                .requestHeader(requestHeader)
+                .requestBody(requestBody)
+                .requestBodyHash(requestBodyHash)
+                .attemptNo(1)
+                .timeoutMs(timeoutMs)
+                .requestedAt(requestedAt)
+                .build();
+    }
+
     // ── 응답 박제 (UPDATE 패턴) [공통] ───────────────────
     /** deposit 응답 수신 후 응답 필드 박제. 합의서 "외부호출 INSERT 후 UPDATE" */
     public void recordResponse(
