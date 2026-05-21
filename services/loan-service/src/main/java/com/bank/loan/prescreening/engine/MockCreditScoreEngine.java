@@ -1,9 +1,13 @@
 package com.bank.loan.prescreening.engine;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
  * {@link CreditScoreEngine} 기본 mock 구현 — 외부 시스템 없이 자체 룰로 응답.
+ *
+ * 활성 조건: {@code loan.credit-score.engine.type} 가 {@code mock} 이거나 미설정(기본).
+ * 운영 환경에서 {@link HttpCreditScoreEngine} 으로 전환하려면 해당 property 를 {@code http} 로 변경.
  *
  * 룰:
  *   1) 소득 미제출/0 이하 → REJECT "INCOME_NOT_PROVIDED"
@@ -13,10 +17,9 @@ import org.springframework.stereotype.Component;
  *        grade = score 매핑 (700+ BBB · 650+ BB · 그 외 B)
  *        pdBps = (1000 - score) × 4 (점수가 높을수록 낮은 부도확률)
  *        estimatedLimitAmt = min(requestedAmount, income × 5)
- *
- * 운영용 구현체(외부 신용정보사 HTTP 어댑터 등)가 도입되면 본 빈은 비활성 프로파일로 빼거나 교체.
  */
 @Component
+@ConditionalOnProperty(name = "loan.credit-score.engine.type", havingValue = "mock", matchIfMissing = true)
 public class MockCreditScoreEngine implements CreditScoreEngine {
 
     public static final String ENGINE_VERSION = "MOCK-v1";
