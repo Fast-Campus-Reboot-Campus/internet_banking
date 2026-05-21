@@ -87,4 +87,27 @@ public class LoanReview extends BaseEntity {
     public boolean isApproved() {
         return DECISION_APPROVED.equals(revDecisionCd);
     }
+
+    /**
+     * 본심사 결정 정정(재심사). 결정·한도·금리·기간·거절사유·메모·심사관·시각을 일괄 갱신한다.
+     * revStatusCd 는 COMPLETED 유지. 변경 이력은 STATUS_HISTORY 와 REVIEW_CHECK_LOG 가 담는다.
+     */
+    public void revise(String revDecisionCd,
+                       Long approvedAmount,
+                       Integer approvedRateBps,
+                       Integer approvedPeriodMo,
+                       String rejectReasonCd,
+                       String revRemark,
+                       Long reviewerId,
+                       OffsetDateTime reviewedAt) {
+        this.revDecisionCd = revDecisionCd;
+        this.approvedAmount = approvedAmount;
+        this.approvedRateBps = approvedRateBps;
+        this.approvedPeriodMo = approvedPeriodMo;
+        this.rejectReasonCd = rejectReasonCd;
+        this.revRemark = revRemark;
+        this.reviewerId = reviewerId;
+        this.reviewedAt = reviewedAt;
+        this.approvedAt = DECISION_APPROVED.equals(revDecisionCd) ? reviewedAt : null;
+    }
 }

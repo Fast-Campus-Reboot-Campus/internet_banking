@@ -19,6 +19,7 @@ import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.domain.ReviewCheckLog;
 import com.bank.loan.review.dto.LoanReviewResponse;
+import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.support.LoanErrorCode;
@@ -53,6 +54,8 @@ public class LoanReviewService {
     private static final String TARGET_APPLICATION = "LOAN_APPLICATION";
     private static final String REASON_REVIEW_APPROVED = "REVIEW_APPROVED";
     private static final String REASON_REVIEW_REJECTED = "REVIEW_REJECTED";
+    private static final String REASON_REVIEW_REVISITED_APPROVED = "REVIEW_REVISITED_APPROVED";
+    private static final String REASON_REVIEW_REVISITED_REJECTED = "REVIEW_REVISITED_REJECTED";
 
     private final LoanReviewRepository repository;
     private final LoanApplicationRepository applicationRepository;
@@ -179,6 +182,110 @@ public class LoanReviewService {
         return repository.findByApplIdAndDeletedAtIsNull(applId)
                 .map(LoanReviewResponse::of)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+    }
+
+    /**
+     * 본심사 결정 정정(재심사). 신청이 APPROVED/REJECTED 상태일 때만 가능 — 약정 진입 후엔 LOAN_044.
+     * 같은 LoanReview row 를 갱신하고, 변경 이력은 status_history 와 ReviewCheckLog 재적재로 보존한다.
+     */
+    @Transactional
+    public LoanReviewResponse revise(Long applId, ReviseReviewRequest req) {
+        LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+
+        LoanReview review = repository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+
+        // 약정 진입(CONTRACTED) 이후엔 정정 불가. APPROVED 또는 REJECTED 만 정정 가능.
+        String applBefore = application.currentStatus();
+        if (!LoanApplication.STATUS_APPROVED.equals(applBefore)
+                && !LoanApplication.STATUS_REJECTED.equals(applBefore)) {
+            throw new BusinessException(LoanErrorCode.LOAN_044,
+                    "current=" + applBefore);
+        }
+
+        boolean approved = LoanReview.DECISION_APPROVED.equals(req.revDecisionCd());
+        OffsetDateTime now = OffsetDateTime.now();
+        Long actorId = currentActor.currentActorId();
+
+        // APPROVED 정정 시 한도/금리/기간 — 입력 우선, 미입력이면 RunReviewRequest 와 동일 규칙으로 산정
+        Long approvedAmount = null;
+        Integer approvedRate = null;
+        Integer approvedPeriod = null;
+        CreditEvaluation ceval = null;
+        LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
+                .orElse(null);
+        if (approved) {
+            ceval = creditEvaluationRepository.findByApplIdAndDeletedAtIsNull(applId).orElse(null);
+            approvedAmount = req.approvedAmount() != null
+                    ? req.approvedAmount()
+                    : determineApprovedAmount(application, ceval, product);
+            approvedRate = req.approvedRateBps() != null
+                    ? req.approvedRateBps()
+                    : (ceval != null && ceval.getEvalRateBps() != null
+                            ? ceval.getEvalRateBps()
+                            : (product != null ? product.getBaseRateBps() : null));
+            approvedPeriod = req.approvedPeriodMo() != null
+                    ? req.approvedPeriodMo()
+                    : application.getRequestedPeriodMo();
+        }
+
+        review.revise(
+                req.revDecisionCd(),
+                approvedAmount, approvedRate, approvedPeriod,
+                approved ? null : req.rejectReasonCd(),
+                req.revRemark(),
+                req.reviewerId(),
+                now
+        );
+
+        logRevisitChecks(review.getRevId(), approved, req);
+
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
+                LoanReview.STATUS_COMPLETED, LoanReview.STATUS_COMPLETED,
+                approved ? REASON_REVIEW_REVISITED_APPROVED : REASON_REVIEW_REVISITED_REJECTED,
+                "revisitReasonCd=" + req.revisitReasonCd()
+                        + (approved
+                                ? ", approvedAmount=" + approvedAmount + ", rateBps=" + approvedRate
+                                : ", rejectReasonCd=" + req.rejectReasonCd()),
+                actorId
+        ));
+
+        String applAfter = approved ? LoanApplication.STATUS_APPROVED : LoanApplication.STATUS_REJECTED;
+        if (!applBefore.equals(applAfter)) {
+            if (approved) {
+                application.markApproved();
+            } else {
+                application.markRejected();
+            }
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_APPLICATION, applId,
+                    applBefore, applAfter,
+                    approved ? REASON_REVIEW_REVISITED_APPROVED : REASON_REVIEW_REVISITED_REJECTED,
+                    "revId=" + review.getRevId()
+                            + ", revisitReasonCd=" + req.revisitReasonCd(),
+                    actorId
+            ));
+        }
+
+        return LoanReviewResponse.of(review);
+    }
+
+    /**
+     * 정정 시점 체크로그 재적재. 자동 5건과 동일한 항목을 다시 기록하되 remark 에 revisit 표시를 남긴다.
+     * 기존 5건은 그대로 두고 누적 — append-only 원칙.
+     */
+    private void logRevisitChecks(Long revId, boolean approved, ReviseReviewRequest req) {
+        Long checkerId = req.reviewerId();
+        String revisitTag = "revisit(" + req.revisitReasonCd() + ")";
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_FINAL_DECISION,
+                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
+                revisitTag + ", decision=" + req.revDecisionCd()
+                        + (approved ? "" : ", rejectReasonCd=" + req.rejectReasonCd()),
+                checkerId);
     }
 
     /**

@@ -46,6 +46,7 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_041(HttpStatus.NOT_FOUND,   "서류를 찾을 수 없습니다."),
     LOAN_042(HttpStatus.NOT_FOUND,            "본심사 내역을 찾을 수 없습니다."),
     LOAN_043(HttpStatus.BAD_REQUEST,          "수동 체크 항목 코드가 유효하지 않습니다. (자동 적재 항목은 직접 추가 불가)"),
+    LOAN_044(HttpStatus.UNPROCESSABLE_ENTITY, "본심사 정정 가능 상태가 아닙니다. (신청 APPROVED/REJECTED 필요, 약정 진입 후 불가)"),
 
     LOAN_045(HttpStatus.NOT_FOUND,            "가심사 내역을 찾을 수 없습니다."),
     LOAN_046(HttpStatus.CONFLICT,             "이미 가심사가 수행되었습니다. (신청당 1건)"),
