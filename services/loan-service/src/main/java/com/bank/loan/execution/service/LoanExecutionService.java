@@ -12,11 +12,13 @@ import com.bank.loan.execution.dto.LoanExecutionResponse;
 import com.bank.loan.execution.repository.LoanExecutionRepository;
 import com.bank.loan.guaranteeinsurance.domain.GuaranteeInsurance;
 import com.bank.loan.guaranteeinsurance.repository.GuaranteeInsuranceRepository;
+import com.bank.loan.notification.event.LoanDisbursedEvent;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
 import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
 import com.bank.loan.schedule.service.RepaymentScheduleService;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +56,7 @@ public class LoanExecutionService {
     private final RepaymentScheduleService repaymentScheduleService;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoanExecutionResponse drawdown(Long cntrId, DrawdownRequest req, String idempotencyKey) {
@@ -122,6 +125,11 @@ public class LoanExecutionService {
                     currentActor.currentActorId()
             ));
             repaymentScheduleService.generateForFirstDrawdown(contract);
+
+            eventPublisher.publishEvent(new LoanDisbursedEvent(
+                    contract.getCntrId(), contract.getCntrNo(),
+                    contract.getCustomerId(), requested
+            ));
         }
 
         long cumul = drawnSoFar + requested;

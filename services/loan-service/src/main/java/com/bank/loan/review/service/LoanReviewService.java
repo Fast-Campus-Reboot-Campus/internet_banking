@@ -12,8 +12,11 @@ import com.bank.loan.creditevaluation.domain.CreditEvaluation;
 import com.bank.loan.creditevaluation.repository.CreditEvaluationRepository;
 import com.bank.loan.dsr.domain.DsrCalculation;
 import com.bank.loan.dsr.repository.DsrCalculationRepository;
+import com.bank.loan.idv.domain.LoanIdentityVerification;
+import com.bank.loan.idv.repository.LoanIdentityVerificationRepository;
 import com.bank.loan.ltv.domain.LtvCalculation;
 import com.bank.loan.ltv.repository.LtvCalculationRepository;
+import com.bank.loan.notification.event.LoanApprovedEvent;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
@@ -27,6 +30,7 @@ import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,9 +86,11 @@ public class LoanReviewService {
     private final DsrCalculationRepository dsrCalculationRepository;
     private final CollateralRepository collateralRepository;
     private final LtvCalculationRepository ltvCalculationRepository;
+    private final LoanIdentityVerificationRepository idvRepository;
     private final ReviewCheckLogger reviewCheckLogger;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoanReviewResponse run(Long applId, RunReviewRequest req) {
@@ -119,7 +125,10 @@ public class LoanReviewService {
                     "dsrStatus=" + dsr.getDsrStatusCd());
         }
 
-        // 사전조건 4: 담보 필수 상품이면 활성 담보별 LTV PASS 검증
+        // 사전조건 4: 본인확인(IDV) PASS — docs/loan_flows.md 본심사 진입 명세
+        requireIdvPass(applId);
+
+        // 사전조건 5: 담보 필수 상품이면 활성 담보별 LTV PASS 검증
         LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
                 .orElse(null);
         if (product != null && product.isCollateralRequired()) {
@@ -189,6 +198,13 @@ public class LoanReviewService {
                 "revId=" + saved.getRevId(),
                 actorId
         ));
+
+        if (approved) {
+            eventPublisher.publishEvent(new LoanApprovedEvent(
+                    applId, saved.getRevId(),
+                    application.getCustomerId(), approvedAmount
+            ));
+        }
 
         return LoanReviewResponse.of(saved);
     }
@@ -407,6 +423,9 @@ public class LoanReviewService {
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
                         "dsr-calculation required"));
 
+        // 사전조건: 본인확인(IDV) PASS — 자동 결정도 동일한 입장
+        requireIdvPass(applId);
+
         LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
                 .orElse(null);
         boolean collateralRequired = product != null && product.isCollateralRequired();
@@ -536,6 +555,19 @@ public class LoanReviewService {
         ));
 
         return LoanReviewResponse.of(review);
+    }
+
+    /**
+     * 본심사 사전조건의 본인확인(IDV) PASS 검증. PASS row 가 한 건이라도 있어야 통과.
+     * docs/loan_flows.md §2.1 의 본심사 진입 명세("본인확인 + 동의 완료") 와 정합.
+     */
+    private void requireIdvPass(Long applId) {
+        boolean ok = idvRepository.existsByApplIdAndIdvResultCdAndDeletedAtIsNull(
+                applId, LoanIdentityVerification.RESULT_PASS);
+        if (!ok) {
+            throw new BusinessException(LoanErrorCode.LOAN_038,
+                    "idv-verification required");
+        }
     }
 
     /**

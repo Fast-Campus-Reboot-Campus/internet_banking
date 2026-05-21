@@ -9,10 +9,12 @@ import com.bank.loan.application.dto.CancelLoanApplicationRequest;
 import com.bank.loan.application.dto.CreateLoanApplicationRequest;
 import com.bank.loan.application.dto.LoanApplicationResponse;
 import com.bank.loan.application.repository.LoanApplicationRepository;
+import com.bank.loan.notification.event.ApplicationSubmittedEvent;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class LoanApplicationService {
     private final ApplicationNumberGenerator applNoGenerator;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoanApplicationResponse create(CreateLoanApplicationRequest req,
@@ -75,6 +78,10 @@ public class LoanApplicationService {
                 null, LoanApplication.STATUS_SUBMITTED,
                 REASON_SUBMITTED, null,
                 currentActor.currentActorId()
+        ));
+
+        eventPublisher.publishEvent(new ApplicationSubmittedEvent(
+                saved.getApplId(), saved.getApplNo(), saved.getCustomerId(), saved.getProdId()
         ));
 
         return LoanApplicationResponse.of(saved);

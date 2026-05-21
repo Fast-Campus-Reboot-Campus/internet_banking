@@ -7,6 +7,7 @@ import com.bank.common.web.BusinessException;
 import com.bank.loan.accrual.repository.InterestAccrualRepository;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
+import com.bank.loan.notification.event.InstallmentPaidEvent;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
 import com.bank.loan.repayment.dto.RepayInstallmentRequest;
 import com.bank.loan.repayment.dto.RepaymentTransactionListResponse;
@@ -16,6 +17,7 @@ import com.bank.loan.schedule.domain.RepaymentSchedule;
 import com.bank.loan.schedule.repository.RepaymentScheduleRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,6 +64,7 @@ public class RepaymentService {
     private final InterestAccrualRepository accrualRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public RepaymentTransactionResponse repayInstallment(Long cntrId, RepayInstallmentRequest req, String idempotencyKey) {
@@ -124,6 +127,12 @@ public class RepaymentService {
                 REASON_INSTALLMENT_PAID,
                 "rtxId=" + saved.getRtxId(),
                 currentActor.currentActorId()
+        ));
+
+        eventPublisher.publishEvent(new InstallmentPaidEvent(
+                saved.getRtxId(), cntrId, schedule.getRschId(),
+                schedule.getInstallmentNo(), saved.getTotalAmount(),
+                saved.getChannelCd()
         ));
 
         return RepaymentTransactionResponse.of(saved);
