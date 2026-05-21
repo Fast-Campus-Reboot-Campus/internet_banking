@@ -144,6 +144,18 @@ public class PaymentTransactionService {
     }
 
     /**
+     * PI 수신예금주명 박제: step2 A-2 수신조회 직후 단독 커밋.
+     * version 컬럼 갱신 없음 — authorize 낙관락(WHERE version=0) 보호.
+     */
+    @Transactional
+    public void updateReceiverHolderSnap(String paymentInstructionId,
+                                         String receiverHolderNameSnap,
+                                         LocalDateTime holderInquiryAt) {
+        paymentInstructionMapper.updateReceiverHolderSnap(
+                paymentInstructionId, receiverHolderNameSnap, holderInquiryAt);
+    }
+
+    /**
      * TX-2 (txStep4): 자행이체 확정 한 트랜잭션 (원자성).
      * PROCESSING 전이(seq3) → 분개 2건(차변=대변) → COMPLETED(seq4) → Outbox → 멱등키완료.
      * @param pi authorize까지 끝난 결제지시 (version은 AUTHORIZED 시점)
@@ -155,7 +167,7 @@ public class PaymentTransactionService {
     @Transactional
     public PaymentResult txStep4(PaymentInstruction pi, BalanceTxData withdrawResult,
                                  BalanceTxData depositResult, PaymentCommand command,
-                                 String senderHolderName) {
+                                 String senderHolderName, String receiverHolderName) {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
         String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -190,7 +202,7 @@ public class PaymentTransactionService {
         // 4. 입금 분개 (수신계좌 CREDIT TRANSFER_IN, 같은 journalNo)
         Ledger in = Ledger.intraTransferIn(
                 idGenerator.nextLedgerId(), piId, command.receiverAccountNo(),
-                journalNo, command.receiverAccountNo(), command.receiverHolderName(),
+                journalNo, command.receiverAccountNo(), receiverHolderName,
                 amount,
                 BigDecimal.valueOf(depositResult.balanceBefore()),
                 BigDecimal.valueOf(depositResult.balanceAfter()),

@@ -95,4 +95,13 @@
           AND version = #{version}
     </update>
 
+    <!-- version 건드리지 않음. step2 A-2 수신조회 직후 단건 박제용. authorize 낙관락에 영향 없음. -->
+    <update id="updateReceiverHolderSnap">
+        UPDATE payment_instruction
+        SET receiver_holder_name_snap = #{receiverHolderNameSnap},
+            holder_inquiry_at         = #{holderInquiryAt},
+            last_modified_at          = now()
+        WHERE payment_instruction_id = #{paymentInstructionId}
+    </update>
+
 </mapper>

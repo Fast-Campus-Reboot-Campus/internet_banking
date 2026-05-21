@@ -16,4 +16,8 @@ public interface PaymentInstructionMapper {
                      @Param("completedAt") LocalDateTime completedAt,
                      @Param("failureCategory") String failureCategory,
                      @Param("version") Integer version);
+
+    void updateReceiverHolderSnap(@Param("paymentInstructionId") String paymentInstructionId,
+                                  @Param("receiverHolderNameSnap") String receiverHolderNameSnap,
+                                  @Param("holderInquiryAt") LocalDateTime holderInquiryAt);
 }
