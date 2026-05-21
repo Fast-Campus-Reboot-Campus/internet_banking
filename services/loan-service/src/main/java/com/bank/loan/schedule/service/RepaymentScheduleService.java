@@ -6,6 +6,7 @@ import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import com.bank.loan.schedule.dto.RepaymentScheduleListResponse;
 import com.bank.loan.schedule.dto.RepaymentScheduleResponse;
+import com.bank.loan.schedule.repository.RepaymentScheduleJdbcBatchInserter;
 import com.bank.loan.schedule.repository.RepaymentScheduleRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -38,11 +39,17 @@ public class RepaymentScheduleService {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final RepaymentScheduleRepository repository;
+    private final RepaymentScheduleJdbcBatchInserter batchInserter;
     private final LoanContractRepository contractRepository;
 
     /**
      * 최초 인출 시점에 호출. 이미 스케줄이 존재하면 멱등 처리 (재호출 시 no-op).
      * 비EQUAL 상환방식은 LOAN_084 throw.
+     *
+     * 회차 행은 JdbcTemplate.batchUpdate 로 한 번에 insert 한다. RepaymentSchedule 은
+     * IDENTITY 채번이라 saveAll() 을 써도 Hibernate 가 batch insert 를 비활성화하고
+     * 회차 수 만큼 개별 insert 가 날아간다 — 인출 레이턴시가 회차 수에 비례.
+     * 호출자는 반환된 엔티티의 ID 를 쓰지 않으므로 batch 후 ID 미할당 상태로 반환한다.
      */
     @Transactional
     public List<RepaymentSchedule> generateForFirstDrawdown(LoanContract contract) {
@@ -83,7 +90,8 @@ public class RepaymentScheduleService {
                     .build());
         }
 
-        return repository.saveAll(toSave);
+        batchInserter.batchInsert(toSave);
+        return toSave;
     }
 
     /**
