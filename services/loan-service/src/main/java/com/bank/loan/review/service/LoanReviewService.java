@@ -19,6 +19,7 @@ import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.domain.ReviewCheckLog;
 import com.bank.loan.review.dto.ConfirmReviewRequest;
+import com.bank.loan.review.dto.ExpirePendingReviewsResponse;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -60,6 +62,7 @@ public class LoanReviewService {
     private static final String REASON_AUTO_RECOMMENDED_APPROVED = "AUTO_RECOMMENDED_APPROVED";
     private static final String REASON_AUTO_RECOMMENDED_REJECTED = "AUTO_RECOMMENDED_REJECTED";
     private static final String REASON_REVIEW_CONFIRMED          = "REVIEW_CONFIRMED";
+    private static final String REASON_REVIEW_EXPIRED            = "AUTO_RECOMMENDATION_EXPIRED";
 
     // 자동 결정 거절 사유 코드
     private static final String REJECT_CB  = "CB_REJECT";
@@ -204,6 +207,37 @@ public class LoanReviewService {
                 .stream()
                 .map(LoanReviewResponse::of)
                 .toList();
+    }
+
+    /**
+     * 자동 권고 만료 배치. olderThanDays 일 이전(reviewedAt 기준) 의 PENDING_APPROVAL 권고를
+     * 일괄 EXPIRED 로 전이하고 status_history 에 이력을 남긴다.
+     *
+     * 신청 상태는 PRESCREENED 그대로 유지 — 만료된 권고는 운영자가 별도 처리(수동 본심사 등) 필요.
+     * 만료된 권고는 confirm 불가 (LOAN_049 가 PENDING_APPROVAL 아님으로 차단).
+     */
+    @Transactional
+    public ExpirePendingReviewsResponse expirePending(int olderThanDays) {
+        OffsetDateTime cutoff = OffsetDateTime.now().minusDays(olderThanDays);
+        Long actorId = currentActor.currentActorId();
+
+        List<LoanReview> targets = repository
+                .findByRevStatusCdAndReviewedAtBeforeAndDeletedAtIsNull(
+                        LoanReview.STATUS_PENDING_APPROVAL, cutoff);
+
+        List<Long> expiredRevIds = new ArrayList<>();
+        for (LoanReview rev : targets) {
+            rev.expire();
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_REVIEW, rev.getRevId(),
+                    LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_EXPIRED,
+                    REASON_REVIEW_EXPIRED,
+                    "cutoffAt=" + cutoff + ", olderThanDays=" + olderThanDays,
+                    actorId
+            ));
+            expiredRevIds.add(rev.getRevId());
+        }
+        return new ExpirePendingReviewsResponse(targets.size(), expiredRevIds, cutoff);
     }
 
     /**

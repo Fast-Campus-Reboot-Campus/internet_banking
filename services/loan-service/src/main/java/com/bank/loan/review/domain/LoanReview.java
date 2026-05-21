@@ -43,6 +43,7 @@ public class LoanReview extends BaseEntity {
 
     public static final String STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
     public static final String STATUS_COMPLETED         = "COMPLETED";
+    public static final String STATUS_EXPIRED           = "EXPIRED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -104,6 +105,14 @@ public class LoanReview extends BaseEntity {
         if (DECISION_APPROVED.equals(revDecisionCd) && approvedAt == null) {
             this.approvedAt = confirmedAt;
         }
+    }
+
+    /**
+     * 자동 권고가 일정 기간 미확정 시 만료 처리. revStatusCd → EXPIRED.
+     * 만료 시각은 status_history 가 보유한다 — 별도 컬럼 없음.
+     */
+    public void expire() {
+        this.revStatusCd = STATUS_EXPIRED;
     }
 
     /**
