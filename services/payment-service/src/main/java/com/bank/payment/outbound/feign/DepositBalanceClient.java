@@ -17,7 +17,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(
     name = "deposit-balance",
     url = "${deposit.balance.url:http://localhost:8082}",
-    configuration = DepositFeignConfig.class
+    configuration = DepositFeignConfig.class,
+    primary = false
 )
 public interface DepositBalanceClient {
 

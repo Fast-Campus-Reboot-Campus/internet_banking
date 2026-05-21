@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 @FeignClient(
     name = "deposit-account",
     url = "${deposit.account.url:http://localhost:8082}",
-    configuration = DepositFeignConfig.class
+    configuration = DepositFeignConfig.class,
+    primary = false
 )
 public interface DepositAccountClient {
 

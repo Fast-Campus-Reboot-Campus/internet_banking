@@ -1,0 +1,8 @@
+# mock 프로파일: deposit 외부호출을 Mock 빈(@Primary)이 가로챔.
+# 실제 deposit 서비스 연결 안 함. 자행이체 e2e 검증용.
+# deposit.account.url / deposit.balance.url은 default 값 유지(Feign 프록시 빈은 뜨지만 Mock이 우선).
+# 이 프로파일에서 별도 오버라이드 불필요 — 마커 + 로깅만.
+
+logging:
+  level:
+    com.bank.payment: DEBUG

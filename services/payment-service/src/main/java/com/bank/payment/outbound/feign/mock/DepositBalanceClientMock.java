@@ -7,10 +7,12 @@ import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Profile("mock")
+@Primary
 @Component
 public class DepositBalanceClientMock implements DepositBalanceClient {
 

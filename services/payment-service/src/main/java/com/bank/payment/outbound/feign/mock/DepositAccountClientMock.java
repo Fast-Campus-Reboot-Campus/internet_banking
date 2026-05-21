@@ -4,10 +4,12 @@ import com.bank.payment.outbound.feign.DepositAccountClient;
 import com.bank.payment.outbound.feign.dto.AccountInquiryData;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.HolderInquiryData;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Profile("mock")
+@Primary
 @Component
 public class DepositAccountClientMock implements DepositAccountClient {
 

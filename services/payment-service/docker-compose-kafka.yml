@@ -243,6 +243,7 @@ services:
       - "${PAYMENT_SERVICE_A_PORT:-8080}:8080"
     environment:
       BANK_CODE: "A"
+      SPRING_PROFILES_ACTIVE: "mock"
       SPRING_DATASOURCE_URL: jdbc:postgresql://payment-db-a:5432/${PAYMENT_DB_A_NAME:-payment_a}
       SPRING_DATASOURCE_USERNAME: ${PAYMENT_DB_A_USER:-payment}
       SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_A_PASSWORD:-payment}
