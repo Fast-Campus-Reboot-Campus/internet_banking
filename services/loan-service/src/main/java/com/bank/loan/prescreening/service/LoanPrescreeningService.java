@@ -9,6 +9,9 @@ import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.prescreening.domain.LoanPrescreening;
 import com.bank.loan.prescreening.dto.LoanPrescreeningResponse;
 import com.bank.loan.prescreening.dto.RunPrescreeningRequest;
+import com.bank.loan.prescreening.engine.CreditScoreEngine;
+import com.bank.loan.prescreening.engine.CreditScoreRequest;
+import com.bank.loan.prescreening.engine.CreditScoreResult;
 import com.bank.loan.prescreening.repository.LoanPrescreeningRepository;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
@@ -22,19 +25,21 @@ import java.time.OffsetDateTime;
 /**
  * 가심사 (Prescreening) 서비스 — flows §1.1, §2.1.
  *
- * 외부 가심사 엔진 stub — 결과(PASS/REJECT) 는 클라이언트 입력.
+ * 외부 신용평가(가심사) 엔진({@link CreditScoreEngine}) 호출로 PASS/REJECT 를 자동 산출.
+ * 클라이언트가 prescResultCd 를 명시 전달하면 운영자 override 로 간주해 엔진 호출 없이 그대로 사용.
  *
  * 흐름:
  *   1) 신청 SUBMITTED 검증 (LOAN_047)
  *   2) 중복 가심사 차단 (LOAN_046, appl_id UNIQUE)
- *   3) PASS:
- *        estimated_limit = req or requestedAmount
- *        estimated_rate  = req or product.baseRateBps
+ *   3) prescResultCd 미입력 → 엔진 호출, decision/score/grade/한도/거절사유/엔진버전 자동 산출
+ *   4) PASS:
+ *        estimated_limit = 입력 ?? 엔진 결과 ?? requestedAmount
+ *        estimated_rate  = 입력 ?? product.baseRateBps  (엔진은 금리 산출 안 함)
  *        신청 → PRESCREENED
- *   4) REJECT:
- *        estimated 값 null, reject_reason_cd 기록
+ *   5) REJECT:
+ *        estimated 값 null, reject_reason_cd = 입력 ?? 엔진 결과
  *        신청 → REJECTED
- *   5) status_history 양쪽 (LOAN_PRESCREENING null→결과, LOAN_APPLICATION SUBMITTED→다음)
+ *   6) status_history 양쪽 (LOAN_PRESCREENING null→결과, LOAN_APPLICATION SUBMITTED→다음)
  */
 @Service
 @RequiredArgsConstructor
@@ -51,6 +56,7 @@ public class LoanPrescreeningService {
     private final LoanProductRepository productRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final CreditScoreEngine creditScoreEngine;
 
     @Transactional
     public LoanPrescreeningResponse run(Long applId, RunPrescreeningRequest req) {
@@ -66,7 +72,15 @@ public class LoanPrescreeningService {
                     "current=" + application.currentStatus());
         }
 
-        boolean pass = LoanPrescreening.RESULT_PASS.equals(req.prescResultCd());
+        // 입력값 우선, 없으면 외부 신용평가 엔진 자동 호출.
+        CreditScoreResult engineResult = null;
+        String prescResultCd = req.prescResultCd();
+        if (prescResultCd == null) {
+            engineResult = creditScoreEngine.evaluate(toEngineRequest(application));
+            prescResultCd = engineResult.decision();
+        }
+
+        boolean pass = LoanPrescreening.RESULT_PASS.equals(prescResultCd);
         OffsetDateTime now = OffsetDateTime.now();
         Long actorId = currentActor.currentActorId();
 
@@ -75,7 +89,9 @@ public class LoanPrescreeningService {
         if (pass) {
             estimatedLimit = req.estimatedLimitAmt() != null
                     ? req.estimatedLimitAmt()
-                    : application.getRequestedAmount();
+                    : (engineResult != null && engineResult.estimatedLimitAmt() != null
+                            ? engineResult.estimatedLimitAmt()
+                            : application.getRequestedAmount());
             estimatedRate = req.estimatedRateBps() != null
                     ? req.estimatedRateBps()
                     : productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
@@ -83,24 +99,38 @@ public class LoanPrescreeningService {
                             .orElse(null);
         }
 
+        Integer estimatedScore = req.estimatedScore() != null
+                ? req.estimatedScore()
+                : (engineResult != null ? engineResult.score() : null);
+        String estimatedGrade = req.estimatedGrade() != null
+                ? req.estimatedGrade()
+                : (engineResult != null ? engineResult.grade() : null);
+        String engineVersion = req.prescEngineVersion() != null
+                ? req.prescEngineVersion()
+                : (engineResult != null ? engineResult.engineVersion() : null);
+        String rejectReasonCd = pass ? null
+                : (req.rejectReasonCd() != null
+                        ? req.rejectReasonCd()
+                        : (engineResult != null ? engineResult.rejectReasonCd() : null));
+
         LoanPrescreening saved = repository.save(LoanPrescreening.builder()
                 .applId(applId)
-                .prescResultCd(req.prescResultCd())
+                .prescResultCd(prescResultCd)
                 .estimatedLimitAmt(estimatedLimit)
                 .estimatedRateBps(estimatedRate)
-                .estimatedGrade(req.estimatedGrade())
-                .estimatedScore(req.estimatedScore())
-                .rejectReasonCd(pass ? null : req.rejectReasonCd())
+                .estimatedGrade(estimatedGrade)
+                .estimatedScore(estimatedScore)
+                .rejectReasonCd(rejectReasonCd)
                 .prescRemark(req.prescRemark())
                 .prescreenedAt(now)
-                .prescEngineVersion(req.prescEngineVersion())
+                .prescEngineVersion(engineVersion)
                 .build());
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_PRESCREENING, saved.getPrescId(),
-                null, req.prescResultCd(),
+                null, prescResultCd,
                 pass ? REASON_PRESCREEN_PASS : REASON_PRESCREEN_REJECT,
-                pass ? null : "rejectReasonCd=" + req.rejectReasonCd(),
+                pass ? null : "rejectReasonCd=" + rejectReasonCd,
                 actorId
         ));
 
@@ -128,5 +158,20 @@ public class LoanPrescreeningService {
         return repository.findByApplIdAndDeletedAtIsNull(applId)
                 .map(LoanPrescreeningResponse::of)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_045));
+    }
+
+    private CreditScoreRequest toEngineRequest(LoanApplication app) {
+        String loanTypeCd = productRepository.findByProdIdAndDeletedAtIsNull(app.getProdId())
+                .map(LoanProduct::getLoanTypeCd)
+                .orElse(null);
+        return new CreditScoreRequest(
+                app.getCustomerId(),
+                loanTypeCd,
+                app.getRequestedAmount(),
+                app.getRequestedPeriodMo(),
+                app.getLoanPurposeCd(),
+                app.getEmploymentTypeCd(),
+                app.getEstimatedIncomeAmt()
+        );
     }
 }
