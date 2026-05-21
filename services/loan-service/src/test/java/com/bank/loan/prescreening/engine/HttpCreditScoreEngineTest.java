@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestTemplate;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -40,7 +42,9 @@ class HttpCreditScoreEngineTest {
         RestTemplate restTemplate = new RestTemplate();
         server = MockRestServiceServer.bindTo(restTemplate).build();
         RestClient.Builder builder = RestClient.builder(restTemplate);
-        engine = new HttpCreditScoreEngine(builder, BASE_URL, API_KEY);
+        // timeout 0 → builder 의 mock factory 유지. backoff 10ms 로 짧게 (테스트 속도).
+        engine = new HttpCreditScoreEngine(builder, BASE_URL, API_KEY,
+                /*connect*/ 0, /*read*/ 0, /*maxAttempts*/ 3, /*backoff*/ 10L);
     }
 
     @Test
@@ -105,7 +109,8 @@ class HttpCreditScoreEngineTest {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer noKeyServer = MockRestServiceServer.bindTo(restTemplate).build();
         RestClient.Builder builder = RestClient.builder(restTemplate);
-        HttpCreditScoreEngine noKeyEngine = new HttpCreditScoreEngine(builder, BASE_URL, "");
+        HttpCreditScoreEngine noKeyEngine = new HttpCreditScoreEngine(builder, BASE_URL, "",
+                0, 0, 3, 10L);
 
         noKeyServer.expect(requestTo(BASE_URL + "/v1/credit-score"))
                 .andExpect(MockRestRequestMatchersHeaderAbsent.headerDoesNotExist("Authorization"))
@@ -119,12 +124,42 @@ class HttpCreditScoreEngineTest {
     }
 
     @Test
-    void 외부_API_5xx_예외_전파() {
-        server.expect(requestTo(BASE_URL + "/v1/credit-score"))
+    void 외부_API_5xx_재시도_3회_후_실패() {
+        // 3번 모두 5xx → CreditScoreEngineException
+        server.expect(ExpectedCount.times(3), requestTo(BASE_URL + "/v1/credit-score"))
                 .andRespond(withServerError());
 
         assertThatThrownBy(() -> engine.evaluate(req(60_000_000L, 30_000_000L, "EMPLOYEE")))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(CreditScoreEngineException.class);
+        server.verify();
+    }
+
+    @Test
+    void 외부_API_4xx_재시도_없이_즉시_실패() {
+        // 4xx 한 번만 — retry 안 함
+        server.expect(ExpectedCount.once(), requestTo(BASE_URL + "/v1/credit-score"))
+                .andRespond(withBadRequest());
+
+        assertThatThrownBy(() -> engine.evaluate(req(60_000_000L, 30_000_000L, "EMPLOYEE")))
+                .isInstanceOf(CreditScoreEngineException.class);
+        server.verify();
+    }
+
+    @Test
+    void 외부_API_5xx_2회_후_3회차_성공() {
+        server.expect(ExpectedCount.times(2), requestTo(BASE_URL + "/v1/credit-score"))
+                .andRespond(withServerError());
+        server.expect(ExpectedCount.once(), requestTo(BASE_URL + "/v1/credit-score"))
+                .andRespond(withSuccess("""
+                        { "decision":"PASS", "score":700, "grade":"BBB", "pdBps":200,
+                          "limitAmount":10000000, "rejectReason":null, "engineVersion":"KCB-2.4" }
+                        """, MediaType.APPLICATION_JSON));
+
+        CreditScoreResult r = engine.evaluate(req(60_000_000L, 30_000_000L, "EMPLOYEE"));
+
+        assertThat(r.isPass()).isTrue();
+        assertThat(r.score()).isEqualTo(700);
+        server.verify();
     }
 
     private CreditScoreRequest req(Long income, Long requested, String emp) {
