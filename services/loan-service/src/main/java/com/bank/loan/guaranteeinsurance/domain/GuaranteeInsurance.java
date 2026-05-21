@@ -91,4 +91,9 @@ public class GuaranteeInsurance extends BaseEntity {
     public void markCanceled() {
         this.ginsStatusCd = STATUS_CANCELED;
     }
+
+    /** 일배치가 호출: ISSUED → EXPIRED (gins_end_date 경과). 다른 상태는 호출자에서 차단. */
+    public void markExpired() {
+        this.ginsStatusCd = STATUS_EXPIRED;
+    }
 }
