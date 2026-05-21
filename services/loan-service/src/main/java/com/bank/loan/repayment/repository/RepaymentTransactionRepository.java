@@ -71,6 +71,21 @@ public interface RepaymentTransactionRepository extends JpaRepository<RepaymentT
     long sumPaidByRschId(@Param("rschId") Long rschId);
 
     /**
+     * 회차당 누적 이자 합 — 같은 조건의 interest_amount 합.
+     * 부분상환 분배 순서 정석(이자 먼저 → 원금) 적용 시 남은 이자 계산에 사용.
+     */
+    @Query("""
+            select coalesce(sum(t.interestAmount), 0)
+              from RepaymentTransaction t
+             where t.rschId = :rschId
+               and t.rtxTypeCd in ('SCHEDULED','PARTIAL')
+               and t.rtxStatusCd = 'SUCCESS'
+               and t.reversalYn = 'N'
+               and t.deletedAt is null
+            """)
+    long sumPaidInterestByRschId(@Param("rschId") Long rschId);
+
+    /**
      * 지정 EARLY 거래 이후 같은 계약에 또 다른 활성 EARLY 가 있는지 확인.
      * EARLY 역분개는 "최신 EARLY 만" 지원하므로, 본 메서드가 true 면 차단해야 한다.
      */

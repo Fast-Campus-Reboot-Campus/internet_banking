@@ -4,6 +4,7 @@ import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
+import com.bank.loan.accrual.repository.InterestAccrualRepository;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.partialrepayment.dto.PartialRepayRequest;
@@ -17,9 +18,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 
 /**
@@ -30,16 +28,19 @@ import java.time.OffsetDateTime;
  *   2) 계약 + 최신 버전 회차 조회. 회차 상태가 DUE/OVERDUE/PARTIAL_PAID 아니면 LOAN_091.
  *   3) cumulative = sumPaidByRschId(rschId), remaining = scheduledTotal - cumulative
  *      amount > remaining 이면 LOAN_098.
- *   4) 비례 분배 (단순화):
- *        principalPortion = round(amount * scheduledPrincipal / scheduledTotal)
- *        interestPortion  = amount - principalPortion
- *      flows §2.2 의 분배 순서(연체이자→이자→원금→수수료) 는 연체·수수료 상황에서 의미.
- *      정상 회차 부분상환은 비례 분배가 직관적 — 회계 정합성은 후속 정밀화.
+ *   4) 분배 — 순차 분배 (flows §2.2 정석: 연체이자 → 정상이자 → 원금 → 수수료).
+ *      본 단계는 연체이자/수수료 0 가정이므로 "이자 먼저 → 원금" 단순화 적용.
+ *        actualInterest = 회차 기간(prev_due_date, due_date] InterestAccrual.daily_interest_amt 합
+ *                         (배치 미실행 시 scheduled_interest 로 fallback)
+ *        paidInterestCumulative = 이 회차에 이미 갚힌 누적 이자
+ *        remainingInterest = max(0, actualInterest - paidInterestCumulative)
+ *        interestPortion = min(amount, remainingInterest)
+ *        principalPortion = amount - interestPortion
  *   5) RepaymentTransaction 신규 row (TYPE_PARTIAL, SUCCESS).
  *   6) cumulative + amount == scheduledTotal 이면 markPaid(), 아니면 markPartialPaid().
  *      회차 status 변경 시에만 status_history publish (PARTIAL_PAID → PARTIAL_PAID 는 발행 안 함).
  *
- * 연체이자 정산·수수료는 본 단계 0. 부분상환 후 잔액을 정확히 매칭하는 호출이면 자동으로 PAID 가 된다.
+ * 연체이자/수수료 본격 처리(분배 순서 1·4단계) 는 본 단계 외 — Delinquency·LoanProduct 정책 연계 후속.
  */
 @Service
 @RequiredArgsConstructor
@@ -50,11 +51,11 @@ public class PartialRepaymentService {
     private static final String REASON_PARTIAL_PAID = "INSTALLMENT_PARTIAL_PAID";
     private static final String REASON_FULLY_PAID   = "INSTALLMENT_PAID";
     private static final String DEFAULT_CHANNEL = "MANUAL";
-    private static final MathContext MC = MathContext.DECIMAL64;
 
     private final RepaymentTransactionRepository txRepository;
     private final RepaymentScheduleRepository scheduleRepository;
     private final LoanContractRepository contractRepository;
+    private final InterestAccrualRepository accrualRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -97,21 +98,12 @@ public class PartialRepaymentService {
                     "amount=" + req.amount() + ", remaining=" + remaining);
         }
 
-        // 4) 비례 분배
-        long principalPortion;
-        long interestPortion;
-        if (schedule.getScheduledTotal() == 0L) {
-            principalPortion = 0L;
-            interestPortion = 0L;
-        } else {
-            principalPortion = BigDecimal.valueOf(req.amount())
-                    .multiply(BigDecimal.valueOf(schedule.getScheduledPrincipal()), MC)
-                    .divide(BigDecimal.valueOf(schedule.getScheduledTotal()), MC)
-                    .setScale(0, RoundingMode.HALF_EVEN)
-                    .longValueExact();
-            if (principalPortion > req.amount()) principalPortion = req.amount();
-            interestPortion = req.amount() - principalPortion;
-        }
+        // 4) 분배 — 이자 먼저 → 원금 (순차)
+        long actualInterest = computeAccruedInterest(contract, schedule);
+        long paidInterestCumulative = txRepository.sumPaidInterestByRschId(schedule.getRschId());
+        long remainingInterest = Math.max(0L, actualInterest - paidInterestCumulative);
+        long interestPortion = Math.min(req.amount(), remainingInterest);
+        long principalPortion = req.amount() - interestPortion;
 
         OffsetDateTime now = OffsetDateTime.now();
         long newCumulative = cumulative + req.amount();
@@ -161,6 +153,30 @@ public class PartialRepaymentService {
         // before == PARTIAL_PAID && !fullyPaid 인 경우는 status 변경 없음 → publish 생략
 
         return PartialRepaymentResponse.of(saved, schedule, newCumulative);
+    }
+
+    /**
+     * 회차 귀속 기간(prev_due_date, due_date] InterestAccrual.daily_interest_amt 합.
+     * 첫 회차는 cntr_start_date 기준, 이전 회차는 같은 버전에서 조회.
+     * accrual 배치가 한 번도 안 돌았으면 scheduled_interest 로 fallback.
+     * (RepaymentService.computeInterestPortion 과 동일 산식)
+     */
+    private long computeAccruedInterest(LoanContract contract, RepaymentSchedule schedule) {
+        String fromExclusive;
+        if (schedule.getInstallmentNo() == 1) {
+            fromExclusive = contract.getCntrStartDate();
+        } else {
+            fromExclusive = scheduleRepository
+                    .findByCntrIdAndInstallmentNoAndRschVersionCdAndDeletedAtIsNull(
+                            schedule.getCntrId(),
+                            schedule.getInstallmentNo() - 1,
+                            schedule.getRschVersionCd())
+                    .map(RepaymentSchedule::getDueDate)
+                    .orElse(contract.getCntrStartDate());
+        }
+        long actual = accrualRepository.sumDailyInterestInRange(
+                schedule.getCntrId(), fromExclusive, schedule.getDueDate());
+        return actual > 0 ? actual : schedule.getScheduledInterest();
     }
 
     private String resolveLatestVersion(Long cntrId) {
