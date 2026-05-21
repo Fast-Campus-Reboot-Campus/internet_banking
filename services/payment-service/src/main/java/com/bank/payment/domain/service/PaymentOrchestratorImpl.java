@@ -8,7 +8,10 @@ import com.bank.payment.outbound.feign.DepositAccountClient;
 import com.bank.payment.outbound.feign.DepositBalanceClient;
 import com.bank.payment.outbound.feign.dto.AccountInquiryData;
 import com.bank.payment.outbound.feign.dto.BalanceInquiryData;
+import com.bank.payment.outbound.feign.dto.BalanceTxData;
+import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
+import com.bank.payment.outbound.feign.dto.WithdrawRequest;
 import com.bank.payment.outbound.feign.dto.HolderInquiryData;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
 import org.springframework.beans.factory.annotation.Value;
@@ -56,8 +59,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
 
-        // TODO Stage 5-4: step3 출금/입금 + txStep4 (분개/COMPLETED/Outbox)
-        throw new UnsupportedOperationException("Stage 5-4: txStep4 미구현");
+        // Step 3: 출금(B-3) + 입금(B-4) — 트랜잭션 밖
+        BalanceTxData withdrawResult = step3_withdraw(pi, command);
+        BalanceTxData depositResult = step3b_deposit(pi, command);
+
+        // TX-2: 분개 2건 + COMPLETED + Outbox + 멱등키완료
+        return txService.txStep4(pi, withdrawResult, depositResult, command);
     }
 
     // receiverBankCode == 자행코드(A은행=004, B은행=088) → 자행
@@ -136,5 +143,44 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 500, now);
         ec.recordResponse(200, "{}", "{}", responseCode, "SUCCESS", "SUCCESS", 50, now);
         txService.recordExternalCall(ec);
+    }
+
+    // ── Step 3: 출금 (B-3, 트랜잭션 밖) ─────────────────
+    private BalanceTxData step3_withdraw(PaymentInstruction pi, PaymentCommand command) {
+        String piId = pi.getPaymentInstructionId();
+        long amount = command.transferAmount().longValueExact();
+
+        WithdrawRequest request = new WithdrawRequest(
+                command.senderAccountId(), amount, "KRW", "TRANSFER_OUT", piId,
+                new WithdrawRequest.Counterparty(
+                        command.receiverBankCode(), command.receiverAccountNo(), command.receiverHolderName()),
+                command.senderMemo());
+        String callIdemKey = "BALANCE_WITHDRAW-" + piId + "-001";
+
+        DepositResponse<BalanceTxData> resp = depositBalanceClient.withdraw(callIdemKey, request);
+        recordCall(piId, "BALANCE_WITHDRAW", "deposit", "POST",
+                "/api/v1/balances/withdraw", resp.code());
+        return resp.data();
+    }
+
+    // ── Step 3b: 입금 (B-4, 트랜잭션 밖, 자행 수신) ──────
+    // ★ 보상 공백: 출금 성공 후 입금 실패 시 출금만 됨 → 보상(REVERSAL_TRANSFER_OUT) 필요.
+    //   S1 mock 항상 성공이라 안 탐. 보상 흐름은 P-026/F8 (Stage 7). 현재 예외 전파.
+    private BalanceTxData step3b_deposit(PaymentInstruction pi, PaymentCommand command) {
+        String piId = pi.getPaymentInstructionId();
+        long amount = command.transferAmount().longValueExact();
+
+        DepositRequest request = new DepositRequest(
+                command.receiverAccountNo(), amount, "KRW", "TRANSFER_IN", piId,
+                new DepositRequest.Counterparty(
+                        command.receiverBankCode(), command.senderAccountId(), command.receiverHolderName(),
+                        command.receiverPassbookSenderDisplay()),
+                command.receiverMemo());
+        String callIdemKey = "BALANCE_DEPOSIT-" + piId + "-001";
+
+        DepositResponse<BalanceTxData> resp = depositBalanceClient.deposit(callIdemKey, request);
+        recordCall(piId, "BALANCE_DEPOSIT", "deposit", "POST",
+                "/api/v1/balances/deposit", resp.code());
+        return resp.data();
     }
 }
