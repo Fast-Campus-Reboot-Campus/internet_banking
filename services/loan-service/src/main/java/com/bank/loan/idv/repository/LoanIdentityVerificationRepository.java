@@ -9,4 +9,6 @@ public interface LoanIdentityVerificationRepository
         extends JpaRepository<LoanIdentityVerification, Long> {
 
     Optional<LoanIdentityVerification> findByIdvIdAndDeletedAtIsNull(Long idvId);
+
+    boolean existsByApplIdAndIdvResultCdAndDeletedAtIsNull(Long applId, String idvResultCd);
 }
