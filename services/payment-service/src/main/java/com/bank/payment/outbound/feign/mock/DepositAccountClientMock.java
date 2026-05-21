@@ -20,6 +20,9 @@ public class DepositAccountClientMock implements DepositAccountClient {
     // F8 계좌: 홍판서 12345678909999 (B-4 입금 실패 트리거용)
     private static final String F8_FAIL_RECEIVER = "12345678909999";
 
+    // F5 계좌: 변학도 88880000 (txStep4 분개 INSERT 실패 트리거용 — deposit까지 성공, 분개에서만 실패)
+    private static final String F5_FAIL_RECEIVER = "88880000";
+
     @Override
     public DepositResponse<AccountInquiryData> getAccount(String accountNo) {
         AccountInquiryData data = new AccountInquiryData(
@@ -33,6 +36,8 @@ public class DepositAccountClientMock implements DepositAccountClient {
         String holder;
         if (F8_FAIL_RECEIVER.equals(accountNo)) {
             holder = "홍판서";
+        } else if (F5_FAIL_RECEIVER.equals(accountNo)) {
+            holder = "변학도";
         } else if (RECEIVER.equals(accountNo)) {
             holder = "성춘향";
         } else {

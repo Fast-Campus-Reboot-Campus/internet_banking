@@ -2,6 +2,7 @@ package com.bank.payment.domain.service;
 
 import com.bank.payment.common.IdGenerator;
 import com.bank.payment.common.exception.DepositInboundFailureException;
+import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.common.exception.PaymentValidationException;
 import com.bank.payment.domain.ExternalCall;
 import com.bank.payment.domain.PaymentInstruction;
@@ -100,6 +101,30 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             // TX-B: REVERSING→FAILED + 이력 2건 + Outbox + 멱등키
             // WHERE version=2 → version=3
             return txService.txCompleteReversal(pi, command.idempotencyKey(), pi.getVersion() + 2);
+
+        } catch (LedgerInsertFailureException e) {
+            // F5: txStep4 분개 INSERT 실패 → txStep4 전체 롤백 → AUTHORIZED v1 복귀 → 보상 필수 (P-002)
+            // B-3 출금·B-4 입금 모두 성공 후 분개만 실패이므로 B-5 출금취소 필수
+            // withdrawStep은 B-3/B-4 모두 성공 후 txStep4 실패이므로 non-null 보장
+            String piId = pi.getPaymentInstructionId();
+
+            // ★version 신선화: txStep4 롤백으로 DB version=1(AUTHORIZED) 복귀.
+            // Java pi.version=0(txStep1 기준)이므로 freshPi로 DB 실제값(1) 확인 후 낙관락 매칭
+            PaymentInstruction freshPi = txService.selectById(piId);
+
+            // 이중보상 가드: 이미 FAILED/CANCELED이면 skip (합의서 시트15 1차 방어)
+            if ("FAILED".equals(freshPi.getStatus()) || "CANCELED".equals(freshPi.getStatus())) {
+                return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", null);
+            }
+
+            // TX-A: AUTHORIZED→REVERSING + 이력 2건 (freshPi.version=1 → WHERE version=1, DB version→2)
+            txService.txMarkReversing(freshPi, freshPi.getVersion());
+
+            // B-5: 출금취소 (TX 밖, compensation_target_call_id=원 B-3 callId)
+            step3c_withdrawCancel(freshPi, command, withdrawStep.callId(), withdrawStep.txData());
+
+            // TX-B: REVERSING→FAILED + 이력 2건 + Outbox + 멱등키 (freshPi.version+1=2 → WHERE version=2, DB version→3)
+            return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
         }
     }
 

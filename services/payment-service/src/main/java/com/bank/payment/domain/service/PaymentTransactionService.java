@@ -2,6 +2,7 @@ package com.bank.payment.domain.service;
 
 import com.bank.payment.common.IdGenerator;
 import com.bank.payment.common.exception.LedgerBalanceMismatchException;
+import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.domain.ExternalCall;
 import com.bank.payment.domain.IdempotencyKey;
 import com.bank.payment.domain.Ledger;
@@ -197,6 +198,13 @@ public class PaymentTransactionService {
                 BigDecimal.valueOf(withdrawResult.balanceAfter()),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "자행이체 출금");
+
+        // [F5 테스트 트리거] receiverAccountNo=88880000 → 분개 INSERT 직전 강제 실패.
+        // 운영 코드 아님. DB 장애로 인한 분개 INSERT 실패 → txStep4 전체 롤백(AUTHORIZED 복귀) → 보상 흐름 검증용.
+        if ("88880000".equals(command.receiverAccountNo())) {
+            throw new LedgerInsertFailureException("F5 테스트: 분개 INSERT 강제 실패 (receiverAccountNo=88880000)");
+        }
+
         ledgerMapper.insert(out);
 
         // 4. 입금 분개 (수신계좌 CREDIT TRANSFER_IN, 같은 journalNo)
