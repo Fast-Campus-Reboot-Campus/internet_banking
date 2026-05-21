@@ -34,6 +34,7 @@ public class LoanApplication extends BaseEntity {
     public static final String STATUS_CONTRACTED  = "CONTRACTED";
     public static final String STATUS_CANCELED    = "CANCELED";
     public static final String STATUS_WITHDRAWN   = "WITHDRAWN";
+    public static final String STATUS_EXPIRED     = "EXPIRED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -130,6 +131,11 @@ public class LoanApplication extends BaseEntity {
     /** 약정 체결 시 LoanContractService 가 호출. */
     public void markContracted() {
         this.applStatusCd = STATUS_CONTRACTED;
+    }
+
+    /** 승인 후 유효기간 경과 시 일배치가 호출. APPROVED → EXPIRED. */
+    public void markExpired() {
+        this.applStatusCd = STATUS_EXPIRED;
     }
 
     public String currentStatus() {
