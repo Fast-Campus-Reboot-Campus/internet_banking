@@ -108,6 +108,11 @@ public class LoanApplication extends BaseEntity {
         return STATUS_SUBMITTED.equals(applStatusCd);
     }
 
+    /** 본심사 가능 상태. 가심사 PASS 후(PRESCREENED) 만 본심사 진행. */
+    public boolean isReviewable() {
+        return STATUS_PRESCREENED.equals(applStatusCd);
+    }
+
     /** 가심사 PASS 시 호출. SUBMITTED → PRESCREENED. */
     public void markPrescreened() {
         this.applStatusCd = STATUS_PRESCREENED;
