@@ -41,6 +41,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * 권고 목록 (pending):
  *   30) GET /api/loan-reviews/pending — 확정 안 된 권고만 포함, 확정된 본심사·수동 본심사 미포함
+ *
+ * 권고 만료 배치 (expire-pending):
+ *   40) cutoff 미해당(olderThanDays=99) → 0건 만료
+ *   41) 강제 만료(olderThanDays=0) → 남은 PENDING 권고 전부 EXPIRED
+ *   42) 만료된 권고 confirm 시도 → 422 LOAN_049
+ *   43) GET pending → 빈 응답 (EXPIRED 미포함)
+ *   44) olderThanDays 음수 → 400
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
@@ -248,6 +255,60 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", dsrFailApplId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(40)
+    void expire_cutoff_미해당_0건() throws Exception {
+        // olderThanDays=99 → cutoff 가 과거 — 현재 권고 어떤 것도 그 이전이 아니므로 0건
+        mockMvc.perform(post("/api/internal/loan-reviews/expire-pending")
+                        .param("olderThanDays", "99"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.processed").value(0))
+                .andExpect(jsonPath("$.data.expiredRevIds.length()").value(0))
+                .andExpect(jsonPath("$.data.cutoffAt").exists());
+    }
+
+    @Test @Order(41)
+    void expire_강제_만료_PENDING_전부_EXPIRED() throws Exception {
+        // olderThanDays=0 → cutoff=now → 모든 reviewedAt 이 cutoff 이전인 PENDING 권고 만료
+        // 이 시점 PENDING: dsrFailApplId, ltvFailApplId 권고 (시나리오 30 이후 그대로)
+        mockMvc.perform(post("/api/internal/loan-reviews/expire-pending")
+                        .param("olderThanDays", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.processed",
+                        org.hamcrest.Matchers.greaterThanOrEqualTo(2)))
+                .andExpect(jsonPath("$.data.cutoffAt").exists());
+    }
+
+    @Test @Order(42)
+    void 만료된_권고_confirm_시도_422() throws Exception {
+        // 시나리오 41 에서 dsrFailApplId 권고 가 EXPIRED 됨
+        mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", dsrFailApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "reviewerId":92001 }
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("LOAN_049"));
+    }
+
+    @Test @Order(43)
+    void GET_pending_EXPIRED_미포함() throws Exception {
+        // 시나리오 41 후 PENDING 잔존 권고 0 (또는 이 클래스 외 PENDING 없음)
+        // — 따라서 본 클래스가 만든 PENDING 권고가 응답에서 사라져 있어야 함
+        mockMvc.perform(get("/api/loan-reviews/pending"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].applId",
+                        not(hasItem(dsrFailApplId.intValue()))))
+                .andExpect(jsonPath("$.data[*].applId",
+                        not(hasItem(ltvFailApplId.intValue()))));
+    }
+
+    @Test @Order(44)
+    void expire_olderThanDays_음수_400() throws Exception {
+        mockMvc.perform(post("/api/internal/loan-reviews/expire-pending")
+                        .param("olderThanDays", "-1"))
                 .andExpect(status().isBadRequest());
     }
 
