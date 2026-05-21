@@ -2,21 +2,26 @@ package com.bank.loan.review.controller;
 
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.review.dto.LoanReviewResponse;
+import com.bank.loan.review.dto.ReviewStatsResponse;
 import com.bank.loan.review.service.LoanReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@Tag(name = "본심사 권고 목록",
-        description = "PendingReview - 자동 결정 권고(PENDING_APPROVAL) 상태로 사람 확정을 기다리는 본심사 풀")
+@Tag(name = "본심사 조회",
+        description = "LoanReview - 권고 목록 / 통계 등 본심사 조회용 endpoint")
 @RestController
 @RequestMapping("/api/loan-reviews")
 @RequiredArgsConstructor
+@Validated
 public class PendingReviewController {
 
     private final LoanReviewService service;
@@ -27,5 +32,15 @@ public class PendingReviewController {
     @GetMapping("/pending")
     public ApiResponse<List<LoanReviewResponse>> listPending() {
         return ApiResponse.ok(service.listPending());
+    }
+
+    @Operation(summary = "본심사 통계",
+            description = "기간(reviewedAt) 내 본심사 row 를 revTypeCd × revDecisionCd, revStatusCd, "
+                    + "rejectReasonCd 별로 집계. 운영 대시보드용. 날짜는 yyyyMMdd, to 는 inclusive.")
+    @GetMapping("/stats")
+    public ApiResponse<ReviewStatsResponse> stats(
+            @RequestParam @Pattern(regexp = "\\d{8}") String from,
+            @RequestParam @Pattern(regexp = "\\d{8}") String to) {
+        return ApiResponse.ok(service.stats(from, to));
     }
 }

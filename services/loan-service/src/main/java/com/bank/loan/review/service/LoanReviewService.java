@@ -21,6 +21,7 @@ import com.bank.loan.review.domain.ReviewCheckLog;
 import com.bank.loan.review.dto.ConfirmReviewRequest;
 import com.bank.loan.review.dto.ExpirePendingReviewsResponse;
 import com.bank.loan.review.dto.LoanReviewResponse;
+import com.bank.loan.review.dto.ReviewStatsResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
@@ -30,8 +31,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 본심사(Underwriting) 서비스 — flows §1.1, §2.1 의 "REVIEWING → APPROVED/REJECTED".
@@ -194,6 +200,38 @@ public class LoanReviewService {
         return repository.findByApplIdAndDeletedAtIsNull(applId)
                 .map(LoanReviewResponse::of)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+    }
+
+    /**
+     * 본심사 결정 통계 — 기간 내 row 를 revTypeCd × revDecisionCd, revStatusCd, rejectReasonCd 로
+     * 집계해 운영 가시성 응답으로 반환한다. 기간은 yyyyMMdd, to 는 inclusive(그 날 23:59:59 까지).
+     */
+    @Transactional(readOnly = true)
+    public ReviewStatsResponse stats(String fromYyyyMMdd, String toYyyyMMdd) {
+        LocalDate fromDate = LocalDate.parse(fromYyyyMMdd, DateTimeFormatter.BASIC_ISO_DATE);
+        LocalDate toDate = LocalDate.parse(toYyyyMMdd, DateTimeFormatter.BASIC_ISO_DATE);
+        OffsetDateTime fromAt = fromDate.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
+        OffsetDateTime toAt = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
+
+        List<LoanReview> rows = repository
+                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanAndDeletedAtIsNull(fromAt, toAt);
+
+        Map<String, Long> byTypeDecision = new LinkedHashMap<>();
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        Map<String, Long> byRejectReason = new LinkedHashMap<>();
+
+        for (LoanReview r : rows) {
+            String typeDec = r.getRevTypeCd() + "_"
+                    + (r.getRevDecisionCd() != null ? r.getRevDecisionCd() : "NONE");
+            byTypeDecision.merge(typeDec, 1L, Long::sum);
+            byStatus.merge(r.getRevStatusCd(), 1L, Long::sum);
+            if (r.getRejectReasonCd() != null) {
+                byRejectReason.merge(r.getRejectReasonCd(), 1L, Long::sum);
+            }
+        }
+
+        return new ReviewStatsResponse(fromYyyyMMdd, toYyyyMMdd, rows.size(),
+                byTypeDecision, byStatus, byRejectReason);
     }
 
     /**
