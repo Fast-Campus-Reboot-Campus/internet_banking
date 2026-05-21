@@ -194,6 +194,19 @@ public class LoanReviewService {
     }
 
     /**
+     * 자동 권고(PENDING_APPROVAL) 상태로 사람 확정을 기다리는 본심사 목록.
+     * 가장 오래 대기한 권고가 위에 오도록 reviewedAt 오름차순으로 반환한다.
+     */
+    @Transactional(readOnly = true)
+    public List<LoanReviewResponse> listPending() {
+        return repository
+                .findByRevStatusCdAndDeletedAtIsNullOrderByReviewedAtAsc(LoanReview.STATUS_PENDING_APPROVAL)
+                .stream()
+                .map(LoanReviewResponse::of)
+                .toList();
+    }
+
+    /**
      * 본심사 결정 정정(재심사). 신청이 APPROVED/REJECTED 상태일 때만 가능 — 약정 진입 후엔 LOAN_044.
      * 같은 LoanReview row 를 갱신하고, 변경 이력은 status_history 와 ReviewCheckLog 재적재로 보존한다.
      */
