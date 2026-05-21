@@ -17,6 +17,7 @@ import com.bank.loan.ltv.repository.LtvCalculationRepository;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
+import com.bank.loan.review.domain.ReviewCheckLog;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
@@ -60,6 +61,7 @@ public class LoanReviewService {
     private final DsrCalculationRepository dsrCalculationRepository;
     private final CollateralRepository collateralRepository;
     private final LtvCalculationRepository ltvCalculationRepository;
+    private final ReviewCheckLogger reviewCheckLogger;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -141,6 +143,8 @@ public class LoanReviewService {
                 .approvedAt(approvedAt)
                 .build());
 
+        logChecks(saved.getRevId(), ceval, dsr, product, approved, req);
+
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
                 null, LoanReview.STATUS_COMPLETED,
@@ -175,6 +179,55 @@ public class LoanReviewService {
         return repository.findByApplIdAndDeletedAtIsNull(applId)
                 .map(LoanReviewResponse::of)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+    }
+
+    /**
+     * 본심사 결정 시점에 사전조건 검증 결과 5건을 REVIEW_CHECK_LOG 에 자동 적재.
+     */
+    private void logChecks(Long revId, CreditEvaluation ceval, DsrCalculation dsr,
+                           LoanProduct product, boolean approved, RunReviewRequest req) {
+        Long checkerId = req.reviewerId();
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_PRESCREEN_PASS,
+                ReviewCheckLog.RESULT_PASS,
+                "application=PRESCREENED",
+                checkerId);
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_CB_DECISION,
+                CreditEvaluation.DECISION_APPROVE.equals(ceval.getCevalDecisionCd())
+                        ? ReviewCheckLog.RESULT_PASS
+                        : ReviewCheckLog.RESULT_REVIEW,
+                "decision=" + ceval.getCevalDecisionCd() + ", engine=" + ceval.getCevalEngine(),
+                checkerId);
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_DSR_CHECK,
+                ReviewCheckLog.RESULT_PASS,
+                "ratioBps=" + dsr.getDsrRatioBps() + ", limit=" + dsr.getDsrLimitBps(),
+                checkerId);
+
+        if (product != null && product.isCollateralRequired()) {
+            reviewCheckLogger.log(revId,
+                    ReviewCheckLog.ITEM_LTV_CHECK,
+                    ReviewCheckLog.RESULT_PASS,
+                    "all active collaterals LTV PASS",
+                    checkerId);
+        } else {
+            reviewCheckLogger.log(revId,
+                    ReviewCheckLog.ITEM_LTV_CHECK,
+                    ReviewCheckLog.RESULT_N_A,
+                    "collateral not required",
+                    checkerId);
+        }
+
+        reviewCheckLogger.log(revId,
+                ReviewCheckLog.ITEM_FINAL_DECISION,
+                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
+                "decision=" + req.revDecisionCd()
+                        + (approved ? "" : ", rejectReasonCd=" + req.rejectReasonCd()),
+                checkerId);
     }
 
     /**
