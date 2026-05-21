@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "special_terms")
+@Table(name = "deposit_special_terms")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

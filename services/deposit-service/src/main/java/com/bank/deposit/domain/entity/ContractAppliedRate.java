@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "contract_applied_rates")
+@Table(name = "deposit_contract_applied_rates")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -27,9 +27,6 @@ public class ContractAppliedRate extends BaseEntity {
 
     @Column(name = "rate_id")
     private Long rateId;
-
-    @Column(name = "condition_name", length = 200)
-    private String conditionName;
 
     @Column(name = "applied_rate", precision = 5, scale = 2, nullable = false)
     private BigDecimal appliedRate;

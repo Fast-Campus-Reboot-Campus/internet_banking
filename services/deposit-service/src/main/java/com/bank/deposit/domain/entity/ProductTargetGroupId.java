@@ -16,7 +16,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class ProductTargetGroupId implements Serializable {
 
-    @Column(name = "product_id")
+    @Column(name = "banking_product_id")
     private Long productId;
 
     @Column(name = "target_group_id")

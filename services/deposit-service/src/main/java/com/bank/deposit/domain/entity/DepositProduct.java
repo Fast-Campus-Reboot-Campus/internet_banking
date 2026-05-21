@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "deposit_products")
+@Table(name = "banking_deposit_products")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -21,7 +21,7 @@ public class DepositProduct extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long depositProductId;
 
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "banking_product_id", nullable = false)
     private Long productId;
 
     @Enumerated(EnumType.STRING)

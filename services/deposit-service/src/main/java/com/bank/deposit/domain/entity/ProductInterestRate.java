@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "product_interest_rates")
+@Table(name = "banking_deposit_product_interest_rates")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -23,7 +23,7 @@ public class ProductInterestRate extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rateId;
 
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "banking_product_id", nullable = false)
     private Long productId;
 
     @Enumerated(EnumType.STRING)

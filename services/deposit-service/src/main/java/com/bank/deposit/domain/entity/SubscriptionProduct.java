@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "subscription_products")
+@Table(name = "deposit_subscription_products")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 public class SubscriptionProduct extends BaseEntity {
 
     @Id
-    @Column(name = "product_id")
+    @Column(name = "banking_product_id")
     private Long productId;
 
     @Column(name = "monthly_payment_amount", precision = 18, scale = 2, nullable = false)

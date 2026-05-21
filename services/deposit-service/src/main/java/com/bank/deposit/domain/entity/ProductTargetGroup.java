@@ -12,7 +12,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "product_target_groups")
+@Table(name = "banking_deposit_product_target_groups")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

@@ -9,7 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "target_groups")
+@Table(name = "deposit_target_groups")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

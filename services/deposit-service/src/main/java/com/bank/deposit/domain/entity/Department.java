@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "departments")
+@Table(name = "deposit_departments")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

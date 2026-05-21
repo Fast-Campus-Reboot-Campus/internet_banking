@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "contracts")
+@Table(name = "deposit_contracts")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -31,7 +31,7 @@ public class Contract extends BaseEntity {
     @Column(name = "customer_id", length = 30, nullable = false)
     private String customerId;
 
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "banking_product_id", nullable = false)
     private Long productId;
 
     @Column(name = "is_monthly_payment", nullable = false)
@@ -41,8 +41,9 @@ public class Contract extends BaseEntity {
     @Column(name = "payment_count_total")
     private Integer paymentCountTotal;
 
-    @Column(name = "monthly_payment_day")
-    private Integer monthlyPaymentDay;
+    /** 월 납입일 (YYYYMMDD 또는 DD 형식 최대 6자리, DB: VARCHAR(6)) */
+    @Column(name = "monthly_payment_day", columnDefinition = "VARCHAR(6)")
+    private String monthlyPaymentDay;
 
     @Column(name = "join_amount", precision = 18, scale = 2, nullable = false)
     private BigDecimal joinAmount;

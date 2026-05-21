@@ -11,11 +11,10 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "subscription_payment_recognition_history")
+@Table(name = "deposit_subscription_payment_recognition_history")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -36,8 +35,9 @@ public class SubscriptionPaymentRecognitionHistory {
     @Column(name = "recognized_amount", precision = 18, scale = 2, nullable = false)
     private BigDecimal recognizedAmount;
 
-    @Column(name = "payment_month", nullable = false)
-    private LocalDate paymentMonth;
+    /** 납입 월 (YYYYMM 형식 6자리 문자열, DB: VARCHAR(6)) */
+    @Column(name = "payment_month", nullable = false, length = 6)
+    private String paymentMonth;
 
     @Column(name = "recognized_at")
     private OffsetDateTime recognizedAt;

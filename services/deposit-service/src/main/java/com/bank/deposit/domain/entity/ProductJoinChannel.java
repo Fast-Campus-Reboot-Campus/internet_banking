@@ -14,7 +14,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@Table(name = "product_join_channels")
+@Table(name = "banking_deposit_product_join_channels")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -24,9 +24,10 @@ public class ProductJoinChannel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "channel_id")
     private Long productJoinChannelId;
 
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "banking_product_id", nullable = false)
     private Long productId;
 
     @Enumerated(EnumType.STRING)

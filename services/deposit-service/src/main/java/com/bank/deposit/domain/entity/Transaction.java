@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "deposit_transactions")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

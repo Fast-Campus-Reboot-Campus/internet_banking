@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "products")
+@Table(name = "deposit_banking_products")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -22,13 +22,14 @@ public class Product extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "banking_product_id")
     private Long productId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "product_type", nullable = false)
+    @Column(name = "deposit_product_type", nullable = false)
     private ProductType productType;
 
-    @Column(name = "product_name", length = 200, nullable = false)
+    @Column(name = "deposit_product_name", length = 200, nullable = false)
     private String productName;
 
     @Column(name = "description", columnDefinition = "TEXT")
@@ -60,9 +61,6 @@ public class Product extends BaseEntity {
     @Builder.Default
     private Boolean isEarlyTerminationAllowed = false;
 
-    @Column(name = "early_termination_rate", precision = 5, scale = 2)
-    private BigDecimal earlyTerminationRate;
-
     @Column(name = "is_tax_benefit_available", nullable = false)
     @Builder.Default
     private Boolean isTaxBenefitAvailable = false;
@@ -82,7 +80,7 @@ public class Product extends BaseEntity {
     private String endedAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "product_status", nullable = false)
+    @Column(name = "deposit_product_status", nullable = false)
     @Builder.Default
     private ProductStatus productStatus = ProductStatus.SELLING;
 
