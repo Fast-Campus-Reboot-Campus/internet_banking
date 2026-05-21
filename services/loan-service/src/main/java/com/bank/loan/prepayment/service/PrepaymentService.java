@@ -19,7 +19,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,7 +43,9 @@ import java.util.List;
  *
  * 단순화 가정 (본 단계):
  *   - 미발생이자(기준일까지 일할 이자) 정산 미고려 — interest_amount = 0
- *   - 중도상환 수수료 미고려 — fee_amount = 0
+ *   - 중도상환 수수료는 EarlyRepaymentFeePolicy 잔여기간 비례 산식. 시스템 디폴트 150bps.
+ *     사용자는 amount 만 입력하고 fee 는 시스템이 산정해 별도 청구한다.
+ *     tx.total_amount = amount + fee, tx.principal_amount = amount, tx.fee_amount = fee.
  *   - 부분상환(회차 일부) 미지원 (별도)
  *   - 역분개 미지원
  *   - EQUAL(원리금균등) 외 상환방식은 LOAN_084 throw
@@ -53,6 +58,7 @@ public class PrepaymentService {
     private static final String TARGET_TABLE_CD = "REPAYMENT_SCHEDULE";
     private static final String REASON_SUPERSEDED_BY_PREPAY = "SUPERSEDED_BY_PREPAY";
     private static final String DEFAULT_CHANNEL = "MANUAL";
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final RepaymentTransactionRepository txRepository;
     private final RepaymentScheduleRepository scheduleRepository;
@@ -103,16 +109,19 @@ public class PrepaymentService {
         long newOutstanding = outstanding - req.amount();
         OffsetDateTime now = OffsetDateTime.now();
 
-        // 4) RepaymentTransaction 신규 row
+        // 4) 수수료 산정 + RepaymentTransaction 신규 row
+        long fee = computeEarlyRepaymentFee(contract, req.amount(), now);
+        long totalAmount = req.amount() + fee;
+
         RepaymentTransaction saved = txRepository.save(RepaymentTransaction.builder()
                 .cntrId(cntrId)
                 .rschId(null)
                 .rtxTypeCd(RepaymentTransaction.TYPE_EARLY)
-                .totalAmount(req.amount())
+                .totalAmount(totalAmount)
                 .principalAmount(req.amount())
                 .interestAmount(0L)
                 .overdueInterestAmount(0L)
-                .feeAmount(0L)
+                .feeAmount(fee)
                 .currencyCd(contract.getCurrencyCd())
                 .channelCd(req.channelCd() == null ? DEFAULT_CHANNEL : req.channelCd())
                 .rtxStatusCd(RepaymentTransaction.STATUS_SUCCESS)
@@ -166,6 +175,20 @@ public class PrepaymentService {
         }
 
         return PrepaymentResponse.of(saved, newOutstanding, active.size(), newVersion, newCount);
+    }
+
+    /**
+     * 중도상환 수수료 산정 — EarlyRepaymentFeePolicy 위임.
+     * 잔여 개월 = max(0, contracted_period_mo - elapsed_months),
+     * elapsed = ChronoUnit.MONTHS.between(cntr_start_date, today).
+     */
+    private long computeEarlyRepaymentFee(LoanContract contract, long amount, OffsetDateTime now) {
+        LocalDate startDate = LocalDate.parse(contract.getCntrStartDate(), DATE);
+        LocalDate today = now.toLocalDate();
+        long elapsedMonths = ChronoUnit.MONTHS.between(startDate, today);
+        int totalMonths = contract.getContractedPeriodMo();
+        int remainingMonths = (int) Math.max(0, totalMonths - elapsedMonths);
+        return EarlyRepaymentFeePolicy.calculate(amount, totalMonths, remainingMonths);
     }
 
     private String currentVersionOrInitial(Long cntrId) {
