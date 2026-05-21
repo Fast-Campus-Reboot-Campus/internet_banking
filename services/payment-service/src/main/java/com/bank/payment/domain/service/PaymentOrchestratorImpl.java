@@ -55,7 +55,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
 
-        step2_externalValidation(pi, command);
+        String senderHolderName = step2_externalValidation(pi, command);
 
         txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
 
@@ -64,7 +64,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         BalanceTxData depositResult = step3b_deposit(pi, command);
 
         // TX-2: 분개 2건 + COMPLETED + Outbox + 멱등키완료
-        return txService.txStep4(pi, withdrawResult, depositResult, command);
+        return txService.txStep4(pi, withdrawResult, depositResult, command, senderHolderName);
     }
 
     // receiverBankCode == 자행코드(A은행=004, B은행=088) → 자행
@@ -73,10 +73,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         return myBankCode.equals(receiverBankCode);
     }
 
-    private void step2_externalValidation(PaymentInstruction pi, PaymentCommand command) {
+    private String step2_externalValidation(PaymentInstruction pi, PaymentCommand command) {
         String piId = pi.getPaymentInstructionId();
         String sender = command.senderAccountId();
-        String receiver = command.receiverAccountNo();
 
         // A-1 계좌조회 (송신계좌)
         DepositResponse<AccountInquiryData> accountResp = depositAccountClient.getAccount(sender);
@@ -91,15 +90,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             throw new PaymentValidationException("FRAUD_REPORTED", "송신계좌 사고신고");
         }
 
-        // A-2 예금주조회 (수신계좌)
-        DepositResponse<HolderInquiryData> holderResp = depositAccountClient.getHolder(receiver);
+        // A-1.5 송신예금주조회 (분개 holder_name_snap 박제용)
+        DepositResponse<HolderInquiryData> senderHolderResp = depositAccountClient.getHolder(sender);
         recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "deposit", "GET",
-                "/api/v1/accounts/" + receiver + "/holder", holderResp.code());
-        HolderInquiryData holder = holderResp.data();
-        if (Boolean.TRUE.equals(holder.deceasedFlag())) {
-            throw new PaymentValidationException("HOLDER_DECEASED", "수신예금주 사망");
-        }
-        // TODO F1: 수신예금주명 매칭 (command.receiverHolderName() vs holder.holderName()) → HOLDER_MISMATCH
+                "/api/v1/accounts/" + sender + "/holder", senderHolderResp.code());
+        String senderHolderName = senderHolderResp.data().holderName();
 
         // B-1 잔액조회 (송신계좌)
         DepositResponse<BalanceInquiryData> balanceResp = depositBalanceClient.getBalance(sender);
@@ -126,6 +121,8 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         if (needed > limit.monthlyRemaining()) {
             throw new PaymentValidationException("MONTHLY_LIMIT_EXCEEDED", "월 한도 초과");
         }
+
+        return senderHolderName;
     }
 
     // S1 단순화: 요청+응답 한 번에 insert. 타임아웃/실패 추적 필요 시 insert→update 분리 (TODO).

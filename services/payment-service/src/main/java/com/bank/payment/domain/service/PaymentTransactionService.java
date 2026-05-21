@@ -85,8 +85,6 @@ public class PaymentTransactionService {
                 .senderAccountNoSnap(command.senderAccountId()) // S1: 계좌ID=계좌번호 단순화
                 .receiverBankCode(command.receiverBankCode())
                 .receiverAccountNo(command.receiverAccountNo())
-                .receiverHolderNameSnap(command.receiverHolderName()) // 입력값 임시 박제 (step2 A-2 응답으로 확정)
-                .holderInquiryAt(now)
                 .isIntraBank(isIntraBank)
                 .routingNetworkType(routingNetworkType)
                 .transferAmount(command.transferAmount())
@@ -156,7 +154,8 @@ public class PaymentTransactionService {
      */
     @Transactional
     public PaymentResult txStep4(PaymentInstruction pi, BalanceTxData withdrawResult,
-                                 BalanceTxData depositResult, PaymentCommand command) {
+                                 BalanceTxData depositResult, PaymentCommand command,
+                                 String senderHolderName) {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
         String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -180,7 +179,7 @@ public class PaymentTransactionService {
         // 3. 출금 분개 (송신계좌 DEBIT TRANSFER_OUT)
         Ledger out = Ledger.intraTransferOut(
                 idGenerator.nextLedgerId(), piId, command.senderAccountId(),
-                journalNo, command.senderAccountId(), null,
+                journalNo, command.senderAccountId(), senderHolderName,
                 amount,
                 BigDecimal.valueOf(withdrawResult.balanceBefore()),
                 BigDecimal.valueOf(withdrawResult.balanceAfter()),
@@ -191,7 +190,7 @@ public class PaymentTransactionService {
         // 4. 입금 분개 (수신계좌 CREDIT TRANSFER_IN, 같은 journalNo)
         Ledger in = Ledger.intraTransferIn(
                 idGenerator.nextLedgerId(), piId, command.receiverAccountNo(),
-                journalNo, command.receiverAccountNo(), null,
+                journalNo, command.receiverAccountNo(), command.receiverHolderName(),
                 amount,
                 BigDecimal.valueOf(depositResult.balanceBefore()),
                 BigDecimal.valueOf(depositResult.balanceAfter()),
