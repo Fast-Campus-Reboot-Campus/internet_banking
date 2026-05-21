@@ -41,7 +41,8 @@ import java.util.List;
  * 금리 갱신·이력 append 만 수행한다.
  *
  * 본 단계: 원리금균등(EQUAL) 만 지원 — LoanProduct 정책 검증은 LoanExecutionService 가 책임.
- * 변경 후 listLatest 가 V1·V2 를 함께 보여주려면 별도 작업 필요 (현재 listLatest 는 V1 한정).
+ * 변경 후 GET /api/loan-contracts/{cntrId}/repayment-schedules 는 기본으로 최신 버전을,
+ * version 쿼리 파라미터를 명시하면 V1 등 과거 버전(SUPERSEDED 포함) 도 조회 가능.
  */
 @Service
 @RequiredArgsConstructor

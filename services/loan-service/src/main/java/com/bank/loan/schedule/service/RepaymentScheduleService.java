@@ -86,17 +86,29 @@ public class RepaymentScheduleService {
         return repository.saveAll(toSave);
     }
 
+    /**
+     * 특정 버전(version) 의 회차 목록을 조회한다. version 이 null/blank 이면 최신 버전을 자동 선택.
+     * 중도상환·금리변경으로 발생한 V2/V3 등을 명시적으로 조회할 수 있다.
+     */
     @Transactional(readOnly = true)
-    public RepaymentScheduleListResponse listLatest(Long cntrId) {
+    public RepaymentScheduleListResponse list(Long cntrId, String version) {
         contractRepository.findByCntrIdAndDeletedAtIsNull(cntrId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_062));
 
+        String effective = (version == null || version.isBlank())
+                ? resolveLatestVersion(cntrId)
+                : version;
+
         List<RepaymentScheduleResponse> items = repository
-                .findByCntrIdAndRschVersionCdAndDeletedAtIsNullOrderByInstallmentNoAsc(
-                        cntrId, RepaymentSchedule.VERSION_INITIAL)
+                .findByCntrIdAndRschVersionCdAndDeletedAtIsNullOrderByInstallmentNoAsc(cntrId, effective)
                 .stream()
                 .map(RepaymentScheduleResponse::of)
                 .toList();
-        return RepaymentScheduleListResponse.of(cntrId, RepaymentSchedule.VERSION_INITIAL, items);
+        return RepaymentScheduleListResponse.of(cntrId, effective, items);
+    }
+
+    private String resolveLatestVersion(Long cntrId) {
+        String max = repository.findMaxVersion(cntrId);
+        return (max == null || max.isBlank()) ? RepaymentSchedule.VERSION_INITIAL : max;
     }
 }
