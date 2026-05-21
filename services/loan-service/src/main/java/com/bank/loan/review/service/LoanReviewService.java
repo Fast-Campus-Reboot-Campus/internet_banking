@@ -6,10 +6,14 @@ import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
+import com.bank.loan.collateral.domain.Collateral;
+import com.bank.loan.collateral.repository.CollateralRepository;
 import com.bank.loan.creditevaluation.domain.CreditEvaluation;
 import com.bank.loan.creditevaluation.repository.CreditEvaluationRepository;
 import com.bank.loan.dsr.domain.DsrCalculation;
 import com.bank.loan.dsr.repository.DsrCalculationRepository;
+import com.bank.loan.ltv.domain.LtvCalculation;
+import com.bank.loan.ltv.repository.LtvCalculationRepository;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
@@ -22,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * 본심사(Underwriting) 서비스 — flows §1.1, §2.1 의 "REVIEWING → APPROVED/REJECTED".
@@ -53,6 +58,8 @@ public class LoanReviewService {
     private final LoanProductRepository productRepository;
     private final CreditEvaluationRepository creditEvaluationRepository;
     private final DsrCalculationRepository dsrCalculationRepository;
+    private final CollateralRepository collateralRepository;
+    private final LtvCalculationRepository ltvCalculationRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -89,6 +96,13 @@ public class LoanReviewService {
                     "dsrStatus=" + dsr.getDsrStatusCd());
         }
 
+        // 사전조건 4: 담보 필수 상품이면 활성 담보별 LTV PASS 검증
+        LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
+                .orElse(null);
+        if (product != null && product.isCollateralRequired()) {
+            requireAllActiveCollateralsLtvPass(applId);
+        }
+
         boolean approved = LoanReview.DECISION_APPROVED.equals(req.revDecisionCd());
         OffsetDateTime now = OffsetDateTime.now();
         Long actorId = currentActor.currentActorId();
@@ -98,8 +112,6 @@ public class LoanReviewService {
         Integer approvedPeriod = null;
         OffsetDateTime approvedAt = null;
         if (approved) {
-            LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
-                    .orElse(null);
             approvedAmount = req.approvedAmount() != null
                     ? req.approvedAmount()
                     : determineApprovedAmount(application, ceval, product);
@@ -163,6 +175,31 @@ public class LoanReviewService {
         return repository.findByApplIdAndDeletedAtIsNull(applId)
                 .map(LoanReviewResponse::of)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+    }
+
+    /**
+     * 담보 필수 상품에서 활성 담보(RELEASED/REJECTED 제외) 별 LTV PASS 검증.
+     * 활성 담보 0건 또는 LTV 미수행·FAIL 1건이라도 있으면 LOAN_038.
+     */
+    private void requireAllActiveCollateralsLtvPass(Long applId) {
+        List<Collateral> all = collateralRepository.findByApplIdAndDeletedAtIsNullOrderByCreatedAtAsc(applId);
+        List<Collateral> active = all.stream()
+                .filter(c -> !Collateral.STATUS_RELEASED.equals(c.currentStatus())
+                          && !Collateral.STATUS_REJECTED.equals(c.currentStatus()))
+                .toList();
+        if (active.isEmpty()) {
+            throw new BusinessException(LoanErrorCode.LOAN_038,
+                    "collateral required but none attached");
+        }
+        for (Collateral c : active) {
+            LtvCalculation ltv = ltvCalculationRepository.findByColIdAndDeletedAtIsNull(c.getColId())
+                    .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
+                            "ltv required colId=" + c.getColId()));
+            if (!LtvCalculation.STATUS_PASS.equals(ltv.getLtvStatusCd())) {
+                throw new BusinessException(LoanErrorCode.LOAN_038,
+                        "ltv FAIL colId=" + c.getColId());
+            }
+        }
     }
 
     /**

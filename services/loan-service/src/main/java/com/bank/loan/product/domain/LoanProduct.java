@@ -82,6 +82,11 @@ public class LoanProduct extends BaseEntity {
     @Column(name = "guarantor_required_yn", nullable = false, length = 1)
     private String guarantorRequiredYn;
 
+    /** 담보 필수 상품 여부. 본심사 시 활성 담보별 LTV PASS 검증의 트리거. */
+    public boolean isCollateralRequired() {
+        return "Y".equalsIgnoreCase(collateralRequiredYn);
+    }
+
     @Column(name = "sale_start_date", length = 8)
     private String saleStartDate;
 
