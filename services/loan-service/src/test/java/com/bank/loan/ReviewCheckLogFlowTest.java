@@ -304,6 +304,13 @@ class ReviewCheckLogFlowTest extends AbstractLoanIntegrationTest {
                                 { "annualIncomeAmt":80000000, "newAnnualRepayAmt":10000000 }
                                 """))
                 .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/loan-applications/{applId}/identity-verifications", applId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "idvMethodCd":"PASS_APP", "idvTargetCd":"BORROWER",
+                                  "mobileNo":"01012345678" }
+                                """))
+                .andExpect(status().isCreated());
     }
 
     private Long createCollateral(Long applId) throws Exception {

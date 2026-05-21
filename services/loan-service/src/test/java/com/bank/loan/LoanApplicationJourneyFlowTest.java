@@ -227,6 +227,17 @@ class LoanApplicationJourneyFlowTest extends AbstractLoanIntegrationTest {
         runPrescreening(applId);
         runCeval(applId, cevalLimit);
         runDsrPass(applId);
+        runIdv(applId);
+    }
+
+    private void runIdv(Long applId) throws Exception {
+        mockMvc.perform(post("/api/loan-applications/{applId}/identity-verifications", applId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "idvMethodCd":"PASS_APP", "idvTargetCd":"BORROWER",
+                                  "mobileNo":"01012345678" }
+                                """))
+                .andExpect(status().isCreated());
     }
 
     private void runReviewApprovedManually(Long applId) throws Exception {
