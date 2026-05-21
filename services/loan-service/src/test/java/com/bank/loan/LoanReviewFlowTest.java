@@ -33,6 +33,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   20) revDecisionCd 누락 → 400
  *   21) APPROVED + 입력 override (한도/금리/기간 명시값 그대로 사용)
  *   22) APPROVED + CB.evalLimit 가 신청금액보다 작으면 그 값으로 한도 제한
+ *   23) 담보 필수 상품 + LTV PASS → APPROVED 가능
+ *   24) 담보 필수 상품 + 담보 무첨부 → 422 LOAN_038
+ *   25) 담보 필수 상품 + LTV 미수행 담보 → 422 LOAN_038
+ *   26) 담보 필수 상품 + LTV FAIL 담보 → 422 LOAN_038
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanReviewFlowTest extends AbstractLoanIntegrationTest {
@@ -51,6 +55,13 @@ class LoanReviewFlowTest extends AbstractLoanIntegrationTest {
     private Long pristineApplId;
     private Long overrideApplId;
     private Long capLimitApplId;
+
+    // 담보 필수 상품(MORTGAGE) 시나리오
+    private Long mortgageProdId;
+    private Long mortgageOkApplId;
+    private Long mortgageNoColApplId;
+    private Long mortgageNoLtvApplId;
+    private Long mortgageLtvFailApplId;
 
     @org.junit.jupiter.api.BeforeAll
     void setup() throws Exception {
@@ -87,6 +98,36 @@ class LoanReviewFlowTest extends AbstractLoanIntegrationTest {
         runDsrFail(dsrFailApplId);
 
         // submittedApplId 는 가심사도 안 함 (SUBMITTED)
+
+        // ----- 담보 필수 상품 시나리오 -----
+        mortgageProdId = createMortgageProduct();
+        activateProduct(mortgageProdId);
+
+        mortgageOkApplId       = createApplication(mortgageProdId);
+        mortgageNoColApplId    = createApplication(mortgageProdId);
+        mortgageNoLtvApplId    = createApplication(mortgageProdId);
+        mortgageLtvFailApplId  = createApplication(mortgageProdId);
+
+        prepFullyEligible(mortgageOkApplId, 200_000_000L);
+        prepFullyEligible(mortgageNoColApplId, 200_000_000L);
+        prepFullyEligible(mortgageNoLtvApplId, 200_000_000L);
+        prepFullyEligible(mortgageLtvFailApplId, 200_000_000L);
+
+        // PASS LTV: applied 200M, lien 0, requested 30M → ratio 1500, max 140M → PASS
+        Long passCol = createCollateral(mortgageOkApplId, 0L);
+        evaluateCollateral(passCol, 200_000_000L);
+        runLtv(passCol, null);
+
+        // FAIL LTV: applied 30M, lien 0, requested 30M → ratio 10000 > 7000 → FAIL
+        Long failCol = createCollateral(mortgageLtvFailApplId, 0L);
+        evaluateCollateral(failCol, 30_000_000L);
+        runLtv(failCol, null);
+
+        // 평가만 있고 LTV 미수행
+        Long noLtvCol = createCollateral(mortgageNoLtvApplId, 0L);
+        evaluateCollateral(noLtvCol, 200_000_000L);
+
+        // mortgageNoColApplId: 담보 자체 없음
     }
 
     @Test @Order(10)
@@ -247,6 +288,50 @@ class LoanReviewFlowTest extends AbstractLoanIntegrationTest {
                 .andExpect(jsonPath("$.data.approvedAmount").value(10000000));
     }
 
+    @Test @Order(23)
+    void 담보필수_LTV_PASS_APPROVED() throws Exception {
+        mockMvc.perform(post("/api/loan-applications/{applId}/review", mortgageOkApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revTypeCd":"AUTO", "revDecisionCd":"APPROVED" }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.revDecisionCd").value("APPROVED"));
+    }
+
+    @Test @Order(24)
+    void 담보필수_담보_무첨부_422() throws Exception {
+        mockMvc.perform(post("/api/loan-applications/{applId}/review", mortgageNoColApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revTypeCd":"AUTO", "revDecisionCd":"APPROVED" }
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("LOAN_038"));
+    }
+
+    @Test @Order(25)
+    void 담보필수_LTV_미수행_422() throws Exception {
+        mockMvc.perform(post("/api/loan-applications/{applId}/review", mortgageNoLtvApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revTypeCd":"AUTO", "revDecisionCd":"APPROVED" }
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("LOAN_038"));
+    }
+
+    @Test @Order(26)
+    void 담보필수_LTV_FAIL_422() throws Exception {
+        mockMvc.perform(post("/api/loan-applications/{applId}/review", mortgageLtvFailApplId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "revTypeCd":"AUTO", "revDecisionCd":"APPROVED" }
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("LOAN_038"));
+    }
+
     // ============================================================
     // helpers
     // ============================================================
@@ -355,5 +440,69 @@ class LoanReviewFlowTest extends AbstractLoanIntegrationTest {
         runPrescreening(applId, "PASS");
         runCeval(applId, "APPROVE", cevalLimit);
         runDsrPass(applId);
+    }
+
+    private Long createMortgageProduct() throws Exception {
+        String code = "REVM_" + uniq();
+        String body = """
+                {
+                  "prodCd":"%s", "prodName":"본심사+LTV 테스트", "loanTypeCd":"MORTGAGE",
+                  "repaymentMethodCd":"EQUAL", "rateTypeCd":"FIXED",
+                  "baseRateBps":%d,
+                  "minAmount":1000000, "maxAmount":1000000000,
+                  "minPeriodMo":12, "maxPeriodMo":360,
+                  "collateralRequiredYn":"Y", "guarantorRequiredYn":"N"
+                }
+                """.formatted(code, BASE_BPS);
+        MvcResult result = mockMvc.perform(post("/api/loan-products")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return extractData(result).get("prodId").asLong();
+    }
+
+    private Long createCollateral(Long applId, Long seniorLien) throws Exception {
+        String body = """
+                {
+                  "colTypeCd":"REAL_ESTATE",
+                  "colName":"테스트 부동산",
+                  "colAddress":"서울특별시 강남구",
+                  "declaredValue":200000000,
+                  "currencyCd":"KRW",
+                  "ownershipTypeCd":"SOLE",
+                  "seniorLienYn":"%s",
+                  "seniorLienAmount":%d
+                }
+                """.formatted(seniorLien > 0 ? "Y" : "N", seniorLien);
+        MvcResult result = mockMvc.perform(post("/api/loan-applications/{applId}/collaterals", applId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return extractData(result).get("colId").asLong();
+    }
+
+    private void evaluateCollateral(Long colId, Long appliedValue) throws Exception {
+        String body = """
+                {
+                  "evalMethodCd":"APPRAISAL",
+                  "evalAgencyCd":"KAB",
+                  "appraisedValue":%d,
+                  "appliedValue":%d,
+                  "appliedStartDate":"20260101",
+                  "appliedEndDate":"20271231"
+                }
+                """.formatted(appliedValue, appliedValue);
+        mockMvc.perform(post("/api/collaterals/{colId}/evaluations", colId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+    }
+
+    private void runLtv(Long colId, Integer limitBpsOverride) throws Exception {
+        String body = limitBpsOverride != null
+                ? "{\"ltvLimitBps\":" + limitBpsOverride + "}"
+                : "{}";
+        mockMvc.perform(post("/api/collaterals/{colId}/ltv-calculation", colId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
     }
 }
