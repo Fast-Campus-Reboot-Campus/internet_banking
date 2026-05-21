@@ -6,21 +6,15 @@ import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
-import com.bank.loan.collateral.domain.Collateral;
-import com.bank.loan.collateral.repository.CollateralRepository;
 import com.bank.loan.creditevaluation.domain.CreditEvaluation;
 import com.bank.loan.creditevaluation.repository.CreditEvaluationRepository;
 import com.bank.loan.dsr.domain.DsrCalculation;
 import com.bank.loan.dsr.repository.DsrCalculationRepository;
-import com.bank.loan.idv.domain.LoanIdentityVerification;
-import com.bank.loan.idv.repository.LoanIdentityVerificationRepository;
 import com.bank.loan.ltv.domain.LtvCalculation;
-import com.bank.loan.ltv.repository.LtvCalculationRepository;
 import com.bank.loan.notification.event.LoanApprovedEvent;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
-import com.bank.loan.review.domain.ReviewCheckLog;
 import com.bank.loan.review.dto.ConfirmReviewRequest;
 import com.bank.loan.review.dto.ExpirePendingReviewsResponse;
 import com.bank.loan.review.dto.LoanReviewResponse;
@@ -84,10 +78,9 @@ public class LoanReviewService {
     private final LoanProductRepository productRepository;
     private final CreditEvaluationRepository creditEvaluationRepository;
     private final DsrCalculationRepository dsrCalculationRepository;
-    private final CollateralRepository collateralRepository;
-    private final LtvCalculationRepository ltvCalculationRepository;
-    private final LoanIdentityVerificationRepository idvRepository;
-    private final ReviewCheckLogger reviewCheckLogger;
+    private final LoanReviewPreconditions preconditions;
+    private final ApprovedAmountCalculator approvedAmountCalculator;
+    private final LoanReviewCheckLogWriter checkLogWriter;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final ApplicationEventPublisher eventPublisher;
@@ -126,13 +119,13 @@ public class LoanReviewService {
         }
 
         // 사전조건 4: 본인확인(IDV) PASS — docs/loan_flows.md 본심사 진입 명세
-        requireIdvPass(applId);
+        preconditions.requireIdvPass(applId);
 
         // 사전조건 5: 담보 필수 상품이면 활성 담보별 LTV PASS 검증
         LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
                 .orElse(null);
         if (product != null && product.isCollateralRequired()) {
-            requireAllActiveCollateralsLtvPass(applId);
+            preconditions.requireAllActiveCollateralsLtvPass(applId);
         }
 
         boolean approved = LoanReview.DECISION_APPROVED.equals(req.revDecisionCd());
@@ -146,7 +139,7 @@ public class LoanReviewService {
         if (approved) {
             approvedAmount = req.approvedAmount() != null
                     ? req.approvedAmount()
-                    : determineApprovedAmount(application, ceval, product);
+                    : approvedAmountCalculator.determine(application, ceval, product);
             approvedRate = req.approvedRateBps() != null
                     ? req.approvedRateBps()
                     : (ceval.getEvalRateBps() != null
@@ -173,7 +166,7 @@ public class LoanReviewService {
                 .approvedAt(approvedAt)
                 .build());
 
-        logChecks(saved.getRevId(), ceval, dsr, product, approved, req);
+        checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req);
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
@@ -329,7 +322,7 @@ public class LoanReviewService {
             ceval = creditEvaluationRepository.findByApplIdAndDeletedAtIsNull(applId).orElse(null);
             approvedAmount = req.approvedAmount() != null
                     ? req.approvedAmount()
-                    : determineApprovedAmount(application, ceval, product);
+                    : approvedAmountCalculator.determine(application, ceval, product);
             approvedRate = req.approvedRateBps() != null
                     ? req.approvedRateBps()
                     : (ceval != null && ceval.getEvalRateBps() != null
@@ -349,7 +342,7 @@ public class LoanReviewService {
                 now
         );
 
-        logRevisitChecks(review.getRevId(), approved, req);
+        checkLogWriter.logRevisit(review.getRevId(), approved, req);
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
@@ -424,14 +417,14 @@ public class LoanReviewService {
                         "dsr-calculation required"));
 
         // 사전조건: 본인확인(IDV) PASS — 자동 결정도 동일한 입장
-        requireIdvPass(applId);
+        preconditions.requireIdvPass(applId);
 
         LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
                 .orElse(null);
         boolean collateralRequired = product != null && product.isCollateralRequired();
         LtvCalculation chosenLtv = null;
         if (collateralRequired) {
-            chosenLtv = resolveActiveLtvForAuto(applId);
+            chosenLtv = preconditions.resolveActiveLtvForAuto(applId);
         }
 
         // 결정 룰 — 우선순위: CB.REJECT → DSR.FAIL → LTV.FAIL → APPROVED
@@ -458,7 +451,7 @@ public class LoanReviewService {
         Integer approvedRate = null;
         Integer approvedPeriod = null;
         if (approved) {
-            approvedAmount = determineApprovedAmount(application, ceval, product);
+            approvedAmount = approvedAmountCalculator.determine(application, ceval, product);
             approvedRate = ceval.getEvalRateBps() != null
                     ? ceval.getEvalRateBps()
                     : (product != null ? product.getBaseRateBps() : null);
@@ -481,7 +474,7 @@ public class LoanReviewService {
                 .approvedAt(null)
                 .build());
 
-        logAutoChecks(saved.getRevId(), ceval, dsr, chosenLtv, collateralRequired, approved, rejectReasonCd);
+        checkLogWriter.logAuto(saved.getRevId(), ceval, dsr, chosenLtv, collateralRequired, approved, rejectReasonCd);
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
@@ -525,12 +518,7 @@ public class LoanReviewService {
 
         review.confirm(req.reviewerId(), now);
 
-        reviewCheckLogger.log(review.getRevId(),
-                ReviewCheckLog.ITEM_FINAL_DECISION,
-                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
-                "confirmed by reviewerId=" + req.reviewerId()
-                        + (req.confirmRemark() != null ? ", remark=" + req.confirmRemark() : ""),
-                req.reviewerId());
+        checkLogWriter.logConfirm(review.getRevId(), approved, req.reviewerId(), req.confirmRemark());
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
@@ -555,196 +543,5 @@ public class LoanReviewService {
         ));
 
         return LoanReviewResponse.of(review);
-    }
-
-    /**
-     * 본심사 사전조건의 본인확인(IDV) PASS 검증. PASS row 가 한 건이라도 있어야 통과.
-     * docs/loan_flows.md §2.1 의 본심사 진입 명세("본인확인 + 동의 완료") 와 정합.
-     */
-    private void requireIdvPass(Long applId) {
-        boolean ok = idvRepository.existsByApplIdAndIdvResultCdAndDeletedAtIsNull(
-                applId, LoanIdentityVerification.RESULT_PASS);
-        if (!ok) {
-            throw new BusinessException(LoanErrorCode.LOAN_038,
-                    "idv-verification required");
-        }
-    }
-
-    /**
-     * 담보 필수 상품에서 자동 결정용 LTV 선택 — 활성 담보 1건의 LTV 를 반환.
-     * 담보 자체 미첨부 또는 LTV 미수행 시 LOAN_038 (데이터 부족 — 자동 결정 불가).
-     */
-    private LtvCalculation resolveActiveLtvForAuto(Long applId) {
-        List<Collateral> all = collateralRepository.findByApplIdAndDeletedAtIsNullOrderByCreatedAtAsc(applId);
-        List<Collateral> active = all.stream()
-                .filter(c -> !Collateral.STATUS_RELEASED.equals(c.currentStatus())
-                          && !Collateral.STATUS_REJECTED.equals(c.currentStatus()))
-                .toList();
-        if (active.isEmpty()) {
-            throw new BusinessException(LoanErrorCode.LOAN_038,
-                    "collateral required but none attached");
-        }
-        Collateral first = active.get(0);
-        return ltvCalculationRepository.findByColIdAndDeletedAtIsNull(first.getColId())
-                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
-                        "ltv required colId=" + first.getColId()));
-    }
-
-    /**
-     * 자동 결정용 체크로그 5건. 입력 데이터가 검증을 통과한 사유/위반한 사유를 항목별로 기록.
-     */
-    private void logAutoChecks(Long revId, CreditEvaluation ceval, DsrCalculation dsr,
-                               LtvCalculation ltv, boolean collateralRequired,
-                               boolean approved, String autoRejectReasonCd) {
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_PRESCREEN_PASS,
-                ReviewCheckLog.RESULT_PASS,
-                "application=PRESCREENED, auto",
-                null);
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_CB_DECISION,
-                CreditEvaluation.DECISION_APPROVE.equals(ceval.getCevalDecisionCd())
-                        ? ReviewCheckLog.RESULT_PASS
-                        : ReviewCheckLog.RESULT_FAIL,
-                "decision=" + ceval.getCevalDecisionCd() + ", engine=" + ceval.getCevalEngine(),
-                null);
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_DSR_CHECK,
-                DsrCalculation.STATUS_PASS.equals(dsr.getDsrStatusCd())
-                        ? ReviewCheckLog.RESULT_PASS
-                        : ReviewCheckLog.RESULT_FAIL,
-                "ratioBps=" + dsr.getDsrRatioBps() + ", limit=" + dsr.getDsrLimitBps(),
-                null);
-
-        if (collateralRequired) {
-            reviewCheckLogger.log(revId,
-                    ReviewCheckLog.ITEM_LTV_CHECK,
-                    LtvCalculation.STATUS_PASS.equals(ltv.getLtvStatusCd())
-                            ? ReviewCheckLog.RESULT_PASS
-                            : ReviewCheckLog.RESULT_FAIL,
-                    "ltvStatus=" + ltv.getLtvStatusCd() + ", colId=" + ltv.getColId(),
-                    null);
-        } else {
-            reviewCheckLogger.log(revId,
-                    ReviewCheckLog.ITEM_LTV_CHECK,
-                    ReviewCheckLog.RESULT_N_A,
-                    "collateral not required",
-                    null);
-        }
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_FINAL_DECISION,
-                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
-                "auto, decision=" + (approved ? "APPROVED" : "REJECTED")
-                        + (approved ? "" : ", rejectReasonCd=" + autoRejectReasonCd),
-                null);
-    }
-
-    /**
-     * 정정 시점 체크로그 재적재. 자동 5건과 동일한 항목을 다시 기록하되 remark 에 revisit 표시를 남긴다.
-     * 기존 5건은 그대로 두고 누적 — append-only 원칙.
-     */
-    private void logRevisitChecks(Long revId, boolean approved, ReviseReviewRequest req) {
-        Long checkerId = req.reviewerId();
-        String revisitTag = "revisit(" + req.revisitReasonCd() + ")";
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_FINAL_DECISION,
-                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
-                revisitTag + ", decision=" + req.revDecisionCd()
-                        + (approved ? "" : ", rejectReasonCd=" + req.rejectReasonCd()),
-                checkerId);
-    }
-
-    /**
-     * 본심사 결정 시점에 사전조건 검증 결과 5건을 REVIEW_CHECK_LOG 에 자동 적재.
-     */
-    private void logChecks(Long revId, CreditEvaluation ceval, DsrCalculation dsr,
-                           LoanProduct product, boolean approved, RunReviewRequest req) {
-        Long checkerId = req.reviewerId();
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_PRESCREEN_PASS,
-                ReviewCheckLog.RESULT_PASS,
-                "application=PRESCREENED",
-                checkerId);
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_CB_DECISION,
-                CreditEvaluation.DECISION_APPROVE.equals(ceval.getCevalDecisionCd())
-                        ? ReviewCheckLog.RESULT_PASS
-                        : ReviewCheckLog.RESULT_REVIEW,
-                "decision=" + ceval.getCevalDecisionCd() + ", engine=" + ceval.getCevalEngine(),
-                checkerId);
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_DSR_CHECK,
-                ReviewCheckLog.RESULT_PASS,
-                "ratioBps=" + dsr.getDsrRatioBps() + ", limit=" + dsr.getDsrLimitBps(),
-                checkerId);
-
-        if (product != null && product.isCollateralRequired()) {
-            reviewCheckLogger.log(revId,
-                    ReviewCheckLog.ITEM_LTV_CHECK,
-                    ReviewCheckLog.RESULT_PASS,
-                    "all active collaterals LTV PASS",
-                    checkerId);
-        } else {
-            reviewCheckLogger.log(revId,
-                    ReviewCheckLog.ITEM_LTV_CHECK,
-                    ReviewCheckLog.RESULT_N_A,
-                    "collateral not required",
-                    checkerId);
-        }
-
-        reviewCheckLogger.log(revId,
-                ReviewCheckLog.ITEM_FINAL_DECISION,
-                approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
-                "decision=" + req.revDecisionCd()
-                        + (approved ? "" : ", rejectReasonCd=" + req.rejectReasonCd()),
-                checkerId);
-    }
-
-    /**
-     * 담보 필수 상품에서 활성 담보(RELEASED/REJECTED 제외) 별 LTV PASS 검증.
-     * 활성 담보 0건 또는 LTV 미수행·FAIL 1건이라도 있으면 LOAN_038.
-     */
-    private void requireAllActiveCollateralsLtvPass(Long applId) {
-        List<Collateral> all = collateralRepository.findByApplIdAndDeletedAtIsNullOrderByCreatedAtAsc(applId);
-        List<Collateral> active = all.stream()
-                .filter(c -> !Collateral.STATUS_RELEASED.equals(c.currentStatus())
-                          && !Collateral.STATUS_REJECTED.equals(c.currentStatus()))
-                .toList();
-        if (active.isEmpty()) {
-            throw new BusinessException(LoanErrorCode.LOAN_038,
-                    "collateral required but none attached");
-        }
-        for (Collateral c : active) {
-            LtvCalculation ltv = ltvCalculationRepository.findByColIdAndDeletedAtIsNull(c.getColId())
-                    .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
-                            "ltv required colId=" + c.getColId()));
-            if (!LtvCalculation.STATUS_PASS.equals(ltv.getLtvStatusCd())) {
-                throw new BusinessException(LoanErrorCode.LOAN_038,
-                        "ltv FAIL colId=" + c.getColId());
-            }
-        }
-    }
-
-    /**
-     * 승인 한도 자동 산정 — 신청금액 / CB 한도 / 상품 max 중 최솟값.
-     */
-    private long determineApprovedAmount(LoanApplication application,
-                                         CreditEvaluation ceval,
-                                         LoanProduct product) {
-        long candidate = application.getRequestedAmount();
-        if (ceval.getEvalLimitAmount() != null) {
-            candidate = Math.min(candidate, ceval.getEvalLimitAmount());
-        }
-        if (product != null && product.getMaxAmount() != null) {
-            candidate = Math.min(candidate, product.getMaxAmount());
-        }
-        return candidate;
     }
 }
