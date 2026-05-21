@@ -10,6 +10,9 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,6 +38,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   23) 수동 본심사(처음부터 COMPLETED)에 confirm → 422 LOAN_049
  *   24) 본심사 없는 신청 confirm → 404 LOAN_042
  *   25) reviewerId 누락 → 400
+ *
+ * 권고 목록 (pending):
+ *   30) GET /api/loan-reviews/pending — 확정 안 된 권고만 포함, 확정된 본심사·수동 본심사 미포함
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
@@ -243,6 +249,26 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(30)
+    void GET_pending_권고만_포함_확정본심사_미포함() throws Exception {
+        // 이 시점 상태:
+        //   PENDING_APPROVAL: dsrFailApplId(시나리오 12), ltvFailApplId(시나리오 13)
+        //   COMPLETED:        approveApplId(시나리오 20 확정), cbRejectApplId(시나리오 21 확정),
+        //                     alreadyReviewedAppl(setup 에서 수동 본심사)
+        mockMvc.perform(get("/api/loan-reviews/pending"))
+                .andExpect(status().isOk())
+                // 권고가 응답에 포함
+                .andExpect(jsonPath("$.data[*].applId", hasItem(dsrFailApplId.intValue())))
+                .andExpect(jsonPath("$.data[*].applId", hasItem(ltvFailApplId.intValue())))
+                // 확정된 자동/수동 본심사는 응답에 미포함
+                .andExpect(jsonPath("$.data[*].applId", not(hasItem(approveApplId.intValue()))))
+                .andExpect(jsonPath("$.data[*].applId", not(hasItem(cbRejectApplId.intValue()))))
+                .andExpect(jsonPath("$.data[*].applId", not(hasItem(alreadyReviewedAppl.intValue()))))
+                // 응답 element 의 revStatusCd 가 모두 PENDING_APPROVAL
+                .andExpect(jsonPath("$.data[*].revStatusCd",
+                        org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("PENDING_APPROVAL"))));
     }
 
     // ============================================================
