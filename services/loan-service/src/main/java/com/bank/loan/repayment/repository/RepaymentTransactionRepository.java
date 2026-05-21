@@ -86,6 +86,21 @@ public interface RepaymentTransactionRepository extends JpaRepository<RepaymentT
     long sumPaidInterestByRschId(@Param("rschId") Long rschId);
 
     /**
+     * 회차당 누적 연체이자 합 — 같은 조건의 overdue_interest_amount 합.
+     * 분배 순서 정석 1단계(연체이자 → ...) 적용 시 남은 연체이자 계산에 사용.
+     */
+    @Query("""
+            select coalesce(sum(t.overdueInterestAmount), 0)
+              from RepaymentTransaction t
+             where t.rschId = :rschId
+               and t.rtxTypeCd in ('SCHEDULED','PARTIAL')
+               and t.rtxStatusCd = 'SUCCESS'
+               and t.reversalYn = 'N'
+               and t.deletedAt is null
+            """)
+    long sumPaidOverdueInterestByRschId(@Param("rschId") Long rschId);
+
+    /**
      * 지정 EARLY 거래 이후 같은 계약에 또 다른 활성 EARLY 가 있는지 확인.
      * EARLY 역분개는 "최신 EARLY 만" 지원하므로, 본 메서드가 true 면 차단해야 한다.
      */

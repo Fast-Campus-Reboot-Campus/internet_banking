@@ -37,7 +37,7 @@ import java.util.Set;
  *    - 일별 스냅샷 append (UNIQUE (dlq_id, snapshot_date) 로 멱등 보장)
  * 3) 활성 dlq 중 OVERDUE 회차가 0 인 계약 → RESOLVED 전이
  *
- * 본 단계: overdue_rate_bps = 0 고정 (가산금리는 후속 #7 금리 변경 라인).
+ * 본 단계: overdue_rate_bps = 시스템 디폴트 300bps (3%/년) 가산. 상품별 차등은 후속.
  *
  * 멱등성: 같은 baseDate 재실행 시
  *   - 이미 OVERDUE 인 회차는 (1) 단계에서 매칭 안 됨 (status=DUE 필터)
@@ -56,7 +56,8 @@ public class DelinquencyRolloverService {
     private static final String REASON_DLQ_OPENED = "DELINQUENCY_OPENED";
     private static final String REASON_DLQ_RESOLVED = "DELINQUENCY_RESOLVED";
 
-    private static final int DEFAULT_OVERDUE_RATE_BPS = 0;
+    /** 시스템 디폴트 연체가산금리: 3%/년 (300bps). 상품별 차등은 후속 — LoanProduct 정책 추가 시 교체. */
+    private static final int DEFAULT_OVERDUE_RATE_BPS = 300;
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
