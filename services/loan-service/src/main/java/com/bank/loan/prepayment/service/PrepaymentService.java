@@ -6,10 +6,13 @@ import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
+import com.bank.loan.delinquency.domain.Delinquency;
+import com.bank.loan.delinquency.repository.DelinquencyRepository;
 import com.bank.loan.prepayment.dto.PrepayRequest;
 import com.bank.loan.prepayment.dto.PrepaymentResponse;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
 import com.bank.loan.repayment.repository.RepaymentTransactionRepository;
+import com.bank.loan.repayment.service.OverdueInterestCalculator;
 import com.bank.loan.repayment.service.PaymentAllocator;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import com.bank.loan.schedule.repository.RepaymentScheduleRepository;
@@ -26,30 +29,34 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 중도상환(Early Repayment) 서비스 — TYPE_EARLY.
  *
  * 처리 절차:
  *   1) 멱등성 키 검사 — 동일 키 재호출 시 기존 tx 반환
- *   2) 계약 ACTIVE 검증
+ *   2) 계약 ACTIVE 검증 + EQUAL 외 LOAN_084
  *   3) outstanding = contracted - Σ(PAID schedule principal) - Σ(EARLY tx principal)
  *      amount 가 outstanding 을 초과하면 LOAN_094
- *   4) RepaymentTransaction 신규 row (TYPE_EARLY, SUCCESS, principal=amount, interest=0)
- *   5) 잔여 스케줄 재생성 (flows §2.3 동일 패턴):
+ *   4) 분배 산정 — 잔여 OVERDUE 회차들의 미수 연체이자 + 중도상환 수수료를 추가 수금.
+ *      RepaymentTransaction (TYPE_EARLY, SUCCESS):
+ *        principal = amount, overdue = overdueInterestSum, interest = 0, fee = computed
+ *        totalAmount = amount + overdueInterest + fee
+ *   5) 잔여 스케줄 재생성 (flows §2.3):
  *      - 최신 버전의 DUE/OVERDUE 회차들을 모두 SUPERSEDED — status_history append
  *      - newOutstanding > 0 이면 새 버전(V{n+1}) 으로 회차 재계산해 saveAll
  *        같은 installmentNo / dueDate / appliedRateBps 유지, principal/interest 만 재산정
  *      - newOutstanding == 0 이면 새 회차 없음. 계약 종결은 별도 API (LoanClosureService).
  *
- * 단순화 가정 (본 단계):
+ * 연체이자 산정 (Delinquency.STATUS_ACTIVE 인 경우):
+ *   회차당: scheduledPrincipal × overdueRateBps × days / 10000 / 365 (HALF_EVEN)
+ *   days = ChronoUnit.DAYS.between(dueDate, today). 이미 partial 로 갚힌 부분은 차감.
+ *
+ * 단순화 가정:
  *   - 미발생이자(기준일까지 일할 이자) 정산 미고려 — interest_amount = 0
- *   - 중도상환 수수료는 EarlyRepaymentFeePolicy 잔여기간 비례 산식. 시스템 디폴트 150bps.
- *     사용자는 amount 만 입력하고 fee 는 시스템이 산정해 별도 청구한다.
- *     tx.total_amount = amount + fee, tx.principal_amount = amount, tx.fee_amount = fee.
- *   - 부분상환(회차 일부) 미지원 (별도)
- *   - 역분개 미지원
- *   - EQUAL(원리금균등) 외 상환방식은 LOAN_084 throw
+ *   - 수수료는 EarlyRepaymentFeePolicy 잔여기간 비례. 디폴트 150bps. 사용자는 amount 만 입력.
+ *   - 부분상환(회차 일부) 미지원 / 역분개 미지원
  */
 @Service
 @RequiredArgsConstructor
@@ -64,6 +71,7 @@ public class PrepaymentService {
     private final RepaymentTransactionRepository txRepository;
     private final RepaymentScheduleRepository scheduleRepository;
     private final LoanContractRepository contractRepository;
+    private final DelinquencyRepository delinquencyRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -110,12 +118,16 @@ public class PrepaymentService {
         long newOutstanding = outstanding - req.amount();
         OffsetDateTime now = OffsetDateTime.now();
 
-        // 4) 수수료 산정 + RepaymentTransaction 신규 row
-        // 본 단계 단순화: 잔여 회차의 연체이자·정상이자 분배 없음 (후속 plan A.3).
-        //   amount 는 전부 원금에 귀속, 수수료는 별도 청구.
+        // 4) 분배 산정 — supersede 전에 잔여 OVERDUE 회차들의 미수 연체이자를 추가 수금.
+        //   totalAmount = amount + overdueInterest + fee
+        //   principal=amount, overdue=overdueInterest, interest=0, fee=computed
+        //   * 정상이자(미발생이자) 일할 정산은 본 단계 외 — 잔여 0 유지.
+        String currentVersion = currentVersionOrInitial(cntrId);
+        long overdueInterest = computeOverdueInterestSum(cntrId, currentVersion, now);
         long fee = computeEarlyRepaymentFee(contract, req.amount(), now);
-        PaymentAllocator.Allocation alloc = PaymentAllocator.allocate(req.amount(), 0L, 0L, fee);
-        long totalAmount = req.amount() + alloc.fee();
+        PaymentAllocator.Allocation alloc = PaymentAllocator.allocate(
+                req.amount() + overdueInterest, overdueInterest, 0L, fee);
+        long totalAmount = req.amount() + overdueInterest + alloc.fee();
 
         RepaymentTransaction saved = txRepository.save(RepaymentTransaction.builder()
                 .cntrId(cntrId)
@@ -136,8 +148,7 @@ public class PrepaymentService {
                 .reversalYn(RepaymentTransaction.YN_N)
                 .build());
 
-        // 5) 스케줄 재생성
-        String currentVersion = currentVersionOrInitial(cntrId);
+        // 5) 스케줄 재생성 (currentVersion 은 위에서 계산)
         List<RepaymentSchedule> active = scheduleRepository.findActiveByVersion(cntrId, currentVersion);
         for (RepaymentSchedule s : active) {
             String before = s.currentStatus();
@@ -179,6 +190,35 @@ public class PrepaymentService {
         }
 
         return PrepaymentResponse.of(saved, newOutstanding, active.size(), newVersion, newCount);
+    }
+
+    /**
+     * 잔여 OVERDUE 회차들의 미수 연체이자 합 — supersede 전에 추가 수금 대상.
+     * 회차당: actual = scheduledPrincipal × overdueRateBps × days / 10000 / 365
+     *        remaining = max(0, actual - sumPaidOverdueInterestByRschId)
+     * 활성 Delinquency 없거나 OVERDUE 회차 없으면 0.
+     */
+    private long computeOverdueInterestSum(Long cntrId, String version, OffsetDateTime now) {
+        Optional<Delinquency> activeDlq = delinquencyRepository
+                .findByCntrIdAndDlqStatusCdAndDeletedAtIsNull(cntrId, Delinquency.STATUS_ACTIVE);
+        if (activeDlq.isEmpty()) return 0L;
+        int overdueRateBps = activeDlq.get().getOverdueRateBps();
+        if (overdueRateBps <= 0) return 0L;
+
+        List<RepaymentSchedule> activeSchedules = scheduleRepository.findActiveByVersion(cntrId, version);
+        LocalDate today = now.toLocalDate();
+        long sum = 0L;
+        for (RepaymentSchedule s : activeSchedules) {
+            if (!s.isOverdue()) continue;
+            LocalDate dueDate = LocalDate.parse(s.getDueDate(), DATE);
+            int days = (int) ChronoUnit.DAYS.between(dueDate, today);
+            if (days <= 0) continue;
+            long actual = OverdueInterestCalculator.compute(
+                    s.getScheduledPrincipal(), overdueRateBps, days);
+            long paid = txRepository.sumPaidOverdueInterestByRschId(s.getRschId());
+            sum += Math.max(0L, actual - paid);
+        }
+        return sum;
     }
 
     /**
