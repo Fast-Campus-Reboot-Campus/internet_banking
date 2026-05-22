@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 신용정보 신고 통합 테스트.
  *
  * 시나리오:
- *   10) NEW_LOAN / KCB 신고 → 201 SENT + external_tx_no (TX-yyyyMMdd-...) + reportedAt
+ *   10) NEW_LOAN / KCB 신고 → 201 REQUESTED + externalTxNo/reportedAt 은 dispatch 단계까지 null
  *   11) crptId 단건 조회 + JSONB payload round-trip 확인
  *   12) DELINQUENCY / NICE 신고 → 누적
  *   13) 이력 목록 (2건, created_at 오름차순)
@@ -57,7 +57,7 @@ class CreditInfoReportFlowTest extends AbstractLoanIntegrationTest {
     }
 
     @Test @Order(10)
-    void NEW_LOAN_신고_즉시_SENT() throws Exception {
+    void NEW_LOAN_신고_REQUESTED_적재() throws Exception {
         String body = """
                 {
                   "reportTypeCd":"NEW_LOAN",
@@ -72,15 +72,16 @@ class CreditInfoReportFlowTest extends AbstractLoanIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.crptTypeCd").value("NEW_LOAN"))
                 .andExpect(jsonPath("$.data.crptAgencyCd").value("KCB"))
-                .andExpect(jsonPath("$.data.crptStatusCd").value("SENT"))
+                // plan 02 step 4: 동기 외부 전송 제거. 신고 row 는 REQUESTED 로만 적재되고
+                // 외부 호출은 dispatch 배치(별 plan)에서 수행한다.
+                .andExpect(jsonPath("$.data.crptStatusCd").value("REQUESTED"))
                 .andExpect(jsonPath("$.data.reportTargetCd").value("NEW"))
-                .andExpect(jsonPath("$.data.externalTxNo").exists())
-                .andExpect(jsonPath("$.data.reportedAt").exists())
+                .andExpect(jsonPath("$.data.externalTxNo").doesNotExist())
+                .andExpect(jsonPath("$.data.reportedAt").doesNotExist())
                 .andReturn();
         JsonNode data = extractData(result);
         firstCrptId = data.get("crptId").asLong();
-        String tx = data.get("externalTxNo").asText();
-        assertThat(tx).startsWith("TX-").hasSize(24);
+        assertThat(firstCrptId).isPositive();
     }
 
     @Test @Order(11)
@@ -108,7 +109,7 @@ class CreditInfoReportFlowTest extends AbstractLoanIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.crptStatusCd").value("SENT"));
+                .andExpect(jsonPath("$.data.crptStatusCd").value("REQUESTED"));
     }
 
     @Test @Order(13)

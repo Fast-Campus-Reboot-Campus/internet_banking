@@ -4,6 +4,8 @@ import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.creditreport.dto.CreditInfoReportResponse;
 import com.bank.loan.creditreport.dto.SubmitReportRequest;
+import com.bank.loan.creditreport.outbox.CreditInfoReportOutbox;
+import com.bank.loan.creditreport.outbox.CreditInfoReportOutboxRepository;
 import com.bank.loan.creditreport.service.CreditInfoReportService;
 import com.bank.loan.support.AbstractLoanIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,6 +36,7 @@ class CreditInfoReportIdempotencyTest extends AbstractLoanIntegrationTest {
 
     @Autowired private LoanApplicationRepository applicationRepository;
     @Autowired private CreditInfoReportService reportService;
+    @Autowired private CreditInfoReportOutboxRepository outboxRepository;
 
     private static final long CONTRACTED_AMOUNT = 8_000_000L;
     private static final int  PERIOD_MONTHS     = 12;
@@ -60,10 +63,10 @@ class CreditInfoReportIdempotencyTest extends AbstractLoanIntegrationTest {
         CreditInfoReportResponse first  = reportService.submit(cntrId, DLQ_ID, req);
         CreditInfoReportResponse second = reportService.submit(cntrId, DLQ_ID, req);
 
-        assertThat(first.crptStatusCd()).isEqualTo("SENT");
+        // plan 02 step 4: 즉시 SENT 가 아니라 REQUESTED 로 적재된다. dispatch 가 SENT 로 전이.
+        assertThat(first.crptStatusCd()).isEqualTo("REQUESTED");
         assertThat(first.dlqId()).isEqualTo(DLQ_ID);
         assertThat(second.crptId()).isEqualTo(first.crptId());
-        assertThat(second.externalTxNo()).isEqualTo(first.externalTxNo());
     }
 
     @Test @Order(2)
@@ -90,6 +93,22 @@ class CreditInfoReportIdempotencyTest extends AbstractLoanIntegrationTest {
 
         assertThat(a.dlqId()).isNull();
         assertThat(b.crptId()).isNotEqualTo(a.crptId());
+    }
+
+    @Test @Order(4)
+    void submit_은_outbox_PENDING_row_를_함께_적재한다() {
+        SubmitReportRequest req = new SubmitReportRequest(
+                "DELINQUENCY", "NICE", "EXISTING", "DELINQUENCY_OPENED",
+                "{\"trigger\":\"unit\"}");
+
+        CreditInfoReportResponse created = reportService.submit(cntrId, 9_991_777L, req);
+
+        CreditInfoReportOutbox outbox = outboxRepository
+                .findByCrptIdAndDeletedAtIsNull(created.crptId()).orElseThrow();
+        assertThat(outbox.getStatus()).isEqualTo("PENDING");
+        assertThat(outbox.getAttemptNo()).isZero();
+        assertThat(outbox.getMaxAttempt()).isEqualTo(CreditInfoReportOutbox.DEFAULT_MAX_ATTEMPT);
+        assertThat(outbox.getNextAttemptAt()).isNotNull();
     }
 
     private String uniq() {
