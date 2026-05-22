@@ -43,6 +43,8 @@ public class CreditInfoReport extends BaseEntity {
     public static final String STATUS_SENT      = "SENT";
     public static final String STATUS_ACKED     = "ACKED";
     public static final String STATUS_FAILED    = "FAILED";
+    /** 재시도 상한 초과. 운영자 수동 retry 전까지 보존. */
+    public static final String STATUS_DEAD      = "DEAD";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -91,6 +93,29 @@ public class CreditInfoReport extends BaseEntity {
         this.crptStatusCd = STATUS_SENT;
         this.externalTxNo = externalTxNo;
         this.reportedAt = at;
+    }
+
+    /** 외부 기관 ACK 수신 — 신고 종결. SENT 상태에서만 호출되어야 한다 (서비스 가드). */
+    public void markAcked(OffsetDateTime at) {
+        this.crptStatusCd = STATUS_ACKED;
+        this.ackAt = at;
+    }
+
+    /** 외부 전송 실패 — 재시도 대상. 실패 사유는 outbox row 의 lastError 에 적재. */
+    public void markFailed() {
+        this.crptStatusCd = STATUS_FAILED;
+    }
+
+    /** 재시도 상한 초과 — 운영자 retry API 로만 복귀. */
+    public void markDead() {
+        this.crptStatusCd = STATUS_DEAD;
+    }
+
+    /** FAILED/DEAD → REQUESTED 재큐잉. 다음 dispatch 배치가 다시 집어가도록 한다. */
+    public void markRequeued() {
+        this.crptStatusCd = STATUS_REQUESTED;
+        this.reportedAt = null;
+        this.externalTxNo = null;
     }
 
     public String currentStatus() {
