@@ -10,6 +10,8 @@ import com.bank.loan.creditreport.domain.CreditInfoReport;
 import com.bank.loan.creditreport.dto.CreditInfoReportListResponse;
 import com.bank.loan.creditreport.dto.CreditInfoReportResponse;
 import com.bank.loan.creditreport.dto.SubmitReportRequest;
+import com.bank.loan.creditreport.outbox.CreditInfoReportOutbox;
+import com.bank.loan.creditreport.outbox.CreditInfoReportOutboxRepository;
 import com.bank.loan.creditreport.repository.CreditInfoReportRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -23,12 +25,11 @@ import java.util.Optional;
 /**
  * 신용정보 신고 (KCB/NICE) 서비스.
  *
- * 본 단계: 등록 → 즉시 외부 전송(stub) → SENT 한 트랜잭션 안에서 전이.
- *   external_tx_no 자체 채번 (idempotency·추적 키).
- *   reported_at = 전송 시각.
- *   ACK callback / 재전송 / 실패 처리는 후속.
+ * 본 단계: submit → 신고 row REQUESTED + outbox row PENDING 한 트랜잭션 적재. 외부 호출은 하지 않는다
+ * (AI_GUIDELINES: 트랜잭션 내 외부 API 금지). dispatch 배치(별 plan)가 outbox 를 폴링해 어댑터를 호출하고
+ * 결과를 받아 SENT/FAILED 로 전이한다.
  *
- * status_history: REPORT_REQUESTED → REPORT_SENT.
+ * status_history: REPORT_REQUESTED 만 발생. SENT/FAILED/ACKED 전이는 dispatch 측에서 별도 publish.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,11 +38,10 @@ public class CreditInfoReportService {
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_TABLE_CD = "CREDIT_INFO_REPORT";
     private static final String REASON_REQUESTED = "REPORT_REQUESTED";
-    private static final String REASON_SENT = "REPORT_SENT";
 
     private final CreditInfoReportRepository repository;
+    private final CreditInfoReportOutboxRepository outboxRepository;
     private final LoanContractRepository contractRepository;
-    private final ExternalTxNumberGenerator txNoGenerator;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -54,7 +54,7 @@ public class CreditInfoReportService {
      * 자동 발화용 오버로드.
      *
      * dlqId 가 주어지면 (cntrId, dlqId, crptTypeCd, reportReasonCd) 멱등 키로 중복 신고를 막는다.
-     * 이미 SENT/ACKED 인 신고가 있으면 기존 row 를 그대로 반환 (서비스 레벨 fast path).
+     * 이미 활성(REQUESTED/SENT/ACKED) 신고가 있으면 기존 row 를 반환 — FAILED/DEAD 는 재발화 허용.
      * race 충돌은 UNIQUE 인덱스가 차단 — 호출자는 신경 쓰지 않는다.
      */
     @Transactional
@@ -66,7 +66,9 @@ public class CreditInfoReportService {
             Optional<CreditInfoReport> existing = repository
                     .findFirstByCntrIdAndDlqIdAndCrptTypeCdAndReportReasonCdAndCrptStatusCdInAndDeletedAtIsNullOrderByCrptIdAsc(
                             cntrId, dlqId, req.reportTypeCd(), req.reportReasonCd(),
-                            List.of(CreditInfoReport.STATUS_SENT, CreditInfoReport.STATUS_ACKED));
+                            List.of(CreditInfoReport.STATUS_REQUESTED,
+                                    CreditInfoReport.STATUS_SENT,
+                                    CreditInfoReport.STATUS_ACKED));
             if (existing.isPresent()) {
                 return CreditInfoReportResponse.of(existing.get());
             }
@@ -94,14 +96,14 @@ public class CreditInfoReportService {
                 actorId
         ));
 
-        // 외부 전송(stub) — 본 단계는 항상 SUCCESS
-        String externalTxNo = txNoGenerator.generate(now);
-        saved.markSent(externalTxNo, now);
-        statusHistoryPublisher.publish(StatusChangeEvent.of(
-                DOMAIN_CD, TARGET_TABLE_CD, saved.getCrptId(),
-                CreditInfoReport.STATUS_REQUESTED, CreditInfoReport.STATUS_SENT,
-                REASON_SENT, "externalTxNo=" + externalTxNo, actorId
-        ));
+        // outbox row 적재 — dispatch 배치가 픽업할 대상.
+        outboxRepository.save(CreditInfoReportOutbox.builder()
+                .crptId(saved.getCrptId())
+                .status(CreditInfoReportOutbox.STATUS_PENDING)
+                .attemptNo(0)
+                .maxAttempt(CreditInfoReportOutbox.DEFAULT_MAX_ATTEMPT)
+                .nextAttemptAt(now)
+                .build());
 
         return CreditInfoReportResponse.of(saved);
     }
