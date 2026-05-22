@@ -38,15 +38,16 @@ class CreditInfoReportStateTransitionTest {
     }
 
     @Test
-    void markAcked_는_status_ACKED_ackAt_채움() {
+    void markAcked_는_status_ACKED_ackAt_externalAckNo_채움() {
         CreditInfoReport r = newRequested();
         r.markSent("TX-001", OffsetDateTime.now());
         OffsetDateTime ackedAt = OffsetDateTime.now();
 
-        r.markAcked(ackedAt);
+        r.markAcked(ackedAt, "ACK-001");
 
         assertThat(r.currentStatus()).isEqualTo(CreditInfoReport.STATUS_ACKED);
         assertThat(r.getAckAt()).isEqualTo(ackedAt);
+        assertThat(r.getExternalAckNo()).isEqualTo("ACK-001");
     }
 
     @Test
