@@ -12,14 +12,18 @@ public class VectorConverter implements AttributeConverter<float[], String> {
 
     @Override
     public String convertToDatabaseColumn(float[] attribute) {
-        if (attribute == null) return null;
+        return toVectorString(attribute);
+    }
+
+    /** float[] → PostgreSQL vector 리터럴 {@code [v1,v2,...]} */
+    public static String toVectorString(float[] v) {
+        if (v == null) return null;
         StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < attribute.length; i++) {
+        for (int i = 0; i < v.length; i++) {
             if (i > 0) sb.append(",");
-            sb.append(attribute[i]);
+            sb.append(v[i]);
         }
-        sb.append("]");
-        return sb.toString();
+        return sb.append("]").toString();
     }
 
     @Override
