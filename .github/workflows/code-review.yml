@@ -39,8 +39,14 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          cat > /tmp/system_prompt.txt << 'SYSPROMPT'
-          당신은 Java 17 / Spring Boot 3.x 기반 인터넷뱅킹 프로젝트의 자동 코드 리뷰어입니다.
+          python3 << 'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+
+          diff = open('/tmp/pr_diff.txt').read()
+          pr_title = os.environ['PR_TITLE']
+          api_key = os.environ['ANTHROPIC_API_KEY']
+
+          system_prompt = """당신은 Java 17 / Spring Boot 3.x 기반 인터넷뱅킹 프로젝트의 자동 코드 리뷰어입니다.
           변경된 코드(diff)만 보고 리뷰하며, diff에 없는 내용은 추측하지 않습니다.
 
           ## 리뷰 기준 (AI_GUIDELINES.md 기반)
@@ -76,41 +82,40 @@ jobs:
           ---
           리뷰 기준: AI_GUIDELINES.md | 모델: claude-sonnet-4-6
 
-          지적 사항이 없는 섹션은 생략하고, 모든 섹션이 비어 있으면 "✅ 검토 완료 — 지적 사항 없음"을 출력합니다.
-          SYSPROMPT
+          지적 사항이 없는 섹션은 생략하고, 모든 섹션이 비어 있으면 "✅ 검토 완료 — 지적 사항 없음"을 출력합니다."""
 
-          jq -n \
-            --rawfile diff /tmp/pr_diff.txt \
-            --rawfile system /tmp/system_prompt.txt \
-            --arg pr_title "$PR_TITLE" \
-            '{
-              model: "claude-sonnet-4-6",
-              max_tokens: 2048,
-              system: $system,
-              messages: [
-                {
-                  role: "user",
-                  content: ("PR 제목: " + $pr_title + "\n\n변경 코드:\n```diff\n" + $diff + "\n```\n\n위 코드를 리뷰해주세요.")
-                }
+          payload = {
+              "model": "claude-sonnet-4-6",
+              "max_tokens": 2048,
+              "system": system_prompt,
+              "messages": [
+                  {
+                      "role": "user",
+                      "content": f"PR 제목: {pr_title}\n\n변경 코드:\n```diff\n{diff}\n```\n\n위 코드를 리뷰해주세요."
+                  }
               ]
-            }' > /tmp/payload.json
+          }
 
-          RESPONSE=$(curl -s \
-            -X POST https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d @/tmp/payload.json)
+          req = urllib.request.Request(
+              "https://api.anthropic.com/v1/messages",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "x-api-key": api_key,
+                  "anthropic-version": "2023-06-01",
+                  "content-type": "application/json"
+              }
+          )
 
-          REVIEW=$(echo "$RESPONSE" | jq -r '.content[0].text // empty')
-
-          if [ -z "$REVIEW" ]; then
-            echo "Claude API 호출 실패:" >&2
-            echo "$RESPONSE" >&2
-            exit 1
-          fi
-
-          echo "$REVIEW" > /tmp/review.txt
+          try:
+              with urllib.request.urlopen(req) as resp:
+                  result = json.loads(resp.read())
+                  review = result["content"][0]["text"]
+                  open("/tmp/review.txt", "w").write(review)
+          except urllib.error.HTTPError as e:
+              print(f"API 오류: {e.code} {e.reason}", file=sys.stderr)
+              print(e.read().decode(), file=sys.stderr)
+              sys.exit(1)
+          PYEOF
 
       - name: PR 코멘트 게시
         if: steps.diff.outputs.empty == 'false'
