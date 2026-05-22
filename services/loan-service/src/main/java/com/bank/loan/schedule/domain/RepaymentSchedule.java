@@ -41,6 +41,9 @@ public class RepaymentSchedule extends BaseEntity {
 
     public static final String VERSION_INITIAL = "V1";
 
+    public static final String YN_Y = "Y";
+    public static final String YN_N = "N";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "rsch_id")
@@ -75,6 +78,14 @@ public class RepaymentSchedule extends BaseEntity {
 
     @Column(name = "rsch_version_cd", nullable = false, length = 50)
     private String rschVersionCd;
+
+    /** 'Y' 면 원 due_date 가 비영업일이라 다음 영업일로 이동된 회차. 미보정/구약정은 'N'. */
+    @Column(name = "holiday_adjusted_yn", nullable = false, length = 1)
+    private String holidayAdjustedYn;
+
+    public boolean isHolidayAdjusted() {
+        return YN_Y.equals(holidayAdjustedYn);
+    }
 
     public boolean isPayable() {
         return STATUS_DUE.equals(rschStatusCd) || STATUS_OVERDUE.equals(rschStatusCd);

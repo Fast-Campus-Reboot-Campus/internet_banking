@@ -159,6 +159,7 @@ public class RateChangeService {
                     .appliedRateBps(newTotal)
                     .rschStatusCd(RepaymentSchedule.STATUS_DUE)
                     .rschVersionCd(newVersion)
+                    .holidayAdjustedYn(src.getHolidayAdjustedYn())
                     .build());
         }
         scheduleRepository.saveAll(toSave);

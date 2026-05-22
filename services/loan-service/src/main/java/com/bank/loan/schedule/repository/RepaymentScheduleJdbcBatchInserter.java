@@ -33,9 +33,9 @@ public class RepaymentScheduleJdbcBatchInserter {
                 cntr_id, installment_no, due_date,
                 scheduled_principal, scheduled_interest, scheduled_total,
                 remaining_balance, applied_rate_bps,
-                rsch_status_cd, rsch_version_cd,
+                rsch_status_cd, rsch_version_cd, holiday_adjusted_yn,
                 created_at, created_by, updated_at, updated_by, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -61,11 +61,12 @@ public class RepaymentScheduleJdbcBatchInserter {
                 ps.setInt(8, r.getAppliedRateBps());
                 ps.setString(9, r.getRschStatusCd());
                 ps.setString(10, r.getRschVersionCd());
-                ps.setObject(11, now);
-                ps.setLong(12, actorId);
-                ps.setObject(13, now);
-                ps.setLong(14, actorId);
-                ps.setInt(15, 0);
+                ps.setString(11, r.getHolidayAdjustedYn());
+                ps.setObject(12, now);
+                ps.setLong(13, actorId);
+                ps.setObject(14, now);
+                ps.setLong(15, actorId);
+                ps.setInt(16, 0);
             }
 
             @Override

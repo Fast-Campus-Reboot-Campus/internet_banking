@@ -183,6 +183,7 @@ public class PrepaymentService {
                         .appliedRateBps(contract.getTotalRateBps())
                         .rschStatusCd(RepaymentSchedule.STATUS_DUE)
                         .rschVersionCd(newVersion)
+                        .holidayAdjustedYn(old.getHolidayAdjustedYn())
                         .build());
             }
             scheduleRepository.saveAll(toSave);

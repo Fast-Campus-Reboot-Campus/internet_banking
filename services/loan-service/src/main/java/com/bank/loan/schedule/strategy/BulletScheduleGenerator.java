@@ -1,7 +1,9 @@
 package com.bank.loan.schedule.strategy;
 
+import com.bank.loan.calendar.service.BusinessDayService;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -24,8 +26,11 @@ import java.util.List;
  *
  * 라운딩 흡수: Bullet 은 회차당 이자가 동일해 별도 잔여처리 불필요.
  * 다만 매 회차 이자 합과 정확한 누적이자가 1원 단위에서 어긋날 수 있는데, 본 단계는 회차 표시값 기준으로만 합산한다.
+ *
+ * Equal 과 동일하게 dueDate 가 비영업일이면 다음 영업일로 이동한다 (following).
  */
 @Component
+@RequiredArgsConstructor
 public class BulletScheduleGenerator implements RepaymentScheduleGenerator {
 
     public static final String METHOD = "BULLET";
@@ -34,6 +39,8 @@ public class BulletScheduleGenerator implements RepaymentScheduleGenerator {
     private static final MathContext MC = MathContext.DECIMAL64;
     private static final BigDecimal BPS_TO_DECIMAL = BigDecimal.valueOf(10_000);
     private static final BigDecimal MONTHS_PER_YEAR = BigDecimal.valueOf(12);
+
+    private final BusinessDayService businessDayService;
 
     @Override
     public String supportedMethod() {
@@ -65,12 +72,16 @@ public class BulletScheduleGenerator implements RepaymentScheduleGenerator {
             long remaining = isLast ? 0L : principal;
             long scheduledInterest = monthlyInterest;
             long scheduledTotal = scheduledPrincipal + scheduledInterest;
-            LocalDate dueDate = startDate.plusMonths(i);
+            String rawDueDate = startDate.plusMonths(i).format(DATE);
+            String adjustedDueDate = businessDayService.nextBusinessDay(rawDueDate);
+            String adjustedYn = adjustedDueDate.equals(rawDueDate)
+                    ? RepaymentSchedule.YN_N
+                    : RepaymentSchedule.YN_Y;
 
             rows.add(RepaymentSchedule.builder()
                     .cntrId(contract.getCntrId())
                     .installmentNo(i)
-                    .dueDate(dueDate.format(DATE))
+                    .dueDate(adjustedDueDate)
                     .scheduledPrincipal(scheduledPrincipal)
                     .scheduledInterest(scheduledInterest)
                     .scheduledTotal(scheduledTotal)
@@ -78,6 +89,7 @@ public class BulletScheduleGenerator implements RepaymentScheduleGenerator {
                     .appliedRateBps(rateBps)
                     .rschStatusCd(RepaymentSchedule.STATUS_DUE)
                     .rschVersionCd(RepaymentSchedule.VERSION_INITIAL)
+                    .holidayAdjustedYn(adjustedYn)
                     .build());
         }
 

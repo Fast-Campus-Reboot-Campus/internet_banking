@@ -1,8 +1,10 @@
 package com.bank.loan.schedule.strategy;
 
+import com.bank.loan.calendar.service.BusinessDayService;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import com.bank.loan.schedule.service.EqualPaymentCalculator;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -15,13 +17,19 @@ import java.util.List;
  *
  * 매 회차 납입액(원금+이자) 이 일정하고, 회차가 갈수록 원금 비중이 증가한다.
  * 회차당 금액 계산은 {@link EqualPaymentCalculator} 공식 유틸에 위임 — 라운딩 정책 동일.
+ *
+ * dueDate 산정 후 비영업일이면 {@link BusinessDayService#nextBusinessDay} 로 이동 (한국 여신 관행 — following).
+ * 이동된 회차는 holiday_adjusted_yn = 'Y'.
  */
 @Component
+@RequiredArgsConstructor
 public class EqualPaymentScheduleGenerator implements RepaymentScheduleGenerator {
 
     public static final String METHOD = "EQUAL";
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    private final BusinessDayService businessDayService;
 
     @Override
     public String supportedMethod() {
@@ -42,12 +50,16 @@ public class EqualPaymentScheduleGenerator implements RepaymentScheduleGenerator
         for (int i = 0; i < installments.size(); i++) {
             EqualPaymentCalculator.Installment inst = installments.get(i);
             int installmentNo = i + 1;
-            LocalDate dueDate = startDate.plusMonths(installmentNo);
+            String rawDueDate = startDate.plusMonths(installmentNo).format(DATE);
+            String adjustedDueDate = businessDayService.nextBusinessDay(rawDueDate);
+            String adjustedYn = adjustedDueDate.equals(rawDueDate)
+                    ? RepaymentSchedule.YN_N
+                    : RepaymentSchedule.YN_Y;
 
             rows.add(RepaymentSchedule.builder()
                     .cntrId(contract.getCntrId())
                     .installmentNo(installmentNo)
-                    .dueDate(dueDate.format(DATE))
+                    .dueDate(adjustedDueDate)
                     .scheduledPrincipal(inst.scheduledPrincipal())
                     .scheduledInterest(inst.scheduledInterest())
                     .scheduledTotal(inst.scheduledTotal())
@@ -55,6 +67,7 @@ public class EqualPaymentScheduleGenerator implements RepaymentScheduleGenerator
                     .appliedRateBps(contract.getTotalRateBps())
                     .rschStatusCd(RepaymentSchedule.STATUS_DUE)
                     .rschVersionCd(RepaymentSchedule.VERSION_INITIAL)
+                    .holidayAdjustedYn(adjustedYn)
                     .build());
         }
 
