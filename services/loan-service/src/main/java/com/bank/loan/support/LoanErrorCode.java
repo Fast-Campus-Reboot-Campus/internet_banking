@@ -103,6 +103,9 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_140(HttpStatus.NOT_FOUND,            "증명서를 찾을 수 없습니다."),
 
     LOAN_150(HttpStatus.NOT_FOUND,            "신용정보 신고 내역을 찾을 수 없습니다."),
+    LOAN_151(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 ACK 처리할 수 없습니다. (SENT 필요)"),
+    LOAN_152(HttpStatus.CONFLICT,             "이미 ACKED 된 신고는 재전송할 수 없습니다."),
+    LOAN_153(HttpStatus.BAD_REQUEST,          "ACK 페이로드가 유효하지 않습니다."),
 
     LOAN_160(HttpStatus.NOT_FOUND,            "영업일 캘린더 항목을 찾을 수 없습니다."),
     LOAN_161(HttpStatus.CONFLICT,             "이미 등록된 캘린더 일자입니다."),

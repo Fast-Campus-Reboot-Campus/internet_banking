@@ -89,6 +89,10 @@ public class CreditInfoReport extends BaseEntity {
     @Column(name = "ack_at")
     private OffsetDateTime ackAt;
 
+    /** 외부 기관이 부여한 ACK 추적 번호. ACK callback 으로 채워진다. */
+    @Column(name = "external_ack_no", length = 100)
+    private String externalAckNo;
+
     public void markSent(String externalTxNo, OffsetDateTime at) {
         this.crptStatusCd = STATUS_SENT;
         this.externalTxNo = externalTxNo;
@@ -96,9 +100,10 @@ public class CreditInfoReport extends BaseEntity {
     }
 
     /** 외부 기관 ACK 수신 — 신고 종결. SENT 상태에서만 호출되어야 한다 (서비스 가드). */
-    public void markAcked(OffsetDateTime at) {
+    public void markAcked(OffsetDateTime at, String externalAckNo) {
         this.crptStatusCd = STATUS_ACKED;
         this.ackAt = at;
+        this.externalAckNo = externalAckNo;
     }
 
     /** 외부 전송 실패 — 재시도 대상. 실패 사유는 outbox row 의 lastError 에 적재. */

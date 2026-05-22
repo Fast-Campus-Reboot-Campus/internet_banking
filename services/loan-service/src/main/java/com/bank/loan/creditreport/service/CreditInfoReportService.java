@@ -8,6 +8,7 @@ import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.creditreport.domain.CreditInfoReport;
 import com.bank.loan.creditreport.dto.CreditInfoReportListResponse;
+import com.bank.loan.creditreport.dto.AckCallbackRequest;
 import com.bank.loan.creditreport.dto.CreditInfoReportResponse;
 import com.bank.loan.creditreport.dto.SubmitReportRequest;
 import com.bank.loan.creditreport.outbox.CreditInfoReportOutbox;
@@ -38,6 +39,7 @@ public class CreditInfoReportService {
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_TABLE_CD = "CREDIT_INFO_REPORT";
     private static final String REASON_REQUESTED = "REPORT_REQUESTED";
+    private static final String REASON_ACKED = "REPORT_ACKED";
 
     private final CreditInfoReportRepository repository;
     private final CreditInfoReportOutboxRepository outboxRepository;
@@ -118,6 +120,36 @@ public class CreditInfoReportService {
                 .map(CreditInfoReportResponse::of)
                 .toList();
         return CreditInfoReportListResponse.of(cntrId, items);
+    }
+
+    /**
+     * 외부 기관 ACK callback 처리. SENT → ACKED.
+     *
+     * 이미 ACKED → 멱등(같은 row 반환).
+     * SENT 가 아닌 다른 상태 → LOAN_151.
+     */
+    @Transactional
+    public CreditInfoReportResponse ack(Long crptId, AckCallbackRequest req) {
+        CreditInfoReport report = repository.findByCrptIdAndDeletedAtIsNull(crptId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_150));
+
+        if (CreditInfoReport.STATUS_ACKED.equals(report.currentStatus())) {
+            return CreditInfoReportResponse.of(report); // 멱등
+        }
+        if (!CreditInfoReport.STATUS_SENT.equals(report.currentStatus())) {
+            throw new BusinessException(LoanErrorCode.LOAN_151,
+                    "current=" + report.currentStatus());
+        }
+
+        String before = report.currentStatus();
+        report.markAcked(req.ackedAt(), req.externalAckNo());
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_TABLE_CD, report.getCrptId(),
+                before, CreditInfoReport.STATUS_ACKED,
+                REASON_ACKED, "externalAckNo=" + req.externalAckNo(),
+                currentActor.currentActorId()
+        ));
+        return CreditInfoReportResponse.of(report);
     }
 
     @Transactional(readOnly = true)
