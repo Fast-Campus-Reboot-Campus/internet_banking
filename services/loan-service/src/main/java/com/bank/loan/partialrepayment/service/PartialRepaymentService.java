@@ -14,6 +14,7 @@ import com.bank.loan.partialrepayment.dto.PartialRepaymentResponse;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
 import com.bank.loan.repayment.repository.RepaymentTransactionRepository;
 import com.bank.loan.repayment.service.OverdueInterestCalculator;
+import com.bank.loan.repayment.service.PaymentAllocator;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import com.bank.loan.schedule.repository.RepaymentScheduleRepository;
 import com.bank.loan.support.LoanErrorCode;
@@ -123,10 +124,8 @@ public class PartialRepaymentService {
         long paidInterestCumulative = txRepository.sumPaidInterestByRschId(schedule.getRschId());
         long remainingInterest = Math.max(0L, actualInterest - paidInterestCumulative);
 
-        long overduePortion = Math.min(req.amount(), remainingOverdue);
-        long afterOverdue = req.amount() - overduePortion;
-        long interestPortion = Math.min(afterOverdue, remainingInterest);
-        long principalPortion = afterOverdue - interestPortion;
+        PaymentAllocator.Allocation alloc = PaymentAllocator.allocate(
+                req.amount(), remainingOverdue, remainingInterest, 0L);
 
         long newCumulative = cumulative + req.amount();
         boolean fullyPaid = (newCumulative == schedule.getScheduledTotal());
@@ -137,10 +136,10 @@ public class PartialRepaymentService {
                 .rschId(schedule.getRschId())
                 .rtxTypeCd(RepaymentTransaction.TYPE_PARTIAL)
                 .totalAmount(req.amount())
-                .principalAmount(principalPortion)
-                .interestAmount(interestPortion)
-                .overdueInterestAmount(overduePortion)
-                .feeAmount(0L)
+                .principalAmount(alloc.principal())
+                .interestAmount(alloc.interest())
+                .overdueInterestAmount(alloc.overdue())
+                .feeAmount(alloc.fee())
                 .currencyCd(contract.getCurrencyCd())
                 .channelCd(req.channelCd() == null ? DEFAULT_CHANNEL : req.channelCd())
                 .rtxStatusCd(RepaymentTransaction.STATUS_SUCCESS)

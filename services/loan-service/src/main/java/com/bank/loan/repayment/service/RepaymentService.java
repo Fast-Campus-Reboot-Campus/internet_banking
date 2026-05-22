@@ -94,10 +94,10 @@ public class RepaymentService {
         }
 
         // 분배 정산 — 회차 기간 발생이자 기반. 0이면 scheduled_interest fallback.
+        // 본 단계 단순화: 연체이자·수수료 0 (OVERDUE 회차 분배는 후속 plan A.2).
         long total = schedule.getScheduledTotal();
         long interestPortion = computeInterestPortion(contract, schedule);
-        if (interestPortion > total) interestPortion = total;
-        long principalPortion = total - interestPortion;
+        PaymentAllocator.Allocation alloc = PaymentAllocator.allocate(total, 0L, interestPortion, 0L);
 
         OffsetDateTime now = OffsetDateTime.now();
         RepaymentTransaction saved = txRepository.save(RepaymentTransaction.builder()
@@ -105,10 +105,10 @@ public class RepaymentService {
                 .rschId(schedule.getRschId())
                 .rtxTypeCd(RepaymentTransaction.TYPE_SCHEDULED)
                 .totalAmount(total)
-                .principalAmount(principalPortion)
-                .interestAmount(interestPortion)
-                .overdueInterestAmount(0L)
-                .feeAmount(0L)
+                .principalAmount(alloc.principal())
+                .interestAmount(alloc.interest())
+                .overdueInterestAmount(alloc.overdue())
+                .feeAmount(alloc.fee())
                 .currencyCd(contract.getCurrencyCd())
                 .channelCd(req.channelCd() == null ? DEFAULT_CHANNEL : req.channelCd())
                 .rtxStatusCd(RepaymentTransaction.STATUS_SUCCESS)

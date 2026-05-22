@@ -10,6 +10,7 @@ import com.bank.loan.prepayment.dto.PrepayRequest;
 import com.bank.loan.prepayment.dto.PrepaymentResponse;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
 import com.bank.loan.repayment.repository.RepaymentTransactionRepository;
+import com.bank.loan.repayment.service.PaymentAllocator;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import com.bank.loan.schedule.repository.RepaymentScheduleRepository;
 import com.bank.loan.schedule.service.EqualPaymentCalculator;
@@ -110,18 +111,21 @@ public class PrepaymentService {
         OffsetDateTime now = OffsetDateTime.now();
 
         // 4) 수수료 산정 + RepaymentTransaction 신규 row
+        // 본 단계 단순화: 잔여 회차의 연체이자·정상이자 분배 없음 (후속 plan A.3).
+        //   amount 는 전부 원금에 귀속, 수수료는 별도 청구.
         long fee = computeEarlyRepaymentFee(contract, req.amount(), now);
-        long totalAmount = req.amount() + fee;
+        PaymentAllocator.Allocation alloc = PaymentAllocator.allocate(req.amount(), 0L, 0L, fee);
+        long totalAmount = req.amount() + alloc.fee();
 
         RepaymentTransaction saved = txRepository.save(RepaymentTransaction.builder()
                 .cntrId(cntrId)
                 .rschId(null)
                 .rtxTypeCd(RepaymentTransaction.TYPE_EARLY)
                 .totalAmount(totalAmount)
-                .principalAmount(req.amount())
-                .interestAmount(0L)
-                .overdueInterestAmount(0L)
-                .feeAmount(fee)
+                .principalAmount(alloc.principal())
+                .interestAmount(alloc.interest())
+                .overdueInterestAmount(alloc.overdue())
+                .feeAmount(alloc.fee())
                 .currencyCd(contract.getCurrencyCd())
                 .channelCd(req.channelCd() == null ? DEFAULT_CHANNEL : req.channelCd())
                 .rtxStatusCd(RepaymentTransaction.STATUS_SUCCESS)
