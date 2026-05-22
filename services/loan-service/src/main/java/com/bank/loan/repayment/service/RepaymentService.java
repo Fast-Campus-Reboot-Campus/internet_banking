@@ -7,6 +7,8 @@ import com.bank.common.web.BusinessException;
 import com.bank.loan.accrual.repository.InterestAccrualRepository;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
+import com.bank.loan.delinquency.domain.Delinquency;
+import com.bank.loan.delinquency.repository.DelinquencyRepository;
 import com.bank.loan.notification.event.InstallmentPaidEvent;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
 import com.bank.loan.repayment.dto.RepayInstallmentRequest;
@@ -21,33 +23,38 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 /**
- * 상환 처리 (수동/창구) 서비스.
+ * 상환 처리 (수동/창구) 서비스. 회차 정확액 상환 (TYPE_SCHEDULED).
  *
- * 본 단계 시나리오: 회차 정확액 정상 상환 1건 (rtx_type_cd=SCHEDULED, status=SUCCESS).
- *   - 분배: 회차 스케줄의 scheduled_principal / scheduled_interest 그대로 사용
- *   - 연체이자·수수료 0 (연체 라이프사이클 미구현)
- *   - 부분상환·중도상환·역분개·자동이체는 후속
+ * 분배 순서(flows §2.2): 연체이자 → 정상이자 → 원금 → 수수료. PaymentAllocator 위임.
  *
- * 멱등성:
- *   - Idempotency-Key 헤더로 보호. 동일 키 재호출 시 기존 tx 그대로 반환.
+ *   DUE 회차:     totalAmount = scheduled_total
+ *                  overdue=0, interest=computeInterestPortion, principal=total-interest
+ *   OVERDUE 회차: totalAmount = scheduled_total + computed_overdue_interest
+ *                  overdue=computed_overdue, interest=scheduled_interest, principal=scheduled_principal
+ *
+ * 수수료는 본 서비스 범위 외 (중도상환 수수료는 PrepaymentService 책임).
+ *
+ * 멱등성: Idempotency-Key 헤더로 보호. 동일 키 재호출 시 기존 tx 반환.
  *
  * 상태 전이:
  *   REPAYMENT_SCHEDULE: DUE/OVERDUE → PAID (status_history 기록)
  *   REPAYMENT_TRANSACTION: 신규 row, status=SUCCESS
  *
- * 분배 순서(flows §2.2): 연체이자 → 정상이자 → 원금 → 수수료.
- * 본 단계는 정상 회차만 다루므로 (정상이자 + 원금)만 0이 아닌 값이 채워진다.
- *
  * 이자 정산:
  *   회차 기간(prev_due_date, due_date] 의 InterestAccrual.daily_interest_amt 합을 사용.
  *   accrual 배치가 회차 기간에 한 번도 돌지 않았으면(0) scheduled_interest 로 fallback.
- *   actual_interest 가 scheduled_total 을 초과하는 비정상 케이스는 cap 으로 단순화.
- *   효과: 중도상환으로 원금잔액이 줄어든 이후 도래한 회차는 실제 발생이자만큼만 갚게 되고
- *        원금은 그만큼 더 갚히게 된다 (scheduled_interest 와 차이는 자연 흡수).
+ *
+ * 연체이자 산정 (OVERDUE 회차):
+ *   formula = scheduled_principal × overdueRateBps × days / 10000 / 365  (HALF_EVEN)
+ *   days = ChronoUnit.DAYS.between(dueDate, today). 활성 Delinquency 가 없으면 0.
  */
 @Service
 @RequiredArgsConstructor
@@ -57,11 +64,13 @@ public class RepaymentService {
     private static final String TARGET_TABLE_CD = "REPAYMENT_SCHEDULE";
     private static final String REASON_INSTALLMENT_PAID = "INSTALLMENT_PAID";
     private static final String DEFAULT_CHANNEL = "MANUAL";
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final RepaymentTransactionRepository txRepository;
     private final RepaymentScheduleRepository scheduleRepository;
     private final LoanContractRepository contractRepository;
     private final InterestAccrualRepository accrualRepository;
+    private final DelinquencyRepository delinquencyRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final ApplicationEventPublisher eventPublisher;
@@ -93,13 +102,16 @@ public class RepaymentService {
                     "current=" + schedule.currentStatus());
         }
 
-        // 분배 정산 — 회차 기간 발생이자 기반. 0이면 scheduled_interest fallback.
-        // 본 단계 단순화: 연체이자·수수료 0 (OVERDUE 회차 분배는 후속 plan A.2).
-        long total = schedule.getScheduledTotal();
-        long interestPortion = computeInterestPortion(contract, schedule);
-        PaymentAllocator.Allocation alloc = PaymentAllocator.allocate(total, 0L, interestPortion, 0L);
-
+        // 분배 정산 — 회차 기간 발생이자 + (OVERDUE 시) 연체이자.
+        // OVERDUE: totalAmount = scheduled_total + computed_overdue, 분배는 overdue→interest→principal
+        // DUE:     totalAmount = scheduled_total, overdue=0
         OffsetDateTime now = OffsetDateTime.now();
+        long overdueInterest = computeOverdueInterest(schedule, now);
+        long scheduledInterest = computeInterestPortion(contract, schedule);
+        long total = schedule.getScheduledTotal() + overdueInterest;
+        PaymentAllocator.Allocation alloc = PaymentAllocator.allocate(
+                total, overdueInterest, scheduledInterest, 0L);
+
         RepaymentTransaction saved = txRepository.save(RepaymentTransaction.builder()
                 .cntrId(cntrId)
                 .rschId(schedule.getRschId())
@@ -160,6 +172,28 @@ public class RepaymentService {
         long actual = accrualRepository.sumDailyInterestInRange(
                 schedule.getCntrId(), fromExclusive, schedule.getDueDate());
         return actual > 0 ? actual : schedule.getScheduledInterest();
+    }
+
+    /**
+     * 회차당 연체이자 산정 — OVERDUE 회차일 때만 양수. PartialRepaymentService 와 동일 산식.
+     * 일수 = due_date+1 부터 오늘까지. overdueBase = scheduled_principal (단순화).
+     * 활성 Delinquency 가 없거나 days≤0 이면 0.
+     */
+    private long computeOverdueInterest(RepaymentSchedule schedule, OffsetDateTime now) {
+        if (!schedule.isOverdue()) return 0L;
+        Optional<Delinquency> activeDlq = delinquencyRepository
+                .findByCntrIdAndDlqStatusCdAndDeletedAtIsNull(
+                        schedule.getCntrId(), Delinquency.STATUS_ACTIVE);
+        if (activeDlq.isEmpty()) return 0L;
+        int overdueRateBps = activeDlq.get().getOverdueRateBps();
+        if (overdueRateBps <= 0) return 0L;
+
+        LocalDate dueDate = LocalDate.parse(schedule.getDueDate(), DATE);
+        LocalDate today = now.toLocalDate();
+        int days = (int) ChronoUnit.DAYS.between(dueDate, today);
+        if (days <= 0) return 0L;
+
+        return OverdueInterestCalculator.compute(schedule.getScheduledPrincipal(), overdueRateBps, days);
     }
 
     @Transactional(readOnly = true)
