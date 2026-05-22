@@ -4,6 +4,34 @@
 
 <mapper namespace="com.bank.payment.domain.mapper.OutboxMessageMapper">
 
+    <select id="selectPending" resultType="com.bank.payment.domain.OutboxMessage">
+        SELECT *
+        FROM outbox_message
+        WHERE publish_status = 'PENDING'
+          AND available_at &lt;= NOW()
+        ORDER BY available_at ASC
+        LIMIT 50
+    </select>
+
+    <update id="markSent" parameterType="string">
+        UPDATE outbox_message
+        SET publish_status   = 'SENT',
+            published_at     = NOW(),
+            attempt_count    = attempt_count + 1,
+            last_modified_at = NOW()
+        WHERE message_id = #{messageId}
+    </update>
+
+    <update id="markFailed">
+        UPDATE outbox_message
+        SET publish_status   = 'FAILED',
+            last_error       = #{lastError},
+            attempt_count    = attempt_count + 1,
+            available_at     = NOW() + INTERVAL '5 minutes',
+            last_modified_at = NOW()
+        WHERE message_id = #{messageId}
+    </update>
+
     <insert id="insert" parameterType="com.bank.payment.domain.OutboxMessage">
         INSERT INTO outbox_message (
             message_id,
