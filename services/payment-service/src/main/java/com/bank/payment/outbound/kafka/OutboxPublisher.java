@@ -94,7 +94,7 @@ public class OutboxPublisher {
             case "PAYMENT_COMPLETED" -> "payment.completed";
             case "PAYMENT_FAILED"    -> "payment.failed";
             case "PAYMENT_REVERSED"  -> "payment.reversed";
-            // TODO S2-A: case "KFTC_REQUEST_SENT"      -> "kftc.network.request";
+            case "KFTC_REQUEST_SENT"      -> "kftc.network.request";
             // TODO S2-A: case "KFTC_ACK_SENT"          -> "kftc.network.request";
             // TODO S2-A: case "KFTC_SETTLEMENT_SENT"   -> "kftc.network.request";
             // TODO S2-A: case "KFTC_REJECT_SENT"       -> "kftc.network.request";

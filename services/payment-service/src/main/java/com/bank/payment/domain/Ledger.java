@@ -173,4 +173,135 @@ public class Ledger {
                 .postingStatus("POSTED")
                 .build();
     }
+
+    // ── 타행 출금 분개 [타행 JN-01 차변] ─────────────────
+    /** 타행이체 출금 분개. 송신계좌 DEBIT TRANSFER_OUT. (P-014 시트2 JN-01) */
+    public static Ledger interTransferOut(
+            String ledgerId, String paymentInstructionId, String accountId,
+            String journalNo, String accountNoSnap, String holderNameSnap,
+            BigDecimal amount, BigDecimal balanceBefore, BigDecimal balanceAfter,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("DEBIT")
+                .journalType("TRANSFER_OUT")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(balanceAfter)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── 타행 청산대기 분개 [타행 JN-01 대변] ─────────────
+    /**
+     * 타행이체 청산대기 분개. KB-CLR-088 CREDIT CLEARING_PENDING. (P-014 시트2 JN-01)
+     * 내부계정 잔액은 결제계가 추적하지 않으므로 balance=0,0 처리.
+     */
+    public static Ledger clearingPending(
+            String ledgerId, String paymentInstructionId,
+            String journalNo, BigDecimal amount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId("KB-CLR-088")
+                .journalNo(journalNo)
+                .accountNoSnap("KB-CLR-088")
+                .holderNameSnap("KB청산대기(신한)")
+                .debitCredit("CREDIT")
+                .journalType("CLEARING_PENDING")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── 타행 수수료 분개 [타행 JN-02 차변] ───────────────
+    /**
+     * 타행이체 수수료 분개. 송신계좌 DEBIT FEE. (P-014 시트2 JN-02)
+     * 수수료는 별도 deposit API 호출 없이 분개만 기록 → balance=0,0 처리.
+     */
+    public static Ledger fee(
+            String ledgerId, String paymentInstructionId, String accountId,
+            String journalNo, String accountNoSnap, String holderNameSnap,
+            BigDecimal feeAmount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("DEBIT")
+                .journalType("FEE")
+                .amount(feeAmount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── 타행 수수료수익 분개 [타행 JN-02 대변] ───────────
+    /**
+     * 타행이체 수수료수익 분개. KB-FEE-001 CREDIT FEE_INCOME. (P-014 시트2 JN-02)
+     * 내부계정 잔액은 결제계가 추적하지 않으므로 balance=0,0 처리.
+     */
+    public static Ledger feeIncome(
+            String ledgerId, String paymentInstructionId,
+            String journalNo, BigDecimal feeAmount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId("KB-FEE-001")
+                .journalNo(journalNo)
+                .accountNoSnap("KB-FEE-001")
+                .holderNameSnap("KB법인")
+                .debitCredit("CREDIT")
+                .journalType("FEE_INCOME")
+                .amount(feeAmount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
 }

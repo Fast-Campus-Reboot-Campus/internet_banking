@@ -137,10 +137,22 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     }
 
     private PaymentResult processInterBank(PaymentInstruction pi, PaymentCommand command) {
-        // TODO: S2-A 타행송신 — 다음 단계에서 구현
-        // (분개 4건 / CLEARING 전이 / KFTC Outbox INSERT / kftc.network.request 발행)
-        throw new UnsupportedOperationException(
-                "타행 이체 미구현 (receiverBankCode=" + command.receiverBankCode() + ") — S2-A 단계에서 구현");
+        try {
+            ExternalValidationResult validation = step2_externalValidation(pi, command);
+
+            txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
+
+            // Step 3: 출금(B-3) — 타행은 수신 입금 없음, 청산대기 분개로 박제
+            WithdrawStepResult withdrawStep = step3_withdraw(pi, command);
+
+            // TX-2: 분개4건(2묶음) + AUTHORIZED→PROCESSING→CLEARING + Outbox(KFTC_REQUEST_SENT) + 멱등키완료
+            return txService.txStep4InterBank(pi, withdrawStep.txData(), command,
+                    validation.senderHolderName());
+
+        } catch (PaymentValidationException e) {
+            // step2 검증 실패 — 자금변동 없음(B-3 미도달). 200 OK + status=FAILED
+            return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()));
+        }
     }
 
     private static String failedEventTypeFor(String failureCategory) {
@@ -179,17 +191,19 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             throw new PaymentValidationException("FRAUD_REPORTED", "송신계좌 사고신고");
         }
 
-        // A-1 계좌조회 (수신계좌)
-        DepositResponse<AccountInquiryData> receiverAccountResp = depositAccountClient.getAccount(receiver);
-        recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
-                "/api/v1/accounts/" + receiver, receiverAccountResp.code());
-        AccountInquiryData receiverAccount = receiverAccountResp.data();
-        if (!"ACTIVE".equals(receiverAccount.accountStatus())) {
-            throw new PaymentValidationException("ACCOUNT_INACTIVE",
-                    "수신계좌 비활성: " + receiverAccount.accountStatus());
-        }
-        if (Boolean.TRUE.equals(receiverAccount.fraudFlag())) {
-            throw new PaymentValidationException("FRAUD_REPORTED", "수신계좌 사고신고");
+        // A-1 계좌조회 (수신계좌) — 자행만. 타행은 수신계좌가 타 은행 관할이므로 deposit 검증 생략
+        if (Boolean.TRUE.equals(pi.getIsIntraBank())) {
+            DepositResponse<AccountInquiryData> receiverAccountResp = depositAccountClient.getAccount(receiver);
+            recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
+                    "/api/v1/accounts/" + receiver, receiverAccountResp.code());
+            AccountInquiryData receiverAccount = receiverAccountResp.data();
+            if (!"ACTIVE".equals(receiverAccount.accountStatus())) {
+                throw new PaymentValidationException("ACCOUNT_INACTIVE",
+                        "수신계좌 비활성: " + receiverAccount.accountStatus());
+            }
+            if (Boolean.TRUE.equals(receiverAccount.fraudFlag())) {
+                throw new PaymentValidationException("FRAUD_REPORTED", "수신계좌 사고신고");
+            }
         }
 
         // A-2 예금주조회 (송신계좌)
@@ -198,24 +212,29 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 "/api/v1/accounts/" + sender + "/holder", senderHolderResp.code());
         String senderHolderName = senderHolderResp.data().holderName();
 
-        // A-2 예금주조회 (수신계좌) — HOLDER_DECEASED + HOLDER_MISMATCH 검증
-        LocalDateTime receiverHolderInquiryAt = LocalDateTime.now();
-        DepositResponse<HolderInquiryData> receiverHolderResp = depositAccountClient.getHolder(receiver);
-        recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "RECEIVER", "deposit", "GET",
-                "/api/v1/accounts/" + receiver + "/holder", receiverHolderResp.code());
-        HolderInquiryData receiverHolder = receiverHolderResp.data();
-        if (Boolean.TRUE.equals(receiverHolder.deceasedFlag())) {
-            throw new PaymentValidationException("HOLDER_DECEASED", "수신 예금주 사망");
+        // A-2 예금주조회 (수신계좌) — 자행만. 타행은 요청값 그대로 박제 (KFTC가 수신측 검증)
+        String receiverHolderName;
+        if (Boolean.TRUE.equals(pi.getIsIntraBank())) {
+            LocalDateTime receiverHolderInquiryAt = LocalDateTime.now();
+            DepositResponse<HolderInquiryData> receiverHolderResp = depositAccountClient.getHolder(receiver);
+            recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "RECEIVER", "deposit", "GET",
+                    "/api/v1/accounts/" + receiver + "/holder", receiverHolderResp.code());
+            HolderInquiryData receiverHolder = receiverHolderResp.data();
+            if (Boolean.TRUE.equals(receiverHolder.deceasedFlag())) {
+                throw new PaymentValidationException("HOLDER_DECEASED", "수신 예금주 사망");
+            }
+            if (!receiverHolder.holderName().equals(command.receiverHolderName())) {
+                throw new PaymentValidationException("HOLDER_MISMATCH",
+                        "수신자명 불일치: 입력=" + command.receiverHolderName()
+                        + ", 조회=" + receiverHolder.holderName());
+            }
+            receiverHolderName = receiverHolder.holderName();
+            txService.updateReceiverHolderSnap(piId, receiverHolderName, receiverHolderInquiryAt);
+        } else {
+            // 타행: 수신 예금주명은 요청값 그대로 박제 (holderInquiryAt=null, V8 nullable)
+            receiverHolderName = command.receiverHolderName();
+            txService.updateReceiverHolderSnap(piId, receiverHolderName, null);
         }
-        if (!receiverHolder.holderName().equals(command.receiverHolderName())) {
-            throw new PaymentValidationException("HOLDER_MISMATCH",
-                    "수신자명 불일치: 입력=" + command.receiverHolderName()
-                    + ", 조회=" + receiverHolder.holderName());
-        }
-        String receiverHolderName = receiverHolder.holderName();
-
-        // PI receiver_holder_name_snap 박제 — version 변경 없음 (authorize 낙관락 보호)
-        txService.updateReceiverHolderSnap(piId, receiverHolderName, receiverHolderInquiryAt);
 
         // B-1 잔액조회 (송신계좌) — 결과 확인 후 박제 (FAIL/SUCCESS 분기)
         DepositResponse<BalanceInquiryData> balanceResp = depositBalanceClient.getBalance(sender);

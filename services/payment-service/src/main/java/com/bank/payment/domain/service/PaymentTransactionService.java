@@ -89,7 +89,7 @@ public class PaymentTransactionService {
                 .isIntraBank(isIntraBank)
                 .routingNetworkType(routingNetworkType)
                 .transferAmount(command.transferAmount())
-                .feeAmount(BigDecimal.ZERO)                  // 자행 수수료 0
+                .feeAmount(isIntraBank ? BigDecimal.ZERO : new BigDecimal("500"))  // 자행 0, 타행 500
                 .receiverPassbookSenderDisplay(command.receiverPassbookSenderDisplay())
                 .receiverMemo(command.receiverMemo())
                 .senderMemo(command.senderMemo())
@@ -259,6 +259,129 @@ public class PaymentTransactionService {
         idempotencyKeyMapper.updateStatus(command.idempotencyKey(), "COMPLETED", payload);
 
         return new PaymentResult(piId, pi.getTransactionNo(), "COMPLETED", null, now);
+    }
+
+    /**
+     * TX-2 (txStep4InterBank): 타행이체 확정 한 트랜잭션 (원자성).
+     * AUTHORIZED→PROCESSING(seq3) → PROCESSING→CLEARING(seq4) + 분개4건(2묶음) + Outbox(KFTC_REQUEST_SENT) + 멱등키완료.
+     * ★역분개 아님(is_reversal=false). Kafka 발행은 Outbox 워커가 kftc.network.request로 비동기 처리.
+     * @param pi authorize까지 끝난 결제지시 (version=0, DB version=1)
+     * @param withdrawResult B-3 출금 응답 (TRANSFER_OUT 분개 잔액박제용)
+     * @param command 원 명령 (금액/계좌/수신은행 등)
+     * @param senderHolderName 송신 예금주명 (step2 A-2 조회값)
+     * @return PaymentResult (CLEARING, completedAt=null — KFTC 응답 대기)
+     */
+    @Transactional
+    public PaymentResult txStep4InterBank(PaymentInstruction pi, BalanceTxData withdrawResult,
+                                           PaymentCommand command, String senderHolderName) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+        String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
+        BigDecimal transferAmount = command.transferAmount();
+        BigDecimal feeAmount = pi.getFeeAmount();  // txStep1에서 isIntraBank=false → 500
+
+        // 1. AUTHORIZED→PROCESSING (낙관락: pi.getVersion()+1=1 → DB v2)
+        int updated1 = paymentInstructionMapper.updateStatus(
+                piId, "PROCESSING", null, null, pi.getVersion() + 1);
+        if (updated1 == 0) {
+            throw new OptimisticLockingFailureException(
+                    "결제지시 상태 갱신 충돌(PROCESSING): " + piId);
+        }
+        Integer maxSeq1 = statusHistoryMapper.selectMaxSequence(piId);
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, (maxSeq1 == null ? 0 : maxSeq1) + 1,
+                "AUTHORIZED", "PROCESSING", "PROCESSING_STARTED", "SYSTEM", now));
+
+        // 2. journal_no 2묶음 채번 (JN-01=이체본금, JN-02=수수료)
+        String jn1 = idGenerator.nextJournalNo();
+        String jn2 = idGenerator.nextJournalNo();
+
+        // 3. JN-01 차변: 송신계좌 DEBIT TRANSFER_OUT (B-3 잔액 박제)
+        Ledger out = Ledger.interTransferOut(
+                idGenerator.nextLedgerId(), piId, command.senderAccountId(),
+                jn1, command.senderAccountId(), senderHolderName,
+                transferAmount,
+                BigDecimal.valueOf(withdrawResult.balanceBefore()),
+                BigDecimal.valueOf(withdrawResult.balanceAfter()),
+                "KRW", businessDate, businessDate, businessDate,
+                now, "타행이체 출금");
+        ledgerMapper.insert(out);
+
+        // 4. JN-01 대변: KB-CLR-088 CREDIT CLEARING_PENDING (내부계정 잔액=0,0)
+        Ledger clearing = Ledger.clearingPending(
+                idGenerator.nextLedgerId(), piId,
+                jn1, transferAmount,
+                "KRW", businessDate, businessDate, businessDate,
+                now, "타행이체 청산대기");
+        ledgerMapper.insert(clearing);
+
+        // 5. JN-01 차변=대변 검증 (P-014 묶음별)
+        if (out.getAmount().compareTo(clearing.getAmount()) != 0) {
+            throw new LedgerBalanceMismatchException(
+                    "JN-01 차변≠대변: DEBIT " + out.getAmount()
+                            + " ≠ CREDIT " + clearing.getAmount() + " (PI " + piId + ")");
+        }
+
+        // 6. JN-02 차변: 송신계좌 DEBIT FEE (별도 deposit 호출 없음 → balance=0,0)
+        Ledger fee = Ledger.fee(
+                idGenerator.nextLedgerId(), piId, command.senderAccountId(),
+                jn2, command.senderAccountId(), senderHolderName,
+                feeAmount,
+                "KRW", businessDate, businessDate, businessDate,
+                now, "타행이체 수수료");
+        ledgerMapper.insert(fee);
+
+        // 7. JN-02 대변: KB-FEE-001 CREDIT FEE_INCOME (내부계정 잔액=0,0)
+        Ledger feeInc = Ledger.feeIncome(
+                idGenerator.nextLedgerId(), piId,
+                jn2, feeAmount,
+                "KRW", businessDate, businessDate, businessDate,
+                now, "타행이체 수수료수익");
+        ledgerMapper.insert(feeInc);
+
+        // 8. JN-02 차변=대변 검증 (P-014 묶음별)
+        if (fee.getAmount().compareTo(feeInc.getAmount()) != 0) {
+            throw new LedgerBalanceMismatchException(
+                    "JN-02 차변≠대변: DEBIT " + fee.getAmount()
+                            + " ≠ CREDIT " + feeInc.getAmount() + " (PI " + piId + ")");
+        }
+
+        // 9. PROCESSING→CLEARING (낙관락: pi.getVersion()+2=2 → DB v3)
+        int updated2 = paymentInstructionMapper.updateStatus(
+                piId, "CLEARING", null, null, pi.getVersion() + 2);
+        if (updated2 == 0) {
+            throw new OptimisticLockingFailureException(
+                    "결제지시 상태 갱신 충돌(CLEARING): " + piId);
+        }
+        Integer maxSeq2 = statusHistoryMapper.selectMaxSequence(piId);
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, (maxSeq2 == null ? 0 : maxSeq2) + 1,
+                "PROCESSING", "CLEARING", "KFTC_REQUEST_SENT", "SYSTEM", now));
+
+        // 10. Outbox (KFTC_REQUEST_SENT, PENDING) — 워커가 kftc.network.request로 비동기 발행
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(Map.of(
+                    "paymentInstructionId", piId,
+                    "transactionNo", pi.getTransactionNo(),
+                    "senderAccountId", command.senderAccountId(),
+                    "receiverBankCode", command.receiverBankCode(),
+                    "receiverAccountNo", command.receiverAccountNo(),
+                    "receiverHolderName", command.receiverHolderName(),
+                    "transferAmount", transferAmount,
+                    "feeAmount", feeAmount,
+                    "requestedAt", now.toString()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox payload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "KFTC_REQUEST_SENT",
+                "v1", payload, now));
+
+        // 11. 멱등키 완료 (202 수락 완료 — KFTC 응답은 비동기, 멱등 재시도 시 CLEARING 반환)
+        idempotencyKeyMapper.updateStatus(command.idempotencyKey(), "COMPLETED", payload);
+
+        return new PaymentResult(piId, pi.getTransactionNo(), "CLEARING", null, null);
     }
 
     /** PI 재조회 — 이중보상 가드용. 보상 진입 직전 현재 상태 확인. */

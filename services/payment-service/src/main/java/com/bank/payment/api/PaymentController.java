@@ -63,6 +63,10 @@ public class PaymentController {
         );
 
         // 자행 동기 완결 → 200 OK (COMPLETED/FAILED 모두 비즈니스 정상결과)
+        // 타행 청산 대기 → 202 Accepted (KFTC 응답 비동기, CLEARING 상태)
+        if ("CLEARING".equals(result.status())) {
+            return ResponseEntity.accepted().body(response);
+        }
         return ResponseEntity.ok(response);
     }
 }
