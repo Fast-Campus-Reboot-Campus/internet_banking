@@ -46,6 +46,8 @@ configure(subprojects.findAll { it.path.startsWith(':services:') }) {
         implementation 'io.micrometer:micrometer-registry-prometheus'
 
         runtimeOnly 'org.postgresql:postgresql'
+        implementation 'org.flywaydb:flyway-core'
+        runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
         compileOnly 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok'
