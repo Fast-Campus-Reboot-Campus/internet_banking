@@ -80,4 +80,13 @@
         WHERE our_payment_instruction_id = #{piId}
     </update>
 
+    <update id="updateRejected">
+        UPDATE kftc_clearing_transaction
+        SET clearing_status  = 'REJECTED',
+            reject_code      = #{rejectCode},
+            reject_message   = #{rejectMessage},
+            last_modified_at = CURRENT_TIMESTAMP(3)
+        WHERE our_payment_instruction_id = #{piId}
+    </update>
+
 </mapper>

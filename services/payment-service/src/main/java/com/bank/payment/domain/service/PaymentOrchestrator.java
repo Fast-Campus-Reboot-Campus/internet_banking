@@ -1,5 +1,7 @@
 package com.bank.payment.domain.service;
 
+import com.bank.payment.domain.PaymentInstruction;
+
 /**
  * 결제 오케스트레이션 진입점. P-028 5단계 흐름의 단일 진입 메서드.
  * 내부 단계(txStep1/step2/step3/txStep4)는 구현 디테일 (인터페이스 비노출).
@@ -13,4 +15,17 @@ public interface PaymentOrchestrator {
      * @return 처리 결과 (결제지시번호/거래번호/상태/완료시각)
      */
     PaymentResult processPayment(PaymentCommand command);
+
+    /**
+     * F2 KFTC 거절 보상. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
+     * Kafka consumer(kftc.network.response REJECT/PAYMENT_REJECT)에서 호출.
+     * @param freshPi DB 재조회한 PI (CLEARING 또는 REVERSING 상태)
+     * @param clearingNo KFTC 청산식별번호
+     * @param rejectCode KFTC responseCode (예: 'E2001')
+     * @param rejectMessage KFTC 거절메시지
+     * @param rejectedAt KFTC 거절시각 (yyyyMMddHHmmss)
+     * @return FAILED 결제결과
+     */
+    PaymentResult processKftcReject(PaymentInstruction freshPi, String clearingNo,
+                                     String rejectCode, String rejectMessage, String rejectedAt);
 }

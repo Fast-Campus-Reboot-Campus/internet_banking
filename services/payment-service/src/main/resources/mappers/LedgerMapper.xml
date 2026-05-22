@@ -71,4 +71,12 @@
         ORDER BY ledger_id
     </select>
 
+    <select id="selectOriginalsByPaymentId" resultType="com.bank.payment.domain.Ledger">
+        SELECT *
+        FROM ledger
+        WHERE payment_instruction_id = #{piId}
+          AND is_reversal = FALSE
+        ORDER BY ledger_id
+    </select>
+
 </mapper>

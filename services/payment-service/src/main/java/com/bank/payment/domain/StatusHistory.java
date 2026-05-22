@@ -100,4 +100,28 @@ public class StatusHistory {
                 .eventOccurredAt(eventOccurredAt)
                 .build();
     }
+
+    /**
+     * 상태이력 생성 — reason_code/reason_message 포함 오버로드.
+     * F2: reason_code='E2001', reason_message=rejectMessage 박제용.
+     * V6 reason_code/reason_message 컬럼 모두 NULL 허용이므로 기존 8인자 of()는 그대로 유지.
+     */
+    public static StatusHistory of(
+            String historyId, String paymentInstructionId, Integer sequenceInPayment,
+            String previousStatus, String nextStatus, String eventType,
+            String triggeredBy, String reasonCode, String reasonMessage,
+            LocalDateTime eventOccurredAt) {
+        return StatusHistory.builder()
+                .historyId(historyId)
+                .paymentInstructionId(paymentInstructionId)
+                .sequenceInPayment(sequenceInPayment)
+                .previousStatus(previousStatus)
+                .nextStatus(nextStatus)
+                .eventType(eventType)
+                .triggeredBy(triggeredBy)
+                .reasonCode(reasonCode)
+                .reasonMessage(reasonMessage)
+                .eventOccurredAt(eventOccurredAt)
+                .build();
+    }
 }

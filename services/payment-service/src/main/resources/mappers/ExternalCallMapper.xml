@@ -82,4 +82,13 @@
         WHERE call_id = #{callId}
     </update>
 
+    <select id="selectByPiIdAndCallType" resultType="com.bank.payment.domain.ExternalCall">
+        SELECT *
+        FROM external_call
+        WHERE payment_instruction_id = #{piId}
+          AND call_type = #{callType}
+        ORDER BY call_id DESC
+        LIMIT 1
+    </select>
+
 </mapper>

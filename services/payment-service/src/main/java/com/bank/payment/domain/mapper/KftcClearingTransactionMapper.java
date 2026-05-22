@@ -12,4 +12,9 @@ public interface KftcClearingTransactionMapper {
     void updateSettled(@Param("piId") String piId,
                        @Param("settledAt") String settledAt,
                        @Param("settlementDate") String settlementDate);
+
+    /** F2 거절: clearing_status=REJECTED + reject_code/message 박제. settled_at 등 건드리지 않음(P-015). */
+    void updateRejected(@Param("piId") String piId,
+                        @Param("rejectCode") String rejectCode,
+                        @Param("rejectMessage") String rejectMessage);
 }

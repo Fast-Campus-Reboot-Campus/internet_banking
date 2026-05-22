@@ -5,6 +5,7 @@ import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.common.exception.PaymentValidationException;
 import com.bank.payment.domain.ExternalCall;
+import com.bank.payment.domain.Ledger;
 import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.outbound.feign.DepositAccountClient;
 import com.bank.payment.outbound.feign.DepositBalanceClient;
@@ -15,12 +16,17 @@ import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.HolderInquiryData;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
+import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -28,8 +34,10 @@ import java.util.UUID;
  *
  * Stage 5-6: 자행 S1 8건 (수신검증 추가).
  * F8 (다2): B-4 입금실패 → AUTHORIZED→REVERSING→FAILED + B-5 출금취소. 역분개 0건.
+ * F2: KFTC 거절 → CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소.
  * call_idempotency_key 형식: {piId}-{callType}-{accountRole}-{attemptNo}
  */
+@Slf4j
 @Service
 public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
@@ -37,6 +45,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     private final DepositAccountClient depositAccountClient;
     private final DepositBalanceClient depositBalanceClient;
     private final IdGenerator idGenerator;
+    private final ObjectMapper objectMapper;
 
     @Value("${payment.bank-code:A}")
     private String bankCode;
@@ -45,11 +54,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             PaymentTransactionService txService,
             DepositAccountClient depositAccountClient,
             DepositBalanceClient depositBalanceClient,
-            IdGenerator idGenerator) {
+            IdGenerator idGenerator,
+            ObjectMapper objectMapper) {
         this.txService = txService;
         this.depositAccountClient = depositAccountClient;
         this.depositBalanceClient = depositBalanceClient;
         this.idGenerator = idGenerator;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -332,6 +343,98 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
                 "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
                 originalWithdrawCallId);  // ← compensation_target_call_id = 원 B-3 callId
+    }
+
+    // ── F2: KFTC 거절 보상 ────────────────────────────────────────────────────
+
+    /**
+     * F2 KFTC 거절 보상. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
+     * 결정 (f) 재진입 가드: FAILED→skip / CLEARING|REVERSING→진행 / 그 외→warn+skip.
+     */
+    @Override
+    public PaymentResult processKftcReject(
+            PaymentInstruction freshPi, String clearingNo,
+            String rejectCode, String rejectMessage, String rejectedAt) {
+
+        String piId = freshPi.getPaymentInstructionId();
+        String status = freshPi.getStatus();
+
+        // 결정 (f) 멱등 가드
+        if ("FAILED".equals(status)) {
+            log.info("[F2] 이미 FAILED, skip. piId={}", piId);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), "FAILED", "KFTC_REJECTED", null);
+        }
+        if (!"CLEARING".equals(status) && !"REVERSING".equals(status)) {
+            log.warn("[F2] 처리불가 상태, skip. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+
+        boolean wasClearing = "CLEARING".equals(status);
+
+        // TX-1: CLEARING → REVERSING (CLEARING 진입 시에만)
+        if (wasClearing) {
+            txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMessage);
+        }
+
+        // TX-2 낙관락 버전: TX-1 후 DB version+1 / REVERSING 재진입은 현재 version 그대로
+        Integer tx2Version = wasClearing ? freshPi.getVersion() + 1 : freshPi.getVersion();
+
+        // B-5: 출금취소 (TX 밖) — REVERSING 재진입 시 이미 수행된 경우 skip
+        ExternalCall originalWithdrawCall = txService.selectOriginalWithdrawCall(piId);
+        ExternalCall existingCancelCall = txService.selectExistingCancelCall(piId);
+
+        WithdrawCancelData cancelResult = null;
+        if (existingCancelCall != null) {
+            log.info("[F2] B-5 이미 수행됨, skip 재호출. piId={} existingCallId={}",
+                    piId, existingCancelCall.getCallId());
+        } else {
+            String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
+            String depositTxNo = extractDepositTxNo(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+        }
+
+        // TX-2: 역분개4건 + FAILED + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
+        List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
+        return txService.txCompleteKftcRejectReversal(
+                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, clearingNo);
+    }
+
+    /**
+     * B-5 응답 JSON에서 depositTransactionNo 추출.
+     * mock에서는 responseBody가 "{}"이므로 "" fallback.
+     */
+    private String extractDepositTxNo(ExternalCall call) {
+        if (call == null) return "";
+        try {
+            JsonNode body = objectMapper.readTree(call.getResponseBody());
+            return body.path("depositTransactionNo").asText("");
+        } catch (Exception e) {
+            log.warn("[F2] depositTransactionNo 파싱 실패, 빈값 사용. callId={}", call.getCallId());
+            return "";
+        }
+    }
+
+    /**
+     * B-5 출금취소 호출 + external_call 박제 (F2 보상 전용).
+     * compensation_type=COMPENSATION, compensation_target_call_id=원 B-3 callId.
+     */
+    private WithdrawCancelData performWithdrawCancelForReject(
+            String piId, PaymentInstruction pi, String originalCallId, String depositTxNo) {
+        String callIdemKey = piId + "-BALANCE_WITHDRAW_CANCEL-SENDER-1";
+        long amount = pi.getTransferAmount().longValueExact();
+
+        WithdrawCancelRequest request = new WithdrawCancelRequest(
+                depositTxNo,
+                pi.getSenderAccountId(),
+                amount,
+                "PAYMENT_FAILED",
+                piId);
+
+        DepositResponse<WithdrawCancelData> resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
+        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
+                "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
+                originalCallId);
+        return resp.data();
     }
 
     // ── recordCall 오버로드 ───────────────────────────────────────────────────

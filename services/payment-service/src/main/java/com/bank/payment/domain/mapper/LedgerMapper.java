@@ -10,4 +10,7 @@ public interface LedgerMapper {
     void insert(Ledger ledger);
 
     List<Ledger> selectByPaymentId(@Param("paymentInstructionId") String paymentInstructionId);
+
+    /** F2 역분개용: is_reversal=FALSE 필터로 원분개만 반환 (역분개 재조회 방지). */
+    List<Ledger> selectOriginalsByPaymentId(@Param("piId") String piId);
 }

@@ -2,6 +2,7 @@ package com.bank.payment.inbound.kafka;
 
 import com.bank.payment.domain.KftcClearingTransaction;
 import com.bank.payment.domain.PaymentInstruction;
+import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.bank.payment.domain.service.PaymentTransactionService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +21,7 @@ public class KftcNetworkResponseConsumer {
 
     private final ObjectMapper objectMapper;
     private final PaymentTransactionService txService;
+    private final PaymentOrchestrator orchestrator;
 
     @Value("${payment.bank-code:004}")
     private String bankCode;
@@ -43,9 +45,39 @@ public class KftcNetworkResponseConsumer {
 
         switch (messageType) {
             case "REJECT":
-            case "PAYMENT_REJECT":
-                // TODO F2 보상: PaymentOrchestrator.processKftcReject() 미구현 (S2-A/F2에서 구현)
+            case "PAYMENT_REJECT": {
+                String clearingNo = payload.path("clearingNo").asText();
+                String responseCode = payload.path("responseCode").asText();
+                String rejectMessage = payload.path("rejectMessage").asText();
+                String rejectedAt = payload.path("rejectedAt").asText();
+
+                KftcClearingTransaction rejectCt = txService.selectByClearingNo(clearingNo);
+                if (rejectCt == null) {
+                    log.error("[KFTC] REJECT CT 없음, skip. clearingNo={}", clearingNo);
+                    break;
+                }
+                String rejectPiId = rejectCt.getOurPaymentInstructionId();
+                PaymentInstruction rejectPi = txService.selectById(rejectPiId);
+                if (rejectPi == null) {
+                    log.error("[KFTC] REJECT PI 없음, skip. clearingNo={} piId={}", clearingNo, rejectPiId);
+                    break;
+                }
+
+                // 결정 (f) 멱등 가드
+                String rejectStatus = rejectPi.getStatus();
+                if ("FAILED".equals(rejectStatus)) {
+                    log.info("[KFTC] REJECT 이미 FAILED(중복수신 skip). piId={}", rejectPiId);
+                    break;
+                }
+                if (!"CLEARING".equals(rejectStatus) && !"REVERSING".equals(rejectStatus)) {
+                    log.warn("[KFTC] REJECT 처리불가 상태, skip. piId={} status={}", rejectPiId, rejectStatus);
+                    break;
+                }
+
+                orchestrator.processKftcReject(rejectPi, clearingNo, responseCode, rejectMessage, rejectedAt);
+                log.info("[KFTC] REJECT 처리완료. piId={} clearingNo={}", rejectPiId, clearingNo);
                 break;
+            }
             case "SETTLEMENT_NOTIFY": {
                 String clearingNo = payload.path("clearingNo").asText();
                 String responseCode = payload.path("responseCode").asText();

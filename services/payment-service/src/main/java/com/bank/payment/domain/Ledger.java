@@ -304,4 +304,152 @@ public class Ledger {
                 .postingStatus("POSTED")
                 .build();
     }
+
+    // ── F2 역분개: 송신계좌 출금취소 [JN-1역 대변] ──────
+    /**
+     * 타행이체 거절 역분개 — 송신계좌 CREDIT REVERSAL_TRANSFER_OUT. (F2 보상, P-014 JN-1역)
+     * balance_before/after: B-5 출금취소 응답잔액 박제. is_reversal=TRUE, reversal_reason='KFTC_REJECTION'.
+     * chk_ledger_reversal_original_consistency: original_ledger_id NOT NULL 필수.
+     */
+    public static Ledger reversalTransferOut(
+            String ledgerId, String paymentInstructionId, String accountId,
+            String originalLedgerId, String journalNo,
+            String accountNoSnap, String holderNameSnap,
+            BigDecimal amount, BigDecimal balanceBefore, BigDecimal balanceAfter,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .originalLedgerId(originalLedgerId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("CREDIT")
+                .journalType("REVERSAL_TRANSFER_OUT")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(balanceAfter)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(true)
+                .reversalReason("KFTC_REJECTION")
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── F2 역분개: 청산대기 취소 [JN-1역 차변] ──────────
+    /**
+     * 타행이체 거절 역분개 — KB-CLR-0xx DEBIT REVERSAL_CLEARING_PENDING. (F2 보상, P-014 JN-1역)
+     * accountId/accountNoSnap/holderNameSnap: 원분개 CLEARING_PENDING에서 계승. balance=0,0.
+     */
+    public static Ledger reversalClearingPending(
+            String ledgerId, String paymentInstructionId,
+            String originalLedgerId, String journalNo,
+            String accountId, String accountNoSnap, String holderNameSnap,
+            BigDecimal amount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .originalLedgerId(originalLedgerId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("DEBIT")
+                .journalType("REVERSAL_CLEARING_PENDING")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(true)
+                .reversalReason("KFTC_REJECTION")
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── F2 역분개: 수수료 취소 [JN-2역 대변] ────────────
+    /**
+     * 타행이체 거절 역분개 — 송신계좌 CREDIT REVERSAL_FEE. (F2 보상, P-014 JN-2역)
+     * balance=0,0 (원 FEE 분개도 별도 deposit 호출 없이 0,0이므로 대칭).
+     */
+    public static Ledger reversalFee(
+            String ledgerId, String paymentInstructionId, String accountId,
+            String originalLedgerId, String journalNo,
+            String accountNoSnap, String holderNameSnap,
+            BigDecimal amount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .originalLedgerId(originalLedgerId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("CREDIT")
+                .journalType("REVERSAL_FEE")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(true)
+                .reversalReason("KFTC_REJECTION")
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── F2 역분개: 수수료수익 취소 [JN-2역 차변] ─────────
+    /**
+     * 타행이체 거절 역분개 — KB-FEE-001 DEBIT REVERSAL_FEE_INCOME. (F2 보상, P-014 JN-2역)
+     * balance=0,0 (원 FEE_INCOME도 내부계정 0,0이므로 대칭).
+     */
+    public static Ledger reversalFeeIncome(
+            String ledgerId, String paymentInstructionId,
+            String originalLedgerId, String journalNo,
+            BigDecimal amount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId("KB-FEE-001")
+                .originalLedgerId(originalLedgerId)
+                .journalNo(journalNo)
+                .accountNoSnap("KB-FEE-001")
+                .holderNameSnap("KB법인")
+                .debitCredit("DEBIT")
+                .journalType("REVERSAL_FEE_INCOME")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(true)
+                .reversalReason("KFTC_REJECTION")
+                .postingStatus("POSTED")
+                .build();
+    }
 }
