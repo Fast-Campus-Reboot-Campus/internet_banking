@@ -11,6 +11,7 @@ import com.bank.ai.rag.ingestion.domain.RagIngestionLog;
 import com.bank.ai.rag.ingestion.embedder.EmbeddingClient;
 import com.bank.ai.rag.ingestion.parser.DocumentParser;
 import com.bank.ai.rag.ingestion.repository.RagIngestionLogRepository;
+import com.bank.ai.rag.observability.RagMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -45,6 +47,7 @@ public class IngestionService {
     private final RagChunkRepository    chunkRepository;
     private final RagIngestionLogRepository logRepository;
     private final RagProperties        ragProperties;
+    private final RagMetrics           ragMetrics;
 
     /**
      * 문서 하나를 처음부터 전체 파이프라인으로 처리.
@@ -58,45 +61,56 @@ public class IngestionService {
         RagDocument doc = documentRepository.findByDocIdAndDeletedAtIsNull(docId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 doc_id: " + docId));
 
-        // 체크섬 확인 — 변경 없으면 SKIP
-        String checksum = computeChecksum(filePath);
-        if (doc.isSameContent(checksum)) {
-            saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SKIP, 0, null);
-            log.info("[ingest] SKIP (체크섬 동일): docId={}", docId);
-            return 0;
-        }
-
-        // ── 1. PARSE (외부 IO, 트랜잭션 없음) ──────────────────────────
-        OffsetDateTime parseStart = OffsetDateTime.now();
-        String rawText;
+        long started = System.nanoTime();
+        String status = RagMetrics.STATUS_FAIL;
         try {
-            rawText = documentParser.parse(filePath);
-        } catch (IOException e) {
-            saveFailLog(docId, RagIngestionLog.PHASE_PARSE, parseStart, e.getMessage());
-            throw new IngestionException("파싱 실패: " + filePath.getFileName(), e);
+            // 체크섬 확인 — 변경 없으면 SKIP
+            String checksum = computeChecksum(filePath);
+            if (doc.isSameContent(checksum)) {
+                saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SKIP, 0, null);
+                log.info("[ingest] SKIP (체크섬 동일): docId={}", docId);
+                status = RagMetrics.STATUS_SKIP;
+                return 0;
+            }
+
+            // ── 1. PARSE (외부 IO, 트랜잭션 없음) ──────────────────────────
+            OffsetDateTime parseStart = OffsetDateTime.now();
+            String rawText;
+            try {
+                rawText = documentParser.parse(filePath);
+            } catch (IOException e) {
+                saveFailLog(docId, RagIngestionLog.PHASE_PARSE, parseStart, e.getMessage());
+                throw new IngestionException("파싱 실패: " + filePath.getFileName(), e);
+            }
+            saveLog(docId, RagIngestionLog.PHASE_PARSE, RagIngestionLog.STATUS_SUCCESS, 0, null);
+
+            // ── 2. PII 마스킹 + 청크 분할 ────────────────────────────────
+            String maskedText = piiMaskingFilter.mask(rawText).maskedText();
+            List<String> chunks = textChunker.chunk(maskedText);
+            saveLog(docId, RagIngestionLog.PHASE_CHUNK, RagIngestionLog.STATUS_SUCCESS, chunks.size(), null);
+            log.info("[ingest] 청크 분할 완료: docId={} chunks={}", docId, chunks.size());
+
+            if (chunks.isEmpty()) {
+                log.warn("[ingest] 텍스트 추출 결과 없음: docId={} file={}", docId, filePath.getFileName());
+                // 텍스트가 없어도 파이프라인 자체는 정상 완료 — success 로 집계
+                status = RagMetrics.STATUS_SUCCESS;
+                return 0;
+            }
+
+            // ── 3. 임베딩 (외부 API, 트랜잭션 바깥) ──────────────────────
+            int batchSize = ragProperties.embed().batchSize();
+            List<float[]> vectors = embedInBatches(docId, chunks, batchSize);
+
+            // ── 4. UPSERT (트랜잭션 내부) ─────────────────────────────────
+            int saved = upsertChunks(docId, chunks, vectors, checksum);
+            saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SUCCESS, saved, null);
+            log.info("[ingest] 완료: docId={} saved={}", docId, saved);
+            status = RagMetrics.STATUS_SUCCESS;
+            return saved;
+        } finally {
+            ragMetrics.recordIngest(doc.getDocTypeCd(), status,
+                    Duration.ofNanos(System.nanoTime() - started));
         }
-        saveLog(docId, RagIngestionLog.PHASE_PARSE, RagIngestionLog.STATUS_SUCCESS, 0, null);
-
-        // ── 2. PII 마스킹 + 청크 분할 ────────────────────────────────
-        String maskedText = piiMaskingFilter.mask(rawText).maskedText();
-        List<String> chunks = textChunker.chunk(maskedText);
-        saveLog(docId, RagIngestionLog.PHASE_CHUNK, RagIngestionLog.STATUS_SUCCESS, chunks.size(), null);
-        log.info("[ingest] 청크 분할 완료: docId={} chunks={}", docId, chunks.size());
-
-        if (chunks.isEmpty()) {
-            log.warn("[ingest] 텍스트 추출 결과 없음: docId={} file={}", docId, filePath.getFileName());
-            return 0;
-        }
-
-        // ── 3. 임베딩 (외부 API, 트랜잭션 바깥) ──────────────────────
-        int batchSize = ragProperties.embed().batchSize();
-        List<float[]> vectors = embedInBatches(docId, chunks, batchSize);
-
-        // ── 4. UPSERT (트랜잭션 내부) ─────────────────────────────────
-        int saved = upsertChunks(docId, chunks, vectors, checksum);
-        saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SUCCESS, saved, null);
-        log.info("[ingest] 완료: docId={} saved={}", docId, saved);
-        return saved;
     }
 
     /** 청크 배치 임베딩. 배치 단위로 embed 호출해 외부 API 부하 분산. */

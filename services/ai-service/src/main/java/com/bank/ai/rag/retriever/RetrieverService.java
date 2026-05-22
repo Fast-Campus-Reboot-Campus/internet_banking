@@ -1,6 +1,7 @@
 package com.bank.ai.rag.retriever;
 
 import com.bank.ai.rag.ingestion.embedder.EmbeddingClient;
+import com.bank.ai.rag.observability.RagMetrics;
 import com.bank.ai.rag.retriever.dto.RagChunkHit;
 import com.bank.ai.rag.retriever.dto.RagSearchRequest;
 import com.bank.ai.rag.retriever.dto.RagSearchResponse;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -32,6 +34,7 @@ public class RetrieverService {
 
     private final EmbeddingClient       embeddingClient;
     private final ChunkSearchRepository searchRepository;
+    private final RagMetrics            ragMetrics;
 
     /**
      * @param req 검색 요청 (query, profile, sensitivityCd, asOfDate, topK)
@@ -47,16 +50,22 @@ public class RetrieverService {
 
         log.debug("[retriever] profile={} topK={} asOfDate={}", profile.getCode(), topK, req.asOfDate());
 
-        // ── 임베딩 (외부 API, 트랜잭션 바깥) ──────────────────────────
-        float[] vector    = embeddingClient.embed(List.of(req.query())).get(0);
-        String  vecStr    = VectorConverter.toVectorString(vector);
+        long started = System.nanoTime();
+        try {
+            // ── 임베딩 (외부 API, 트랜잭션 바깥) ──────────────────────────
+            float[] vector    = embeddingClient.embed(List.of(req.query())).get(0);
+            String  vecStr    = VectorConverter.toVectorString(vector);
 
-        // ── 벡터 유사도 검색 ──────────────────────────────────────────
-        List<RagChunkHit> hits = searchRepository.findNearest(
-                vecStr, profile.getDocTypes(), req.asOfDate(), topK);
+            // ── 벡터 유사도 검색 ──────────────────────────────────────────
+            List<RagChunkHit> hits = searchRepository.findNearest(
+                    vecStr, profile.getDocTypes(), req.asOfDate(), topK);
 
-        log.debug("[retriever] hits={}", hits.size());
-        return new RagSearchResponse(req.query(), profile.getCode(), hits);
+            log.debug("[retriever] hits={}", hits.size());
+            return new RagSearchResponse(req.query(), profile.getCode(), hits);
+        } finally {
+            ragMetrics.recordSearch(profile.getCode(),
+                    Duration.ofNanos(System.nanoTime() - started));
+        }
     }
 
     private int resolveTopK(Integer requested) {
