@@ -173,6 +173,73 @@ class RepaymentFlowTest extends AbstractLoanIntegrationTest {
                 .andExpect(jsonPath("$.code").value("LOAN_062"));
     }
 
+    /**
+     * OVERDUE 회차의 정확액 상환 → 연체이자 분배 회귀.
+     * 연도 격리 — 새 계약은 cntrStartDate=20220101 (과거, 미사용 연도) 로 별도 생성.
+     * 메인 계약(@BeforeAll, 오늘) 은 영향 없음.
+     */
+    @Test @Order(20)
+    void OVERDUE_회차_상환_연체이자_분배() throws Exception {
+        Long prodId = createProduct();
+        activateProduct(prodId);
+        Long applId = createApplication(prodId);
+        forceApprove(applId);
+        Long overdueCntrId = createContract(applId, "20220101");
+        registerAndVerifyRepaymentAccount(overdueCntrId);
+        triggerDrawdown(overdueCntrId, CONTRACTED_AMOUNT);
+
+        long scheduledTotal1 = fetchScheduledTotal(overdueCntrId, 1);
+
+        // 회차1 OVERDUE 로 전이
+        mockMvc.perform(post("/api/internal/delinquency/rollover").param("baseDate", "20220302"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/loan-contracts/{cntrId}/repayment-schedules", overdueCntrId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].rschStatusCd").value("OVERDUE"));
+
+        // 회차1 정확액 상환 — OVERDUE 분배 활성화
+        MvcResult result = mockMvc.perform(post("/api/loan-contracts/{cntrId}/repayments", overdueCntrId)
+                        .header("Idempotency-Key", "rp-overdue-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "installmentNo":1, "channelCd":"MANUAL" }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.rtxStatusCd").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.rtxTypeCd").value("SCHEDULED"))
+                .andExpect(jsonPath("$.data.feeAmount").value(0))
+                .andReturn();
+        JsonNode data = extractData(result);
+        long total     = data.get("totalAmount").asLong();
+        long principal = data.get("principalAmount").asLong();
+        long interest  = data.get("interestAmount").asLong();
+        long overdue   = data.get("overdueInterestAmount").asLong();
+        long fee       = data.get("feeAmount").asLong();
+
+        assertThat(overdue).as("OVERDUE 회차 연체이자 양수").isPositive();
+        assertThat(total).as("totalAmount = scheduledTotal + overdue").isEqualTo(scheduledTotal1 + overdue);
+        assertThat(principal + interest + overdue + fee)
+                .as("분배 항등식")
+                .isEqualTo(total);
+        // 회차1 PAID 전이 확인
+        mockMvc.perform(get("/api/loan-contracts/{cntrId}/repayment-schedules", overdueCntrId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].rschStatusCd").value("PAID"));
+    }
+
+    private long fetchScheduledTotal(Long cntrId, int installmentNo) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/loan-contracts/{cntrId}/repayment-schedules", cntrId))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode items = extractData(result).get("items");
+        for (JsonNode item : items) {
+            if (item.get("installmentNo").asInt() == installmentNo) {
+                return item.get("scheduledTotal").asLong();
+            }
+        }
+        throw new IllegalStateException("installmentNo=" + installmentNo + " not found");
+    }
+
     // ============================================================
     // helpers
     // ============================================================
@@ -231,6 +298,13 @@ class RepaymentFlowTest extends AbstractLoanIntegrationTest {
     }
 
     private Long createContract(Long applId) throws Exception {
+        return createContract(applId, null);
+    }
+
+    private Long createContract(Long applId, String cntrStartDate) throws Exception {
+        String startDateField = cntrStartDate == null
+                ? ""
+                : ",\"cntrStartDate\":\"" + cntrStartDate + "\"";
         String body = """
                 {
                   "applId":%d,
@@ -239,8 +313,9 @@ class RepaymentFlowTest extends AbstractLoanIntegrationTest {
                   "baseRateBps":%d,
                   "rateTypeCd":"FIXED",
                   "repaymentMethodCd":"EQUAL"
+                  %s
                 }
-                """.formatted(applId, CONTRACTED_AMOUNT, PERIOD_MONTHS, RATE_BPS);
+                """.formatted(applId, CONTRACTED_AMOUNT, PERIOD_MONTHS, RATE_BPS, startDateField);
         MvcResult result = mockMvc.perform(post("/api/loan-contracts")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
