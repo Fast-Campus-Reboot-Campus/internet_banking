@@ -34,6 +34,15 @@ public class CreditInfoReportDirectController {
         return ApiResponse.ok(service.getById(crptId));
     }
 
+    @Operation(summary = "운영자 재전송",
+            description = "DEAD/FAILED 신고를 강제 재시도. outbox attemptNo 리셋 + PENDING 복귀. " +
+                          "ACKED 는 LOAN_152.")
+    @PostMapping("/{crptId}/retry")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<CreditInfoReportResponse> retry(@PathVariable Long crptId) {
+        return ApiResponse.ok(service.retry(crptId));
+    }
+
     @Operation(summary = "외부 기관 ACK callback",
             description = "신고 SENT → ACKED 전이. 이미 ACKED 면 동일 row 반환(멱등). " +
                           "SENT 이외 상태는 LOAN_151. 인증/서명검증은 11 plan 에서 보강 예정.")

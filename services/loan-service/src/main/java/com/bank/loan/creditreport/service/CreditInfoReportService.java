@@ -40,6 +40,7 @@ public class CreditInfoReportService {
     private static final String TARGET_TABLE_CD = "CREDIT_INFO_REPORT";
     private static final String REASON_REQUESTED = "REPORT_REQUESTED";
     private static final String REASON_ACKED = "REPORT_ACKED";
+    private static final String REASON_REQUEUED = "REPORT_REQUEUED";
 
     private final CreditInfoReportRepository repository;
     private final CreditInfoReportOutboxRepository outboxRepository;
@@ -149,6 +150,47 @@ public class CreditInfoReportService {
                 REASON_ACKED, "externalAckNo=" + req.externalAckNo(),
                 currentActor.currentActorId()
         ));
+        return CreditInfoReportResponse.of(report);
+    }
+
+    /**
+     * 운영자 재전송. ACKED → LOAN_152. 그 외 상태(REQUESTED/SENT/FAILED/DEAD) → outbox requeue.
+     *
+     * outbox row 가 없는 신고(legacy)는 새로 만들어 PENDING 으로 적재한다.
+     * 신고 row 는 markRequeued 로 REQUESTED 복귀, externalTxNo/reportedAt 초기화.
+     */
+    @Transactional
+    public CreditInfoReportResponse retry(Long crptId) {
+        CreditInfoReport report = repository.findByCrptIdAndDeletedAtIsNull(crptId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_150));
+
+        if (CreditInfoReport.STATUS_ACKED.equals(report.currentStatus())) {
+            throw new BusinessException(LoanErrorCode.LOAN_152);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Long actorId = currentActor.currentActorId();
+        String before = report.currentStatus();
+        report.markRequeued();
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_TABLE_CD, report.getCrptId(),
+                before, CreditInfoReport.STATUS_REQUESTED,
+                REASON_REQUEUED, "operator retry", actorId
+        ));
+
+        CreditInfoReportOutbox outbox = outboxRepository
+                .findByCrptIdAndDeletedAtIsNull(crptId).orElse(null);
+        if (outbox == null) {
+            outboxRepository.save(CreditInfoReportOutbox.builder()
+                    .crptId(crptId)
+                    .status(CreditInfoReportOutbox.STATUS_PENDING)
+                    .attemptNo(0)
+                    .maxAttempt(CreditInfoReportOutbox.DEFAULT_MAX_ATTEMPT)
+                    .nextAttemptAt(now)
+                    .build());
+        } else {
+            outbox.requeue(now);
+        }
         return CreditInfoReportResponse.of(report);
     }
 
