@@ -8,9 +8,13 @@ import com.bank.loan.delinquency.domain.DelinquencyDailySnapshot;
 import com.bank.loan.delinquency.dto.DelinquencyRolloverResponse;
 import com.bank.loan.delinquency.repository.DelinquencyDailySnapshotRepository;
 import com.bank.loan.delinquency.repository.DelinquencyRepository;
+import com.bank.loan.notification.event.DelinquencyOpenedEvent;
+import com.bank.loan.notification.event.DelinquencyResolvedEvent;
+import com.bank.loan.notification.event.DelinquencyStageAdvancedEvent;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import com.bank.loan.schedule.repository.RepaymentScheduleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,6 +70,7 @@ public class DelinquencyRolloverService {
     private final DelinquencyDailySnapshotRepository snapshotRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public DelinquencyRolloverResponse rollover(String baseDate) {
@@ -127,6 +132,7 @@ public class DelinquencyRolloverService {
                         before, Delinquency.STATUS_RESOLVED,
                         REASON_DLQ_RESOLVED, "baseDate=" + baseDate, actorId
                 ));
+                eventPublisher.publishEvent(new DelinquencyResolvedEvent(cntrId, d.getDlqId(), now));
                 return new ProcessResult(0, 1, 0);
             }
             return new ProcessResult(0, 0, 0);
@@ -144,7 +150,12 @@ public class DelinquencyRolloverService {
         Delinquency dlq;
         if (existingActive.isPresent()) {
             dlq = existingActive.get();
+            String prevStage = dlq.getDlqStageCd();
             dlq.updateDailyAggregate(dlqDays, principalSum, interestSum, stage);
+            if (prevStage != null && !prevStage.equals(stage)) {
+                eventPublisher.publishEvent(new DelinquencyStageAdvancedEvent(
+                        cntrId, dlq.getDlqId(), prevStage, stage, dlqDays));
+            }
         } else {
             dlq = delinquencyRepository.save(Delinquency.builder()
                     .cntrId(cntrId)
@@ -162,6 +173,8 @@ public class DelinquencyRolloverService {
                     null, Delinquency.STATUS_ACTIVE,
                     REASON_DLQ_OPENED, "baseDate=" + baseDate, actorId
             ));
+            eventPublisher.publishEvent(new DelinquencyOpenedEvent(
+                    cntrId, dlq.getDlqId(), dlq.getDlqStartDate(), stage));
         }
 
         int snapshotsCreated = 0;
