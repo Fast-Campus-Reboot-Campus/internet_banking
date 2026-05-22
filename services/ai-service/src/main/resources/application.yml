@@ -47,6 +47,8 @@ rag:
   chunk:
     size: ${RAG_CHUNK_SIZE:800}
     overlap: ${RAG_CHUNK_OVERLAP:120}
+  corpus:
+    base-dir: ${RAG_CORPUS_BASE_DIR:docs/corpus}
 
 springdoc:
   api-docs:
