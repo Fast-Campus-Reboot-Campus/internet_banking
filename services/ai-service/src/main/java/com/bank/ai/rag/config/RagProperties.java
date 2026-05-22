@@ -13,7 +13,21 @@ public record RagProperties(Embed embed, Chunk chunk, Corpus corpus) {
             String model,
             int dimension,
             int batchSize,
-            long timeoutMs
+            long timeoutMs,
+            Openai openai
+    ) {}
+
+    /**
+     * OpenAI 임베딩 API 어댑터 설정. provider=openai 일 때만 사용.
+     * apiKey 가 비어 있으면 Authorization 헤더 미부착 — 사내 프록시·게이트웨이 경로 대응.
+     */
+    public record Openai(
+            String baseUrl,        // 기본: https://api.openai.com
+            String apiKey,         // env: OPENAI_API_KEY
+            int connectTimeoutMs,
+            int readTimeoutMs,
+            int maxAttempts,       // 5xx/IO 재시도 횟수
+            long retryBackoffMs    // 지수 백오프 base (ms)
     ) {}
 
     public record Chunk(

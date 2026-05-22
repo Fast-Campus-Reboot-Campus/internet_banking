@@ -44,6 +44,13 @@ rag:
     dimension: ${RAG_EMBED_DIMENSION:1536}
     batch-size: ${RAG_EMBED_BATCH_SIZE:16}
     timeout-ms: ${RAG_EMBED_TIMEOUT_MS:5000}
+    openai:
+      base-url: ${RAG_OPENAI_BASE_URL:https://api.openai.com}
+      api-key: ${OPENAI_API_KEY:}
+      connect-timeout-ms: ${RAG_OPENAI_CONNECT_TIMEOUT_MS:2000}
+      read-timeout-ms: ${RAG_OPENAI_READ_TIMEOUT_MS:10000}
+      max-attempts: ${RAG_OPENAI_MAX_ATTEMPTS:3}
+      retry-backoff-ms: ${RAG_OPENAI_RETRY_BACKOFF_MS:300}
   chunk:
     size: ${RAG_CHUNK_SIZE:800}
     overlap: ${RAG_CHUNK_OVERLAP:120}
