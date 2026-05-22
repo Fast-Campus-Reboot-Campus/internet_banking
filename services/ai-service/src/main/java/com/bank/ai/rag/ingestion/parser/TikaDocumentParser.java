@@ -19,7 +19,14 @@ import java.nio.file.Path;
 public class TikaDocumentParser implements DocumentParser {
 
     private static final int MAX_LENGTH = 10_000_000; // 10MB 텍스트 상한
-    private final Tika tika = new Tika();
+    private final Tika tika;
+
+    public TikaDocumentParser() {
+        // parseToString(InputStream, Metadata, maxLength) 의 metadata 가 null 이면 Tika 내부에서 NPE.
+        // setMaxStringLength + 1-arg 시그니처로 우회.
+        this.tika = new Tika();
+        this.tika.setMaxStringLength(MAX_LENGTH);
+    }
 
     @Override
     public String parse(Path filePath) throws IOException {
@@ -27,7 +34,7 @@ public class TikaDocumentParser implements DocumentParser {
             throw new IOException("파일이 존재하지 않음: " + filePath);
         }
         try (InputStream in = Files.newInputStream(filePath)) {
-            String text = tika.parseToString(in, null, MAX_LENGTH);
+            String text = tika.parseToString(in);
             log.debug("[parser] 추출 완료: file={} chars={}", filePath.getFileName(), text.length());
             return text == null ? "" : text.strip();
         } catch (TikaException e) {

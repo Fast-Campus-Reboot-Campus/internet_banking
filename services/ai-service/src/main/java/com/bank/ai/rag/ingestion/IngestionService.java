@@ -1,8 +1,6 @@
 package com.bank.ai.rag.ingestion;
 
 import com.bank.ai.privacy.PiiMaskingFilter;
-import com.bank.ai.rag.chunk.domain.RagChunk;
-import com.bank.ai.rag.chunk.repository.RagChunkRepository;
 import com.bank.ai.rag.config.RagProperties;
 import com.bank.ai.rag.document.domain.RagDocument;
 import com.bank.ai.rag.document.repository.RagDocumentRepository;
@@ -10,12 +8,10 @@ import com.bank.ai.rag.ingestion.chunker.TextChunker;
 import com.bank.ai.rag.ingestion.domain.RagIngestionLog;
 import com.bank.ai.rag.ingestion.embedder.EmbeddingClient;
 import com.bank.ai.rag.ingestion.parser.DocumentParser;
-import com.bank.ai.rag.ingestion.repository.RagIngestionLogRepository;
 import com.bank.ai.rag.observability.RagMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -33,6 +29,8 @@ import java.util.List;
  * 흐름: checksum 확인 → parse → maskPii → chunk → embed(트랜잭션 외부) → upsert
  *
  * 외부 API 호출(embed)은 @Transactional 바깥에서 수행해 AI_GUIDELINES 준수.
+ * DB 쓰기는 {@link IngestionPersistence} 의 트랜잭션 메소드로 위임 — 동일 클래스
+ * self-invocation 으로는 Spring AOP 가 트랜잭션을 걸지 못한다.
  */
 @Slf4j
 @Service
@@ -44,8 +42,7 @@ public class IngestionService {
     private final EmbeddingClient      embeddingClient;
     private final PiiMaskingFilter     piiMaskingFilter;
     private final RagDocumentRepository documentRepository;
-    private final RagChunkRepository    chunkRepository;
-    private final RagIngestionLogRepository logRepository;
+    private final IngestionPersistence persistence;
     private final RagProperties        ragProperties;
     private final RagMetrics           ragMetrics;
 
@@ -67,7 +64,7 @@ public class IngestionService {
             // 체크섬 확인 — 변경 없으면 SKIP
             String checksum = computeChecksum(filePath);
             if (doc.isSameContent(checksum)) {
-                saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SKIP, 0, null);
+                persistence.saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SKIP, 0, null);
                 log.info("[ingest] SKIP (체크섬 동일): docId={}", docId);
                 status = RagMetrics.STATUS_SKIP;
                 return 0;
@@ -79,20 +76,19 @@ public class IngestionService {
             try {
                 rawText = documentParser.parse(filePath);
             } catch (IOException e) {
-                saveFailLog(docId, RagIngestionLog.PHASE_PARSE, parseStart, e.getMessage());
+                persistence.saveFailLog(docId, RagIngestionLog.PHASE_PARSE, parseStart, truncate(e.getMessage(), 500));
                 throw new IngestionException("파싱 실패: " + filePath.getFileName(), e);
             }
-            saveLog(docId, RagIngestionLog.PHASE_PARSE, RagIngestionLog.STATUS_SUCCESS, 0, null);
+            persistence.saveLog(docId, RagIngestionLog.PHASE_PARSE, RagIngestionLog.STATUS_SUCCESS, 0, null);
 
             // ── 2. PII 마스킹 + 청크 분할 ────────────────────────────────
             String maskedText = piiMaskingFilter.mask(rawText).maskedText();
             List<String> chunks = textChunker.chunk(maskedText);
-            saveLog(docId, RagIngestionLog.PHASE_CHUNK, RagIngestionLog.STATUS_SUCCESS, chunks.size(), null);
+            persistence.saveLog(docId, RagIngestionLog.PHASE_CHUNK, RagIngestionLog.STATUS_SUCCESS, chunks.size(), null);
             log.info("[ingest] 청크 분할 완료: docId={} chunks={}", docId, chunks.size());
 
             if (chunks.isEmpty()) {
                 log.warn("[ingest] 텍스트 추출 결과 없음: docId={} file={}", docId, filePath.getFileName());
-                // 텍스트가 없어도 파이프라인 자체는 정상 완료 — success 로 집계
                 status = RagMetrics.STATUS_SUCCESS;
                 return 0;
             }
@@ -102,8 +98,8 @@ public class IngestionService {
             List<float[]> vectors = embedInBatches(docId, chunks, batchSize);
 
             // ── 4. UPSERT (트랜잭션 내부) ─────────────────────────────────
-            int saved = upsertChunks(docId, chunks, vectors, checksum);
-            saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SUCCESS, saved, null);
+            int saved = persistence.upsertChunks(docId, chunks, vectors, checksum);
+            persistence.saveLog(docId, RagIngestionLog.PHASE_UPSERT, RagIngestionLog.STATUS_SUCCESS, saved, null);
             log.info("[ingest] 완료: docId={} saved={}", docId, saved);
             status = RagMetrics.STATUS_SUCCESS;
             return saved;
@@ -120,63 +116,11 @@ public class IngestionService {
             List<String> batch = chunks.subList(i, Math.min(i + batchSize, chunks.size()));
             allVectors.addAll(embeddingClient.embed(batch));
         }
-        saveLog(docId, RagIngestionLog.PHASE_EMBED, RagIngestionLog.STATUS_SUCCESS, chunks.size(),
+        persistence.saveLog(docId, RagIngestionLog.PHASE_EMBED, RagIngestionLog.STATUS_SUCCESS, chunks.size(),
                 ragProperties.embed().model());
         return allVectors;
     }
 
-    /** 기존 청크 삭제 후 신규 청크 저장, 문서 체크섬·ingested_at 갱신. */
-    @Transactional
-    protected int upsertChunks(Long docId, List<String> chunks, List<float[]> vectors,
-                                String checksum) {
-        chunkRepository.deleteAllByDocId(docId);
-
-        List<RagChunk> entities = new ArrayList<>(chunks.size());
-        for (int i = 0; i < chunks.size(); i++) {
-            entities.add(RagChunk.builder()
-                    .docId(docId)
-                    .chunkSeq(i)
-                    .content(chunks.get(i))
-                    .tokenCnt(chunks.get(i).split("\\s+").length)
-                    .embedding(vectors.get(i))
-                    .build());
-        }
-        chunkRepository.saveAll(entities);
-
-        RagDocument doc = documentRepository.findByDocIdAndDeletedAtIsNull(docId).orElseThrow();
-        doc.updateChecksum(checksum);
-        doc.markIngested(OffsetDateTime.now());
-        documentRepository.save(doc);
-
-        return entities.size();
-    }
-
-    // ── 로그 헬퍼 ──────────────────────────────────────────────────
-    @Transactional
-    protected void saveLog(Long docId, String phase, String status, int chunkCnt, String model) {
-        var log = RagIngestionLog.builder()
-                .docId(docId).phaseCd(phase).statusCd(status)
-                .chunkCnt(chunkCnt == 0 ? null : chunkCnt)
-                .modelName(model)
-                .startedAt(OffsetDateTime.now())
-                .build();
-        if (RagIngestionLog.STATUS_SUCCESS.equals(status) || RagIngestionLog.STATUS_SKIP.equals(status)) {
-            log.complete(chunkCnt);
-        }
-        logRepository.save(log);
-    }
-
-    @Transactional
-    protected void saveFailLog(Long docId, String phase, OffsetDateTime startedAt, String error) {
-        var entry = RagIngestionLog.builder()
-                .docId(docId).phaseCd(phase).statusCd(RagIngestionLog.STATUS_FAIL)
-                .startedAt(startedAt)
-                .build();
-        entry.fail(truncate(error, 500));
-        logRepository.save(entry);
-    }
-
-    // ── 유틸 ──────────────────────────────────────────────────────
     private String computeChecksum(Path filePath) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
