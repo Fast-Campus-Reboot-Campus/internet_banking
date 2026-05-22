@@ -122,7 +122,10 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_181(HttpStatus.CONFLICT,             "이미 발급된 활성 보증보험이 존재합니다. (계약당 1건)"),
     LOAN_182(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 보증보험을 취소할 수 없습니다. (ISSUED 필요)"),
     LOAN_183(HttpStatus.UNPROCESSABLE_ENTITY, "보증보험 발급 가능한 계약 상태가 아닙니다. (SIGNED/ACTIVE 필요)"),
-    LOAN_184(HttpStatus.UNPROCESSABLE_ENTITY, "보증보험이 등록된 계약은 활성 ISSUED 보증보험이 필요합니다. (drawdown 사전조건)");
+    LOAN_184(HttpStatus.UNPROCESSABLE_ENTITY, "보증보험이 등록된 계약은 활성 ISSUED 보증보험이 필요합니다. (drawdown 사전조건)"),
+
+    LOAN_190(HttpStatus.NOT_FOUND,            "알림 outbox 를 찾을 수 없습니다."),
+    LOAN_191(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 재전송할 수 없습니다. (FAILED/DEAD 필요)");
 
     private final HttpStatus status;
     private final String message;
