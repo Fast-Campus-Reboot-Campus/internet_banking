@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 public record CreditInfoReportResponse(
         Long crptId,
         Long cntrId,
+        Long dlqId,
         Long customerId,
         String crptTypeCd,
         String crptAgencyCd,
@@ -20,7 +21,7 @@ public record CreditInfoReportResponse(
 ) {
     public static CreditInfoReportResponse of(CreditInfoReport r) {
         return new CreditInfoReportResponse(
-                r.getCrptId(), r.getCntrId(), r.getCustomerId(),
+                r.getCrptId(), r.getCntrId(), r.getDlqId(), r.getCustomerId(),
                 r.getCrptTypeCd(), r.getCrptAgencyCd(), r.getCrptStatusCd(),
                 r.getReportTargetCd(), r.getReportReasonCd(),
                 r.getReportPayload(),

@@ -52,6 +52,10 @@ public class CreditInfoReport extends BaseEntity {
     @Column(name = "cntr_id", nullable = false)
     private Long cntrId;
 
+    /** 연체 발화 신고일 때 출처 dlq 추적용. 자동 발화 외 (수동/약정/종결) 신고는 null. */
+    @Column(name = "dlq_id")
+    private Long dlqId;
+
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
