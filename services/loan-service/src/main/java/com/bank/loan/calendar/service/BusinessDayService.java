@@ -37,6 +37,9 @@ public class BusinessDayService {
 
     private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.BASIC_ISO_DATE;
 
+    /** 휴일 보정 lookahead 상한 — 31 일이면 한국 최장 연속 휴일(설/추석 연휴 + 임시휴일) 모두 흡수. */
+    public static final int MAX_LOOKAHEAD_DAYS = 31;
+
     private final BusinessCalendarRepository repository;
     private final CurrentActorProvider currentActor;
 
@@ -44,6 +47,46 @@ public class BusinessDayService {
     public boolean isBusinessDay(String calDate) {
         LocalDate parsed = parseOrThrow(calDate);
         return repository.findByCalDateAndDeletedAtIsNull(calDate)
+                .map(BusinessCalendar::isBusinessDay)
+                .orElseGet(() -> weekdayFallback(parsed));
+    }
+
+    /**
+     * 입력 일자가 이미 영업일이면 그대로, 아니면 다음 영업일로 이동한 YYYYMMDD 를 반환한다.
+     * (한국 여신 관행 — `following` 정책)
+     *
+     * 사용처: schedule 생성 시 dueDate 휴일 보정, 만기일 보정.
+     * 31 일 안에 영업일이 없으면 LOAN_163 — 캘린더 시드 오류 신호.
+     */
+    @Transactional(readOnly = true)
+    public String nextBusinessDay(String calDate) {
+        return advance(parseOrThrow(calDate), 1);
+    }
+
+    /**
+     * 입력 일자가 이미 영업일이면 그대로, 아니면 직전 영업일로 이동한 YYYYMMDD 를 반환한다.
+     * 만기·이자 정산 정합성용 (예: 영업일 마감 처리).
+     */
+    @Transactional(readOnly = true)
+    public String previousBusinessDay(String calDate) {
+        return advance(parseOrThrow(calDate), -1);
+    }
+
+    private String advance(LocalDate start, int step) {
+        LocalDate cursor = start;
+        for (int i = 0; i <= MAX_LOOKAHEAD_DAYS; i++) {
+            String yyyymmdd = cursor.format(YYYYMMDD);
+            if (isBusinessDayInternal(cursor, yyyymmdd)) {
+                return yyyymmdd;
+            }
+            cursor = cursor.plusDays(step);
+        }
+        throw new BusinessException(LoanErrorCode.LOAN_163,
+                "no business day within " + MAX_LOOKAHEAD_DAYS + " days from " + start.format(YYYYMMDD));
+    }
+
+    private boolean isBusinessDayInternal(LocalDate parsed, String yyyymmdd) {
+        return repository.findByCalDateAndDeletedAtIsNull(yyyymmdd)
                 .map(BusinessCalendar::isBusinessDay)
                 .orElseGet(() -> weekdayFallback(parsed));
     }
