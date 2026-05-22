@@ -55,11 +55,19 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     @Override
     public PaymentResult processPayment(PaymentCommand command) {
         boolean isIntraBank = isIntraBank(command.receiverBankCode());
-        String routingNetworkType = isIntraBank ? "INTERNAL" : "EXTERNAL";
+        String routingNetworkType = isIntraBank ? "INTERNAL" : "KFTC";
 
         // TX-1: PI DRAFT INSERT — 실패 시 예외가 PaymentValidationException이 아니므로 try 밖
         PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
 
+        if (isIntraBank) {
+            return processIntraBank(pi, command);
+        } else {
+            return processInterBank(pi, command);
+        }
+    }
+
+    private PaymentResult processIntraBank(PaymentInstruction pi, PaymentCommand command) {
         // B-4 실패 보상 경로에서 B-5 target에 넣을 원 B-3 callId 보관
         WithdrawStepResult withdrawStep = null;
 
@@ -126,6 +134,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             // TX-B: REVERSING→FAILED + 이력 2건 + Outbox + 멱등키 (freshPi.version+1=2 → WHERE version=2, DB version→3)
             return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
         }
+    }
+
+    private PaymentResult processInterBank(PaymentInstruction pi, PaymentCommand command) {
+        // TODO: S2-A 타행송신 — 다음 단계에서 구현
+        // (분개 4건 / CLEARING 전이 / KFTC Outbox INSERT / kftc.network.request 발행)
+        throw new UnsupportedOperationException(
+                "타행 이체 미구현 (receiverBankCode=" + command.receiverBankCode() + ") — S2-A 단계에서 구현");
     }
 
     private static String failedEventTypeFor(String failureCategory) {
