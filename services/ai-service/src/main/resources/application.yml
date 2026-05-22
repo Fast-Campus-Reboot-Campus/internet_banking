@@ -19,6 +19,12 @@ management:
   endpoint:
     health:
       show-details: always
+  metrics:
+    distribution:
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
 
 # ---- OpenAPI / Swagger UI ----
 # 접속: http://localhost:${AI_APP_PORT:8086}/swagger-ui.html
