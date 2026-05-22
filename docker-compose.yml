@@ -88,7 +88,7 @@ services:
 
 
   ai-db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: ib-ai-db
     environment:
       POSTGRES_DB: ${AI_DB_NAME:-ai_db}
@@ -98,6 +98,7 @@ services:
       - "${AI_DB_PORT:-5437}:5432"
     volumes:
       - ai-db-data:/var/lib/postgresql/data
+      - ./infra/ai-db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-ai} -d ${AI_DB_NAME:-ai_db}"]
       interval: 10s
