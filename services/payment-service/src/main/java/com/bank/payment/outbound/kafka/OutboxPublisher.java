@@ -94,6 +94,7 @@ public class OutboxPublisher {
             case "PAYMENT_COMPLETED" -> "payment.completed";
             case "PAYMENT_FAILED"    -> "payment.failed";
             case "PAYMENT_REVERSED"  -> "payment.reversed";
+            case "KFTC_SETTLED"      -> "payment.completed"; // 회계계 P-001 unwind 트리거. 수신측이 eventType으로 분기
             case "KFTC_REQUEST_SENT"      -> "kftc.network.request";
             // TODO S2-A: case "KFTC_ACK_SENT"          -> "kftc.network.request";
             // TODO S2-A: case "KFTC_SETTLEMENT_SENT"   -> "kftc.network.request";

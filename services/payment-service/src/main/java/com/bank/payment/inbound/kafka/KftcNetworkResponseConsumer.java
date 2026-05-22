@@ -1,5 +1,8 @@
 package com.bank.payment.inbound.kafka;
 
+import com.bank.payment.domain.KftcClearingTransaction;
+import com.bank.payment.domain.PaymentInstruction;
+import com.bank.payment.domain.service.PaymentTransactionService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Component;
 public class KftcNetworkResponseConsumer {
 
     private final ObjectMapper objectMapper;
+    private final PaymentTransactionService txService;
 
     @Value("${payment.bank-code:004}")
     private String bankCode;
@@ -27,7 +31,7 @@ public class KftcNetworkResponseConsumer {
     )
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) throws Exception {
         JsonNode payload = objectMapper.readTree(record.value());
-        String responseType = payload.path("responseType").asText();
+        String messageType = payload.path("messageType").asText();
 
         // TODO P-029 self-listening 방지: senderBankCode가 자행 bankCode와 같으면 ack+skip
         // String senderBankCode = payload.path("senderBankCode").asText();
@@ -37,22 +41,50 @@ public class KftcNetworkResponseConsumer {
         //     return;
         // }
 
-        switch (responseType) {
+        switch (messageType) {
             case "REJECT":
             case "PAYMENT_REJECT":
                 // TODO F2 보상: PaymentOrchestrator.processKftcReject() 미구현 (S2-A/F2에서 구현)
                 break;
-            case "SETTLEMENT_NOTIFY":
-                // TODO 청산완료 처리 미구현 (S2-A/F2에서 구현)
+            case "SETTLEMENT_NOTIFY": {
+                String clearingNo = payload.path("clearingNo").asText();
+                String responseCode = payload.path("responseCode").asText();
+                if (!"0000".equals(responseCode)) {
+                    log.warn("[KFTC] SETTLEMENT_NOTIFY 비정상 responseCode: {} clearingNo={}", responseCode, clearingNo);
+                }
+                KftcClearingTransaction ct = txService.selectByClearingNo(clearingNo);
+                if (ct == null) {
+                    log.error("[KFTC] SETTLEMENT_NOTIFY CT 없음, skip. clearingNo={}", clearingNo);
+                    break;
+                }
+                String piId = ct.getOurPaymentInstructionId();
+                PaymentInstruction pi = txService.selectById(piId);
+                if (pi == null) {
+                    log.error("[KFTC] SETTLEMENT_NOTIFY PI 없음, skip. clearingNo={} piId={}", clearingNo, piId);
+                    break;
+                }
+                if ("COMPLETED".equals(pi.getStatus())) {
+                    log.info("[KFTC] SETTLEMENT_NOTIFY 중복수신 skip(이미 COMPLETED). piId={}", piId);
+                    break;
+                }
+                if (!"CLEARING".equals(pi.getStatus())) {
+                    log.warn("[KFTC] SETTLEMENT_NOTIFY CLEARING 아닌 상태, skip. piId={} status={}", piId, pi.getStatus());
+                    break;
+                }
+                String settledAt = payload.path("settledAt").asText();
+                String settlementDate = settledAt.length() >= 8 ? settledAt.substring(0, 8) : null;
+                txService.txSettlement(pi, clearingNo, settledAt, settlementDate);
+                log.info("[KFTC] SETTLEMENT_NOTIFY 처리완료. piId={} CLEARING→COMPLETED", piId);
                 break;
+            }
             default:
-                log.warn("KFTC unknown responseType: responseType={} key={}", responseType, record.key());
+                log.warn("[KFTC] unknown messageType: messageType={} key={}", messageType, record.key());
         }
 
-        log.info("KFTC response received: key={} responseType={} partition={} offset={}",
-                record.key(), responseType, record.partition(), record.offset());
+        log.info("KFTC response received: key={} messageType={} partition={} offset={}",
+                record.key(), messageType, record.partition(), record.offset());
 
-        // ★ DB COMMIT 후 ack (현재 골격은 처리 없으니 파싱 후 바로). 실패 시 미호출 → DLQ
+        // ★ DB COMMIT 후 ack. 예외 시 미호출 → Kafka 재전달
         ack.acknowledge();
     }
 }

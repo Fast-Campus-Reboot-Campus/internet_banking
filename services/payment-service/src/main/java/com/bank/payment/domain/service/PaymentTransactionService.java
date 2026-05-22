@@ -420,6 +420,78 @@ public class PaymentTransactionService {
         return paymentInstructionMapper.selectById(paymentInstructionId);
     }
 
+    /** CT 조회 — clearingNo 매칭용. consumer에서 2단계 매칭(clearingNo→CT→PI) 시 사용. */
+    public KftcClearingTransaction selectByClearingNo(String clearingNo) {
+        return clearingTransactionMapper.selectByClearingNo(clearingNo);
+    }
+
+    /**
+     * TX-SETTLEMENT (S2-A 완결): CLEARING→COMPLETED 한 트랜잭션.
+     * 1. PI CLEARING→COMPLETED (version 3→4, completedAt=now)
+     * 2. CT clearing_status REQUESTED→SETTLED + settled_at/settlement_date (counterparty NULL — P-015 OUT 미적용)
+     * 3. 상태이력: seq5 KFTC_SETTLED(CLEARING→CLEARING, KFTC) + seq6 PAYMENT_COMPLETED(CLEARING→COMPLETED, SYSTEM)
+     * 4. Outbox: KFTC_SETTLED(회계계 P-001 unwind 트리거) + PAYMENT_COMPLETED
+     * ★청산대기 역분개는 회계계 책임(P-001). 우리 ledger CLEARING_PENDING 그대로.
+     * ★completeIntra 미사용 — isIntraBank 가드로 타행 호출 불가. updateStatus 직접 호출.
+     */
+    @Transactional
+    public void txSettlement(PaymentInstruction pi, String clearingNo,
+                             String settledAt, String settlementDate) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+
+        // 1. PI CLEARING→COMPLETED (낙관락: pi.getVersion()=3 → WHERE v=3, SET v=4)
+        int updated = paymentInstructionMapper.updateStatus(piId, "COMPLETED", now, null, pi.getVersion());
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException("SETTLEMENT 상태갱신 충돌: " + piId);
+        }
+
+        // 2. CT REQUESTED→SETTLED (counterparty_payment_id=NULL — input에 없음, P-015 OUT 미적용)
+        clearingTransactionMapper.updateSettled(piId, settledAt, settlementDate);
+
+        // 3. 상태이력 seq5: KFTC_SETTLED (CLEARING→CLEARING, 상태 유지 — 청산완료 이벤트 기록)
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        int seq = (maxSeq == null ? 0 : maxSeq) + 1;
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq,
+                "CLEARING", "CLEARING", "KFTC_SETTLED", "KFTC", now));
+
+        // 4. 상태이력 seq6: PAYMENT_COMPLETED (CLEARING→COMPLETED)
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq + 1,
+                "CLEARING", "COMPLETED", "PAYMENT_COMPLETED", "SYSTEM", now));
+
+        // 5. Outbox KFTC_SETTLED — 먼저 INSERT (회계계 P-001 CLEARING_PENDING unwind 트리거)
+        String kftcSettledPayload;
+        try {
+            kftcSettledPayload = objectMapper.writeValueAsString(Map.of(
+                    "paymentInstructionId", piId,
+                    "clearingNo", clearingNo,
+                    "transferAmount", pi.getTransferAmount(),
+                    "settledAt", settledAt,
+                    "settlementDate", settlementDate != null ? settlementDate : "",
+                    "receiverBankCode", pi.getReceiverBankCode()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox payload 직렬화 실패(KFTC_SETTLED): " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "KFTC_SETTLED", "v1", kftcSettledPayload, now));
+
+        // 6. Outbox PAYMENT_COMPLETED — 나중 INSERT (message_id 단조증가 → 워커 ORDER BY message_id로 순서 보장)
+        String paymentCompletedPayload;
+        try {
+            paymentCompletedPayload = objectMapper.writeValueAsString(Map.of(
+                    "paymentInstructionId", piId,
+                    "status", "COMPLETED",
+                    "transferAmount", pi.getTransferAmount(),
+                    "completedAt", now.toString()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox payload 직렬화 실패(PAYMENT_COMPLETED): " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "PAYMENT_COMPLETED", "v1", paymentCompletedPayload, now));
+    }
+
     /**
      * TX-A (F8 보상): AUTHORIZED→REVERSING 전이 + 이력 2건.
      * 이력: SYSTEM_FAILURE_DETECTED(원인 감지) + COMPENSATION_STARTED(보상 시작).

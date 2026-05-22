@@ -64,4 +64,20 @@
         )
     </insert>
 
+    <select id="selectByClearingNo" resultType="com.bank.payment.domain.KftcClearingTransaction">
+        SELECT *
+        FROM kftc_clearing_transaction
+        WHERE clearing_no = #{clearingNo}
+    </select>
+
+    <update id="updateSettled">
+        UPDATE kftc_clearing_transaction
+        SET clearing_status         = 'SETTLED',
+            settled_at              = #{settledAt},
+            settlement_date         = #{settlementDate},
+            counterparty_payment_id = NULL,
+            last_modified_at        = CURRENT_TIMESTAMP(3)
+        WHERE our_payment_instruction_id = #{piId}
+    </update>
+
 </mapper>

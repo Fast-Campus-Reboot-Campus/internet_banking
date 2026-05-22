@@ -9,7 +9,7 @@
         FROM outbox_message
         WHERE publish_status = 'PENDING'
           AND available_at &lt;= NOW()
-        ORDER BY available_at ASC
+        ORDER BY available_at ASC, message_id ASC
         LIMIT 50
     </select>
 
