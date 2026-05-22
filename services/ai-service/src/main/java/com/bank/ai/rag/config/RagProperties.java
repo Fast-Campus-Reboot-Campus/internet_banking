@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * application.yml rag.* 설정 바인딩.
  */
 @ConfigurationProperties(prefix = "rag")
-public record RagProperties(Embed embed, Chunk chunk, Corpus corpus) {
+public record RagProperties(Embed embed, Chunk chunk, Corpus corpus, Scheduler scheduler) {
 
     public record Embed(
             String provider,   // mock | openai | internal
@@ -37,5 +37,14 @@ public record RagProperties(Embed embed, Chunk chunk, Corpus corpus) {
 
     public record Corpus(
             String baseDir     // 코퍼스 루트 경로 (docs/corpus 기준)
+    ) {}
+
+    /**
+     * RAG 정기 인제스트 스케줄러 설정.
+     * enabled=false 면 @Scheduled bean 자체가 등록되지 않아 운영 안전.
+     */
+    public record Scheduler(
+            boolean enabled,
+            String  cron       // 예: "0 0 3 * * *" — 매일 새벽 3시
     ) {}
 }

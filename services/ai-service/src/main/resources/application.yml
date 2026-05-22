@@ -56,6 +56,9 @@ rag:
     overlap: ${RAG_CHUNK_OVERLAP:120}
   corpus:
     base-dir: ${RAG_CORPUS_BASE_DIR:docs/corpus}
+  scheduler:
+    enabled: ${RAG_SCHEDULER_ENABLED:false}
+    cron: ${RAG_SCHEDULER_CRON:0 0 3 * * *}
 
 springdoc:
   api-docs:

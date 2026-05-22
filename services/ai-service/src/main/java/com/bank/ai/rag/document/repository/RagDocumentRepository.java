@@ -18,6 +18,9 @@ public interface RagDocumentRepository extends JpaRepository<RagDocument, Long> 
 
     List<RagDocument> findAllByDocTypeCdAndDeletedAtIsNull(String docTypeCd);
 
+    /** 아직 인제스트되지 않은 활성 문서 목록 — 스케줄러가 우선 처리. */
+    List<RagDocument> findAllByIngestedAtIsNullAndDeletedAtIsNull();
+
     @Query("""
         SELECT d FROM RagDocument d
         WHERE d.deletedAt IS NULL
