@@ -194,7 +194,8 @@ class OpenAiEmbeddingClientTest {
                                 BASE_URL, apiKey, 0, 0, maxAttempts, /*backoff*/ 10L)
                 ),
                 new RagProperties.Chunk(800, 120),
-                new RagProperties.Corpus("docs/corpus")
+                new RagProperties.Corpus("docs/corpus"),
+                new RagProperties.Scheduler(false, "0 0 3 * * *")
         );
     }
 }
