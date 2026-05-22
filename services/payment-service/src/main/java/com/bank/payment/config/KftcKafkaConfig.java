@@ -2,19 +2,25 @@ package com.bank.payment.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.Map;
 
+@EnableKafka
 @Configuration
 public class KftcKafkaConfig {
 
@@ -58,6 +64,14 @@ public class KftcKafkaConfig {
         factory.setConsumerFactory(kftcConsumerFactory());
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.setMissingTopicsFatal(true);   // auto-create 비활성화 환경 (P-009)
+
+        // DLQ 라우팅: 1초 간격 3회 재시도 후 kftc.network.response.dlq (R12)
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kftcKafkaTemplate(),
+                (r, e) -> new TopicPartition("kftc.network.response.dlq", 0)
+        );
+        factory.setCommonErrorHandler(new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3)));
+
         return factory;
     }
 }
