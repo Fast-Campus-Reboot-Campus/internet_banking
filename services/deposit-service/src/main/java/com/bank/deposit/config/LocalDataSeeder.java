@@ -34,6 +34,7 @@ public class LocalDataSeeder implements ApplicationRunner {
     private final SpecialTermRepository specialTermRepository;
     private final SubscriptionProductRepository subscriptionProductRepository;
     private final TargetGroupRepository targetGroupRepository;
+    private final TransactionRepository transactionRepository;
 
     @Override
     @Transactional
@@ -312,6 +313,40 @@ public class LocalDataSeeder implements ApplicationRunner {
                 .build());
 
         OffsetDateTime now = OffsetDateTime.now();
+        // local profile seed for recommend-agent tests and presentation demo data.
+        transactionRepository.save(Transaction.builder()
+                .transactionNumber("TX-RECOMMEND-LOCAL-0001")
+                .accountId(depositAccount.getAccountId())
+                .contractId(depositContract.getContractId())
+                .transactionType(TransactionType.DEPOSIT)
+                .directionType(DirectionType.IN)
+                .amount(bd("3000000"))
+                .balanceBefore(bd("1000000"))
+                .balanceAfter(bd("4000000"))
+                .channelType(TransactionChannel.INTERNET)
+                .status(TransactionStatus.SUCCESS)
+                .transactionAt(now.minusDays(20))
+                .postedAt(now.minusDays(20))
+                .transactionMemo("recommend-agent local seed inflow")
+                .transactionSummary("recommend-agent inflow seed")
+                .build());
+        transactionRepository.save(Transaction.builder()
+                .transactionNumber("TX-RECOMMEND-LOCAL-0002")
+                .accountId(depositAccount.getAccountId())
+                .contractId(depositContract.getContractId())
+                .transactionType(TransactionType.WITHDRAW)
+                .directionType(DirectionType.OUT)
+                .amount(bd("2000000"))
+                .balanceBefore(bd("4000000"))
+                .balanceAfter(bd("2000000"))
+                .channelType(TransactionChannel.INTERNET)
+                .status(TransactionStatus.SUCCESS)
+                .transactionAt(now.minusDays(10))
+                .postedAt(now.minusDays(10))
+                .transactionMemo("recommend-agent local seed outflow")
+                .transactionSummary("recommend-agent outflow seed")
+                .build());
+
         interestHistoryRepository.save(InterestHistory.builder()
                 .contractId(depositContract.getContractId())
                 .accountId(depositAccount.getAccountId())
