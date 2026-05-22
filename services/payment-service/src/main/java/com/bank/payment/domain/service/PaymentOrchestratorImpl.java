@@ -145,9 +145,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             // Step 3: 출금(B-3) — 타행은 수신 입금 없음, 청산대기 분개로 박제
             WithdrawStepResult withdrawStep = step3_withdraw(pi, command);
 
-            // TX-2: 분개4건(2묶음) + AUTHORIZED→PROCESSING→CLEARING + Outbox(KFTC_REQUEST_SENT) + 멱등키완료
+            // TX-2: 분개4건(2묶음) + AUTHORIZED→PROCESSING→CLEARING + Outbox(KFTC_REQUEST_SENT)
+            //       + kftc_clearing_transaction REQUESTED INSERT + 멱등키완료
+            String numericBankCode = "B".equalsIgnoreCase(bankCode) ? "088" : "004";
             return txService.txStep4InterBank(pi, withdrawStep.txData(), command,
-                    validation.senderHolderName());
+                    validation.senderHolderName(), numericBankCode);
 
         } catch (PaymentValidationException e) {
             // step2 검증 실패 — 자금변동 없음(B-3 미도달). 200 OK + status=FAILED

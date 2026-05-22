@@ -9,8 +9,10 @@ import com.bank.payment.domain.Ledger;
 import com.bank.payment.domain.OutboxMessage;
 import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.domain.StatusHistory;
+import com.bank.payment.domain.KftcClearingTransaction;
 import com.bank.payment.domain.mapper.ExternalCallMapper;
 import com.bank.payment.domain.mapper.IdempotencyKeyMapper;
+import com.bank.payment.domain.mapper.KftcClearingTransactionMapper;
 import com.bank.payment.domain.mapper.LedgerMapper;
 import com.bank.payment.domain.mapper.OutboxMessageMapper;
 import com.bank.payment.domain.mapper.PaymentInstructionMapper;
@@ -27,12 +29,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
+
 /**
  * P-028 짧은 DB 트랜잭션 격리. Orchestrator(흐름)가 외부호출 사이사이 이 메서드들을 호출.
  * 외부호출(Feign)은 절대 이 클래스에 없음 — 트랜잭션 밖(Orchestrator) 책임.
  */
 @Service
 public class PaymentTransactionService {
+
+    private static final DateTimeFormatter CLEARING_AT_FMT =
+            DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final PaymentInstructionMapper paymentInstructionMapper;
     private final IdempotencyKeyMapper idempotencyKeyMapper;
@@ -41,6 +47,7 @@ public class PaymentTransactionService {
     private final IdGenerator idGenerator;
     private final LedgerMapper ledgerMapper;
     private final OutboxMessageMapper outboxMessageMapper;
+    private final KftcClearingTransactionMapper clearingTransactionMapper;
     private final ObjectMapper objectMapper;
 
     public PaymentTransactionService(
@@ -51,6 +58,7 @@ public class PaymentTransactionService {
             IdGenerator idGenerator,
             LedgerMapper ledgerMapper,
             OutboxMessageMapper outboxMessageMapper,
+            KftcClearingTransactionMapper clearingTransactionMapper,
             ObjectMapper objectMapper) {
         this.paymentInstructionMapper = paymentInstructionMapper;
         this.idempotencyKeyMapper = idempotencyKeyMapper;
@@ -59,6 +67,7 @@ public class PaymentTransactionService {
         this.idGenerator = idGenerator;
         this.ledgerMapper = ledgerMapper;
         this.outboxMessageMapper = outboxMessageMapper;
+        this.clearingTransactionMapper = clearingTransactionMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -263,17 +272,20 @@ public class PaymentTransactionService {
 
     /**
      * TX-2 (txStep4InterBank): 타행이체 확정 한 트랜잭션 (원자성).
-     * AUTHORIZED→PROCESSING(seq3) → PROCESSING→CLEARING(seq4) + 분개4건(2묶음) + Outbox(KFTC_REQUEST_SENT) + 멱등키완료.
+     * AUTHORIZED→PROCESSING(seq3) → PROCESSING→CLEARING(seq4) + 분개4건(2묶음) + Outbox(KFTC_REQUEST_SENT)
+     * + kftc_clearing_transaction REQUESTED INSERT + 멱등키완료.
      * ★역분개 아님(is_reversal=false). Kafka 발행은 Outbox 워커가 kftc.network.request로 비동기 처리.
      * @param pi authorize까지 끝난 결제지시 (version=0, DB version=1)
      * @param withdrawResult B-3 출금 응답 (TRANSFER_OUT 분개 잔액박제용)
      * @param command 원 명령 (금액/계좌/수신은행 등)
      * @param senderHolderName 송신 예금주명 (step2 A-2 조회값)
+     * @param senderBankCode 자행 3자리 은행코드 (004/088 — Orchestrator에서 계산해 전달)
      * @return PaymentResult (CLEARING, completedAt=null — KFTC 응답 대기)
      */
     @Transactional
     public PaymentResult txStep4InterBank(PaymentInstruction pi, BalanceTxData withdrawResult,
-                                           PaymentCommand command, String senderHolderName) {
+                                           PaymentCommand command, String senderHolderName,
+                                           String senderBankCode) {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
         String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -378,7 +390,26 @@ public class PaymentTransactionService {
                 idGenerator.nextMessageId(), piId, "KFTC_REQUEST_SENT",
                 "v1", payload, now));
 
-        // 11. 멱등키 완료 (202 수락 완료 — KFTC 응답은 비동기, 멱등 재시도 시 CLEARING 반환)
+        // 11. kftc_clearing_transaction REQUESTED INSERT (PI와 같은 TX, 1:1 박제)
+        String clearingTxId = idGenerator.nextClearingTransactionId();
+        String clearingNo   = idGenerator.nextClearingNo();
+        String clearingRequestedAt = now.format(CLEARING_AT_FMT);  // yyyyMMddHHmmss
+
+        KftcClearingTransaction clearingTx = KftcClearingTransaction.requestedOut(
+                clearingTxId,
+                piId,
+                clearingNo,
+                senderBankCode,
+                command.senderAccountId(),           // 계좌ID=계좌번호(S1 단순화)
+                senderHolderName,
+                command.receiverBankCode(),
+                command.receiverAccountNo(),
+                command.receiverHolderName(),        // 타행: 요청값 그대로 박제
+                transferAmount,
+                clearingRequestedAt);
+        clearingTransactionMapper.insert(clearingTx);
+
+        // 12. 멱등키 완료 (202 수락 완료 — KFTC 응답은 비동기, 멱등 재시도 시 CLEARING 반환)
         idempotencyKeyMapper.updateStatus(command.idempotencyKey(), "COMPLETED", payload);
 
         return new PaymentResult(piId, pi.getTransactionNo(), "CLEARING", null, null);

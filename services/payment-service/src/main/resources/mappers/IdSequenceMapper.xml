@@ -28,4 +28,12 @@
         SELECT MAX(call_id) FROM external_call
     </select>
 
+    <select id="selectMaxClearingTransactionId" resultType="java.lang.String">
+        SELECT MAX(clearing_transaction_id) FROM kftc_clearing_transaction
+    </select>
+
+    <select id="selectMaxClearingNo" resultType="java.lang.String">
+        SELECT MAX(clearing_no) FROM kftc_clearing_transaction
+    </select>
+
 </mapper>

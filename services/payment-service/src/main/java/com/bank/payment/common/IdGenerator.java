@@ -34,6 +34,8 @@ public class IdGenerator {
     private final AtomicLong historySeq = new AtomicLong(0);
     private final AtomicLong messageSeq = new AtomicLong(0);
     private final AtomicLong callSeq = new AtomicLong(0);
+    private final AtomicLong clearingTxSeq = new AtomicLong(0);
+    private final AtomicLong clearingNoSeq = new AtomicLong(0);
 
     private volatile boolean seeded = false;
 
@@ -41,13 +43,15 @@ public class IdGenerator {
         this.idSequenceMapper = idSequenceMapper;
     }
 
-    // ── 채번 메서드 (접두 6종) ──────────────────────────
-    public String nextPaymentInstructionId() { ensureSeeded(); return build("P", piSeq); }
-    public String nextLedgerId()             { ensureSeeded(); return build("L", ledgerSeq); }
-    public String nextJournalNo()            { ensureSeeded(); return build("JN", journalSeq); }
-    public String nextHistoryId()            { ensureSeeded(); return build("SH", historySeq); }
-    public String nextMessageId()            { ensureSeeded(); return build("OB", messageSeq); }
-    public String nextCallId()               { ensureSeeded(); return build("EC", callSeq); }
+    // ── 채번 메서드 (접두 8종) ──────────────────────────
+    public String nextPaymentInstructionId()  { ensureSeeded(); return build("P",    piSeq); }
+    public String nextLedgerId()              { ensureSeeded(); return build("L",    ledgerSeq); }
+    public String nextJournalNo()             { ensureSeeded(); return build("JN",   journalSeq); }
+    public String nextHistoryId()             { ensureSeeded(); return build("SH",   historySeq); }
+    public String nextMessageId()             { ensureSeeded(); return build("OB",   messageSeq); }
+    public String nextCallId()                { ensureSeeded(); return build("EC",   callSeq); }
+    public String nextClearingTransactionId() { ensureSeeded(); return build("KCT",  clearingTxSeq); }
+    public String nextClearingNo()            { ensureSeeded(); return build("KFTC", clearingNoSeq); }
 
     // ── ID 조립 ─────────────────────────────────────────
     private String build(String prefix, AtomicLong seq) {
@@ -67,6 +71,8 @@ public class IdGenerator {
             historySeq.set(parseSeq(idSequenceMapper.selectMaxHistoryId()));
             messageSeq.set(parseSeq(idSequenceMapper.selectMaxMessageId()));
             callSeq.set(parseSeq(idSequenceMapper.selectMaxCallId()));
+            clearingTxSeq.set(parseSeq(idSequenceMapper.selectMaxClearingTransactionId()));
+            clearingNoSeq.set(parseSeq(idSequenceMapper.selectMaxClearingNo()));
             seeded = true;
         }
     }
