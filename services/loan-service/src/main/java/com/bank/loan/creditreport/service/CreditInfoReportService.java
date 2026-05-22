@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 신용정보 신고 (KCB/NICE) 서비스.
@@ -46,14 +47,37 @@ public class CreditInfoReportService {
 
     @Transactional
     public CreditInfoReportResponse submit(Long cntrId, SubmitReportRequest req) {
+        return submit(cntrId, null, req);
+    }
+
+    /**
+     * 자동 발화용 오버로드.
+     *
+     * dlqId 가 주어지면 (cntrId, dlqId, crptTypeCd, reportReasonCd) 멱등 키로 중복 신고를 막는다.
+     * 이미 SENT/ACKED 인 신고가 있으면 기존 row 를 그대로 반환 (서비스 레벨 fast path).
+     * race 충돌은 UNIQUE 인덱스가 차단 — 호출자는 신경 쓰지 않는다.
+     */
+    @Transactional
+    public CreditInfoReportResponse submit(Long cntrId, Long dlqId, SubmitReportRequest req) {
         LoanContract contract = contractRepository.findByCntrIdAndDeletedAtIsNull(cntrId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_062));
+
+        if (dlqId != null) {
+            Optional<CreditInfoReport> existing = repository
+                    .findFirstByCntrIdAndDlqIdAndCrptTypeCdAndReportReasonCdAndCrptStatusCdInAndDeletedAtIsNullOrderByCrptIdAsc(
+                            cntrId, dlqId, req.reportTypeCd(), req.reportReasonCd(),
+                            List.of(CreditInfoReport.STATUS_SENT, CreditInfoReport.STATUS_ACKED));
+            if (existing.isPresent()) {
+                return CreditInfoReportResponse.of(existing.get());
+            }
+        }
 
         OffsetDateTime now = OffsetDateTime.now();
         Long actorId = currentActor.currentActorId();
 
         CreditInfoReport saved = repository.save(CreditInfoReport.builder()
                 .cntrId(contract.getCntrId())
+                .dlqId(dlqId)
                 .customerId(contract.getCustomerId())
                 .crptTypeCd(req.reportTypeCd())
                 .crptAgencyCd(req.agencyCd())
