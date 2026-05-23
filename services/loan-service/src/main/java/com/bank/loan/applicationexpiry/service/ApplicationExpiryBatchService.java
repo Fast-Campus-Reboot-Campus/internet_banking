@@ -6,6 +6,7 @@ import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.applicationexpiry.dto.ApplicationExpiryRunResponse;
+import com.bank.loan.applicationexpiry.dto.ExpiryCandidate;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,18 +18,18 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 승인 만료 일배치 (flows §1.1: APPROVED → EXPIRED).
  *
- * 승인 유효기간: 14일 (가이드 값). 상품별 차등은 후속 — 본 단계는 상수 사용.
+ * 상품별 applicationValidityDays 를 우선 적용하고, 설정이 없으면 시스템 기본 14일 사용.
  *
- * 기준:
- *   threshold = baseDate.atStartOfDay(systemZone) - 14d
- *   대상      = APPROVED + LoanReview.approvedAt < threshold (즉 14d 가 이미 경과)
+ *   threshold(per-row) = baseDateStart - candidate.validityDays
+ *   대상               = approvedAt < threshold
  *
- * 멱등성: 한 번 EXPIRED 로 전이되면 다음 호출엔 대상에서 빠지므로 자연 멱등.
- * 영업일 가드 없음: 만료는 절대시점 기준이라 휴일에도 처리.
+ * 멱등성: 한 번 EXPIRED 로 전이되면 다음 호출 시 대상에서 제외.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,7 +40,6 @@ public class ApplicationExpiryBatchService {
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_TABLE_CD = "LOAN_APPLICATION";
     private static final String REASON_APPROVAL_EXPIRED = "APPROVAL_EXPIRED";
-    private static final int APPROVAL_VALID_DAYS = 14;
     private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.BASIC_ISO_DATE;
 
     private final LoanApplicationRepository applicationRepository;
@@ -48,29 +48,41 @@ public class ApplicationExpiryBatchService {
 
     @Transactional
     public ApplicationExpiryRunResponse run(String baseDate) {
-        OffsetDateTime threshold = LocalDate.parse(baseDate, YYYYMMDD)
+        OffsetDateTime baseDateStart = LocalDate.parse(baseDate, YYYYMMDD)
                 .atStartOfDay(ZoneId.systemDefault())
-                .minusDays(APPROVAL_VALID_DAYS)
                 .toOffsetDateTime();
 
-        List<LoanApplication> candidates = applicationRepository.findExpirableApproved(threshold);
-        int processed = 0;
+        // 상품별 validityDays 포함 APPROVED 후보 전체 조회
+        List<ExpiryCandidate> candidates = applicationRepository.findApprovedWithValidityDays();
 
-        for (LoanApplication app : candidates) {
+        // per-row 만료 판정: approvedAt < (baseDateStart - validityDays)
+        Map<Long, Integer> validityByApplId = candidates.stream()
+                .collect(Collectors.toMap(ExpiryCandidate::applId, ExpiryCandidate::validityDays));
+
+        List<Long> expireIds = candidates.stream()
+                .filter(c -> c.approvedAt().isBefore(baseDateStart.minusDays(c.validityDays())))
+                .map(ExpiryCandidate::applId)
+                .toList();
+
+        List<LoanApplication> apps = expireIds.isEmpty()
+                ? List.of()
+                : applicationRepository.findAllById(expireIds);
+
+        for (LoanApplication app : apps) {
             String before = app.currentStatus();
             app.markExpired();
+            int validDays = validityByApplId.getOrDefault(app.getApplId(), 14);
             statusHistoryPublisher.publish(StatusChangeEvent.of(
                     DOMAIN_CD, TARGET_TABLE_CD, app.getApplId(),
                     before, LoanApplication.STATUS_EXPIRED,
                     REASON_APPROVAL_EXPIRED,
-                    "baseDate=" + baseDate + ", validDays=" + APPROVAL_VALID_DAYS,
+                    "baseDate=" + baseDate + ", validDays=" + validDays,
                     currentActor.currentActorId()
             ));
-            processed++;
         }
 
-        log.info("approval-expiry batch: baseDate={} threshold={} total={} processed={}",
-                baseDate, threshold, candidates.size(), processed);
-        return ApplicationExpiryRunResponse.of(baseDate, threshold, candidates.size(), processed);
+        log.info("approval-expiry batch: baseDate={} candidates={} processed={}",
+                baseDate, candidates.size(), apps.size());
+        return ApplicationExpiryRunResponse.of(baseDate, baseDateStart, candidates.size(), apps.size());
     }
 }
