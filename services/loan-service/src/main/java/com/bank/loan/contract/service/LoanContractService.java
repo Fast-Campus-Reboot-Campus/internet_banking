@@ -12,7 +12,10 @@ import com.bank.loan.contract.dto.LoanContractResponse;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.guarantor.domain.GuarantorAgreement;
 import com.bank.loan.guarantor.repository.GuarantorAgreementRepository;
+import com.bank.loan.guarantor.service.GuarantorPolicyValidator;
 import com.bank.loan.maturity.service.MaturityService;
+import com.bank.loan.product.domain.LoanProduct;
+import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.notification.event.ContractSignedEvent;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -52,7 +55,9 @@ public class LoanContractService {
 
     private final LoanContractRepository repository;
     private final LoanApplicationRepository applicationRepository;
+    private final LoanProductRepository productRepository;
     private final GuarantorAgreementRepository guarantorAgreementRepository;
+    private final GuarantorPolicyValidator guarantorPolicyValidator;
     private final ContractNumberGenerator cntrNoGenerator;
     private final MaturityService maturityService;
     private final StatusHistoryPublisher statusHistoryPublisher;
@@ -69,6 +74,15 @@ public class LoanContractService {
         }
 
         validateGuarantorsSigned(application.getApplId());
+
+        // 보증 필수 상품이면 SIGNED 보증인 충족 여부 재확인 — 미서명 잔존 외에도 수 부족 방어
+        LoanProduct product = productRepository
+                .findByProdIdAndDeletedAtIsNull(application.getProdId()).orElse(null);
+        if (product != null && !guarantorPolicyValidator.satisfies(application, product)) {
+            throw new BusinessException(LoanErrorCode.LOAN_175,
+                    "guarantorRequired: signedCount < minGuarantorCount=" + product.getMinGuarantorCount());
+        }
+
         validateRanges(req, application);
 
         int spread = req.spreadBps() == null ? 0 : req.spreadBps();

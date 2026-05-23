@@ -10,6 +10,7 @@ import com.bank.loan.creditevaluation.domain.CreditEvaluation;
 import com.bank.loan.creditevaluation.repository.CreditEvaluationRepository;
 import com.bank.loan.dsr.domain.DsrCalculation;
 import com.bank.loan.dsr.repository.DsrCalculationRepository;
+import com.bank.loan.guarantor.service.GuarantorPolicyValidator;
 import com.bank.loan.notification.event.LoanApprovedEvent;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
@@ -65,6 +66,7 @@ public class LoanReviewService {
     private final LoanReviewPreconditions preconditions;
     private final ApprovedAmountCalculator approvedAmountCalculator;
     private final LoanReviewCheckLogWriter checkLogWriter;
+    private final GuarantorPolicyValidator guarantorPolicyValidator;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final ApplicationEventPublisher eventPublisher;
@@ -110,6 +112,12 @@ public class LoanReviewService {
                 .orElse(null);
         if (product != null && product.isCollateralRequired()) {
             preconditions.requireAllActiveCollateralsLtvPass(applId);
+        }
+
+        // 사전조건 6: 보증 필수 상품이면 활성 SIGNED 보증인 수 >= minGuarantorCount
+        if (product != null && !guarantorPolicyValidator.satisfies(application, product)) {
+            throw new BusinessException(LoanErrorCode.LOAN_038,
+                    "guarantorRequired: signedCount < minGuarantorCount=" + product.getMinGuarantorCount());
         }
 
         boolean approved = LoanReview.DECISION_APPROVED.equals(req.revDecisionCd());

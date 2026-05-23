@@ -4,6 +4,7 @@ import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
+import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.execution.domain.LoanExecution;
@@ -12,7 +13,9 @@ import com.bank.loan.execution.dto.LoanExecutionResponse;
 import com.bank.loan.execution.repository.LoanExecutionRepository;
 import com.bank.loan.guaranteeinsurance.domain.GuaranteeInsurance;
 import com.bank.loan.guaranteeinsurance.repository.GuaranteeInsuranceRepository;
+import com.bank.loan.guarantor.service.GuarantorPolicyValidator;
 import com.bank.loan.notification.event.LoanDisbursedEvent;
+import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
 import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
 import com.bank.loan.schedule.service.RepaymentScheduleService;
@@ -51,6 +54,9 @@ public class LoanExecutionService {
 
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
+    private final LoanApplicationRepository applicationRepository;
+    private final LoanProductRepository productRepository;
+    private final GuarantorPolicyValidator guarantorPolicyValidator;
     private final RepaymentAccountRepository repaymentAccountRepository;
     private final GuaranteeInsuranceRepository guaranteeInsuranceRepository;
     private final RepaymentScheduleService repaymentScheduleService;
@@ -87,6 +93,16 @@ public class LoanExecutionService {
         // 2-2) 보증보험 사전조건 (필요시) — flows §1.1
         // row 가 한 건도 없으면 신용대출로 보고 통과. 발급 이력이 있다면 활성 ISSUED 1건 필요.
         validateGuaranteeInsuranceIfApplicable(cntrId);
+
+        // 2-3) 보증 필수 상품이면 활성 SIGNED 보증인 재검증 — 약정 후 보증 취소 케이스 대응
+        applicationRepository.findByApplIdAndDeletedAtIsNull(contract.getApplId()).ifPresent(appl ->
+                productRepository.findByProdIdAndDeletedAtIsNull(appl.getProdId()).ifPresent(prod -> {
+                    if (!guarantorPolicyValidator.satisfies(appl, prod)) {
+                        throw new BusinessException(LoanErrorCode.LOAN_176,
+                                "guarantorRequired: signedCount < minGuarantorCount=" + prod.getMinGuarantorCount());
+                    }
+                })
+        );
 
         // 3) 한도 검증
         long drawnSoFar = repository.sumDoneAmount(contract.getCntrId());
