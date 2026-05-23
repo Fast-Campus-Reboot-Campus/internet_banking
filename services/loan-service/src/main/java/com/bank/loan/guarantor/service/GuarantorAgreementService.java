@@ -16,8 +16,10 @@ import com.bank.loan.guarantor.dto.RegisterGuarantorAgreementRequest;
 import com.bank.loan.guarantor.dto.SignGuarantorAgreementRequest;
 import com.bank.loan.guarantor.repository.GuarantorAgreementRepository;
 import com.bank.loan.guarantor.repository.GuarantorMasterRepository;
+import com.bank.loan.notification.event.GuarantorCanceledEvent;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,6 +73,7 @@ public class GuarantorAgreementService {
     private final GuarantorAgreementRepository agreementRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public GuarantorAgreementResponse register(Long applId, RegisterGuarantorAgreementRequest req) {
@@ -164,6 +167,10 @@ public class GuarantorAgreementService {
                 req == null ? null : req.cancelRemark(),
                 currentActor.currentActorId()
         ));
+
+        // 취소 이벤트 발행 — SIGNED 보증인이 빠질 경우 GuarantorNotificationListener 가 운영자 알람 적재
+        eventPublisher.publishEvent(new GuarantorCanceledEvent(
+                agreement.getApplId(), agreement.getGagrId(), before));
 
         GuarantorMaster master = masterRepository.findByGmstIdAndDeletedAtIsNull(agreement.getGmstId())
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_170));
