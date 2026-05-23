@@ -29,6 +29,8 @@ public record CreateLoanProductRequest(
         @Pattern(regexp = "[YN]") String guarantorRequiredYn,
         @Min(0) Integer minGuarantorCount,
 
+        @Min(1) Integer applicationValidityDays,
+
         @Pattern(regexp = "\\d{8}") String saleStartDate,
         @Pattern(regexp = "\\d{8}") String saleEndDate,
 

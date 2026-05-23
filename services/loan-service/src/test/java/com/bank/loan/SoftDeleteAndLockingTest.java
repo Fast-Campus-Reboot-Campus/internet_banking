@@ -121,7 +121,8 @@ class SoftDeleteAndLockingTest extends AbstractLoanIntegrationTest {
                     null, null, null, null, null,
                     999, null, null,
                     null, null, null, null,
-                    null, null, null, null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null,
                     null
             );
         });
@@ -131,7 +132,8 @@ class SoftDeleteAndLockingTest extends AbstractLoanIntegrationTest {
                 null, null, null, null, null,
                 111, null, null,
                 null, null, null, null,
-                null, null, null, null, null, null, null,
+                null, null, null, null,
+                null, null, null, null,
                 null
         );
         assertThatThrownBy(() ->

@@ -20,6 +20,7 @@ public record LoanProductResponse(
         String collateralRequiredYn,
         String guarantorRequiredYn,
         Integer minGuarantorCount,
+        Integer applicationValidityDays,
         String saleStartDate,
         String saleEndDate,
         String prodStatusCd,
@@ -36,7 +37,7 @@ public record LoanProductResponse(
                 p.getMinAmount(), p.getMaxAmount(),
                 p.getMinPeriodMo(), p.getMaxPeriodMo(),
                 p.getCollateralRequiredYn(), p.getGuarantorRequiredYn(),
-                p.getMinGuarantorCount(),
+                p.getMinGuarantorCount(), p.getApplicationValidityDays(),
                 p.getSaleStartDate(), p.getSaleEndDate(),
                 p.getProdStatusCd(), p.getProdTermsUrl(), p.getProdTermsHash(),
                 p.getProductId()

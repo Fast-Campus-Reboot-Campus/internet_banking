@@ -55,6 +55,7 @@ public class LoanProductService {
         String guarantorYn = nvl(req.guarantorRequiredYn());
         int minGtr = req.minGuarantorCount() == null ? 0 : req.minGuarantorCount();
         validateGuarantorPolicy(guarantorYn, minGtr);
+        validateApplicationValidityDays(req.applicationValidityDays());
 
         if (repository.existsByProdCdAndDeletedAtIsNull(req.prodCd())) {
             throw new BusinessException(LoanErrorCode.LOAN_001);
@@ -78,6 +79,7 @@ public class LoanProductService {
                 .collateralRequiredYn(nvl(req.collateralRequiredYn()))
                 .guarantorRequiredYn(guarantorYn)
                 .minGuarantorCount(minGtr)
+                .applicationValidityDays(req.applicationValidityDays())
                 .saleStartDate(req.saleStartDate())
                 .saleEndDate(req.saleEndDate())
                 .prodStatusCd(LoanProduct.STATUS_DRAFT)
@@ -102,6 +104,7 @@ public class LoanProductService {
                 req.minPeriodMo(), req.maxPeriodMo(),
                 req.collateralRequiredYn(), req.guarantorRequiredYn(),
                 req.minGuarantorCount(),
+                req.applicationValidityDays(),
                 req.saleStartDate(), req.saleEndDate(),
                 req.prodTermsUrl(), req.prodTermsHash(),
                 req.prodStatusCd()
@@ -109,6 +112,7 @@ public class LoanProductService {
 
         validateRanges(product);
         validateGuarantorPolicy(product.getGuarantorRequiredYn(), product.getMinGuarantorCount());
+        validateApplicationValidityDays(product.getApplicationValidityDays());
         return LoanProductResponse.of(product);
     }
 
@@ -166,6 +170,17 @@ public class LoanProductService {
         if ("Y".equalsIgnoreCase(guarantorRequiredYn) && minGuarantorCount < 1) {
             throw new BusinessException(LoanErrorCode.LOAN_003,
                     "guarantorRequiredYn=Y 이면 minGuarantorCount >= 1 이어야 합니다");
+        }
+    }
+
+    /**
+     * applicationValidityDays 는 null(=시스템 기본 14일) 이거나 1~90 범위여야 한다.
+     * 위반 시 LOAN_003 — 상품 범위/정책 오류와 동일 분류.
+     */
+    private void validateApplicationValidityDays(Integer days) {
+        if (days != null && (days < 1 || days > 90)) {
+            throw new BusinessException(LoanErrorCode.LOAN_003,
+                    "applicationValidityDays 는 1~90 사이여야 합니다");
         }
     }
 
