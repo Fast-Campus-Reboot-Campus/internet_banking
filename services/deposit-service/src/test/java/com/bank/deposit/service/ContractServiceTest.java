@@ -154,6 +154,71 @@ class ContractServiceTest {
         }
 
         @Test
+        @DisplayName("joinAmount가 minJoinAmount보다 작으면 예외가 발생한다")
+        void createWithJoinAmountBelowMin() {
+            Product product = Product.builder()
+                    .productType(ProductType.DEPOSIT)
+                    .productName("정기예금")
+                    .baseInterestRate(BigDecimal.valueOf(3.0))
+                    .productStatus(ProductStatus.SELLING)
+                    .minJoinAmount(BigDecimal.valueOf(100_000))
+                    .maxJoinAmount(BigDecimal.valueOf(100_000_000))
+                    .build();
+            given(productRepository.findById(1L)).willReturn(Optional.of(product));
+
+            assertThatThrownBy(() -> contractService.createContract(
+                    "CUST-001", 1L, BigDecimal.valueOf(100), 12,
+                    JoinChannel.WEB, null, null, null, false, false, null,
+                    null, null, null, "1234"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("최소 가입금액");
+        }
+
+        @Test
+        @DisplayName("joinAmount가 maxJoinAmount보다 크면 예외가 발생한다")
+        void createWithJoinAmountAboveMax() {
+            Product product = Product.builder()
+                    .productType(ProductType.DEPOSIT)
+                    .productName("정기예금")
+                    .baseInterestRate(BigDecimal.valueOf(3.0))
+                    .productStatus(ProductStatus.SELLING)
+                    .minJoinAmount(BigDecimal.valueOf(100_000))
+                    .maxJoinAmount(BigDecimal.valueOf(100_000_000))
+                    .build();
+            given(productRepository.findById(1L)).willReturn(Optional.of(product));
+
+            assertThatThrownBy(() -> contractService.createContract(
+                    "CUST-001", 1L, BigDecimal.valueOf(999_999_999), 12,
+                    JoinChannel.WEB, null, null, null, false, false, null,
+                    null, null, null, "1234"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("최대 가입금액");
+        }
+
+        @Test
+        @DisplayName("joinAmount가 minJoinAmount와 같으면 계약이 정상 생성된다")
+        void createWithJoinAmountEqualToMin() {
+            Product product = Product.builder()
+                    .productType(ProductType.DEPOSIT)
+                    .productName("정기예금")
+                    .baseInterestRate(BigDecimal.valueOf(3.0))
+                    .productStatus(ProductStatus.SELLING)
+                    .minJoinAmount(BigDecimal.valueOf(100_000))
+                    .maxJoinAmount(BigDecimal.valueOf(100_000_000))
+                    .build();
+            given(productRepository.findById(1L)).willReturn(Optional.of(product));
+            given(contractRepository.save(any(Contract.class))).willAnswer(inv -> inv.getArgument(0));
+            given(accountRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            Contract result = contractService.createContract(
+                    "CUST-001", 1L, BigDecimal.valueOf(100_000), 12,
+                    JoinChannel.WEB, null, null, null, false, false, null,
+                    null, null, null, "1234");
+
+            assertThat(result.getJoinAmount()).isEqualByComparingTo("100000");
+        }
+
+        @Test
         @DisplayName("우대금리가 기본금리에 합산되어 최종금리가 계산된다")
         void finalRateCalculation() {
             given(productRepository.findById(1L)).willReturn(Optional.of(sellingProduct()));

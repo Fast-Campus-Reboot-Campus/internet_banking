@@ -78,6 +78,24 @@ class RecommendAgentControllerTest {
         }
 
         @Test
+        @DisplayName("periodMonth=0 요청 시 400을 반환한다")
+        void periodMonthZero() throws Exception {
+            mockMvc.perform(get("/products/recommend-agent")
+                            .param("customerId", "CUST001")
+                            .param("periodMonth", "0"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("periodMonth=-1 요청 시 400을 반환한다")
+        void periodMonthNegative() throws Exception {
+            mockMvc.perform(get("/products/recommend-agent")
+                            .param("customerId", "CUST001")
+                            .param("periodMonth", "-1"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
         @DisplayName("customerId 누락 시 400을 반환한다")
         void missingCustomerId() throws Exception {
             mockMvc.perform(get("/products/recommend-agent")

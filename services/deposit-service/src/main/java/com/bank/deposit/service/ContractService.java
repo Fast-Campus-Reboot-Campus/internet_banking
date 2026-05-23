@@ -58,6 +58,16 @@ public class ContractService {
         if (product.getProductStatus() != ProductStatus.SELLING) {
             throw new BusinessException(ErrorCode.PRODUCT_NOT_SELLING);
         }
+        if (product.getMinJoinAmount() != null
+                && joinAmount.compareTo(product.getMinJoinAmount()) < 0) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS,
+                    "가입금액이 최소 가입금액보다 작습니다. (최소: " + product.getMinJoinAmount().toPlainString() + "원)");
+        }
+        if (product.getMaxJoinAmount() != null
+                && joinAmount.compareTo(product.getMaxJoinAmount()) > 0) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS,
+                    "가입금액이 최대 가입금액을 초과합니다. (최대: " + product.getMaxJoinAmount().toPlainString() + "원)");
+        }
         if (accountPassword == null || accountPassword.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS, "계좌 비밀번호는 필수입니다.");
         }
