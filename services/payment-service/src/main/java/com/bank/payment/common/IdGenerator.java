@@ -34,8 +34,10 @@ public class IdGenerator {
     private final AtomicLong historySeq = new AtomicLong(0);
     private final AtomicLong messageSeq = new AtomicLong(0);
     private final AtomicLong callSeq = new AtomicLong(0);
-    private final AtomicLong clearingTxSeq = new AtomicLong(0);
-    private final AtomicLong clearingNoSeq = new AtomicLong(0);
+    private final AtomicLong clearingTxSeq    = new AtomicLong(0);
+    private final AtomicLong clearingNoSeq    = new AtomicLong(0);
+    private final AtomicLong settlementTxSeq  = new AtomicLong(0);
+    private final AtomicLong bokRefSeq        = new AtomicLong(0);
 
     private volatile boolean seeded = false;
 
@@ -50,8 +52,10 @@ public class IdGenerator {
     public String nextHistoryId()             { ensureSeeded(); return build("SH",   historySeq); }
     public String nextMessageId()             { ensureSeeded(); return build("OB",   messageSeq); }
     public String nextCallId()                { ensureSeeded(); return build("EC",   callSeq); }
-    public String nextClearingTransactionId() { ensureSeeded(); return build("KCT",  clearingTxSeq); }
-    public String nextClearingNo()            { ensureSeeded(); return build("KFTC", clearingNoSeq); }
+    public String nextClearingTransactionId()  { ensureSeeded(); return build("KCT",  clearingTxSeq); }
+    public String nextClearingNo()             { ensureSeeded(); return build("KFTC", clearingNoSeq); }
+    public String nextSettlementTransactionId(){ ensureSeeded(); return build("BST",  settlementTxSeq); }
+    public String nextBokReferenceNo()         { ensureSeeded(); return build("BOK",  bokRefSeq); }
 
     // ── ID 조립 ─────────────────────────────────────────
     private String build(String prefix, AtomicLong seq) {
@@ -73,6 +77,8 @@ public class IdGenerator {
             callSeq.set(parseSeq(idSequenceMapper.selectMaxCallId()));
             clearingTxSeq.set(parseSeq(idSequenceMapper.selectMaxClearingTransactionId()));
             clearingNoSeq.set(parseSeq(idSequenceMapper.selectMaxClearingNo()));
+            settlementTxSeq.set(parseSeq(idSequenceMapper.selectMaxSettlementTransactionId()));
+            bokRefSeq.set(parseSeq(idSequenceMapper.selectMaxBokReferenceNo()));
             seeded = true;
         }
     }

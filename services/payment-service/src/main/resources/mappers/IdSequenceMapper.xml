@@ -36,4 +36,12 @@
         SELECT MAX(clearing_no) FROM kftc_clearing_transaction
     </select>
 
+    <select id="selectMaxSettlementTransactionId" resultType="java.lang.String">
+        SELECT MAX(settlement_transaction_id) FROM bok_settlement_transaction
+    </select>
+
+    <select id="selectMaxBokReferenceNo" resultType="java.lang.String">
+        SELECT MAX(bok_reference_no) FROM bok_settlement_transaction
+    </select>
+
 </mapper>

@@ -11,4 +11,6 @@ public interface IdSequenceMapper {
     String selectMaxCallId();
     String selectMaxClearingTransactionId();
     String selectMaxClearingNo();
+    String selectMaxSettlementTransactionId();
+    String selectMaxBokReferenceNo();
 }

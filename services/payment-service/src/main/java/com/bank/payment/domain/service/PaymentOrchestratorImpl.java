@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -66,13 +67,25 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     @Override
     public PaymentResult processPayment(PaymentCommand command) {
         boolean isIntraBank = isIntraBank(command.receiverBankCode());
-        String routingNetworkType = isIntraBank ? "INTERNAL" : "KFTC";
+
+        // P-007: 10억(1,000,000,000) 이상은 BOK(한은망 거액이체), 미만은 KFTC(금융결제원).
+        // ★정책충돌: 테이블정의서 CHECK 예시 1억은 오류로 판단 — enum #16/#39 "10억" 채택.
+        String routingNetworkType;
+        if (isIntraBank) {
+            routingNetworkType = "INTERNAL";
+        } else if (command.transferAmount().compareTo(BigDecimal.valueOf(1_000_000_000L)) >= 0) {
+            routingNetworkType = "BOK";
+        } else {
+            routingNetworkType = "KFTC";
+        }
 
         // TX-1: PI DRAFT INSERT — 실패 시 예외가 PaymentValidationException이 아니므로 try 밖
         PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
 
         if (isIntraBank) {
             return processIntraBank(pi, command);
+        } else if ("BOK".equals(routingNetworkType)) {
+            return processInterBok(pi, command);
         } else {
             return processInterBank(pi, command);
         }
@@ -145,6 +158,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             // TX-B: REVERSING→FAILED + 이력 2건 + Outbox + 멱등키 (freshPi.version+1=2 → WHERE version=2, DB version→3)
             return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
         }
+    }
+
+    /** BOK 거액이체 송신 — 단계2(S3)에서 구현. 단계1 라우팅 분기 연결용 stub. */
+    private PaymentResult processInterBok(PaymentInstruction pi, PaymentCommand command) {
+        throw new UnsupportedOperationException("BOK 송신은 단계2(S3)에서 구현");
     }
 
     private PaymentResult processInterBank(PaymentInstruction pi, PaymentCommand command) {

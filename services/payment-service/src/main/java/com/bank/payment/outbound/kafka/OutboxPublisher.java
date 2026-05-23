@@ -99,10 +99,10 @@ public class OutboxPublisher {
             // TODO S2-A: case "KFTC_ACK_SENT"          -> "kftc.network.request";
             // TODO S2-A: case "KFTC_SETTLEMENT_SENT"   -> "kftc.network.request";
             // TODO S2-A: case "KFTC_REJECT_SENT"       -> "kftc.network.request";
-            // TODO BOK:  case "BOK_REQUEST_SENT"        -> "bok.network.request";
-            // TODO BOK:  case "BOK_ACK_SENT"            -> "bok.network.request";
-            // TODO BOK:  case "BOK_CONFIRM_SENT"        -> "bok.network.request";
-            // TODO BOK:  case "BOK_REJECT_SENT"         -> "bok.network.request";
+            case "BOK_REQUEST_SENT"              -> "bok.network.request";
+            // TODO BOK S3: case "BOK_ACK_SENT"          -> "bok.network.request";
+            // TODO BOK S3: case "BOK_CONFIRM_SENT"      -> "bok.network.request";
+            // TODO BOK F3: case "BOK_REJECT_SENT"       -> "bok.network.request";
             default -> null;
         };
     }
