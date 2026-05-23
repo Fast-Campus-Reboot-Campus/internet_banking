@@ -18,9 +18,6 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
     Optional<RepaymentSchedule> findByCntrIdAndInstallmentNoAndRschVersionCdAndDeletedAtIsNull(
             Long cntrId, Integer installmentNo, String rschVersionCd);
 
-    List<RepaymentSchedule> findByDueDateAndRschStatusCdAndRschVersionCdAndDeletedAtIsNullOrderByCntrIdAscInstallmentNoAsc(
-            String dueDate, String rschStatusCd, String rschVersionCd);
-
     List<RepaymentSchedule> findByRschStatusCdAndDueDateLessThanAndRschVersionCdAndDeletedAtIsNullOrderByCntrIdAscInstallmentNoAsc(
             String rschStatusCd, String dueDate, String rschVersionCd);
 
@@ -52,6 +49,28 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
                and s.deletedAt is null
             """)
     boolean existsActiveInstallment(@Param("cntrId") Long cntrId);
+
+    /**
+     * autodebit 후보 회차 lookup — baseDate 당일 회차 + 직전 비영업일 동안 미수행된 회차 까지.
+     * 범위: dueDate ∈ (lastBusinessDayBefore(baseDate), baseDate] AND status=DUE AND version=V1.
+     *
+     * 신규 약정(V8 마이그레이션 이후) 은 스케줄 생성 시 휴일 보정되므로 dueDate 가 baseDate 와 정확히 일치하지만,
+     * 구약정의 비영업일 dueDate 가 다음 영업일 배치에 흡수되도록 범위 lookup 으로 단순화.
+     */
+    @Query("""
+            select s from RepaymentSchedule s
+             where s.dueDate > :lastBusinessDay
+               and s.dueDate <= :baseDate
+               and s.rschStatusCd = :status
+               and s.rschVersionCd = :version
+               and s.deletedAt is null
+             order by s.cntrId asc, s.installmentNo asc
+            """)
+    List<RepaymentSchedule> findDueOrPostponedForAutoDebit(
+            @Param("lastBusinessDay") String lastBusinessDay,
+            @Param("baseDate") String baseDate,
+            @Param("status") String status,
+            @Param("version") String version);
 
     /**
      * 특정 버전에서 DUE/OVERDUE 인 회차를 installmentNo 오름차순으로 반환.

@@ -72,6 +72,15 @@ public class BusinessDayService {
         return advance(parseOrThrow(calDate), -1);
     }
 
+    /**
+     * 입력 일자 **이전** (미포함) 의 마지막 영업일.
+     * autodebit 배치가 휴일 이월 회차 범위를 잡을 때 하한선으로 사용한다.
+     */
+    @Transactional(readOnly = true)
+    public String lastBusinessDayBefore(String calDate) {
+        return advance(parseOrThrow(calDate).minusDays(1), -1);
+    }
+
     private String advance(LocalDate start, int step) {
         LocalDate cursor = start;
         for (int i = 0; i <= MAX_LOOKAHEAD_DAYS; i++) {

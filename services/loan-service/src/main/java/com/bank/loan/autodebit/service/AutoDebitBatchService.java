@@ -21,9 +21,14 @@ import java.util.Optional;
  *
  * 실행 시점: 매일 새벽 (별도 스케줄러). 본 단계는 운영자가 baseDate 를 지정해 수동 호출.
  *
- * 처리 대상:
- *   REPAYMENT_SCHEDULE.due_date = baseDate AND rsch_status_cd = DUE AND rsch_version_cd = V1
+ * 처리 대상 (lookup 범위):
+ *   REPAYMENT_SCHEDULE.due_date ∈ ( lastBusinessDayBefore(baseDate), baseDate ]
+ *   AND rsch_status_cd = DUE AND rsch_version_cd = V1
  *   AND 해당 계약의 REPAYMENT_ACCOUNT.auto_debit_yn = Y AND racct_status_cd = VERIFIED
+ *
+ * 신규 약정(V8 이후) 은 스케줄 생성 시 휴일 보정으로 dueDate 가 baseDate 와 정확히 일치한다.
+ * 구약정의 비영업일 dueDate (예: 토/일 회차) 는 직전 영업일 다음날부터 baseDate 까지의 구간으로 흡수되어
+ * 익영업일 배치에서 처리된다 (plan 05).
  *
  * 본 단계는 외부 출금 stub — 항상 SUCCESS 가정. 실패 시뮬레이션·OVERDUE 전이는 후속(#6 연체).
  *
@@ -52,9 +57,11 @@ public class AutoDebitBatchService {
             return AutoDebitRunResponse.skippedNonBusinessDay(baseDate);
         }
 
+        String lastBusinessDay = businessDayService.lastBusinessDayBefore(baseDate);
         List<RepaymentSchedule> candidates = scheduleRepository
-                .findByDueDateAndRschStatusCdAndRschVersionCdAndDeletedAtIsNullOrderByCntrIdAscInstallmentNoAsc(
-                        baseDate, RepaymentSchedule.STATUS_DUE, RepaymentSchedule.VERSION_INITIAL);
+                .findDueOrPostponedForAutoDebit(
+                        lastBusinessDay, baseDate,
+                        RepaymentSchedule.STATUS_DUE, RepaymentSchedule.VERSION_INITIAL);
 
         int processed = 0;
         int skipped = 0;
