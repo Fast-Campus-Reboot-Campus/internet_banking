@@ -2,6 +2,7 @@ package com.bank.payment.inbound.kafka;
 
 import com.bank.payment.domain.BokSettlementTransaction;
 import com.bank.payment.domain.PaymentInstruction;
+import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.bank.payment.domain.service.PaymentTransactionService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,8 +15,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * BOK 망 응답 Consumer. @EnableKafka는 KftcKafkaConfig에 선언돼 있으므로 재선언 금지.
- * orchestrator 미주입 — 완결(SETTLEMENT_COMPLETED)은 txService 직접 호출.
- * F3 거절(SETTLEMENT_REJECT)은 단계3 구현 예정.
+ * SETTLEMENT_COMPLETED: txService 직접 호출 (외부호출 없음, P-028).
+ * SETTLEMENT_REJECT(F3): orchestrator.processBokReject 경유 (B-5 외부호출 포함, P-028).
  */
 @Slf4j
 @Component
@@ -24,6 +25,7 @@ public class BokNetworkResponseConsumer {
 
     private final ObjectMapper objectMapper;
     private final PaymentTransactionService txService;
+    private final PaymentOrchestrator orchestrator;
 
     @KafkaListener(
             topics = "bok.network.response",
@@ -74,11 +76,30 @@ public class BokNetworkResponseConsumer {
                 log.info("[BOK] SETTLEMENT_COMPLETED 처리완료. piId={} CLEARING→COMPLETED", piId);
                 break;
             }
-            case "SETTLEMENT_REJECT":
-                // 단계3(F3) TODO
-                log.warn("[BOK] SETTLEMENT_REJECT 미구현(단계3). bokReferenceNo={}",
-                        payload.path("bokReferenceNo").asText());
+            case "SETTLEMENT_REJECT": {
+                String bokReferenceNo = payload.path("bokReferenceNo").asText();
+                String responseCode   = payload.path("responseCode").asText();
+                String rejectMessage  = payload.path("rejectMessage").asText();
+                String rejectedAt     = payload.path("rejectedAt").asText();
+
+                BokSettlementTransaction bst = txService.selectByBokReferenceNo(bokReferenceNo);
+                if (bst == null) {
+                    log.error("[BOK] SETTLEMENT_REJECT BST 없음, skip. bokReferenceNo={}", bokReferenceNo);
+                    break;
+                }
+                String piId = bst.getOurPaymentInstructionId();
+                PaymentInstruction pi = txService.selectById(piId);
+                if (pi == null) {
+                    log.error("[BOK] SETTLEMENT_REJECT PI 없음, skip. bokReferenceNo={} piId={}",
+                            bokReferenceNo, piId);
+                    break;
+                }
+
+                // 멱등가드는 orchestrator.processBokReject 내부 (FAILED skip / CLEARING|REVERSING 분기)
+                orchestrator.processBokReject(pi, bokReferenceNo, responseCode, rejectMessage, rejectedAt);
+                log.info("[BOK] SETTLEMENT_REJECT 처리완료. piId={} CLEARING→REVERSING→FAILED", piId);
                 break;
+            }
             default:
                 log.warn("[BOK] unknown messageType: messageType={} key={}", messageType, record.key());
         }

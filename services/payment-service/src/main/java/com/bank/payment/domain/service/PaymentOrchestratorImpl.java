@@ -408,7 +408,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-1: CLEARING → REVERSING (CLEARING 진입 시에만)
         if (wasClearing) {
-            txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMessage);
+            txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMessage, "KFTC", "E2001");
         }
 
         // TX-2 낙관락 버전: TX-1 후 DB version+1 / REVERSING 재진입은 현재 version 그대로
@@ -432,6 +432,60 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
         return txService.txCompleteKftcRejectReversal(
                 freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, clearingNo);
+    }
+
+    // ── F3: BOK 거절 보상 ────────────────────────────────────────────────────
+
+    /**
+     * F3 BOK 거절 보상. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + BST REJECTED.
+     * processKftcReject의 BOK판. 재진입 가드 동일: FAILED→skip / CLEARING|REVERSING→진행 / 그 외→warn+skip.
+     */
+    @Override
+    public PaymentResult processBokReject(
+            PaymentInstruction freshPi, String bokReferenceNo,
+            String rejectCode, String rejectMessage, String rejectedAt) {
+
+        String piId = freshPi.getPaymentInstructionId();
+        String status = freshPi.getStatus();
+
+        // 멱등 가드 (⑥)
+        if ("FAILED".equals(status)) {
+            log.info("[F3] 이미 FAILED, skip. piId={}", piId);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), "FAILED", "BOK_REJECTED", null);
+        }
+        if (!"CLEARING".equals(status) && !"REVERSING".equals(status)) {
+            log.warn("[F3] 처리불가 상태, skip. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+
+        boolean wasClearing = "CLEARING".equals(status);
+
+        // TX-1: CLEARING → REVERSING (CLEARING 진입 시에만)
+        if (wasClearing) {
+            txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMessage, "BOK", rejectCode);
+        }
+
+        // TX-2 낙관락 버전: TX-1 후 DB version+1 / REVERSING 재진입은 현재 version 그대로
+        Integer tx2Version = wasClearing ? freshPi.getVersion() + 1 : freshPi.getVersion();
+
+        // B-5: 출금취소 (TX 밖) — REVERSING 재진입 시 이미 수행된 경우 skip
+        ExternalCall originalWithdrawCall = txService.selectOriginalWithdrawCall(piId);
+        ExternalCall existingCancelCall = txService.selectExistingCancelCall(piId);
+
+        WithdrawCancelData cancelResult = null;
+        if (existingCancelCall != null) {
+            log.info("[F3] B-5 이미 수행됨, skip 재호출. piId={} existingCallId={}",
+                    piId, existingCancelCall.getCallId());
+        } else {
+            String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
+            String depositTxNo = extractDepositTxNo(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+        }
+
+        // TX-2: 역분개4건 + FAILED + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
+        List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
+        return txService.txCompleteBokRejectReversal(
+                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, bokReferenceNo);
     }
 
     /**

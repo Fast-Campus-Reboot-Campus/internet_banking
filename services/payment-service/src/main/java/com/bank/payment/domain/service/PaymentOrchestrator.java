@@ -28,4 +28,17 @@ public interface PaymentOrchestrator {
      */
     PaymentResult processKftcReject(PaymentInstruction freshPi, String clearingNo,
                                      String rejectCode, String rejectMessage, String rejectedAt);
+
+    /**
+     * F3 BOK 거절 보상. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + BST REJECTED.
+     * processKftcReject의 BOK판. Kafka consumer(bok.network.response SETTLEMENT_REJECT)에서 호출.
+     * @param freshPi DB 재조회한 PI (CLEARING 또는 REVERSING 상태)
+     * @param bokReferenceNo BOK 참조번호 (BST 조회키)
+     * @param rejectCode BOK responseCode (예: 'B1001')
+     * @param rejectMessage BOK 거절메시지
+     * @param rejectedAt BOK 거절시각
+     * @return FAILED 결제결과
+     */
+    PaymentResult processBokReject(PaymentInstruction freshPi, String bokReferenceNo,
+                                    String rejectCode, String rejectMessage, String rejectedAt);
 }
