@@ -160,9 +160,26 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         }
     }
 
-    /** BOK 거액이체 송신 — 단계2(S3)에서 구현. 단계1 라우팅 분기 연결용 stub. */
+    /** BOK 거액이체 송신. step2/authorize/step3는 망 무관 공용 호출. */
     private PaymentResult processInterBok(PaymentInstruction pi, PaymentCommand command) {
-        throw new UnsupportedOperationException("BOK 송신은 단계2(S3)에서 구현");
+        try {
+            ExternalValidationResult validation = step2_externalValidation(pi, command);
+
+            txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
+
+            // Step 3: 출금(B-3) — BOK도 수신 입금 없음, 청산대기 분개(KB-CLR-BOK)로 박제
+            WithdrawStepResult withdrawStep = step3_withdraw(pi, command);
+
+            // TX-2: 분개4건(2묶음) + AUTHORIZED→PROCESSING→CLEARING + Outbox(BOK_REQUEST_SENT)
+            //       + bok_settlement_transaction REQUESTED INSERT + 멱등키완료
+            String numericBankCode = "B".equalsIgnoreCase(bankCode) ? "088" : "004";
+            return txService.txStep4InterBok(pi, withdrawStep.txData(), command,
+                    validation.senderHolderName(), numericBankCode);
+
+        } catch (PaymentValidationException e) {
+            // step2 검증 실패 — 자금변동 없음(B-3 미도달). 200 OK + status=FAILED
+            return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()));
+        }
     }
 
     private PaymentResult processInterBank(PaymentInstruction pi, PaymentCommand command) {

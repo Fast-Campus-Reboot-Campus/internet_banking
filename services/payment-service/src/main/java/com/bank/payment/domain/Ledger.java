@@ -238,6 +238,39 @@ public class Ledger {
                 .build();
     }
 
+    // ── BOK 청산대기 분개 [BOK JN-01 대변] ──────────────
+    /**
+     * BOK 거액이체 청산대기 분개. KB-CLR-BOK CREDIT CLEARING_PENDING. (P-014 시트2 JN-01)
+     * 내부계정 잔액은 결제계가 추적하지 않으므로 balance=0,0 처리.
+     */
+    public static Ledger clearingPendingBok(
+            String ledgerId, String paymentInstructionId,
+            String journalNo, BigDecimal amount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId("KB-CLR-BOK")
+                .journalNo(journalNo)
+                .accountNoSnap("KB-CLR-BOK")
+                .holderNameSnap("KB청산대기(한은)")
+                .debitCredit("CREDIT")
+                .journalType("CLEARING_PENDING")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
+
     // ── 타행 수수료 분개 [타행 JN-02 차변] ───────────────
     /**
      * 타행이체 수수료 분개. 송신계좌 DEBIT FEE. (P-014 시트2 JN-02)

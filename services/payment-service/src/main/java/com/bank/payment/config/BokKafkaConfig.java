@@ -2,6 +2,7 @@ package com.bank.payment.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,9 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.Map;
 
@@ -58,6 +62,14 @@ public class BokKafkaConfig {
         factory.setConsumerFactory(bokConsumerFactory());
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         factory.setMissingTopicsFatal(true);
+
+        // DLQ 라우팅: 1초 간격 3회 재시도 후 bok.network.response.dlq (KftcKafkaConfig 대칭)
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                bokKafkaTemplate(),
+                (r, e) -> new TopicPartition("bok.network.response.dlq", 0)
+        );
+        factory.setCommonErrorHandler(new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3)));
+
         return factory;
     }
 }
