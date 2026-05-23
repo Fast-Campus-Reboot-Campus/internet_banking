@@ -4,6 +4,7 @@ import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
+import com.bank.loan.calendar.service.BusinessDayService;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.maturity.domain.Maturity;
@@ -21,8 +22,11 @@ import java.time.format.DateTimeFormatter;
 /**
  * 만기 관리 서비스.
  *
- * createOnContract: 약정 체결 시 LoanContractService 가 호출 — original=current=cntr_end_date.
- * extend: current_maturity_date 를 N개월 미루고 extension_count 증가. original 은 불변.
+ * createOnContract: 약정 체결 시 LoanContractService 가 호출.
+ *   original_maturity_date = cntr_end_date (원본 불변).
+ *   current_maturity_date  = nextBusinessDay(cntr_end_date) — 휴일이면 다음 영업일로 보정.
+ * extend: current_maturity_date 를 N개월 미루고 extension_count 증가.
+ *   연장 후 날짜도 nextBusinessDay 로 보정. original 은 불변.
  *
  * 본 단계 자동 전이(ACTIVE→MATURED)·만기 알림은 후속 (별도 배치).
  */
@@ -41,22 +45,27 @@ public class MaturityService {
     private final LoanContractRepository contractRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final BusinessDayService businessDayService;
 
     /** 약정 체결 시 LoanContractService 가 호출. 멱등 — 이미 있으면 no-op. */
     @Transactional
     public Maturity createOnContract(LoanContract contract) {
         return repository.findByCntrIdAndDeletedAtIsNull(contract.getCntrId()).orElseGet(() -> {
+            // original 은 계약서 원본 날짜 그대로 보관, current 는 following 정책 적용
+            String rawEndDate  = contract.getCntrEndDate();
+            String adjustedEnd = businessDayService.nextBusinessDay(rawEndDate);
             Maturity saved = repository.save(Maturity.builder()
                     .cntrId(contract.getCntrId())
-                    .originalMaturityDate(contract.getCntrEndDate())
-                    .currentMaturityDate(contract.getCntrEndDate())
+                    .originalMaturityDate(rawEndDate)
+                    .currentMaturityDate(adjustedEnd)
                     .matStatusCd(Maturity.STATUS_ACTIVE)
                     .extensionCount(0)
                     .build());
             statusHistoryPublisher.publish(StatusChangeEvent.of(
                     DOMAIN_CD, TARGET_TABLE_CD, saved.getMatId(),
                     null, Maturity.STATUS_ACTIVE,
-                    REASON_CREATED, "originalMaturityDate=" + contract.getCntrEndDate(),
+                    REASON_CREATED,
+                    "originalMaturityDate=" + rawEndDate + " / currentMaturityDate=" + adjustedEnd,
                     currentActor.currentActorId()
             ));
             return saved;
@@ -73,11 +82,14 @@ public class MaturityService {
                     "current=" + maturity.currentStatus());
         }
 
-        LocalDate newDate = LocalDate.parse(maturity.getCurrentMaturityDate(), DATE)
-                .plusMonths(req.extendedPeriodMo());
+        // 연장 후 산출된 날짜도 following 정책으로 보정
+        String rawNewDate = LocalDate.parse(maturity.getCurrentMaturityDate(), DATE)
+                .plusMonths(req.extendedPeriodMo())
+                .format(DATE);
+        String adjustedNewDate = businessDayService.nextBusinessDay(rawNewDate);
         String today = LocalDate.now().format(DATE);
 
-        maturity.extend(newDate.format(DATE), req.extendedPeriodMo(), req.extensionTypeCd(), today);
+        maturity.extend(adjustedNewDate, req.extendedPeriodMo(), req.extensionTypeCd(), today);
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_TABLE_CD, maturity.getMatId(),
