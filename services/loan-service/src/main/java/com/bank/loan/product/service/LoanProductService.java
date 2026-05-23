@@ -52,6 +52,10 @@ public class LoanProductService {
     public LoanProductResponse create(CreateLoanProductRequest req) {
         validateRanges(req);
 
+        String guarantorYn = nvl(req.guarantorRequiredYn());
+        int minGtr = req.minGuarantorCount() == null ? 0 : req.minGuarantorCount();
+        validateGuarantorPolicy(guarantorYn, minGtr);
+
         if (repository.existsByProdCdAndDeletedAtIsNull(req.prodCd())) {
             throw new BusinessException(LoanErrorCode.LOAN_001);
         }
@@ -72,7 +76,8 @@ public class LoanProductService {
                 .minPeriodMo(req.minPeriodMo())
                 .maxPeriodMo(req.maxPeriodMo())
                 .collateralRequiredYn(nvl(req.collateralRequiredYn()))
-                .guarantorRequiredYn(nvl(req.guarantorRequiredYn()))
+                .guarantorRequiredYn(guarantorYn)
+                .minGuarantorCount(minGtr)
                 .saleStartDate(req.saleStartDate())
                 .saleEndDate(req.saleEndDate())
                 .prodStatusCd(LoanProduct.STATUS_DRAFT)
@@ -96,12 +101,14 @@ public class LoanProductService {
                 req.minAmount(), req.maxAmount(),
                 req.minPeriodMo(), req.maxPeriodMo(),
                 req.collateralRequiredYn(), req.guarantorRequiredYn(),
+                req.minGuarantorCount(),
                 req.saleStartDate(), req.saleEndDate(),
                 req.prodTermsUrl(), req.prodTermsHash(),
                 req.prodStatusCd()
         );
 
         validateRanges(product);
+        validateGuarantorPolicy(product.getGuarantorRequiredYn(), product.getMinGuarantorCount());
         return LoanProductResponse.of(product);
     }
 
@@ -148,6 +155,17 @@ public class LoanProductService {
         }
         if (p.getMinRateBps() != null && p.getMaxRateBps() != null && p.getMinRateBps() > p.getMaxRateBps()) {
             throw new BusinessException(LoanErrorCode.LOAN_003, "minRateBps > maxRateBps");
+        }
+    }
+
+    /**
+     * guarantorRequiredYn='Y' 이면 minGuarantorCount 가 1 이상이어야 한다.
+     * 위반 시 LOAN_003 — 상품 범위/정책 오류와 동일 분류.
+     */
+    private void validateGuarantorPolicy(String guarantorRequiredYn, int minGuarantorCount) {
+        if ("Y".equalsIgnoreCase(guarantorRequiredYn) && minGuarantorCount < 1) {
+            throw new BusinessException(LoanErrorCode.LOAN_003,
+                    "guarantorRequiredYn=Y 이면 minGuarantorCount >= 1 이어야 합니다");
         }
     }
 
