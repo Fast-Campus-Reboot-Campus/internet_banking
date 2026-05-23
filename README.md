@@ -224,8 +224,8 @@ FastAPI 기본 처리 사용 (커스텀 핸들러 없음):
 
 | 항목 | 수치 |
 |---|---|
-| 전체 테스트 수 | **231개** |
-| 통과 | 231개 |
+| 전체 테스트 수 | **236개** |
+| 통과 | 236개 |
 | 실패 | 0개 |
 | 에러 | 0개 |
 | 스킵 | 0개 |
@@ -246,6 +246,12 @@ FastAPI 기본 처리 사용 (커스텀 핸들러 없음):
 | TermApplicationManagement | TermApplicationManagementServiceTest | TermApplicationManagementControllerTest |
 | SubscriptionPaymentRecognitionHistory | SubscriptionPaymentRecognitionHistoryServiceTest | SubscriptionPaymentRecognitionHistoryControllerTest |
 
+#### Repository 테스트 파일
+
+| Repository | 테스트 파일 | 테스트 방식 |
+|---|---|---|
+| TransactionRepository | TransactionRepositoryTest | @DataJpaTest + H2 in-memory |
+
 #### 안정화에서 추가된 테스트 (5개)
 
 | 테스트 | 내용 |
@@ -255,6 +261,18 @@ FastAPI 기본 처리 사용 (커스텀 핸들러 없음):
 | `joinAmount가 minJoinAmount와 같으면 계약이 정상 생성된다` | 경계값 정상 처리 |
 | `periodMonth=0 요청 시 400을 반환한다` | @Min(1) 검증 → 400 |
 | `periodMonth=-1 요청 시 400을 반환한다` | @Min(1) 검증 → 400 |
+
+#### TransactionRepository @DataJpaTest 검증 항목 (5개)
+
+대상 메서드: `findByAccountIdInAndTransactionAtBetweenAndStatus`
+
+| 테스트 | 검증 내용 |
+|---|---|
+| `여러 accountId를 넘기면 해당 계좌들의 거래를 함께 조회한다` | accountId IN 조건 — 지정한 계좌만 포함 |
+| `transactionAt 기간 필터가 적용된다 — 기간 내 거래만 반환한다` | BETWEEN 조건 — 기간 내 거래만 반환 |
+| `status=SUCCESS인 거래만 조회된다 — FAILED·PENDING은 제외된다` | status = SUCCESS 필터 |
+| `기간 밖 거래는 결과에서 제외된다 — 경계 직전·직후 모두 제외` | 기간 경계값 제외 확인 |
+| `accountId 목록에 없는 계좌의 거래는 제외된다` | accountId NOT IN 목록 제외 확인 |
 
 ### consultation-service
 
