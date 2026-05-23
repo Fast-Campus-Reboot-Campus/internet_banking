@@ -100,9 +100,17 @@
 | **4-A** | 도메인 6개 박제 (한 라운드 한 도메인) | ✅ 완료 (2026-05-20) |
 | **4-A-1** | PaymentInstruction (36 필드) | ✅ 완료 (2026-05-20) |
 | **4-A-2~6** | 나머지 도메인 5개 (IdempotencyKey/Ledger/ExternalCall/OutboxMessage/StatusHistory) | ✅ 완료 (2026-05-20) |
-| **4-B** | 자행이체 Mapper + Service + Controller | 대기 |
-| **5** | 후속 시나리오 | 대기 |
-| **7+** | 외부망 KFTC/BOK — 외부망 통신 + 보상 흐름 + 운영자 강제 취소 | 대기 |
+| **4-B** | 자행이체 Service/Controller (txStep1~4, Orchestrator) | ✅ 완료 |
+| **5** | 자행 S1 정상 + 수신검증 8건 | ✅ 완료 |
+| **5-F** | 자행 실패보상 F1(잔액부족 직행)/F8(입금실패 보상)/F5(분개실패 보상) | ✅ 완료 |
+| **7-A** | Outbox 워커 (PENDING→Kafka publish) | ✅ 완료 |
+| **7-B** | KFTC response consumer + DLQ + @EnableKafka | ✅ 완료 |
+| **7-C** | Orchestrator 자행/타행 분기 | ✅ 완료 |
+| **S2-A** | KFTC 타행송신 + 완결 (SETTLEMENT_NOTIFY→CT SETTLED→PI COMPLETED) | ✅ 완료 |
+| **F2** | KFTC 거절보상 (CLEARING→REVERSING→FAILED + 역분개4 + B-5) | ✅ 완료 |
+| **BOK-1** | 인프라: V11 bok_settlement_transaction + 10억 라우팅 + Outbox BOK_REQUEST_SENT | ✅ 완료 |
+| **BOK-2** | S3 송신+완결 (processInterBok + txStep4InterBok + BokNetworkResponseConsumer + SETTLEMENT_COMPLETED) | ✅ 완료 |
+| **BOK-3** | F3 거절보상 (SETTLEMENT_REJECT → 역분개4 BOK_REJECTION + B-5 + BST REJECTED) | ✅ 완료 |
 
 ---
 
@@ -150,6 +158,31 @@
 | Saga / 보상 트랜잭션 | 외부 자금 변동 후 실패 시 역 호출로 원상복구하는 패턴 (P-014) |
 | CANCEL_REQUESTED | 운영자/외부 트리거로 강제 취소 요청된 상태. REVERSING 직전 단계 (enum v9) |
 | 청산상태 ACK | Kafka Producer acks=all 응답 수신 시점 = KFTC 접수 신호로 간주 (enum v9 재정의) |
+
+---
+
+## 스펙 충돌 누적 (구현 중 발견, 코드가 채택한 값)
+
+| 항목 | 스펙 | 채택값 | 사유 |
+|---|---|---|---|
+| channel | 시나리오 'APP' | 'MOBILE' (WEB/MOBILE/BRANCH/ATM/OPEN_BANKING/INBOUND) | DB channel CHECK에 APP 없음 |
+| failure_category | 시나리오 'EXTERNAL_REJECTION' | ledger=KFTC_REJECTION/BOK_REJECTION, PI=KFTC_REJECTED/BOK_REJECTED (Outbox payload만 EXTERNAL_REJECTION) | 레이어별 의미 분리. DB CHECK 정합 |
+| BOK 라우팅 임계 | 테이블정의서 1억(예시 오류) | 10억 (transferAmount >= 1,000,000,000) | enum 상태전이도 #16/#39 "10억" 채택 |
+| BOK 청산대기 계정 | 스펙 미정의 | 'KB-CLR-BOK' (임시) | KFTC 'KB-CLR-088' 패턴. 추후 확정 필요 |
+| BOK 분개 구조 | 테이블정의서 "청산대기 없음, 즉시 한은당좌" | 청산대기 4건 (KFTC와 동일) | 한은당좌(BOK_DDA) 분개는 회계계 소관. 결제계 ledger CHECK에 BOK_DDA 없음 |
+
+---
+
+## 검증 환경 교훈 (로컬 e2e)
+
+- ★payment-service-b 끄고 검증: a/b 둘 다 뜨면 같은 consumer 그룹으로 파티션 분배 → 메시지가 b 인스턴스로 새서 a 로그에 안 뜸. `docker compose -f docker-compose-kafka.yml stop payment-service-b`
+- 송신 바디 channel:"MOBILE" 필수 (헤더 X-Idempotency-Key/X-User-Id/X-Auth-Token-Id만으론 channel NULL → CHECK 위반)
+- 포트 8080 (8084는 application-local.yml IDE 전용), DB는 payment_a (payment 아님)
+- 컨테이너 빌드: docker compose -f docker-compose-kafka.yml --profile app up -d --build payment-service-a (호스트 ./gradlew 금지, §10)
+- Kafka produce 시 clearingNo/bokReferenceNo 실제값 치환 필수 (플레이스홀더 그대로 보내면 "BST/CT 없음 skip")
+- BOK 10억 테스트: mock(DepositBalanceClientMock) 잔액/한도 20억으로 수정됨 (테스트 하네스, 프로덕션 아님)
+- Windows 콘솔 한글: chcp 65001 + [Console]::OutputEncoding=UTF8 선행 (안 하면 정상 한글도 깨져 보임)
+- TRUNCATE 7테이블: payment_instruction, idempotency_key, ledger, external_call, outbox_message, status_history, kftc_clearing_transaction (+bok_settlement_transaction) CASCADE
 
 ---
 
