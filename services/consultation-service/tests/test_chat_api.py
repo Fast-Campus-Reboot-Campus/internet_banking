@@ -140,6 +140,23 @@ class TestSendMessage:
         finally:
             app.dependency_overrides.clear()
 
+    def test_send_message_after_end_returns_404(self, service, chat_service):
+        """종료된 상담에 메시지 전송 시 HTTP 404를 반환하고 DB에 저장되지 않는다."""
+        client = _make_client(service, chat_service)
+        try:
+            chat_id = _trigger_transfer(client)
+            client.post(f"/chat/consultations/{chat_id}/connect", json={"employee_id": 1})
+            client.post(f"/chat/consultations/{chat_id}/end", json={})
+
+            resp = client.post(
+                f"/chat/consultations/{chat_id}/messages",
+                json={"message": "종료 후 메시지", "sender_type": "USER"},
+            )
+
+            assert resp.status_code == 404
+        finally:
+            app.dependency_overrides.clear()
+
 
 # ── 메시지 이력 조회 ──────────────────────────────────────────────────────────
 
