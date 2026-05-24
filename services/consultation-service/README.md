@@ -237,23 +237,23 @@ consultation-service/
 ## 환경 변수
 
 모든 변수는 `CONSULTATION_` 접두사를 사용합니다.  
-`.env` 파일 또는 환경 변수로 설정합니다.
+`.env.example`을 복사하여 `.env`로 사용합니다 (`.env`는 gitignore 대상).
+
+```bash
+cp services/consultation-service/.env.example services/consultation-service/.env
+```
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `CONSULTATION_DATABASE_URL` | `postgresql+psycopg://deposit:deposit@localhost:5432/deposit_db` | DB 연결 URL |
-| `CONSULTATION_KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka 브로커 |
-| `CONSULTATION_KAFKA_ENABLED` | `false` | Kafka 활성화 여부 |
+| `CONSULTATION_KAFKA_ENABLED` | `false` | Kafka 활성화 여부 (`true` 시 브로커 필수) |
+| `CONSULTATION_KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka 브로커 주소 |
 | `CONSULTATION_KAFKA_TOPIC_CHATBOT_EVENTS` | `consultation.chatbot.events` | 챗봇 이벤트 토픽 |
 | `CONSULTATION_KAFKA_TOPIC_CHAT_EVENTS` | `consultation.chat.events` | 채팅 이벤트 토픽 |
 | `CONSULTATION_LLM_CONFIDENCE_THRESHOLD` | `70` | LLM 신뢰도 임계값 |
 
-`.env` 예시:
-
-```dotenv
-CONSULTATION_DATABASE_URL=postgresql+psycopg://deposit:deposit@localhost:5432/deposit_db
-CONSULTATION_KAFKA_ENABLED=false
-```
+> **주의**: `CONSULTATION_KAFKA_ENABLED=true` 상태에서 Kafka 브로커가 실행 중이지 않으면  
+> 서비스 기동 시 `KafkaConnectionError`가 발생하여 시작이 실패합니다.
 
 ---
 
@@ -272,20 +272,41 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. 서버 실행
+### 2. 환경 변수 설정
+
+```bash
+cp .env.example .env
+# 필요 시 .env 내용 수정
+```
+
+### 3. Kafka 브로커 실행 (Kafka 연동 시)
+
+Docker Compose를 사용하는 경우 프로젝트 루트에서:
+
+```bash
+docker compose up kafka -d
+```
+
+Kafka 없이 로컬 개발만 하는 경우 `.env`에서 비활성화:
+
+```dotenv
+CONSULTATION_KAFKA_ENABLED=false
+```
+
+### 4. 서버 실행
 
 ```bash
 uvicorn app.main:app --reload --port 8002
 ```
 
-### 3. API 문서 확인
+### 5. API 문서 확인
 
-서버 실행 후 브라우저���서 접속:
+서버 실행 후 브라우저에서 접속:
 
 - Swagger UI : http://localhost:8002/docs
 - ReDoc      : http://localhost:8002/redoc
 
-### 4. Docker Compose (전체 스택)
+### 6. Docker Compose (전체 스택)
 
 프로젝트 루트에서:
 
@@ -342,23 +363,82 @@ pytest tests/test_chat_api.py -v
 
 ## Kafka 이벤트
 
-Kafka가 비활성화(`CONSULTATION_KAFKA_ENABLED=false`)되면 모든 publish 호출이 무시됩니다.
+### 동작 방식
+
+`CONSULTATION_KAFKA_ENABLED=false`(기본값)이면 모든 `publish()` 호출이 **조용히 무시**됩니다.  
+`CONSULTATION_KAFKA_ENABLED=true`이면 서비스 기동 시 브로커에 연결하고, 각 API 처리 시점에 이벤트를 발행합니다.  
+토픽은 Kafka `auto.create.topics.enable=true` 설정으로 **자동 생성**됩니다.
+
+### Producer
+
+| 클래스 | 파일 | 설명 |
+|--------|------|------|
+| `KafkaEventPublisher` | `app/kafka.py` | 챗봇·채팅 이벤트 발행 |
+
+### Consumer
+
+| 클래스 | 파일 | 설명 |
+|--------|------|------|
+| `KafkaEventConsumer` | `app/kafka.py` | 비동기 이터레이터 인터페이스 제공 (향후 WebSocket 알림 연동용) |
 
 ### 챗봇 이벤트 (`consultation.chatbot.events`)
 
 | 이벤트 | 발행 시점 | 주요 필드 |
 |--------|----------|----------|
-| `ChatbotConsultationStarted` | 챗봇 상담 시작 | `consultationId`, `chatbotConsultationId`, `customerNo` |
-| `ChatbotMessageHandled` | 챗봇 메시지 처리 완료 | `chatbotConsultationId`, `message`, `processMethod`, `agentTransferRequired` |
-| `ChatbotAgentTransferRequested` | 상담사 이관 요청 | `chatbotConsultationId`, `consultationId` |
+| `ChatbotConsultationStarted` | `POST /chatbot/consultations/start` | `consultationId`, `chatbotConsultationId`, `customerNo` |
+| `ChatbotMessageHandled` | `POST /chatbot/consultations/{id}/messages` | `chatbotConsultationId`, `message`, `processMethod`, `agentTransferRequired` |
+| `ChatbotAgentTransferRequested` | 위 API에서 `agentTransferRequired=true`일 때 추가 발행 | `chatbotConsultationId`, `consultationId` |
+
+**메시지 예시**
+
+```json
+{"eventType": "ChatbotConsultationStarted",
+ "payload": {"consultationId": 1, "chatbotConsultationId": 1, "customerNo": "CUST001"}}
+
+{"eventType": "ChatbotMessageHandled",
+ "payload": {"chatbotConsultationId": 1, "message": "상품 안내해줘",
+             "processMethod": "SCENARIO", "agentTransferRequired": false}}
+
+{"eventType": "ChatbotAgentTransferRequested",
+ "payload": {"chatbotConsultationId": 1, "consultationId": 1}}
+```
 
 ### 채팅 이벤트 (`consultation.chat.events`)
 
 | 이벤트 | 발행 시점 | 주요 필드 |
 |--------|----------|----------|
-| `AgentConnected` | 상담사 연결 수락 | `chatConsultationId`, `consultationId`, `employeeId`, `customerNo` |
-| `ChatMessageSent` | 메시지 전송 | `chatConsultationId`, `senderType`, `message` |
-| `ChatEnded` | 상담 종료 | `chatConsultationId`, `consultationId`, `satisfactionScore` |
+| `AgentConnected` | `POST /chat/consultations/{id}/connect` | `chatConsultationId`, `consultationId`, `employeeId`, `customerNo` |
+| `ChatMessageSent` | `POST /chat/consultations/{id}/messages` | `chatConsultationId`, `senderType`, `message` |
+| `ChatEnded` | `POST /chat/consultations/{id}/end` | `chatConsultationId`, `consultationId`, `satisfactionScore` |
+
+**메시지 예시**
+
+```json
+{"eventType": "AgentConnected",
+ "payload": {"chatConsultationId": 1, "consultationId": 1, "employeeId": 1, "customerNo": "CUST001"}}
+
+{"eventType": "ChatMessageSent",
+ "payload": {"chatConsultationId": 1, "senderType": "AGENT", "message": "안녕하세요 상담사입니다"}}
+
+{"eventType": "ChatEnded",
+ "payload": {"chatConsultationId": 1, "consultationId": 1, "satisfactionScore": 5}}
+```
+
+### Kafka Consumer 수동 확인 (개발용)
+
+```bash
+# 챗봇 이벤트 실시간 확인
+kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic consultation.chatbot.events \
+  --from-beginning
+
+# 채팅 이벤트 실시간 확인
+kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic consultation.chat.events \
+  --from-beginning
+```
 
 ---
 
@@ -366,5 +446,6 @@ Kafka가 비활성화(`CONSULTATION_KAFKA_ENABLED=false`)되면 모든 publish �
 
 | 날짜 | 내용 |
 |------|------|
+| 2026-05-24 | Kafka 이벤트 발행 활성화 — `.env.example` 추가, README Kafka 섹션 상세화 |
 | 2026-05-24 | `ChatService.send_message()` 종료 상담 가드 추가 — 종료된 상담(`active_yn="N"`)에 메시지 전송 시 `ValueError` 발생 → HTTP 404 반환. 관련 테스트 3개 추가 |
 | 2026-05-24 | 챗봇·상담 서비스 초기 구현 |
