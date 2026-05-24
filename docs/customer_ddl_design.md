@@ -1,7 +1,7 @@
 # 고객계 DDL 설계 문서
 
 > **DB**: PostgreSQL  
-> **최종 수정**: 2026-05-20  
+> **최종 수정**: 2026-05-22  
 > **테이블 수**: 13개
 
 ---
@@ -66,7 +66,7 @@ party
 | `fk_customer_party` | `customer.party_id` | `party.party_id` |
 | `fk_party_person_party` | `party_person.party_id` | `party.party_id` |
 | `fk_party_organization_party` | `party_organization.party_id` | `party.party_id` |
-| `fk_foreigner_info_party` | `foreigner_info.party_id` | `party.party_id` |
+| `fk_foreigner_info_party_person` | `foreigner_info.party_id` | `party_person.party_id` |
 | `fk_tax_residency_info_party` | `tax_residency_info.party_id` | `party.party_id` |
 | `fk_compliance_info_party` | `compliance_info.party_id` | `party.party_id` |
 | `fk_party_role_party` | `party_role.party_id` | `party.party_id` |
@@ -93,9 +93,9 @@ party
 | 정렬순서 | `sort_order` | `INT` | | | |
 | 유효시작일자 | `effective_start_date` | `CHAR(8)` | ✅ | | YYYYMMDD |
 | 유효종료일자 | `effective_end_date` | `CHAR(8)` | | | YYYYMMDD |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -113,9 +113,9 @@ party
 | 관계자명 | `party_name` | `VARCHAR(100)` | ✅ | | |
 | 관계자영문명 | `party_english_name` | `VARCHAR(200)` | | | |
 | 관계자상태코드 | `party_status_code` | `VARCHAR(20)` | ✅ | | ACTIVE/SUSPENDED/CLOSED |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -146,13 +146,13 @@ party
 | 상세주소 | `address_detail` | `VARCHAR(255)` | | | |
 | 가입채널코드 | `join_channel_code` | `VARCHAR(20)` | | | BRANCH/ONLINE/MOBILE/CALL/AGENT |
 | 최초가입일자 | `first_join_date` | `CHAR(8)` | | | 재가입 시 불변 |
-| 가입일시 | `joined_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | 활성 고객 관계 시작 |
+| 가입일시 | `joined_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | 활성 고객 관계 시작 |
 | 최종거래일시 | `last_transaction_at` | `TIMESTAMPTZ(3)` | | | 휴면 판단 기준 |
 | 휴면전환일시 | `dormant_at` | `TIMESTAMPTZ(3)` | | | DORMANT 시 NOT NULL |
 | 해지일시 | `closed_at` | `TIMESTAMPTZ(3)` | | | CLOSED 시 NOT NULL |
 | 해지사유코드 | `close_reason_code` | `VARCHAR(20)` | | | CLOSED 시 NOT NULL |
 | 개인정보보유기간만료일자 | `privacy_expiry_date` | `CHAR(8)` | | | closed_at + 5년 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
 | 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
@@ -191,10 +191,10 @@ CONSTRAINT chk_customer_lifecycle CHECK (
 | 제한능력자유형코드 | `capacity_limit_type_code` | `VARCHAR(20)` | | | NORMAL/MINOR/LIMITED_GUARDIAN/ADULT_GUARDIAN |
 | PEP해당여부 | `is_pep_yn` | `CHAR(1)` | ✅ | `'F'` | 정치적 주요인물 여부 |
 | PEP유형코드 | `pep_type_code` | `VARCHAR(10)` | | | SELF/FAMILY/CLOSE_ASSOC. is_pep_yn=T 시 필수 |
-| PEP해당국가코드 | `pep_country_code` | `VARCHAR(3)` | | | ISO 3166 |
+| PEP해당국가코드 | `pep_country_code` | `CHAR(3)` | | | ISO 3166 |
 | PEP직위 | `pep_position` | `VARCHAR(200)` | | | 자유 텍스트 |
 | 사망일자 | `death_date` | `CHAR(8)` | | | 사망 시 party_role 자동 종료 트리거 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
 | 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
@@ -233,7 +233,7 @@ CONSTRAINT chk_party_person_pep CHECK (
 | 설립목적 | `establishment_purpose` | `VARCHAR(500)` | | | 자유 텍스트 |
 | 구성원수 | `member_count` | `INT` | | | 비법인단체만. 법인=NULL |
 | 정관규약URL | `charter_url` | `VARCHAR(500)` | | | 파일 스토리지 URL |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
 | 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
@@ -259,18 +259,18 @@ CONSTRAINT chk_party_org_foreign_corp CHECK (
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
-| 관계자ID | `party_id` | `BIGINT` | ✅ | | PK + FK → party |
+| 관계자ID | `party_id` | `BIGINT` | ✅ | | PK + FK → party_person |
 | 외국인등록번호 | `foreigner_no_encrypted` | `VARCHAR(255)` | | | AES-256 암호화 |
 | 여권번호 | `passport_no` | `VARCHAR(20)` | | | 평문 저장, 화면 마스킹 |
-| 여권발급국가코드 | `passport_country_code` | `VARCHAR(3)` | | | ISO 3166 |
+| 여권발급국가코드 | `passport_country_code` | `CHAR(3)` | | | ISO 3166 |
 | 여권만료일자 | `passport_expiry_date` | `CHAR(8)` | | | |
 | 체류자격코드 | `stay_qualification_code` | `VARCHAR(10)` | | | F2/F4/F5/E7/H2 |
 | 체류만료일자 | `stay_expiry_date` | `CHAR(8)` | | | |
 | 최근입국일자 | `recent_entry_date` | `CHAR(8)` | | | |
 | 체류지주소 | `stay_address` | `VARCHAR(500)` | | | 한국 내 거주지 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -288,9 +288,9 @@ CONSTRAINT chk_party_org_foreign_corp CHECK (
 | 외국납세자식별번호 | `foreign_tin` | `VARCHAR(50)` | | | NON_RESIDENT 또는 tax_country≠KOR 시 NOT NULL |
 | 원천징수율 | `withholding_rate_bps` | `INT` | | | bps 단위 (14%=1400) |
 | 납세거주확인일자 | `tax_residency_confirm_date` | `CHAR(8)` | ✅ | | 납세거주상태확인일 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -302,38 +302,38 @@ CONSTRAINT chk_party_org_foreign_corp CHECK (
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 관계자ID | `party_id` | `BIGINT` | ✅ | | PK + FK → party |
-| AML위험등급코드 | `aml_risk_level_code` | `VARCHAR(20)` | | | LOW/MED/HIGH |
+| AML위험등급코드 | `aml_risk_level_code` | `VARCHAR(20)` | ✅ | | LOW/MED/HIGH |
 | AML최종평가일시 | `aml_last_assessed_at` | `TIMESTAMPTZ(3)` | | | |
 | AML차기평가예정일 | `aml_next_review_date` | `CHAR(8)` | | | |
-| 제재대상여부 | `is_sanctioned_yn` | `CHAR(1)` | ✅ | `'F'` | OFAC·UN·EU·KR 합산 |
+| 제재대상여부 | `is_sanctioned_yn` | `CHAR(1)` | ✅ | | OFAC·UN·EU·KR 합산. GENERATED ALWAYS AS STORED (4개 개별 제재여부 OR 합산) |
 | OFAC제재대상여부 | `is_ofac_sanctioned_yn` | `CHAR(1)` | ✅ | `'F'` | |
 | UN제재대상여부 | `is_un_sanctioned_yn` | `CHAR(1)` | ✅ | `'F'` | |
 | EU제재대상여부 | `is_eu_sanctioned_yn` | `CHAR(1)` | ✅ | `'F'` | |
 | 한국제재대상여부 | `is_kr_sanctioned_yn` | `CHAR(1)` | ✅ | `'F'` | 외환거래법 등 |
 | 제재최종스크리닝일시 | `sanction_last_screened_at` | `TIMESTAMPTZ(3)` | | | |
 | 제재차기스크리닝예정일 | `sanction_next_screen_date` | `CHAR(8)` | | | |
-| KYC상태코드 | `kyc_status_code` | `VARCHAR(20)` | | | PENDING/COMPLETED/EXPIRED/FAILED |
+| KYC상태코드 | `kyc_status_code` | `VARCHAR(20)` | ✅ | | PENDING/COMPLETED/EXPIRED/FAILED |
 | KYC완료일시 | `kyc_completed_at` | `TIMESTAMPTZ(3)` | | | |
 | KYC만료일 | `kyc_expiry_date` | `CHAR(8)` | | | 고위험 1년·중위험 3년·저위험 5년 |
 | KYC차기재인증예정일 | `kyc_next_review_date` | `CHAR(8)` | | | |
 | 본인확인수단코드 | `identity_verification_method_code` | `VARCHAR(10)` | | | NICE/KCB/BANK/CERT/ARS |
-| CDD수준코드 | `cdd_level_code` | `VARCHAR(20)` | | | SIMPLE/STANDARD/ENHANCED |
+| CDD수준코드 | `cdd_level_code` | `VARCHAR(20)` | ✅ | | SIMPLE/STANDARD/ENHANCED |
 | CDD최종검토일시 | `cdd_last_reviewed_at` | `TIMESTAMPTZ(3)` | | | |
 | CDD차기검토예정일 | `cdd_next_review_date` | `CHAR(8)` | | | |
 | EDD필요여부 | `edd_required_yn` | `CHAR(1)` | ✅ | `'F'` | |
 | EDD최종검토일시 | `edd_last_reviewed_at` | `TIMESTAMPTZ(3)` | | | EDD 대상자만 NOT NULL |
 | EDD차기검토예정일 | `edd_next_review_date` | `CHAR(8)` | | | |
-| FATCA신고상태코드 | `fatca_status_code` | `VARCHAR(20)` | | | US_PERSON/NON_US/ACTIVE_NFFE 등 |
+| FATCA신고상태코드 | `fatca_status_code` | `VARCHAR(20)` | ✅ | | US_PERSON/NON_US/ACTIVE_NFFE 등 |
 | FATCA최종검토일시 | `fatca_last_reviewed_at` | `TIMESTAMPTZ(3)` | | | |
 | FATCA차기검토예정일 | `fatca_next_review_date` | `CHAR(8)` | | | |
 | FATCA보고대상여부 | `fatca_reportable_yn` | `CHAR(1)` | ✅ | `'F'` | IRS 보고 대상 |
-| CRS신고상태코드 | `crs_status_code` | `VARCHAR(20)` | | | REPORTABLE/NON_REPORTABLE 등 |
+| CRS신고상태코드 | `crs_status_code` | `VARCHAR(20)` | ✅ | | REPORTABLE/NON_REPORTABLE 등 |
 | CRS최종검토일시 | `crs_last_reviewed_at` | `TIMESTAMPTZ(3)` | | | |
 | CRS차기검토예정일 | `crs_next_review_date` | `CHAR(8)` | | | |
 | CRS보고대상여부 | `crs_reportable_yn` | `CHAR(1)` | ✅ | `'F'` | 자동정보교환 보고 대상 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -350,10 +350,10 @@ CONSTRAINT chk_party_org_foreign_corp CHECK (
 | 역할상태코드 | `role_status_code` | `VARCHAR(20)` | ✅ | | ACTIVE/SUSPENDED/CLOSED |
 | 역할시작일자 | `role_start_date` | `CHAR(8)` | ✅ | | |
 | 역할종료일자 | `role_end_date` | `CHAR(8)` | | | CLOSED 시 NOT NULL |
-| 역할종료사유코드 | `role_end_reason_code` | `VARCHAR(10)` | | | CLOSED 시 NOT NULL |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 역할종료사유코드 | `role_end_reason_code` | `VARCHAR(20)` | | | CLOSED 시 NOT NULL |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -383,9 +383,9 @@ CONSTRAINT chk_party_role_end CHECK (
 | 관계시작일자 | `relation_start_date` | `CHAR(8)` | ✅ | | |
 | 관계종료일자 | `relation_end_date` | `CHAR(8)` | | | |
 | 관계종료사유코드 | `relation_end_reason_code` | `VARCHAR(20)` | | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | ERD 한글명 오타("치종수정일시") |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | ERD 한글명 오타("치종수정일시") |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -414,9 +414,9 @@ CONSTRAINT chk_party_relation_no_self CHECK (from_party_id != to_party_id)
 | 업태코드 | `biz_type_code` | `VARCHAR(10)` | | | 도소매·서비스·제조 등 |
 | 종목코드 | `biz_item_code` | `VARCHAR(10)` | ✅ | | 구체적 사업 종목 |
 | 과세유형코드 | `tax_type_code` | `VARCHAR(10)` | ✅ | | GENERAL/SIMPLIFIED/EXEMPT |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -439,7 +439,7 @@ CONSTRAINT chk_party_relation_no_self CHECK (from_party_id != to_party_id)
 | 고객상태발효일시 | `customer_status_effective_start_at` | `TIMESTAMPTZ(3)` | ✅ | | 이 상태가 발효된 시점 |
 | 고객상태종료일시 | `customer_status_effective_end_at` | `TIMESTAMPTZ(3)` | | | 활성 이력은 NULL |
 | 시스템자동전환여부 | `system_auto_triggered_yn` | `CHAR(1)` | ✅ | `'F'` | 휴면·사망 자동 종료 등 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
 
 ---
@@ -460,8 +460,8 @@ CONSTRAINT chk_party_relation_no_self CHECK (from_party_id != to_party_id)
 | 고객등급발효일자 | `customer_grade_effective_start_date` | `CHAR(8)` | ✅ | | 이 등급이 적용되기 시작한 날짜 |
 | 고객등급종료일자 | `customer_grade_effective_end_date` | `CHAR(8)` | | | 활성 이력은 NULL |
 | 고객등급평가일시 | `customer_grade_evaluated_at` | `TIMESTAMPTZ(3)` | ✅ | | 등급 평가가 수행된 시점 |
-| 시스템자동전환여부 | `system_auto_triggered_yn` | `CHAR(1)` | ✅ | `'F'` | 휴면·사망 자동 종료 등 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP` | |
+| 시스템자동전환여부 | `system_auto_triggered_yn` | `CHAR(1)` | ✅ | `'F'` | 정기 등급 평가·자동 승급/강등 등 |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
 
 ---
@@ -474,7 +474,7 @@ CONSTRAINT chk_party_relation_no_self CHECK (from_party_id != to_party_id)
 | `uq_customer_active_per_party` | `customer` | `(party_id)` | UNIQUE | `customer_status_code != 'CLOSED' AND deleted_at IS NULL` | party당 활성 고객 1건 제한 |
 | `idx_party_relation_from` | `party_relation` | `(from_party_id, relation_type_code)` | INDEX | | 관계 시작 주체 기준 조회 |
 | `idx_party_relation_to` | `party_relation` | `(to_party_id, relation_type_code)` | INDEX | | 관계 대상 기준 조회 |
-| `idx_party_role_active` | `party_role` | `(party_id, role_status_code)` | INDEX | `deleted_at IS NULL` | 활성 역할 조회 |
+| `idx_party_role_active` | `party_role` | `(party_id, role_status_code)` | INDEX | `role_status_code = 'ACTIVE' AND deleted_at IS NULL` | 활성 역할 조회 |
 | `idx_business_info_party` | `business_info` | `(party_id)` | INDEX | `deleted_at IS NULL` | party 기준 사업자 조회 |
 | `uq_business_info_biz_reg_no` | `business_info` | `(biz_reg_no)` | UNIQUE | | 사업자등록번호 유일성 |
 
@@ -486,6 +486,7 @@ CONSTRAINT chk_party_relation_no_self CHECK (from_party_id != to_party_id)
 
 - 모든 타임스탬프 컬럼은 `TIMESTAMPTZ(3)` 사용 (밀리초 정밀도, 타임존 포함)
 - 날짜만 필요한 컬럼은 `CHAR(8)` (YYYYMMDD 형식)
+- `created_at` 기본값은 `CURRENT_TIMESTAMP(3)` (정밀도 지정자 포함) — `CURRENT_TIMESTAMP`와 `now()` 혼용 금지
 
 ### 5.2 불리언 컬럼
 
@@ -525,6 +526,19 @@ ERDCloud JSON의 `isAllowNull` 필드와 `comment` 필드의 `[NOT NULL]` 표기
 
 예외: `customer_grade_history.customer_grade_evaluated_at` — 이미지에서 `[NOT NULL]` 확인 후 NOT NULL로 최종 확정.
 
+### 5.7 국가코드 컬럼 타입
+
+- ISO 3166-1 alpha-3는 항상 정확히 3자리 고정이므로 `CHAR(3)` 사용
+- `VARCHAR(3)` 혼용 금지
+
+| 컬럼 | 테이블 |
+|---|---|
+| `nationality_code` | `party_person` |
+| `pep_country_code` | `party_person` |
+| `hq_country_code` | `party_organization` |
+| `passport_country_code` | `foreigner_info` |
+| `tax_country_code` | `tax_residency_info` |
+
 ---
 
 ## 6. ERD 오류 기록
@@ -542,6 +556,8 @@ ERDCloud JSON의 `isAllowNull` 필드와 `comment` 필드의 `[NOT NULL]` 표기
 | `customer_grade_history` | `customer_grade_evaluated_at` | JSON `isAllowNull: true`, COMMENT `[NOT NULL]` 불일치 → 이미지에서 `[NOT NULL]` 확인 | NOT NULL 확정 |
 | `business_info` | `party_id` | ERD에 FK 표기 누락 | `FK → party.party_id` 추가 |
 | `customer` | `party_id` | ERD COMMENT에 `[NOT NULL]` 미표기 | 관계 정의(1:N 비식별) 기준 NOT NULL + FK 추가 |
+| `compliance_info` | `aml_risk_level_code`, `kyc_status_code`, `cdd_level_code`, `fatca_status_code`, `crs_status_code` (5개) | `isAllowNull: true`이나 COMMENT `[NOT NULL]` 표기 | NOT NULL 적용 (§5.6 규칙) |
+| `compliance_info` | `is_sanctioned_yn` | ERD COMMENT에 GENERATED 컬럼 표기 (4개 개별 제재여부 OR 합산) | DEFAULT 제거, GENERATED 설명 추가. DDL 구현 시 `GENERATED ALWAYS AS ... STORED` 사용 |
 
 ---
 

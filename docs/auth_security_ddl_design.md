@@ -1,7 +1,7 @@
 # 인증보안계 DDL 설계 문서
 
 > **DB**: PostgreSQL  
-> **최종 수정**: 2026-05-21  
+> **최종 수정**: 2026-05-22  
 > **테이블 수**: 15개 (외부 참조 1개)
 
 ---
@@ -30,16 +30,16 @@
 | 3 | `registered_device` | 등록기기 | 고객 등록 기기(모바일/PC/태블릿) |
 | 4 | `auth_method` | 인증수단 | SMS·PASS·인증서·PIN·생체 등 인증수단 등록 |
 | 5 | `certificate` | 금융인증서 | 공개키 기반 금융인증서 발급·관리 |
-| 6 | `mobile_auth` | 휴대폰인증요청 | SMS/PASS 인증코드 발송·검증 이력 |
-| 7 | `login_attempt` | 로그인시도이력 | 로그인 시도 전체 이력 (성공/실패) |
+| 6 | `mobile_auth` | 휴대폰인증요청 | SMS/PASS 인증코드 발송·검증 관리 |
+| 7 | `login_attempt` | 로그인시도이력 | 로그인 시도 전체 기록 (성공/실패) |
 | 8 | `login_session` | 로그인세션 | 활성 세션 상태 관리 |
 | 9 | `api_token` | API토큰 | ACCESS/REFRESH/OAUTH 토큰 발급·폐기 |
 | 10 | `pin` | 간편비밀번호 | 기기 연결 간편 PIN 등록·상태 관리 |
-| 11 | `password_history` | 비밀번호이력 | 비밀번호 변경 이력 (재사용 방지용) |
+| 11 | `password_history` | 비밀번호이력 | 비밀번호 변경 관리 (재사용 방지용) |
 | 12 | `fds_detection` | FDS탐지결과 | FDS 룰 기반 이상거래 탐지 결과 |
 | 13 | `fds_incident` | FDS사고처리 | FDS 탐지 결과 기반 사고처리 진행 |
-| 14 | `identity_verification` | 본인확인이력 | 본인확인기관(NICE/KCB/SCI/PASS) 확인 이력 |
-| 15 | `certificate_use` | 인증서사용이력 | 금융인증서 서명·검증 사용 이력 |
+| 14 | `identity_verification` | 본인확인이력 | 본인확인기관(NICE/KCB/SCI/PASS) 확인 관리 |
+| 15 | `certificate_use` | 인증서사용이력 | 금융인증서 서명·검증 사용 관리 |
 
 > ⬚ 외부 참조 테이블 — DDL 미포함, 고객계 소속
 
@@ -87,6 +87,7 @@ fds_rule
 | `fk_login_session_device` | `login_session.device_id` | `registered_device.device_id` |
 | `fk_api_token_customer` | `api_token.customer_id` | `customer.customer_id` |
 | `fk_api_token_session` | `api_token.session_id` | `login_session.session_id` |
+| `fk_login_session_token` | `login_session.token_id` | `api_token.token_id` |
 | `fk_pin_customer` | `pin.customer_id` | `customer.customer_id` |
 | `fk_pin_auth_method` | `pin.auth_method_id` | `auth_method.auth_method_id` |
 | `fk_pin_device` | `pin.device_id` | `registered_device.device_id` |
@@ -113,16 +114,16 @@ fds_rule
 | 룰명 | `fds_rule_name` | `VARCHAR(100)` | ✅ | | |
 | 룰분류코드 | `fds_rule_category_code` | `VARCHAR(30)` | ✅ | | cust_code_master 참조 |
 | 대상이벤트코드 | `fds_rule_target_event_code` | `VARCHAR(50)` | ✅ | | cust_code_master 참조 |
-| 조건식JSON | `fds_rule_condition_json` | `JSON` | ✅ | | |
+| 조건식JSON | `fds_rule_condition_json` | `JSON` | ✅ | | FDS 룰 조건식 (ERD 기준 JSON 타입) |
 | 위험가중치 | `fds_rule_risk_weight` | `INT` | ✅ | `50` | 0~100 |
 | 조치유형코드 | `fds_rule_action_type_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 활성여부 | `fds_rule_active_yn` | `CHAR(1)` | ✅ | `'F'` | T/F |
 | 시행일 | `fds_rule_effective_date` | `CHAR(8)` | ✅ | | YYYYMMDD |
 | 만료일 | `fds_rule_expiry_date` | `CHAR(8)` | | | YYYYMMDD |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최종수정자ID | `updated_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
@@ -142,14 +143,14 @@ fds_rule
 | 비밀번호만료일시 | `password_expiry_at` | `TIMESTAMPTZ(3)` | | | |
 | 계정상태코드 | `account_status_code` | `VARCHAR(20)` | ✅ | `'ACTIVE'` | cust_code_master 참조 |
 | 비밀번호로그인실패횟수 | `password_login_failure_count` | `INT` | ✅ | `0` | |
-| 최대비밀번호로그인실패횟수 | `max_password_login_failure_count` | `INT` | | | 잠금 임계치. NULL이면 무제한 |
+| 최대비밀번호로그인실패횟수 | `max_password_login_failure_count` | `INT` | ✅ | `5` | 잠금 임계치 |
 | 비밀번호로그인잠금일시 | `password_login_locked_at` | `TIMESTAMPTZ(3)` | | | |
 | 비밀번호로그인잠금해제일시 | `password_login_unlocked_at` | `TIMESTAMPTZ(3)` | | | |
 | 비밀번호최종로그인일시 | `password_last_login_at` | `TIMESTAMPTZ(3)` | | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최종수정자ID | `updated_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
@@ -163,20 +164,20 @@ fds_rule
 |---|---|---|:---:|---|---|
 | 기기ID | `device_id` | `BIGINT` | ✅ | | PK |
 | 고객ID | `customer_id` | `BIGINT` | ✅ | | FK → customer |
-| 기기명 | `device_name` | `VARCHAR(100)` | ✅ | | |
+| 기기명 | `device_name` | `VARCHAR(100)` | | | |
 | 기기유형코드 | `device_type_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | OS명 | `device_os_name` | `VARCHAR(50)` | | | |
 | OS버전 | `device_os_version` | `VARCHAR(50)` | | | |
 | 기기핑거프린트해시 | `device_fingerprint_hash` | `VARCHAR(255)` | ✅ | | |
 | 신뢰기기여부 | `trusted_device_yn` | `CHAR(1)` | ✅ | `'F'` | T/F |
 | 지정PC여부 | `designated_pc_yn` | `CHAR(1)` | ✅ | `'F'` | T/F |
-| 등록IP | `device_registered_ip` | `VARCHAR(45)` | | | IPv4/IPv6 |
+| 등록IP | `device_registered_ip` | `VARCHAR(45)` | ✅ | | IPv4/IPv6 |
 | 최종사용일시 | `device_last_used_at` | `TIMESTAMPTZ(3)` | | | |
 | 기기상태코드 | `device_status_code` | `VARCHAR(20)` | ✅ | `'ACTIVE'` | cust_code_master 참조 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최종수정자ID | `updated_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
@@ -197,10 +198,10 @@ fds_rule
 | 등록일자 | `auth_method_registered_date` | `CHAR(8)` | ✅ | | YYYYMMDD |
 | 만료일자 | `auth_method_expiry_date` | `CHAR(8)` | | | YYYYMMDD |
 | 최종사용일시 | `auth_method_last_used_at` | `TIMESTAMPTZ(3)` | | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최종수정자ID | `updated_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
@@ -228,15 +229,15 @@ fds_rule
 | 인증서상태코드 | `certificate_status_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 폐기사유코드 | `certificate_revoke_reason_code` | `VARCHAR(200)` | | | cust_code_master 참조 |
 | 폐기일시 | `certificate_revoked_at` | `TIMESTAMPTZ(3)` | | | |
-| 인증서로그인실패횟수 | `cert_login_failure_count` | `INT` | ✅ | `0` | 누적 검증 실패 횟수, 성공 시 0으로 리셋 |
-| 최대인증서로그인실패횟수 | `max_cert_login_failure_count` | `INT` | ✅ | `10` | 잠금 임계치, 인증서 종류별 정책 적용 가능 |
+| 인증서로그인실패횟수 | `cert_login_failure_count` | `INT` | | | 누적 검증 실패 횟수, 성공 시 0으로 리셋 |
+| 최대인증서로그인실패횟수 | `max_cert_login_failure_count` | `INT` | | | 잠금 임계치, 인증서 종류별 정책 적용 가능 |
 | 최종인증서로그인실패일시 | `last_cert_login_failure_at` | `TIMESTAMPTZ(3)` | | | 마지막 FAIL 발생 시각, 성공 시 NULL |
 | 인증서로그인잠금일시 | `cert_login_locked_at` | `TIMESTAMPTZ(3)` | | | 실패횟수가 임계치 도달하여 잠긴 시각 |
 | 인증서로그인잠금해제일시 | `cert_login_unlocked_at` | `TIMESTAMPTZ(3)` | | | 본인확인/관리자 처리로 잠금이 해제된 시각 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최종수정자ID | `updated_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
@@ -247,15 +248,15 @@ fds_rule
 
 ### 3.6 mobile_auth (휴대폰인증요청)
 
-> 로그 테이블 — soft delete 미적용, `created_at`/`created_by`만 보유
+> 엔티티 테이블 — soft delete 적용
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 휴대폰인증요청ID | `mobile_auth_id` | `BIGINT` | ✅ | | PK |
 | 고객ID | `customer_id` | `BIGINT` | | | FK → customer (가입 전 NULL 허용) |
-| 인증수단유형코드 | `mobile_auth_type_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
+| 인증수단유형코드 | `mobile_auth_method_type_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 통신사코드 | `mobile_auth_telecom_carrier_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
-| 휴대폰번호 | `mobile_auth_phone_number` | `VARCHAR(20)` | ✅ | | |
+| 수신휴대폰번호 | `mobile_auth_recipient_phone_number` | `VARCHAR(20)` | ✅ | | |
 | 인증코드해시 | `mobile_auth_code_hash` | `VARCHAR(255)` | ✅ | | |
 | 용도코드 | `mobile_auth_purpose_code` | `VARCHAR(30)` | ✅ | | cust_code_master 참조 |
 | 요청IP | `mobile_auth_request_ip` | `VARCHAR(45)` | ✅ | | |
@@ -265,9 +266,13 @@ fds_rule
 | 인증일시 | `mobile_auth_verified_at` | `TIMESTAMPTZ(3)` | | | |
 | 인증여부 | `mobile_auth_verified_yn` | `CHAR(1)` | ✅ | `'F'` | T/F |
 | 시도횟수 | `mobile_auth_attempt_count` | `INT` | ✅ | `0` | |
-| 실패사유 | `mobile_auth_failure_reason` | `VARCHAR(200)` | | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 실패사유코드 | `mobile_auth_failure_reason_code` | `VARCHAR(200)` | | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `mobile_auth_id`
 
@@ -275,24 +280,28 @@ fds_rule
 
 ### 3.7 login_attempt (로그인시도이력)
 
-> 로그 테이블 — soft delete 미적용, `created_at`/`created_by`만 보유
+> 엔티티 테이블 — soft delete 적용
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 로그인시도ID | `login_attempt_id` | `BIGINT` | ✅ | | PK |
 | 고객ID | `customer_id` | `BIGINT` | | | FK → customer |
 | 기기ID | `device_id` | `BIGINT` | | | FK → registered_device |
-| 시도로그인ID | `login_attempt_login_id` | `VARCHAR(50)` | ✅ | | |
+| 시도로그인ID | `attempted_login_id` | `VARCHAR(50)` | ✅ | | |
 | 채널코드 | `login_attempt_channel_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 시도IP | `login_attempt_ip` | `VARCHAR(45)` | ✅ | | |
-| IP국가코드 | `login_attempt_ip_country_code` | `VARCHAR(3)` | | | ISO 3166-1 alpha-3 |
+| IP국가코드 | `login_attempt_ip_country_code` | `CHAR(3)` | | | ISO 3166-1 alpha-3 |
 | 사용자에이전트 | `login_attempt_user_agent` | `TEXT` | | | |
-| 기기핑거프린트 | `login_attempt_device_fingerprint` | `VARCHAR(255)` | | | |
+| 기기핑거프린트해시 | `login_attempt_device_fingerprint_hash` | `VARCHAR(255)` | | | |
 | 성공여부 | `login_attempt_success_yn` | `CHAR(1)` | ✅ | `'F'` | T/F |
 | 실패사유코드 | `login_attempt_failure_reason_code` | `VARCHAR(20)` | | | cust_code_master 참조 |
 | 시도일시 | `login_attempted_at` | `TIMESTAMPTZ(3)` | ✅ | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `login_attempt_id`
 
@@ -308,18 +317,18 @@ fds_rule
 | 고객ID | `customer_id` | `BIGINT` | ✅ | | FK → customer |
 | 로그인시도ID | `login_attempt_id` | `BIGINT` | ✅ | | FK → login_attempt |
 | 기기ID | `device_id` | `BIGINT` | | | FK → registered_device |
-| 토큰ID | `token_id` | `BIGINT` | ✅ | | FK 미설정 — api_token과의 참조 방향 확인 후 FK 추가 필요 |
+| 토큰ID | `token_id` | `BIGINT` | ✅ | | FK → api_token (순환 참조 주의 — 부록 참조) |
 | 발급IP | `session_issued_ip` | `VARCHAR(45)` | ✅ | | |
 | 채널코드 | `session_channel_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 세션상태코드 | `session_status_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | MFA완료여부 | `session_mfa_completed_yn` | `CHAR(1)` | ✅ | `'F'` | T/F — 2FA 완료 시 고위험 거래 가능 |
 | 세션만료일시 | `session_expiry_at` | `TIMESTAMPTZ(3)` | ✅ | | |
 | 종료일시 | `session_ended_at` | `TIMESTAMPTZ(3)` | | | |
-| 종료사유코드 | `session_end_reason_code` | `VARCHAR(200)` | | | cust_code_master 참조 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최종수정자ID | `updated_by` | `BIGINT` | ✅ | | |
+| 종료사유코드 | `session_end_reason_code` | `VARCHAR(20)` | | | cust_code_master 참조 |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
@@ -329,7 +338,7 @@ fds_rule
 
 ### 3.9 api_token (API토큰)
 
-> 로그 테이블 — soft delete 미적용, `token_revoked_at`으로 폐기 상태 관리
+> 엔티티 테이블 — soft delete 적용. `token_revoked_at`으로 폐기 상태도 별도 관리.
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
@@ -341,12 +350,16 @@ fds_rule
 | 발급채널코드 | `token_issued_channel_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 스코프 | `token_scope` | `VARCHAR(500)` | | | |
 | 클라이언트ID | `token_client_id` | `VARCHAR(50)` | | | |
-| 발급일시 | `token_issued_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
+| 발급일시 | `token_issued_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 만료일시 | `token_expiry_at` | `TIMESTAMPTZ(3)` | ✅ | | |
 | 폐기일시 | `token_revoked_at` | `TIMESTAMPTZ(3)` | | | |
-| 폐기사유코드 | `token_revoke_reason_code` | `VARCHAR(200)` | | | cust_code_master 참조 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 폐기사유코드 | `token_revoke_reason_code` | `VARCHAR(20)` | | | cust_code_master 참조 |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | | | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `token_id`
 
@@ -363,15 +376,15 @@ fds_rule
 | 간편비밀번호해시 | `pin_hash` | `VARCHAR(255)` | ✅ | | |
 | 비밀번호자릿수 | `pin_length` | `INT` | ✅ | | |
 | PIN로그인실패횟수 | `pin_login_failure_count` | `INT` | ✅ | `0` | |
-| 최대PIN로그인실패횟수 | `max_pin_login_failure_count` | `INT` | | | 잠금 임계치. NULL이면 무제한 |
+| 최대PIN로그인실패횟수 | `max_pin_login_failure_count` | `INT` | ✅ | `5` | 잠금 임계치 |
 | PIN로그인잠금일시 | `pin_login_locked_at` | `TIMESTAMPTZ(3)` | | | |
 | PIN로그인잠금해제일시 | `pin_login_unlocked_at` | `TIMESTAMPTZ(3)` | | | |
 | PIN최종로그인일시 | `pin_last_login_at` | `TIMESTAMPTZ(3)` | | | |
 | 간편비밀번호상태코드 | `pin_status_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최종수정자ID | `updated_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
@@ -381,7 +394,7 @@ fds_rule
 
 ### 3.11 password_history (비밀번호이력)
 
-> 로그 테이블 — soft delete 미적용
+> 엔티티 테이블 — soft delete 적용
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
@@ -391,9 +404,13 @@ fds_rule
 | 비밀번호해시 | `password_hash` | `VARCHAR(255)` | ✅ | | |
 | 변경채널코드 | `password_change_channel_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 변경사유코드 | `password_change_reason_code` | `VARCHAR(200)` | | | cust_code_master 참조 |
-| 변경IP | `password_change_ip` | `VARCHAR(45)` | ✅ | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 변경IP | `password_change_ip` | `VARCHAR(45)` | | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `password_history_id`
 
@@ -401,7 +418,7 @@ fds_rule
 
 ### 3.12 fds_detection (FDS탐지결과)
 
-> 로그 테이블 — soft delete 미적용
+> 엔티티 테이블 — soft delete 적용. `fds_detection_status_code`가 `PENDING → CONFIRMED / FALSE_POSITIVE`로 변경되므로 `updated_at` 필요.
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
@@ -410,10 +427,14 @@ fds_rule
 | 룰ID | `fds_rule_id` | `BIGINT` | ✅ | | FK → fds_rule |
 | 이벤트유형코드 | `fds_detection_event_type_code` | `VARCHAR(30)` | ✅ | | cust_code_master 참조 |
 | 이벤트참조ID | `fds_detection_event_reference_id` | `BIGINT` | ✅ | | FK 미설정 — 거래계 이벤트 테이블 soft reference |
-| 탐지일시 | `fds_detected_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
+| 탐지일시 | `fds_detected_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 탐지상태코드 | `fds_detection_status_code` | `VARCHAR(20)` | ✅ | `'PENDING'` | cust_code_master 참조 |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `fds_detection_id`
 
@@ -421,20 +442,24 @@ fds_rule
 
 ### 3.13 fds_incident (FDS사고처리)
 
-> 로그 테이블 — soft delete 미적용
+> 엔티티 테이블 — soft delete 적용. `fds_incident_process_status_code`가 처리 진행 중 변경되므로 `updated_at` 필요.
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 사고처리ID | `fds_incident_id` | `BIGINT` | ✅ | | PK |
 | 탐지ID | `fds_detection_id` | `BIGINT` | ✅ | | FK → fds_detection |
-| 처리담당직원ID | `fds_incident_handler_employee_id` | `BIGINT` | ✅ | | |
+| 처리담당직원ID | `fds_incident_handler_employee_id` | `BIGINT` | | | |
 | 사고유형코드 | `fds_incident_type_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 처리상태코드 | `fds_incident_process_status_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
 | 금감원신고여부 | `fds_incident_fss_reported_yn` | `CHAR(1)` | ✅ | `'F'` | T/F |
 | 신고일시 | `fds_incident_reported_at` | `TIMESTAMPTZ(3)` | | | |
 | 종결일시 | `fds_incident_closed_at` | `TIMESTAMPTZ(3)` | | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `fds_incident_id`
 
@@ -442,13 +467,13 @@ fds_rule
 
 ### 3.14 identity_verification (본인확인이력)
 
-> 로그 테이블 — soft delete 미적용
+> 엔티티 테이블 — soft delete 적용
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 본인확인이력ID | `identity_verification_id` | `BIGINT` | ✅ | | PK |
-| 고객ID | `customer_id` | `BIGINT` | ✅ | | FK → customer |
-| 휴대폰인증요청ID | `mobile_auth_id` | `BIGINT` | | | FK → mobile_auth |
+| 고객ID | `customer_id` | `BIGINT` | | | FK → customer (SIGNUP 목적 시 NULL 허용) |
+| 휴대폰인증요청ID | `mobile_auth_id` | `BIGINT` | ✅ | | FK → mobile_auth |
 | 본인확인기관코드 | `identity_verification_agency_code` | `VARCHAR(30)` | ✅ | | cust_code_master 참조 |
 | 용도코드 | `identity_verification_purpose_code` | `VARCHAR(30)` | ✅ | | cust_code_master 참조 |
 | CI값 | `identity_verification_ci_value` | `VARCHAR(88)` | ✅ | | 연계정보 |
@@ -459,8 +484,12 @@ fds_rule
 | 통신사코드 | `identity_verification_telecom_carrier_code` | `VARCHAR(20)` | | | cust_code_master 참조 |
 | 휴대폰번호 | `identity_verification_phone_number` | `VARCHAR(20)` | | | |
 | 확인일시 | `identity_verified_at` | `TIMESTAMPTZ(3)` | ✅ | | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `identity_verification_id`
 
@@ -468,25 +497,29 @@ fds_rule
 
 ### 3.15 certificate_use (인증서사용이력)
 
-> 로그 테이블 — soft delete 미적용
+> 엔티티 테이블 — soft delete 적용
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 인증서사용이력ID | `certificate_use_id` | `BIGINT` | ✅ | | PK |
 | 인증서ID | `certificate_id` | `BIGINT` | ✅ | | FK → certificate |
 | 고객ID | `customer_id` | `BIGINT` | ✅ | | FK → customer |
-| 용도코드 | `certificate_use_purpose_code` | `VARCHAR(30)` | ✅ | | cust_code_master 참조 |
+| 용도코드 | `purpose_code` | `VARCHAR(30)` | ✅ | | cust_code_master 참조 |
 | 대상거래ID | `certificate_use_target_transaction_id` | `VARCHAR(50)` | | | FK 미설정 — 거래계 미구축 상태로 의도적 soft reference. 거래계 구축 후 FK 추가 필요 |
 | 대상시스템코드 | `certificate_use_target_system_code` | `VARCHAR(20)` | | | cust_code_master 참조 |
 | 서명데이터해시 | `certificate_use_signed_data_hash` | `VARCHAR(255)` | ✅ | | |
 | 서명값 | `certificate_use_signature_value` | `TEXT` | ✅ | | |
 | 검증결과코드 | `certificate_use_verification_result_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
-| 실패사유 | `certificate_use_failure_reason` | `VARCHAR(200)` | | | |
+| 실패사유코드 | `certificate_use_failure_reason_code` | `VARCHAR(200)` | | | |
 | 요청IP | `certificate_use_request_ip` | `VARCHAR(45)` | ✅ | | |
 | 요청채널코드 | `certificate_use_request_channel_code` | `VARCHAR(20)` | ✅ | | cust_code_master 참조 |
-| 사용일시 | `certificate_used_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `now()` | |
-| 최초등록자ID | `created_by` | `BIGINT` | ✅ | | |
+| 사용일시 | `certificate_used_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최초등록자ID | `created_by` | `BIGINT` | | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
+| 최종수정자ID | `updated_by` | `BIGINT` | | | |
+| 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
+| 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `certificate_use_id`
 
@@ -512,6 +545,7 @@ fds_rule
 
 - 모든 타임스탬프 컬럼은 `TIMESTAMPTZ(3)` 사용 (밀리초 정밀도, 타임존 포함)
 - 날짜만 필요한 컬럼은 `CHAR(8)` (YYYYMMDD 형식)
+- `created_at` 기본값은 `CURRENT_TIMESTAMP(3)` (정밀도 지정자 포함) — `CURRENT_TIMESTAMP`와 `now()` 혼용 금지
 
 ### 5.2 불리언 컬럼
 
@@ -525,17 +559,21 @@ fds_rule
 
 ### 5.4 Soft Delete
 
-- 엔티티 테이블에만 `deleted_at TIMESTAMPTZ(3)`, `deleted_by BIGINT` 적용
-- 로그·이력 테이블은 Soft Delete 미적용 — `created_at`/`created_by`만 보유
+- 엔티티 테이블에는 `deleted_at TIMESTAMPTZ(3)`, `deleted_by BIGINT` 적용
 
 | 구분 | 해당 테이블 |
 |---|---|
-| Soft Delete 적용 | `fds_rule`, `credential`, `registered_device`, `auth_method`, `certificate`, `login_session`, `pin` |
-| Soft Delete 미적용 (로그) | `mobile_auth`, `login_attempt`, `api_token`, `password_history`, `fds_detection`, `fds_incident`, `identity_verification`, `certificate_use` |
+| Soft Delete 적용 (full audit) | `fds_rule`, `credential`, `registered_device`, `auth_method`, `certificate`, `api_token`, `login_session`, `pin`, `fds_detection`, `fds_incident`, `mobile_auth`, `login_attempt`, `password_history`, `identity_verification`, `certificate_use` |
 
 ### 5.5 NULL 허용 FK
 
-- `mobile_auth.customer_id` — 가입 전 본인확인 절차 허용
+| 컬럼 | 이유 |
+|---|---|
+| `mobile_auth.customer_id` | 가입 전 본인확인 절차 허용 |
+| `login_attempt.customer_id` | 존재하지 않는 ID로 로그인 시도 시 customer 매칭 실패 허용 |
+| `login_attempt.device_id` | 미등록 기기에서의 로그인 시도 허용 |
+| `login_session.device_id` | 등록되지 않은 기기로 세션 생성 허용 |
+| `identity_verification.customer_id` | SIGNUP 목적의 본인확인 시 customer 미생성 상태 허용 |
 
 ### 5.6 코드 참조 방식
 
@@ -555,7 +593,16 @@ fds_rule
 |---|---|---|---|
 | `fds_detection` | `customer_id` | ERD 도구 오류로 `DEFAULT 'PENDING'` 표기 | 무시 — `BIGINT NOT NULL`, default 없음으로 처리 |
 | `login_session` | `token_id` | ERD에서 **`토큰ID BIGINT NOT NULL`** (한글 컬럼명) | `token_id BIGINT NOT NULL`로 수정 |
-| `login_attempt` | 실패사유코드 | **`failure_reasonlogin_attempt_failure_reason_code`** 연결 오타 | `login_attempt_failure_reason_code`로 수정 |
+| `login_attempt` | 실패사유코드 | **`failure_reasonlogin_attempt_failure_reason_code`** pName 오타 (연결 누락) | `login_attempt_failure_reason_code`로 수정 |
+| `api_token` | `session_id` | ERD `isAllowNull: true`이나 COMMENT에 `[NOT NULL]` 표기 불일치 | 논리적으로 토큰은 세션 없이 존재 불가 → NOT NULL 적용 |
+| `auth_method` | `customer_id` | ERD `isAllowNull: false` (NOT NULL)이나 COMMENT에 "가입 전 NULL 가능" 표기 | ERD 기준 NOT NULL 적용 — 가입 전 인증은 `mobile_auth.customer_id`로 처리 |
+| `identity_verification` | `mobile_auth_id` | `isAllowNull: true`이나 COMMENT `[NOT NULL]` 표기 | NOT NULL 적용 (§5.6 규칙) |
+| `credential` | `max_password_login_failure_count` | `isAllowNull: true`이나 COMMENT `[NOT NULL, DEFAULT 5]` 표기 | NOT NULL, DEFAULT 5 적용 (§5.6 규칙) |
+| `pin` | `max_pin_login_failure_count` | `isAllowNull: true`이나 COMMENT `[NOT NULL, DEFAULT 5]` 표기 | NOT NULL, DEFAULT 5 적용 (§5.6 규칙) |
+| `certificate` | `cert_login_failure_count`, `max_cert_login_failure_count` | ERD `isAllowNull: true` — 이전 문서에서 NOT NULL + DEFAULT 오기재 | nullable로 수정, DEFAULT 제거 |
+| `registered_device` | `device_registered_ip` | `isAllowNull: true`이나 COMMENT `[NOT NULL]` 표기 | NOT NULL 적용 (§5.6 규칙) |
+| `api_token` | `created_at` | ERD `isAllowNull: true` (nullable) — 일반적이지 않으나 ERD 기준 준수 | nullable, DEFAULT `CURRENT_TIMESTAMP(3)` 유지 |
+| `api_token` | `updated_at`, `updated_by` | 이전 문서에서 누락 | 두 컬럼 추가 (nullable, ERD 기준) |
 
 ---
 
@@ -588,7 +635,10 @@ fds_rule
 |---|---|---|
 | `certificate_use.certificate_use_target_transaction_id` | FK 미설정 (soft reference) | 여신계·수신계 거래 테이블 |
 | `fds_detection.fds_detection_event_reference_id` | FK 미설정 (soft reference) | 거래계 이벤트 테이블 |
-| `login_session.token_id` | FK 미설정 (참조 방향 미확정) | `api_token.token_id` (양방향 참조 여부 확인 후 결정) |
+
+### 순환 참조 주의
+
+`login_session.token_id` → `api_token.token_id`와 `api_token.session_id` → `login_session.session_id`는 상호 참조 구조다. PostgreSQL에서는 `DEFERRABLE INITIALLY DEFERRED` 제약으로 처리하거나, 세션 생성 후 토큰 발급 → `login_session.token_id` UPDATE 순서로 입력한다.
 
 ---
 
@@ -607,7 +657,7 @@ fds_rule
 | `ACCOUNT_STATUS` | `credential.account_status_code` | `ACTIVE` / `LOCKED` / `DORMANT` / `CLOSED` |
 | `DEVICE_TYPE` | `registered_device.device_type_code` | `MOBILE` / `PC` / `TABLET` |
 | `DEVICE_STATUS` | `registered_device.device_status_code` | `ACTIVE` / `SUSPENDED` / `REVOKED` |
-| `AUTH_METHOD_TYPE` | `auth_method.auth_method_type_code`, `mobile_auth.mobile_auth_type_code` | `SMS` / `PASS` / `CERT_FIN` / `CERT_COMMON` / `PIN` / `BIO_FACE` / `BIO_FINGER` |
+| `AUTH_METHOD_TYPE` | `auth_method.auth_method_type_code`, `mobile_auth.mobile_auth_method_type_code` | `SMS` / `PASS` / `CERT_FIN` / `CERT_COMMON` / `PIN` / `BIO_FACE` / `BIO_FINGER` |
 | `AUTH_METHOD_STATUS` | `auth_method.auth_method_status_code` | — |
 | `CERT_TYPE` | `certificate.certificate_type_code` | — |
 | `CERT_PURPOSE` | `certificate.certificate_purpose_code` | `LOGIN` / `TXN_SIGN` / `CONTRACT_SIGN` |
@@ -628,7 +678,7 @@ fds_rule
 | `ID_VERIFY_PURPOSE` | `identity_verification.identity_verification_purpose_code` | — |
 | `GENDER` | `identity_verification.identity_verification_gender_code` | `M` / `F` / `U` |
 | `NATIONALITY_TYPE` | `identity_verification.identity_verification_nationality_type_code` | `DOMESTIC` / `FOREIGN` |
-| `CERT_USE_PURPOSE` | `certificate_use.certificate_use_purpose_code` | — |
+| `CERT_USE_PURPOSE` | `certificate_use.purpose_code` | — |
 | `CERT_VERIFY_RESULT` | `certificate_use.certificate_use_verification_result_code` | — |
 | `TARGET_SYSTEM` | `certificate_use.certificate_use_target_system_code` | — |
 
