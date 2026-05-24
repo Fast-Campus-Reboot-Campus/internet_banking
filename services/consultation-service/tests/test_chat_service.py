@@ -105,6 +105,30 @@ class TestSendMessage:
 
         assert msg2.sequence_no > msg1.sequence_no
 
+    def test_send_message_after_end_raises(self, service, chat_service: ChatService):
+        """종료된 상담에 메시지 전송 시 ValueError가 발생한다."""
+        chat_id = _trigger_agent_transfer(service, chat_service)
+        asyncio.run(chat_service.connect_agent(chat_id, employee_id=1))
+        asyncio.run(chat_service.end_chat(chat_id))
+
+        with pytest.raises(ValueError, match="종료"):
+            asyncio.run(chat_service.send_message(chat_id, "종료 후 메시지", 1))
+
+    def test_message_count_not_increase_after_end(self, service, chat_service: ChatService):
+        """종료 후 send_message가 거부되어 메시지 수가 늘지 않는다."""
+        chat_id = _trigger_agent_transfer(service, chat_service)
+        asyncio.run(chat_service.connect_agent(chat_id, employee_id=1))
+        asyncio.run(chat_service.send_message(chat_id, "정상 메시지", 3))
+        asyncio.run(chat_service.end_chat(chat_id))
+
+        count_before = len(chat_service.get_messages(chat_id))
+
+        with pytest.raises(ValueError):
+            asyncio.run(chat_service.send_message(chat_id, "종료 후 메시지", 1))
+
+        count_after = len(chat_service.get_messages(chat_id))
+        assert count_after == count_before
+
 
 # ── 메시지 이력 조회 ──────────────────────────────────────────────────────────
 

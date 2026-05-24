@@ -1102,6 +1102,8 @@ class ChatService:
         Kafka: ChatMessageSent 이벤트 발행
         """
         chat = self.get_consultation(chat_consultation_id)
+        if chat.active_yn == "N":
+            raise ValueError("이미 종료된 상담입니다.")
 
         last_seq = self.db.execute(
             select(ChatMessageHistory.sequence_no)
