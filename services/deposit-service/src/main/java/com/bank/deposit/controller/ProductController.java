@@ -39,7 +39,7 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(product);
     }
 
-    @GetMapping("/products/{productId}")
+    @GetMapping("/products/{productId:\\d+}")
     public Product get(@PathVariable Long productId) {
         return productService.findById(productId);
     }
