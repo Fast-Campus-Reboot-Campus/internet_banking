@@ -413,7 +413,7 @@ import LoanSidebar from '@/components/inquiry/LoanSidebar'
 
 ### 브랜드 규칙
 
-- 브랜드명은 **AX풀뱅크 / AXFUL BANK** 로 통일합니다.
+- 브랜드명은 **AX풀뱅크 / AXful Bank** 로 통일합니다.
 - 뱅킹 앱 이름은 **AXful 스타뱅킹** 입니다.
 - 전화번호: `1588-0000` (대표)
 
