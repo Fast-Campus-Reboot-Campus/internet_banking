@@ -74,7 +74,7 @@ public class KftcNetworkRequestConsumer {
         }
 
         String piId = txService.txInboundReceive(command);
-        inboundOrchestrator.processInbound(piId);
+        inboundOrchestrator.processInbound(piId, command);
 
         log.info("[IN] PAYMENT_REQUEST 수신 완료: piId={} clearingNo={} key={} partition={} offset={}",
                 piId, command.clearingNo(), record.key(), record.partition(), record.offset());

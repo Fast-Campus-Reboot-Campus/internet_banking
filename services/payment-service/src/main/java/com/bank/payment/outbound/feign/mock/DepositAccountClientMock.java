@@ -23,8 +23,17 @@ public class DepositAccountClientMock implements DepositAccountClient {
     // F5 계좌: 변학도 88880000 (txStep4 분개 INSERT 실패 트리거용 — deposit까지 성공, 분개에서만 실패)
     private static final String F5_FAIL_RECEIVER = "88880000";
 
+    // IN-03 계좌: 사고신고/FROZEN (수신 거절 트리거용)
+    private static final String IN03_FROZEN_RECEIVER = "99987654321";
+
     @Override
     public DepositResponse<AccountInquiryData> getAccount(String accountNo) {
+        if (IN03_FROZEN_RECEIVER.equals(accountNo)) {
+            AccountInquiryData data = new AccountInquiryData(
+                    accountNo, "DEMAND", "FROZEN", "DP-2025-001",
+                    "2024-03-15T09:00:00Z", null, "0001", true, 1);
+            return new DepositResponse<>("E2001", "사고신고 계좌", "2026-05-16T14:30:00Z", data);
+        }
         AccountInquiryData data = new AccountInquiryData(
                 accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
                 "2024-03-15T09:00:00Z", null, "0001", false, 1);

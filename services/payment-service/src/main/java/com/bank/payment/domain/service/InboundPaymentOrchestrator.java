@@ -8,7 +8,8 @@ public interface InboundPaymentOrchestrator {
 
     /**
      * PI DRAFT가 저장된 이후 수신 처리 본체 진입.
-     * @param piId 결제지시번호 (txInboundReceive에서 채번된 값)
+     * @param piId    결제지시번호 (txInboundReceive에서 채번된 값)
+     * @param command 원 수신 명령 (sender/clearingNo 등 transient 데이터 운반)
      */
-    void processInbound(String piId);
+    void processInbound(String piId, InboundPaymentCommand command);
 }

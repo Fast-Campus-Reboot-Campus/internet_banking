@@ -174,6 +174,42 @@ public class Ledger {
                 .build();
     }
 
+    // ── 타행 수신 입금 분개 [타행 IN JN-01] ─────────────────
+    /** 타행이체 수신 입금 분개. 수신계좌 CREDIT TRANSFER_IN + 상대방(송신) 정보 세팅. (P-014 IN방향) */
+    public static Ledger interTransferIn(
+            String ledgerId, String paymentInstructionId, String accountId,
+            String journalNo, String accountNoSnap, String holderNameSnap,
+            BigDecimal amount, BigDecimal balanceBefore, BigDecimal balanceAfter,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription,
+            String counterpartySenderAccountNo, String counterpartySenderBankCode,
+            String counterpartySenderHolderName) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("CREDIT")
+                .journalType("TRANSFER_IN")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(balanceAfter)
+                .counterpartyAccountNoSnap(counterpartySenderAccountNo)
+                .counterpartyBankCodeSnap(counterpartySenderBankCode)
+                .counterpartyHolderNameSnap(counterpartySenderHolderName)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
+
     // ── 타행 출금 분개 [타행 JN-01 차변] ─────────────────
     /** 타행이체 출금 분개. 송신계좌 DEBIT TRANSFER_OUT. (P-014 시트2 JN-01) */
     public static Ledger interTransferOut(

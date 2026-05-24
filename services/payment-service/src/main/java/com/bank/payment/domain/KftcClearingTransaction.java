@@ -148,4 +148,89 @@ public class KftcClearingTransaction {
                 .inquiryCount(0)
                 .build();
     }
+
+    /**
+     * 타행수신 SETTLED 청산거래 생성 (IN-01 수신 입금 완료 시).
+     * direction=IN, clearingStatus=SETTLED, receiverBankClearingId=우리채번, senderBankClearingId=null.
+     */
+    public static KftcClearingTransaction settledIn(
+            String clearingTransactionId,
+            String ourPaymentInstructionId,
+            String counterpartyPaymentId,
+            String clearingNo,
+            String senderBankCode,
+            String senderAccountNoSnap,
+            String senderHolderNameSnap,
+            String receiverBankCode,
+            String receiverAccountNoSnap,
+            String receiverHolderNameSnap,
+            BigDecimal clearingAmount,
+            String settledAt,
+            String settlementDate) {
+        return KftcClearingTransaction.builder()
+                .clearingTransactionId(clearingTransactionId)
+                .ourPaymentInstructionId(ourPaymentInstructionId)
+                .direction("IN")
+                .counterpartyPaymentId(counterpartyPaymentId)
+                .clearingNo(clearingNo)
+                .receiverBankClearingId(clearingTransactionId)
+                .senderBankCode(senderBankCode)
+                .senderAccountNoSnap(senderAccountNoSnap)
+                .senderHolderNameSnap(senderHolderNameSnap)
+                .receiverBankCode(receiverBankCode)
+                .receiverAccountNoSnap(receiverAccountNoSnap)
+                .receiverHolderNameSnap(receiverHolderNameSnap)
+                .clearingAmount(clearingAmount)
+                .currency("KRW")
+                .clearingStatus("SETTLED")
+                .clearingRequestedAt(settledAt)
+                .settledAt(settledAt)
+                .settlementDate(settlementDate)
+                .network("KFTC_CLEARING")
+                .inquiryCount(0)
+                .build();
+    }
+
+    /**
+     * 타행수신 REJECTED 청산거래 생성 (IN-03 수신 거절 시).
+     * direction=IN, clearingStatus=REJECTED, settledAt/settlementDate=null.
+     */
+    public static KftcClearingTransaction rejectedIn(
+            String clearingTransactionId,
+            String ourPaymentInstructionId,
+            String counterpartyPaymentId,
+            String clearingNo,
+            String senderBankCode,
+            String senderAccountNoSnap,
+            String senderHolderNameSnap,
+            String receiverBankCode,
+            String receiverAccountNoSnap,
+            String receiverHolderNameSnap,
+            BigDecimal clearingAmount,
+            String rejectCode,
+            String rejectMessage,
+            String rejectedAt) {
+        return KftcClearingTransaction.builder()
+                .clearingTransactionId(clearingTransactionId)
+                .ourPaymentInstructionId(ourPaymentInstructionId)
+                .direction("IN")
+                .counterpartyPaymentId(counterpartyPaymentId)
+                .clearingNo(clearingNo)
+                .receiverBankClearingId(clearingTransactionId)
+                .senderBankCode(senderBankCode)
+                .senderAccountNoSnap(senderAccountNoSnap)
+                .senderHolderNameSnap(senderHolderNameSnap)
+                .receiverBankCode(receiverBankCode)
+                .receiverAccountNoSnap(receiverAccountNoSnap)
+                .receiverHolderNameSnap(receiverHolderNameSnap)
+                .clearingAmount(clearingAmount)
+                .currency("KRW")
+                .clearingStatus("REJECTED")
+                .clearingRequestedAt(rejectedAt)
+                .rejectCode(rejectCode)
+                .rejectMessage(rejectMessage)
+                .network("KFTC_CLEARING")
+                .inquiryCount(0)
+                .build();
+    }
 }

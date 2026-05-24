@@ -1227,6 +1227,7 @@ public class PaymentTransactionService {
                 .version(0)
                 .triggerSource("COUNTERPARTY_BANK")
                 .isScheduled(false)
+                .holderInquiryAt(now)
                 .firstRegistrantId("COUNTERPARTY_BANK")
                 .lastModifierId("COUNTERPARTY_BANK")
                 .build();
@@ -1239,5 +1240,224 @@ public class PaymentTransactionService {
         statusHistoryMapper.insert(history);
 
         return piId;
+    }
+
+    /**
+     * TX-IN-AUTH: DRAFT→AUTHORIZED + 상태이력(INBOUND_VALIDATION_PASSED).
+     * 수신계좌 검증 통과 후 호출. 낙관락: pi.version=0 → WHERE version=0 → DB version=1.
+     */
+    @Transactional
+    public void txInboundAuthorize(PaymentInstruction pi) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+
+        int updated = paymentInstructionMapper.updateStatus(piId, "AUTHORIZED", null, null, pi.getVersion());
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(AUTHORIZED): " + piId);
+        }
+
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, (maxSeq == null ? 0 : maxSeq) + 1,
+                "DRAFT", "AUTHORIZED", "INBOUND_VALIDATION_PASSED", "COUNTERPARTY_BANK",
+                null, "수신계좌 검증 통과", now));
+    }
+
+    /**
+     * TX-IN-DEP: AUTHORIZED→PROCESSING(KFTC_ACK_SENT Outbox) → interTransferIn 분개1건 →
+     * CT settledIn INSERT → PROCESSING→COMPLETED(KFTC_SETTLEMENT_SENT+PAYMENT_COMPLETED Outbox) → 멱등키완료.
+     * @param pi      txInboundAuthorize 후 selectById로 재조회된 결제지시 (version=1)
+     * @param depositTx B-4 입금 응답 (잔액 박제용)
+     * @param command 원 수신 명령 (clearingNo·senderBankCode·senderRealName 등 transient 데이터)
+     */
+    @Transactional
+    public void txInboundDeposit(PaymentInstruction pi, BalanceTxData depositTx,
+                                 InboundPaymentCommand command) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+        String clearingNo = command.clearingNo();
+        String correlationId = command.correlationId();
+        String senderBankCode = command.senderBankCode();
+        String senderRealName = command.senderRealName();
+        String senderAccountNo = command.senderAccountNo();
+        String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String settledAt = now.format(CLEARING_AT_FMT);
+
+        // 1. AUTHORIZED→PROCESSING + 상태이력(KFTC_ACK_SENT) + Outbox KFTC_ACK_SENT
+        int updated1 = paymentInstructionMapper.updateStatus(piId, "PROCESSING", null, null, pi.getVersion());
+        if (updated1 == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(PROCESSING): " + piId);
+        }
+        Integer maxSeq1 = statusHistoryMapper.selectMaxSequence(piId);
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, (maxSeq1 == null ? 0 : maxSeq1) + 1,
+                "AUTHORIZED", "PROCESSING", "KFTC_ACK_SENT", "COUNTERPARTY_BANK", now));
+
+        String ackPayload;
+        try {
+            ackPayload = objectMapper.writeValueAsString(Map.of(
+                    "messageType", "PAYMENT_ACK",
+                    "clearingNo", clearingNo,
+                    "correlationId", correlationId,
+                    "responseCode", "0000"));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox ackPayload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "KFTC_ACK_SENT", "v1", ackPayload, now));
+
+        // 2. 수신 분개 (interTransferIn, 1건 — IN 방향은 자금변동 1건)
+        String journalNo = idGenerator.nextJournalNo();
+        Ledger ledger = Ledger.interTransferIn(
+                idGenerator.nextLedgerId(), piId, pi.getReceiverAccountNo(),
+                journalNo, pi.getReceiverAccountNo(), pi.getReceiverHolderNameSnap(),
+                pi.getTransferAmount(),
+                BigDecimal.valueOf(depositTx.balanceBefore()),
+                BigDecimal.valueOf(depositTx.balanceAfter()),
+                "KRW", businessDate, businessDate, businessDate,
+                now, "타행이체 수신 입금",
+                senderAccountNo, senderBankCode, senderRealName);
+        ledgerMapper.insert(ledger);
+
+        // 3. CT settledIn INSERT
+        String clearingTxId = idGenerator.nextClearingTransactionId();
+        KftcClearingTransaction ct = KftcClearingTransaction.settledIn(
+                clearingTxId, piId, null, clearingNo,
+                senderBankCode, senderAccountNo, senderRealName,
+                pi.getReceiverBankCode(),
+                pi.getReceiverAccountNo(),
+                pi.getReceiverHolderNameSnap(),
+                pi.getTransferAmount(),
+                settledAt, businessDate);
+        clearingTransactionMapper.insert(ct);
+
+        // 4. PROCESSING→COMPLETED + 상태이력(KFTC_SETTLEMENT_SENT) + Outbox 2건 + 멱등키완료
+        int updated2 = paymentInstructionMapper.updateStatus(piId, "COMPLETED", now, null, pi.getVersion() + 1);
+        if (updated2 == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(COMPLETED): " + piId);
+        }
+        Integer maxSeq2 = statusHistoryMapper.selectMaxSequence(piId);
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, (maxSeq2 == null ? 0 : maxSeq2) + 1,
+                "PROCESSING", "COMPLETED", "KFTC_SETTLEMENT_SENT", "COUNTERPARTY_BANK", now));
+
+        String settlementPayload;
+        try {
+            settlementPayload = objectMapper.writeValueAsString(Map.of(
+                    "messageType", "SETTLEMENT_NOTIFY",
+                    "clearingNo", clearingNo,
+                    "correlationId", correlationId,
+                    "responseCode", "0000",
+                    "receivedAccountNo", pi.getReceiverAccountNo(),
+                    "receivedHolderName", pi.getReceiverHolderNameSnap(),
+                    "receivedAmount", pi.getTransferAmount(),
+                    "settledAt", settledAt));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox settlementPayload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "KFTC_SETTLEMENT_SENT", "v1", settlementPayload, now));
+
+        String completedPayload;
+        try {
+            completedPayload = objectMapper.writeValueAsString(Map.of(
+                    "paymentInstructionId", piId,
+                    "status", "COMPLETED",
+                    "direction", "IN",
+                    "clearingNo", clearingNo,
+                    "transferAmount", pi.getTransferAmount(),
+                    "completedAt", now.toString()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox completedPayload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "PAYMENT_COMPLETED", "v1", completedPayload, now));
+
+        idempotencyKeyMapper.updateStatus(clearingNo, "COMPLETED", settlementPayload);
+    }
+
+    /**
+     * TX-IN-REJ: DRAFT→FAILED(ACCOUNT_RESTRICTED) + 상태이력2건(INBOUND_VALIDATION_FAILED·INBOUND_REJECTED) +
+     * CT rejectedIn + Outbox 2건(KFTC_REJECT_SENT·PAYMENT_FAILED) + 멱등키FAILED. 한 TX.
+     * 분개 0건 — P-002 "자금변동 없음=FAILED 직행".
+     * @param pi      DRAFT 상태 결제지시 (version=0)
+     * @param command 원 수신 명령 (clearingNo·senderBankCode 등)
+     * @param rejectCode    거절코드 (E2001 등, mock 응답 또는 매핑)
+     * @param rejectMessage 거절메시지
+     */
+    @Transactional
+    public void txInboundReject(PaymentInstruction pi, InboundPaymentCommand command,
+                                String rejectCode, String rejectMessage) {
+        LocalDateTime now = LocalDateTime.now();
+        String piId = pi.getPaymentInstructionId();
+        String clearingNo = command.clearingNo();
+        String correlationId = command.correlationId();
+        String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String rejectedAt = now.format(CLEARING_AT_FMT);
+
+        // 1. DRAFT→FAILED (낙관락: version=0 → WHERE version=0 → DB version=1)
+        int updated = paymentInstructionMapper.updateStatus(piId, "FAILED", now, "ACCOUNT_RESTRICTED", pi.getVersion());
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(FAILED/INBOUND_REJECT): " + piId);
+        }
+
+        // 2. 상태이력 2건 (enum v9 #87 INBOUND_VALIDATION_FAILED / #99 INBOUND_REJECTED)
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        int seq = (maxSeq == null ? 0 : maxSeq) + 1;
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq,
+                "DRAFT", "DRAFT", "INBOUND_VALIDATION_FAILED", "COUNTERPARTY_BANK",
+                rejectCode, rejectMessage, now));
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq + 1,
+                "DRAFT", "FAILED", "INBOUND_REJECTED", "COUNTERPARTY_BANK",
+                rejectCode, rejectMessage, now));
+
+        // 3. CT rejectedIn INSERT
+        String clearingTxId = idGenerator.nextClearingTransactionId();
+        KftcClearingTransaction ct = KftcClearingTransaction.rejectedIn(
+                clearingTxId, piId, null, clearingNo,
+                command.senderBankCode(),
+                command.senderAccountNo(),
+                command.senderRealName(),
+                pi.getReceiverBankCode(),
+                pi.getReceiverAccountNo(),
+                pi.getReceiverHolderNameSnap(),
+                pi.getTransferAmount(),
+                rejectCode, rejectMessage, rejectedAt);
+        clearingTransactionMapper.insert(ct);
+
+        // 4. Outbox 2건 (KFTC_REJECT_SENT → kftc.network.response, PAYMENT_FAILED → payment.failed)
+        String rejectPayload;
+        try {
+            rejectPayload = objectMapper.writeValueAsString(Map.of(
+                    "messageType", "PAYMENT_REJECT",
+                    "clearingNo", clearingNo,
+                    "correlationId", correlationId,
+                    "responseCode", rejectCode,
+                    "rejectMessage", rejectMessage,
+                    "rejectedAt", rejectedAt));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox rejectPayload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "KFTC_REJECT_SENT", "v1", rejectPayload, now));
+
+        String failedPayload;
+        try {
+            failedPayload = objectMapper.writeValueAsString(Map.of(
+                    "paymentInstructionId", piId,
+                    "status", "FAILED",
+                    "failureCategory", "ACCOUNT_RESTRICTED",
+                    "direction", "IN",
+                    "failedAt", now.toString()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Outbox failedPayload 직렬화 실패: " + piId, e);
+        }
+        outboxMessageMapper.insert(OutboxMessage.of(
+                idGenerator.nextMessageId(), piId, "PAYMENT_FAILED", "v1", failedPayload, now));
+
+        // 5. 멱등키 FAILED
+        idempotencyKeyMapper.updateStatus(clearingNo, "FAILED", failedPayload);
     }
 }

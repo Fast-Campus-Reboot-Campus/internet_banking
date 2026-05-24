@@ -2,6 +2,7 @@ package com.bank.payment.outbound.kafka;
 
 import com.bank.payment.domain.OutboxMessage;
 import com.bank.payment.domain.mapper.OutboxMessageMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -28,18 +29,21 @@ public class OutboxPublisher {
     private final KafkaTemplate<String, String> kftcKafkaTemplate;
     private final KafkaTemplate<String, String> bokKafkaTemplate;
     private final KafkaTemplate<String, String> internalKafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     public OutboxPublisher(
             OutboxMessageMapper outboxMessageMapper,
             OutboxTransactionHelper transactionHelper,
             @Qualifier("kftcKafkaTemplate") KafkaTemplate<String, String> kftcKafkaTemplate,
             @Qualifier("bokKafkaTemplate") KafkaTemplate<String, String> bokKafkaTemplate,
-            @Qualifier("internalKafkaTemplate") KafkaTemplate<String, String> internalKafkaTemplate) {
+            @Qualifier("internalKafkaTemplate") KafkaTemplate<String, String> internalKafkaTemplate,
+            ObjectMapper objectMapper) {
         this.outboxMessageMapper = outboxMessageMapper;
         this.transactionHelper = transactionHelper;
         this.kftcKafkaTemplate = kftcKafkaTemplate;
         this.bokKafkaTemplate = bokKafkaTemplate;
         this.internalKafkaTemplate = internalKafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Scheduled(fixedDelay = 1000)
@@ -62,7 +66,6 @@ public class OutboxPublisher {
 
         String topicName = resolveTopicName(eventType);
         if (topicName == null) {
-            // 타행 event_type(KFTC_REQUEST_SENT 등)은 S2-A에서 매핑 추가 예정
             log.warn("Outbox 미매핑 event_type — skip: messageId={}, eventType={}", messageId, eventType);
             return;
         }
@@ -71,7 +74,8 @@ public class OutboxPublisher {
 
         try {
             // 동기 발행: acks=all 완료 확인 후 markSent. 비동기로 markSent 먼저 하면 유실 위험.
-            template.send(topicName, piId, payload).get();
+            String recordKey = resolveRecordKey(topicName, piId, payload, messageId, eventType);
+            template.send(topicName, recordKey, payload).get();
             transactionHelper.markSent(messageId);
             log.debug("Outbox 발행 완료: messageId={}, topic={}, piId={}", messageId, topicName, piId);
         } catch (ExecutionException e) {
@@ -87,7 +91,7 @@ public class OutboxPublisher {
 
     /**
      * event_type → Kafka 토픽명 매핑 (토픽정의서 v3.1 시트10).
-     * null 반환 = 미매핑(skip). 타행 event_type은 S2-A에서 추가.
+     * null 반환 = 미매핑(skip).
      */
     private String resolveTopicName(String eventType) {
         return switch (eventType) {
@@ -97,15 +101,36 @@ public class OutboxPublisher {
             case "KFTC_SETTLED"      -> "payment.completed"; // 회계계 P-001 unwind 트리거. 수신측이 eventType으로 분기
             case "BOK_CONFIRMED"     -> "payment.completed"; // KFTC_SETTLED 대칭. 수신측이 eventType으로 분기
             case "KFTC_REQUEST_SENT"      -> "kftc.network.request";
-            // TODO S2-A: case "KFTC_ACK_SENT"          -> "kftc.network.request";
-            // TODO S2-A: case "KFTC_SETTLEMENT_SENT"   -> "kftc.network.request";
-            // TODO S2-A: case "KFTC_REJECT_SENT"       -> "kftc.network.request";
+            case "KFTC_ACK_SENT"          -> "kftc.network.response";
+            case "KFTC_SETTLEMENT_SENT"   -> "kftc.network.response";
+            case "KFTC_REJECT_SENT"       -> "kftc.network.response";
             case "BOK_REQUEST_SENT"              -> "bok.network.request";
             // TODO BOK S3: case "BOK_ACK_SENT"          -> "bok.network.request";
             // TODO BOK S3: case "BOK_CONFIRM_SENT"      -> "bok.network.request";
             // TODO BOK F3: case "BOK_REJECT_SENT"       -> "bok.network.request";
             default -> null;
         };
+    }
+
+    /**
+     * kftc.network.* 토픽은 파티션전략상 record key = clearingNo.
+     * payload에 clearingNo가 없으면(KFTC_REQUEST_SENT 등) piId fallback.
+     */
+    private String resolveRecordKey(String topicName, String piId, String payload,
+                                    String messageId, String eventType) {
+        if (!topicName.startsWith("kftc.")) {
+            return piId;
+        }
+        try {
+            String clearingNo = objectMapper.readTree(payload).path("clearingNo").asText();
+            if (!clearingNo.isEmpty()) {
+                return clearingNo;
+            }
+        } catch (Exception e) {
+            log.warn("Outbox record key 파싱 실패 — piId fallback: messageId={}", messageId, e);
+        }
+        log.warn("Outbox clearingNo 없음 — piId fallback: messageId={} eventType={}", messageId, eventType);
+        return piId;
     }
 
     /** 토픽명 prefix → 클러스터 KafkaTemplate 선택 */
