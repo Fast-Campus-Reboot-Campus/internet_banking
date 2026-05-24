@@ -387,7 +387,7 @@ import LoanSidebar from '@/components/inquiry/LoanSidebar'
 - **"KB국민은행"** 문구는 절대 사용하지 않습니다.
 - 브랜드명은 **AX풀뱅크 / AXFULL BANK** 로 통일합니다.
 - 뱅킹 앱 이름은 **AXful 스타뱅킹** 입니다.
-- 전화번호: `1588-9999` (대표), `1800-9500` (신규상담)
+- 전화번호: `1588-0000` (대표)
 
 ### 컬러 규칙
 
