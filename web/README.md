@@ -1,7 +1,6 @@
 # AX풀뱅크 — 인터넷뱅킹 프론트엔드 클론
 
-국민은행 인터넷뱅킹 UI를 벤치마킹한 Next.js 프론트엔드 프로젝트입니다.  
-브랜드명·컬러·문구는 **AX풀뱅크(AXFULL BANK)** 로 픽션화되어 있으며, KB국민은행 표기는 사용하지 않습니다.
+AX풀뱅크(AXFULL BANK) 인터넷뱅킹 UI를 구현한 Next.js 프론트엔드 프로젝트입니다.
 
 ---
 
@@ -384,7 +383,6 @@ import LoanSidebar from '@/components/inquiry/LoanSidebar'
 
 ### 브랜드 규칙
 
-- **"KB국민은행"** 문구는 절대 사용하지 않습니다.
 - 브랜드명은 **AX풀뱅크 / AXFULL BANK** 로 통일합니다.
 - 뱅킹 앱 이름은 **AXful 스타뱅킹** 입니다.
 - 전화번호: `1588-0000` (대표)
