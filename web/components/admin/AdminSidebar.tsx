@@ -49,6 +49,7 @@ const NAV: NavSection[] = [
     ],
   },
   {
+<<<<<<< HEAD
     section: 'AI 감사', dot: 'bg-red-400',
     roles: ['ROLE_HQ_AUDIT'],
     items: [
@@ -57,6 +58,8 @@ const NAV: NavSection[] = [
     ],
   },
   {
+=======
+>>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
     section: '모니터링', dot: 'bg-kb-yellow',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_RISK'],
     items: [
