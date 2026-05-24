@@ -1,5 +1,6 @@
 package com.bank.payment.domain.service;
 
+import com.bank.payment.common.BankCodeMapper;
 import com.bank.payment.common.IdGenerator;
 import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.common.exception.LedgerInsertFailureException;
@@ -172,7 +173,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
             // TX-2: 분개4건(2묶음) + AUTHORIZED→PROCESSING→CLEARING + Outbox(BOK_REQUEST_SENT)
             //       + bok_settlement_transaction REQUESTED INSERT + 멱등키완료
-            String numericBankCode = "B".equalsIgnoreCase(bankCode) ? "088" : "004";
+            String numericBankCode = BankCodeMapper.toNumeric(bankCode);
             return txService.txStep4InterBok(pi, withdrawStep.txData(), command,
                     validation.senderHolderName(), numericBankCode);
 
@@ -193,7 +194,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
             // TX-2: 분개4건(2묶음) + AUTHORIZED→PROCESSING→CLEARING + Outbox(KFTC_REQUEST_SENT)
             //       + kftc_clearing_transaction REQUESTED INSERT + 멱등키완료
-            String numericBankCode = "B".equalsIgnoreCase(bankCode) ? "088" : "004";
+            String numericBankCode = BankCodeMapper.toNumeric(bankCode);
             return txService.txStep4InterBank(pi, withdrawStep.txData(), command,
                     validation.senderHolderName(), numericBankCode);
 
@@ -212,8 +213,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
     // receiverBankCode == 자행코드(A은행=004, B은행=088) → 자행
     private boolean isIntraBank(String receiverBankCode) {
-        String myBankCode = "B".equalsIgnoreCase(bankCode) ? "088" : "004";
-        return myBankCode.equals(receiverBankCode);
+        return BankCodeMapper.toNumeric(bankCode).equals(receiverBankCode);
     }
 
     /**

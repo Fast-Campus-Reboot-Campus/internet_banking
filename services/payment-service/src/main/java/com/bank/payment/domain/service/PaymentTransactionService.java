@@ -1187,4 +1187,57 @@ public class PaymentTransactionService {
 
         return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", failureCategory, now);
     }
+
+    /**
+     * TX-IN: KFTC 수신 수령 — 멱등키 + PI(DRAFT) + 상태이력(INBOUND_RECEIVED) 동일 트랜잭션.
+     * clearingNo를 멱등키로 사용. 동일 clearingNo 재수신 시 UNIQUE 충돌 → 예외 → DLQ(의도된 멱등 차단).
+     * 검증·입금·CT INSERT·Outbox는 step③(processInbound)에서.
+     * @return 채번된 piId
+     */
+    @Transactional
+    public String txInboundReceive(InboundPaymentCommand command) {
+        LocalDateTime now = LocalDateTime.now();
+
+        IdempotencyKey idempotencyKey = IdempotencyKey.of(
+                command.clearingNo(),
+                "COUNTERPARTY_BANK",
+                "",
+                now, now,
+                now.plusMinutes(5));
+        idempotencyKeyMapper.insert(idempotencyKey);
+
+        String piId = idGenerator.nextPaymentInstructionId();
+        PaymentInstruction pi = PaymentInstruction.builder()
+                .paymentInstructionId(piId)
+                .idempotencyKey(command.clearingNo())
+                .transactionNo("TXN-" + piId)
+                .senderAccountNoSnap(command.senderAccountNo())
+                .receiverBankCode(command.receiverBankCode())
+                .receiverAccountNo(command.receiverAccountNo())
+                .receiverHolderNameSnap(command.receiverExpectedHolderName())
+                .isIntraBank(false)
+                .routingNetworkType("KFTC")
+                .transferAmount(command.transferAmount())
+                .feeAmount(BigDecimal.ZERO)
+                .receiverPassbookSenderDisplay(command.receiverPassbookMemo())
+                .status("DRAFT")
+                .channel("INBOUND")
+                .requestedAt(now)
+                .businessDate(now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE))
+                .version(0)
+                .triggerSource("COUNTERPARTY_BANK")
+                .isScheduled(false)
+                .firstRegistrantId("COUNTERPARTY_BANK")
+                .lastModifierId("COUNTERPARTY_BANK")
+                .build();
+        paymentInstructionMapper.insert(pi);
+
+        StatusHistory history = StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, 1,
+                null, "DRAFT", "INBOUND_RECEIVED", "COUNTERPARTY_BANK",
+                null, "KFTC 수신", now);
+        statusHistoryMapper.insert(history);
+
+        return piId;
+    }
 }

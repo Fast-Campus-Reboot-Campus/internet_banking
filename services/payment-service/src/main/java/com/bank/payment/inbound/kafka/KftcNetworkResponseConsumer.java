@@ -23,7 +23,7 @@ public class KftcNetworkResponseConsumer {
     private final PaymentTransactionService txService;
     private final PaymentOrchestrator orchestrator;
 
-    @Value("${payment.bank-code:004}")
+    @Value("${payment.bank-code:A}")
     private String bankCode;
 
     @KafkaListener(
