@@ -27,7 +27,7 @@ subprojects {
     }
 }
 
-configure(subprojects.findAll { it.path.startsWith(':services:') }) {
+configure(subprojects.findAll { it.path.startsWith(':services:') && it.name != 'gateway-service' }) {
     apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
 
