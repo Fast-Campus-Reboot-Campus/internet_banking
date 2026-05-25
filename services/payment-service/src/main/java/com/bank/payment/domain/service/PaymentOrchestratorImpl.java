@@ -553,6 +553,69 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE");
     }
 
+    // ── F4 BOK: 송신실패 자동보상 ────────────────────────────────────────────────
+
+    /**
+     * F4 BOK 송신실패 보상. OutboxPublisher가 BOK_REQUEST_SENT send 실패 시 호출.
+     * F3형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + BST REJECTED.
+     * reversal_reason=PUBLISH_FAILURE / PI.failure_category=SYSTEM_ERROR.
+     */
+    @Override
+    public PaymentResult processBokPublishFailure(String piId, String lastError) {
+        PaymentInstruction freshPi = txService.selectById(piId);
+        if (freshPi == null) {
+            log.error("[BOK F4] PI 조회 실패, 보상 불가. piId={}", piId);
+            return null;
+        }
+
+        String status = freshPi.getStatus();
+
+        // 이중보상 가드 (KFTC F4와 동일)
+        if ("FAILED".equals(status) || "CANCELED".equals(status)) {
+            log.info("[BOK F4] 이중보상 가드: 이미 처리됨. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if ("REVERSING".equals(status)) {
+            log.info("[BOK F4] 이중보상 가드: 보상 진행중. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if (!"CLEARING".equals(status)) {
+            log.warn("[BOK F4] 예상치 못한 상태, skip. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+
+        String rejectMsg = "BOK 송신 실패: " + (lastError != null ? lastError : "");
+        if (rejectMsg.length() > 200) {
+            rejectMsg = rejectMsg.substring(0, 197) + "...";
+        }
+
+        // TX-1: CLEARING→CLEARING(BOK_REQUEST_FAILED) + CLEARING→REVERSING(REVERSAL_STARTED)
+        txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMsg, "SYSTEM", "PUBLISH_FAILURE", "BOK_REQUEST_FAILED");
+        Integer tx2Version = freshPi.getVersion() + 1;
+
+        // B-5: 출금취소 (TX 밖)
+        ExternalCall originalWithdrawCall = txService.selectOriginalWithdrawCall(piId);
+        ExternalCall existingCancelCall   = txService.selectExistingCancelCall(piId);
+
+        WithdrawCancelData cancelResult = null;
+        if (existingCancelCall != null) {
+            log.info("[BOK F4] B-5 이미 수행됨, skip 재호출. piId={}", piId);
+        } else {
+            String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
+            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+        }
+
+        // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
+        // updateRejected는 piId WHERE — bokReferenceNo 불필요(null 전달)
+        List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
+        return txService.txCompleteBokRejectReversal(
+                freshPi, tx2Version, originals, cancelResult,
+                "PUBLISH_FAILURE", rejectMsg, null,
+                "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE",
+                "SYSTEM", null);
+    }
+
     // ── F7: KFTC 정산실패 자동보상 ──────────────────────────────────────────────
 
     /**

@@ -53,6 +53,16 @@ public interface PaymentOrchestrator {
     PaymentResult processPublishFailure(String piId, String lastError);
 
     /**
+     * F4 BOK 송신실패 자동보상. Outbox 워커가 BOK_REQUEST_SENT 발행 실패 시 호출.
+     * F3형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + BST REJECTED.
+     * reversal_reason=PUBLISH_FAILURE / failure_category=SYSTEM_ERROR.
+     * @param piId 결제지시번호 (Outbox 레코드에서 추출)
+     * @param lastError 발행 실패 오류 메시지 (OutboxPublisher.truncate 적용된 값)
+     * @return FAILED 결제결과 (보상 불가 시 null)
+     */
+    PaymentResult processBokPublishFailure(String piId, String lastError);
+
+    /**
      * F7 KFTC 정산실패 자동보상. SETTLEMENT_NOTIFY responseCode != "0000" 수신 시 호출.
      * F4형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
      * reversal_reason=SETTLEMENT_FAILURE / failure_category=SYSTEM_ERROR.

@@ -87,6 +87,8 @@ public class OutboxPublisher {
             log.error("Outbox 발행 실패: messageId={}, topic={}, error={}", messageId, topicName, lastError, e);
             if ("KFTC_REQUEST_SENT".equals(eventType)) {
                 triggerF4Compensation(piId, messageId, lastError);
+            } else if ("BOK_REQUEST_SENT".equals(eventType)) {
+                triggerBokF4Compensation(piId, messageId, lastError);
             } else {
                 transactionHelper.markFailed(messageId, lastError);
             }
@@ -95,6 +97,8 @@ public class OutboxPublisher {
             log.error("Outbox 발행 인터럽트: messageId={}", messageId, e);
             if ("KFTC_REQUEST_SENT".equals(eventType)) {
                 triggerF4Compensation(piId, messageId, "INTERRUPTED");
+            } else if ("BOK_REQUEST_SENT".equals(eventType)) {
+                triggerBokF4Compensation(piId, messageId, "INTERRUPTED");
             } else {
                 transactionHelper.markFailed(messageId, "INTERRUPTED");
             }
@@ -117,6 +121,21 @@ public class OutboxPublisher {
     }
 
     /**
+     * F4 BOK 송신실패 자동보상 트리거. BOK_REQUEST_SENT 발행 실패 시에만 호출.
+     * KFTC triggerF4Compensation과 동형. 다른 Outbox 레코드 격리 유지.
+     */
+    private void triggerBokF4Compensation(String piId, String messageId, String lastError) {
+        log.error("[BOK F4] BOK 송신 실패 → 자동보상 트리거. piId={} err={}", piId, lastError);
+        try {
+            orchestrator.processBokPublishFailure(piId, lastError);
+            transactionHelper.markFailed(messageId, lastError);
+        } catch (Exception ce) {
+            log.error("[BOK F4] 보상 실패 — 수동개입 필요. piId={}", piId, ce);
+            transactionHelper.markFailed(messageId, "COMPENSATION_FAILED: " + truncate(ce.getMessage()));
+        }
+    }
+
+    /**
      * event_type → Kafka 토픽명 매핑 (토픽정의서 v3.1 시트10).
      * null 반환 = 미매핑(skip).
      */
@@ -131,32 +150,44 @@ public class OutboxPublisher {
             case "KFTC_ACK_SENT"          -> "kftc.network.response";
             case "KFTC_SETTLEMENT_SENT"   -> "kftc.network.response";
             case "KFTC_REJECT_SENT"       -> "kftc.network.response";
-            case "BOK_REQUEST_SENT"              -> "bok.network.request";
-            // TODO BOK S3: case "BOK_ACK_SENT"          -> "bok.network.request";
-            // TODO BOK S3: case "BOK_CONFIRM_SENT"      -> "bok.network.request";
-            // TODO BOK F3: case "BOK_REJECT_SENT"       -> "bok.network.request";
+            case "BOK_REQUEST_SENT"  -> "bok.network.request";
+            case "BOK_ACK_SENT"     -> "bok.network.response";
+            case "BOK_CONFIRM_SENT" -> "bok.network.response";
+            case "BOK_REJECT_SENT"  -> "bok.network.response";
             default -> null;
         };
     }
 
     /**
-     * kftc.network.* 토픽은 파티션전략상 record key = clearingNo.
-     * payload에 clearingNo가 없으면(KFTC_REQUEST_SENT 등) piId fallback.
+     * kftc.network.* → clearingNo, bok.network.* → bokReferenceNo, 그 외 → piId.
+     * payload에 대상 키가 없으면 piId fallback (+warn).
      */
     private String resolveRecordKey(String topicName, String piId, String payload,
                                     String messageId, String eventType) {
-        if (!topicName.startsWith("kftc.")) {
+        if (topicName.startsWith("kftc.")) {
+            try {
+                String clearingNo = objectMapper.readTree(payload).path("clearingNo").asText();
+                if (!clearingNo.isEmpty()) {
+                    return clearingNo;
+                }
+            } catch (Exception e) {
+                log.warn("Outbox record key 파싱 실패(kftc) — piId fallback: messageId={}", messageId, e);
+            }
+            log.warn("Outbox clearingNo 없음 — piId fallback: messageId={} eventType={}", messageId, eventType);
             return piId;
         }
-        try {
-            String clearingNo = objectMapper.readTree(payload).path("clearingNo").asText();
-            if (!clearingNo.isEmpty()) {
-                return clearingNo;
+        if (topicName.startsWith("bok.")) {
+            try {
+                String bokReferenceNo = objectMapper.readTree(payload).path("bokReferenceNo").asText();
+                if (!bokReferenceNo.isEmpty()) {
+                    return bokReferenceNo;
+                }
+            } catch (Exception e) {
+                log.warn("Outbox record key 파싱 실패(bok) — piId fallback: messageId={}", messageId, e);
             }
-        } catch (Exception e) {
-            log.warn("Outbox record key 파싱 실패 — piId fallback: messageId={}", messageId, e);
+            log.warn("Outbox bokReferenceNo 없음 — piId fallback: messageId={} eventType={}", messageId, eventType);
+            return piId;
         }
-        log.warn("Outbox clearingNo 없음 — piId fallback: messageId={} eventType={}", messageId, eventType);
         return piId;
     }
 

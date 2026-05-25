@@ -87,12 +87,12 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
         return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
     }
 
-    // B-5: 출금취소 — 항상 성공. 이몽룡 잔액 복원 시뮬레이션
+    // B-5: 출금취소 — 항상 성공. BOK(20억 기준)/KFTC 공용 잔액 복원 시뮬레이션
     @Override
     public DepositResponse<WithdrawCancelData> withdrawCancel(String idempotencyKey,
                                                                WithdrawCancelRequest request) {
-        long before = 5000000L - request.amount();  // B-3 출금 후 잔액
-        long after  = before + request.amount();     // 취소 후 복원 잔액 = 5,000,000
+        long before = 2_000_000_000L - request.amount();  // 출금 후 잔액 (20억 기준, balance_before >= 0 보장)
+        long after  = before + request.amount();           // 취소 후 복원 잔액 = 20억
         WithdrawCancelData data = new WithdrawCancelData(
                 "T-20260516-A-CANCEL-001", request.originalDepositTransactionNo(),
                 request.accountNo(), request.amount(), before, after,
