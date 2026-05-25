@@ -93,13 +93,22 @@ public class RepaymentService {
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_090,
                         "cntrId=" + cntrId + ", installmentNo=" + req.installmentNo()));
 
-        if (schedule.isPaid()) {
-            throw new BusinessException(LoanErrorCode.LOAN_091,
-                    "installmentNo=" + req.installmentNo());
-        }
+        // SUPERSEDED 등 DUE/OVERDUE 가 아닌 상태는 즉시 차단
         if (!schedule.isPayable()) {
             throw new BusinessException(LoanErrorCode.LOAN_091,
                     "current=" + schedule.currentStatus());
+        }
+
+        // 조건부 UPDATE — 조회와 갱신을 DB 단일 쿼리로 원자 처리.
+        // DUE/OVERDUE 상태인 경우에만 PAID 로 전이하며, affected=0 은 다른 요청이 선점했음을 의미.
+        String before = schedule.currentStatus();
+        int affected = scheduleRepository.claimStatusChange(
+                schedule.getRschId(),
+                RepaymentSchedule.STATUS_PAID,
+                List.of(RepaymentSchedule.STATUS_DUE, RepaymentSchedule.STATUS_OVERDUE));
+        if (affected == 0) {
+            throw new BusinessException(LoanErrorCode.LOAN_091,
+                    "installmentNo=" + req.installmentNo());
         }
 
         // 분배 정산 — 회차 기간 발생이자 + (OVERDUE 시) 연체이자.
@@ -130,9 +139,6 @@ public class RepaymentService {
                 .idempotencyKey(idempotencyKey)
                 .reversalYn(RepaymentTransaction.YN_N)
                 .build());
-
-        String before = schedule.currentStatus();
-        schedule.markPaid();
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_TABLE_CD, schedule.getRschId(),
                 before, RepaymentSchedule.STATUS_PAID,

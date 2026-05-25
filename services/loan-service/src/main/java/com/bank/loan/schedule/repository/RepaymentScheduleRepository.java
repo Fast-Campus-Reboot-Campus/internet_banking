@@ -2,6 +2,7 @@ package com.bank.loan.schedule.repository;
 
 import com.bank.loan.schedule.domain.RepaymentSchedule;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -87,4 +88,25 @@ public interface RepaymentScheduleRepository extends JpaRepository<RepaymentSche
             """)
     List<RepaymentSchedule> findActiveByVersion(@Param("cntrId") Long cntrId,
                                                 @Param("version") String rschVersionCd);
+
+    /**
+     * 원자적 상태 전이 — allowedStatuses 중 하나인 경우에만 newStatus 로 변경한다.
+     *
+     * "SELECT → 메모리 확인 → UPDATE" 구조에서 발생하는 Race Condition 대신
+     * DB 단일 UPDATE 로 조회·갱신을 원자적으로 처리한다.
+     * affected=1 이면 이 요청이 선점 성공, affected=0 이면 다른 스레드가 먼저 전이함.
+     *
+     * clearAutomatically=true: UPDATE 후 1차 캐시를 비워 이후 조회가 stale 데이터를 반환하지 않도록 한다.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE RepaymentSchedule s
+               SET s.rschStatusCd = :newStatus
+             WHERE s.rschId        = :rschId
+               AND s.rschStatusCd IN :allowedStatuses
+               AND s.deletedAt    IS NULL
+            """)
+    int claimStatusChange(@Param("rschId") Long rschId,
+                          @Param("newStatus") String newStatus,
+                          @Param("allowedStatuses") List<String> allowedStatuses);
 }
