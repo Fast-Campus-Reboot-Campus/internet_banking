@@ -208,7 +208,7 @@ export default function BizHeader() {
             <div className="w-[3px] self-stretch bg-kb-yellow" />
             <div className="flex flex-col leading-none gap-1.5">
               <span className="text-[22px] font-bold text-kb-text tracking-[0.1em]">AX풀뱅크</span>
-              <span className="text-[14px] font-medium text-kb-text-body tracking-[0.08em]">AXful Bank</span>
+              <span className="text-[10px] font-medium text-kb-text-muted tracking-[0.22em] uppercase">AXFULL BANK</span>
             </div>
           </Link>
           <nav className="flex items-center ml-auto">

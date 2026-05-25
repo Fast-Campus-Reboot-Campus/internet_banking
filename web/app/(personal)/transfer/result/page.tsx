@@ -24,6 +24,7 @@ export default function TransferResultPage() {
     const raw = sessionStorage.getItem('pendingTransfer')
     if (!raw) { router.push('/transfer/account'); return }
     setData(JSON.parse(raw))
+    sessionStorage.removeItem('pendingTransfer')
   }, [router])
 
   if (!data) return null
