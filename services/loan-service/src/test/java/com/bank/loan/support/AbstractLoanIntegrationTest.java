@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,6 +36,7 @@ public abstract class AbstractLoanIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES;
     static final GenericContainer<?> REDIS;
+    static final KafkaContainer KAFKA;
 
     static {
         POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -41,6 +44,9 @@ public abstract class AbstractLoanIntegrationTest {
 
         REDIS = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
         REDIS.start();
+
+        KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"));
+        KAFKA.start();
     }
 
     @DynamicPropertySource
@@ -52,6 +58,8 @@ public abstract class AbstractLoanIntegrationTest {
 
         r.add("spring.data.redis.host", REDIS::getHost);
         r.add("spring.data.redis.port", () -> REDIS.getFirstMappedPort());
+
+        r.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
 
         Path storage = Paths.get(System.getProperty("java.io.tmpdir"), "loan-test-docs");
         r.add("loan.document.storage-dir", storage::toString);
