@@ -1,7 +1,7 @@
 # 인증보안계 DDL 설계 문서
 
 > **DB**: PostgreSQL  
-> **최종 수정**: 2026-05-22  
+> **최종 수정**: 2026-05-26  
 > **테이블 수**: 15개 (외부 참조 1개)
 
 ---
@@ -129,6 +129,13 @@ fds_rule
 
 **PK**: `fds_rule_id`
 
+**CHECK 제약**
+```sql
+CONSTRAINT chk_fds_rule_action_type  CHECK (fds_rule_action_type_code IN ('BLOCK','CHALLENGE','MONITOR')),
+CONSTRAINT chk_fds_rule_active       CHECK (fds_rule_active_yn IN ('T','F')),
+CONSTRAINT chk_fds_rule_risk_weight  CHECK (fds_rule_risk_weight BETWEEN 0 AND 100)
+```
+
 ---
 
 ### 3.2 credential (계정자격증명)
@@ -155,6 +162,11 @@ fds_rule
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `credential_id`
+
+**CHECK 제약**
+```sql
+CONSTRAINT chk_credential_account_status CHECK (account_status_code IN ('ACTIVE','LOCKED','DORMANT','CLOSED'))
+```
 
 ---
 
@@ -183,6 +195,14 @@ fds_rule
 
 **PK**: `device_id`
 
+**CHECK 제약**
+```sql
+CONSTRAINT chk_registered_device_type          CHECK (device_type_code IN ('MOBILE','PC','TABLET')),
+CONSTRAINT chk_registered_device_status        CHECK (device_status_code IN ('ACTIVE','SUSPENDED','REVOKED')),
+CONSTRAINT chk_registered_device_trusted       CHECK (trusted_device_yn IN ('T','F')),
+CONSTRAINT chk_registered_device_designated_pc CHECK (designated_pc_yn IN ('T','F'))
+```
+
 ---
 
 ### 3.4 auth_method (인증수단)
@@ -206,6 +226,12 @@ fds_rule
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `auth_method_id`
+
+**CHECK 제약**
+```sql
+CONSTRAINT chk_auth_method_type    CHECK (auth_method_type_code IN ('SMS','PASS','CERT_FIN','CERT_COMMON','PIN','BIO_FACE','BIO_FINGER')),
+CONSTRAINT chk_auth_method_primary CHECK (primary_auth_method_yn IN ('T','F'))
+```
 
 ---
 
@@ -244,6 +270,11 @@ fds_rule
 **PK**: `certificate_id`  
 **UNIQUE**: `certificate_serial_number`
 
+**CHECK 제약**
+```sql
+CONSTRAINT chk_certificate_status CHECK (certificate_status_code IN ('ACTIVE','EXPIRED','REVOKED','SUSPENDED'))
+```
+
 ---
 
 ### 3.6 mobile_auth (휴대폰인증요청)
@@ -276,6 +307,11 @@ fds_rule
 
 **PK**: `mobile_auth_id`
 
+**CHECK 제약**
+```sql
+CONSTRAINT chk_mobile_auth_verified CHECK (mobile_auth_verified_yn IN ('T','F'))
+```
+
 ---
 
 ### 3.7 login_attempt (로그인시도이력)
@@ -304,6 +340,11 @@ fds_rule
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `login_attempt_id`
+
+**CHECK 제약**
+```sql
+CONSTRAINT chk_login_attempt_success CHECK (login_attempt_success_yn IN ('T','F'))
+```
 
 ---
 
@@ -334,11 +375,19 @@ fds_rule
 
 **PK**: `session_id`
 
+**CHECK 제약**
+```sql
+CONSTRAINT chk_login_session_status CHECK (session_status_code IN ('ACTIVE','EXPIRED','LOGGED_OUT','FORCED_OUT')),
+CONSTRAINT chk_login_session_mfa    CHECK (session_mfa_completed_yn IN ('T','F'))
+```
+
 ---
 
 ### 3.9 api_token (API토큰)
 
 > 엔티티 테이블 — soft delete 적용. `token_revoked_at`으로 폐기 상태도 별도 관리.
+>
+> **팀 결정 필요:** `created_at`·`updated_at`·`updated_by`의 nullable 여부. ERD `isAllowNull: true` 기준으로 현재 nullable 유지 중이나, 다른 엔티티 테이블은 전부 `created_at NOT NULL`, `updated_at NOT NULL`임. 거래량이 높은 테이블이므로 NULL 허용 시 모니터링 쿼리 복잡도 증가. §6 참조.
 
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
@@ -362,6 +411,11 @@ fds_rule
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `token_id`
+
+**CHECK 제약**
+```sql
+CONSTRAINT chk_api_token_type CHECK (token_type_code IN ('ACCESS','REFRESH','OAUTH'))
+```
 
 ---
 
@@ -438,6 +492,11 @@ fds_rule
 
 **PK**: `fds_detection_id`
 
+**CHECK 제약**
+```sql
+CONSTRAINT chk_fds_detection_status CHECK (fds_detection_status_code IN ('PENDING','CONFIRMED','FALSE_POSITIVE'))
+```
+
 ---
 
 ### 3.13 fds_incident (FDS사고처리)
@@ -462,6 +521,11 @@ fds_rule
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `fds_incident_id`
+
+**CHECK 제약**
+```sql
+CONSTRAINT chk_fds_incident_fss_reported CHECK (fds_incident_fss_reported_yn IN ('T','F'))
+```
 
 ---
 
@@ -492,6 +556,11 @@ fds_rule
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
 
 **PK**: `identity_verification_id`
+
+**CHECK 제약**
+```sql
+CONSTRAINT chk_identity_verification_agency CHECK (identity_verification_agency_code IN ('NICE','KCB','SCI','PASS'))
+```
 
 ---
 
@@ -601,8 +670,8 @@ fds_rule
 | `pin` | `max_pin_login_failure_count` | `isAllowNull: true`이나 COMMENT `[NOT NULL, DEFAULT 5]` 표기 | NOT NULL, DEFAULT 5 적용 (§5.6 규칙) |
 | `certificate` | `cert_login_failure_count`, `max_cert_login_failure_count` | ERD `isAllowNull: true` — 이전 문서에서 NOT NULL + DEFAULT 오기재 | nullable로 수정, DEFAULT 제거 |
 | `registered_device` | `device_registered_ip` | `isAllowNull: true`이나 COMMENT `[NOT NULL]` 표기 | NOT NULL 적용 (§5.6 규칙) |
-| `api_token` | `created_at` | ERD `isAllowNull: true` (nullable) — 일반적이지 않으나 ERD 기준 준수 | nullable, DEFAULT `CURRENT_TIMESTAMP(3)` 유지 |
-| `api_token` | `updated_at`, `updated_by` | 이전 문서에서 누락 | 두 컬럼 추가 (nullable, ERD 기준) |
+| `api_token` | `created_at` | ERD `isAllowNull: true` (nullable) — 일반적이지 않으나 ERD 기준 준수 | nullable, DEFAULT `CURRENT_TIMESTAMP(3)` 유지. **팀 결정 대기** — NOT NULL 통일 여부 §3.9 참조 |
+| `api_token` | `updated_at`, `updated_by` | 이전 문서에서 누락 | 두 컬럼 추가 (nullable, ERD 기준). **팀 결정 대기** — NOT NULL 통일 여부 §3.9 참조 |
 
 ---
 
@@ -631,10 +700,15 @@ fds_rule
 
 ### 향후 연결 예정
 
-| 컬럼 | 현재 | 연결 대상 (예정) |
+| 컬럼 | 현재 타입 | 연결 대상 (예정) |
 |---|---|---|
-| `certificate_use.certificate_use_target_transaction_id` | FK 미설정 (soft reference) | 여신계·수신계 거래 테이블 |
-| `fds_detection.fds_detection_event_reference_id` | FK 미설정 (soft reference) | 거래계 이벤트 테이블 |
+| `certificate_use.certificate_use_target_transaction_id` | `VARCHAR(50)` | 여신계·수신계 거래 테이블 |
+| `fds_detection.fds_detection_event_reference_id` | `BIGINT` | 거래계 이벤트 테이블 |
+
+> **타입 통일 메모:** 거래계 구축 시 해당 컬럼의 타입을 거래계 PK 타입에 맞춰 통일해야 함.  
+> - `certificate_use_target_transaction_id VARCHAR(50)` — 거래계 PK가 `BIGINT GENERATED ALWAYS AS IDENTITY`이면 `BIGINT`로 변경 필요  
+> - `fds_detection_event_reference_id BIGINT` — 이벤트 테이블 PK 타입 확인 후 유지 또는 조정  
+> - 두 컬럼의 타입이 현재 불일치(`VARCHAR` vs `BIGINT`)하므로 거래계 설계 시 PK 타입을 먼저 확정하고 동시에 통일할 것
 
 ### 순환 참조 주의
 

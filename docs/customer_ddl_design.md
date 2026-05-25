@@ -1,7 +1,7 @@
 # 고객계 DDL 설계 문서
 
 > **DB**: PostgreSQL  
-> **최종 수정**: 2026-05-22  
+> **최종 수정**: 2026-05-26  
 > **테이블 수**: 13개
 
 ---
@@ -29,7 +29,7 @@
 | 3 | `customer` | 고객 | party 중 실제 거래 고객. party와 1:N 비식별 |
 | 4 | `party_person` | 개인관계자 | party 중 자연인 상세정보. party와 1:1 식별 |
 | 5 | `party_organization` | 기업관계자 | party 중 법인·비법인 상세정보. party와 1:1 식별 |
-| 6 | `foreigner_info` | 외국인정보 | party_person 중 외국인 추가정보. party와 1:1 식별 |
+| 6 | `foreigner_info` | 외국인정보 | party_person 중 외국인 추가정보. party_person과 1:1 식별 |
 | 7 | `tax_residency_info` | 납세거주정보 | party별 납세 거주지 정보. party와 1:N |
 | 8 | `compliance_info` | 컴플라이언스정보 | AML·KYC·FATCA·CRS 등 규제 정보. party와 1:1 식별 |
 | 9 | `party_role` | 관계자역할 | party가 수행하는 역할 이력. party와 1:N |
@@ -73,10 +73,10 @@ party
 | `fk_party_relation_from` | `party_relation.from_party_id` | `party.party_id` |
 | `fk_party_relation_to` | `party_relation.to_party_id` | `party.party_id` |
 | `fk_business_info_party` | `business_info.party_id` | `party.party_id` |
-| `fk_csh_customer` | `customer_status_history.customer_id` | `customer.customer_id` |
-| `fk_csh_self` | `customer_status_history.previous_customer_status_history_id` | `customer_status_history.customer_status_history_id` |
-| `fk_cgh_customer` | `customer_grade_history.customer_id` | `customer.customer_id` |
-| `fk_cgh_self` | `customer_grade_history.previous_customer_grade_history_id` | `customer_grade_history.customer_grade_history_id` |
+| `fk_customer_status_history_customer` | `customer_status_history.customer_id` | `customer.customer_id` |
+| `fk_customer_status_history_self` | `customer_status_history.previous_customer_status_history_id` | `customer_status_history.customer_status_history_id` |
+| `fk_customer_grade_history_customer` | `customer_grade_history.customer_id` | `customer.customer_id` |
+| `fk_customer_grade_history_self` | `customer_grade_history.previous_customer_grade_history_id` | `customer_grade_history.customer_grade_history_id` |
 
 ---
 
@@ -154,7 +154,7 @@ party
 | 개인정보보유기간만료일자 | `privacy_expiry_date` | `CHAR(8)` | | | closed_at + 5년 |
 | 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -177,7 +177,7 @@ CONSTRAINT chk_customer_lifecycle CHECK (
 | 관계자ID | `party_id` | `BIGINT` | ✅ | | PK + FK → party |
 | 주민등록번호 | `rrn_encrypted` | `VARCHAR(255)` | | | AES-256 암호화 |
 | CI값 | `ci_value` | `VARCHAR(88)` | | | 본인확인기관 연계정보 |
-| 내외국인구분코드 | `nationality_type_code` | `VARCHAR(10)` | | | DOMESTIC/FOREIGN |
+| 내외국인구분코드 | `nationality_type_code` | `VARCHAR(20)` | | | DOMESTIC/FOREIGN |
 | 국적코드 | `nationality_code` | `CHAR(3)` | | | ISO 3166 |
 | 생년월일 | `birth_date` | `CHAR(8)` | | | YYYYMMDD |
 | 성별코드 | `gender_code` | `CHAR(1)` | | | M/F/U |
@@ -196,7 +196,7 @@ CONSTRAINT chk_customer_lifecycle CHECK (
 | 사망일자 | `death_date` | `CHAR(8)` | | | 사망 시 party_role 자동 종료 트리거 |
 | 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -235,7 +235,7 @@ CONSTRAINT chk_party_person_pep CHECK (
 | 정관규약URL | `charter_url` | `VARCHAR(500)` | | | 파일 스토리지 URL |
 | 최초등록일시 | `created_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최초등록자ID | `created_by` | `BIGINT` | | | |
-| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | | |
+| 최종수정일시 | `updated_at` | `TIMESTAMPTZ(3)` | ✅ | `CURRENT_TIMESTAMP(3)` | |
 | 최종수정자ID | `updated_by` | `BIGINT` | | | |
 | 삭제일시 | `deleted_at` | `TIMESTAMPTZ(3)` | | | soft delete |
 | 삭제자ID | `deleted_by` | `BIGINT` | | | |
@@ -430,7 +430,7 @@ CONSTRAINT chk_party_relation_no_self CHECK (from_party_id != to_party_id)
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 고객상태이력ID | `customer_status_history_id` | `BIGINT` | ✅ | | PK |
-| 직전고객상태이력번호 | `previous_customer_status_history_id` | `BIGINT` | | | self-ref FK. 최초 등록은 NULL |
+| 직전고객상태이력ID | `previous_customer_status_history_id` | `BIGINT` | | | self-ref FK. 최초 등록은 NULL |
 | 고객ID | `customer_id` | `BIGINT` | ✅ | | FK → customer |
 | 고객상태코드 | `customer_status_code` | `VARCHAR(20)` | ✅ | | 변경 후 상태 |
 | 직전고객상태코드 | `previous_customer_status_code` | `VARCHAR(20)` | | | 변경 전 상태. 최초 등록은 NULL |
@@ -451,12 +451,12 @@ CONSTRAINT chk_party_relation_no_self CHECK (from_party_id != to_party_id)
 | 한글명 | 영문명 | 타입 | NOT NULL | 기본값 | 설명 |
 |---|---|---|:---:|---|---|
 | 고객등급이력ID | `customer_grade_history_id` | `BIGINT` | ✅ | | PK |
-| 직전고객등급이력번호 | `previous_customer_grade_history_id` | `BIGINT` | | | self-ref FK. 최초 등록은 NULL |
+| 직전고객등급이력ID | `previous_customer_grade_history_id` | `BIGINT` | | | self-ref FK. 최초 등록은 NULL |
 | 고객ID | `customer_id` | `BIGINT` | ✅ | | FK → customer |
 | 고객등급코드 | `customer_grade_code` | `VARCHAR(10)` | ✅ | | 변경 후 등급 (NORMAL/VIP/PB) |
 | 직전고객등급코드 | `previous_customer_grade_code` | `VARCHAR(10)` | | | 변경 전 등급. 최초 등록은 NULL |
 | 고객등급변경사유코드 | `customer_grade_change_reason_code` | `VARCHAR(20)` | ✅ | | INITIAL/PROMOTION/DEMOTION/MANUAL/PERIODIC |
-| 고객등급변경상세사유 | `customer_grade_change_detail` | `VARCHAR(500)` | | | 자유 텍스트 |
+| 고객등급변경상세사유 | `customer_grade_change_reason_detail` | `VARCHAR(500)` | | | 자유 텍스트 |
 | 고객등급발효일자 | `customer_grade_effective_start_date` | `CHAR(8)` | ✅ | | 이 등급이 적용되기 시작한 날짜 |
 | 고객등급종료일자 | `customer_grade_effective_end_date` | `CHAR(8)` | | | 활성 이력은 NULL |
 | 고객등급평가일시 | `customer_grade_evaluated_at` | `TIMESTAMPTZ(3)` | ✅ | | 등급 평가가 수행된 시점 |
