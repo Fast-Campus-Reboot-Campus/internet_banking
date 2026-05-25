@@ -14,6 +14,7 @@ type Product = {
   rate?: string
   isNew?: boolean
   canApply?: boolean
+  savingType?: 'FREE' | 'REGULAR'
 }
 
 const DEPOSIT_PRODUCTS: Product[] = [
@@ -62,6 +63,7 @@ const SAVINGS_PRODUCTS: Product[] = [
     period: '36개월 기준',
     rate: '연 2.95%~3.55%',
     canApply: true,
+    savingType: 'FREE',
   },
   {
     id: 'axful-dollar',
@@ -71,6 +73,7 @@ const SAVINGS_PRODUCTS: Product[] = [
     period: '6개월 기준',
     rate: '연 1%~7.2%',
     isNew: true,
+    savingType: 'FREE',
   },
   {
     id: 'axful-green',
@@ -80,6 +83,7 @@ const SAVINGS_PRODUCTS: Product[] = [
     period: '36개월 기준',
     rate: '연 2.85%~3.85%',
     canApply: true,
+    savingType: 'REGULAR',
   },
   {
     id: 'axful-soldier',
@@ -88,6 +92,7 @@ const SAVINGS_PRODUCTS: Product[] = [
     desc: '국군장병 미래대비 앞날준비',
     period: '24개월 기준',
     rate: '연 5%~10.5%',
+    savingType: 'REGULAR',
   },
   {
     id: 'axful-star-savings',
@@ -96,6 +101,7 @@ const SAVINGS_PRODUCTS: Product[] = [
     desc: '고객 모두의 높은 수익을 위한 특별한 준비',
     period: '1개월 기준',
     rate: '연 2%~6%',
+    savingType: 'REGULAR',
   },
 ]
 
@@ -190,6 +196,11 @@ type Tab = '예금' | '적금' | '입출금자유' | '주택청약'
 const TABS: Tab[] = ['예금', '적금', '입출금자유', '주택청약']
 
 const DEPOSIT_PRODUCT_TYPES = ['전체', '정기예금', '지수연동예금', '시장성예금']
+const SAVINGS_PRODUCT_TYPES = ['전체', '자유적금', '정기적금']
+const SAVING_TYPE_MAP: Record<string, 'FREE' | 'REGULAR'> = {
+  '자유적금': 'FREE',
+  '정기적금': 'REGULAR',
+}
 const JOIN_METHODS = ['전체', '인터넷뱅킹', '스타뱅킹', 'AXful Next', '영업점']
 const JOIN_PERIODS = ['전체', '3개월 미만', '3-6개월 미만', '6-12개월 미만', '12-24개월 미만', '24개월 이상']
 
@@ -207,10 +218,15 @@ export default function DepositListPage() {
     '입출금자유': CHECKING_PRODUCTS,
     '주택청약': HOUSING_PRODUCTS,
   }
-  const products = productsMap[tab]
+  const rawProducts = productsMap[tab]
+  const products =
+    tab === '적금' && productType !== '전체'
+      ? rawProducts.filter(p => p.savingType === SAVING_TYPE_MAP[productType])
+      : rawProducts
 
   const showPeriodFilter = tab === '예금' || tab === '적금'
-  const showProductTypeFilter = tab === '예금'
+  const showProductTypeFilter = tab === '예금' || tab === '적금'
+  const productTypeOptions = tab === '적금' ? SAVINGS_PRODUCT_TYPES : DEPOSIT_PRODUCT_TYPES
   const showHousingNote = tab === '주택청약'
 
   function handleTabChange(t: Tab) {
@@ -276,7 +292,7 @@ export default function DepositListPage() {
                 <>
                   <span className="text-kb-text font-semibold">• 상품유형</span>
                   <div className="flex items-center gap-5">
-                    {DEPOSIT_PRODUCT_TYPES.map(v => (
+                    {productTypeOptions.map(v => (
                       <label key={v} className="flex items-center gap-1.5 cursor-pointer">
                         <input type="radio" name="productType" checked={productType === v}
                           onChange={() => setProductType(v)} className="accent-kb-yellow" />
