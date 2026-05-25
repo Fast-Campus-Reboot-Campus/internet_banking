@@ -290,9 +290,9 @@ export const GNB_MENUS = [
         title: '대출',
         href: '/products/loan',
         items: [
-          { label: '대출상품/신청', href: '/products/loan' },
+          { label: '대출상품/신청', href: '/products/loan/credit' },
           { label: '대출진행현황', href: '/products/loan/status' },
-          { label: '대출관리', href: '/products/loan/manage' },
+          { label: '대출관리', href: '/products/loan/manage/rate' },
           { label: '대출 가이드', href: '/products/loan/guide' },
           { label: '신용평가 및 여신심사 자료제출', href: '/products/loan/credit' },
         ],
@@ -633,14 +633,14 @@ const PRODUCT_TAB_MENUS: Record<string, TabMenuColumn[]> = {
       { label: '개인사업자대출', href: '#' },
     ]},
     { title: '대출진행현황', href: '/products/loan/status', items: [
-      { label: '진행현황조회/실행/예약', href: '#' },
-      { label: '사후서류제출', href: '#' },
+      { label: '진행현황조회/실행/예약', href: '/products/loan/status' },
+      { label: '사후서류제출', href: '/products/loan/status/docs' },
       { label: '배우자정보제공동의', href: '#' },
       { label: '세대원정보제공동의', href: '#' },
       { label: '제3자담보정보제공동의', href: '#' },
       { label: '부동산담보대출 전자서명', href: '#' },
     ]},
-    { title: '대출관리', href: '/products/loan/manage', items: [
+    { title: '대출관리', href: '/products/loan/manage/rate', items: [
       { label: '적용금리조회', href: '#' },
       { label: '이자/월부금입금', href: '#' },
       { label: '대출상환', href: '#' },
@@ -958,7 +958,7 @@ export default function Header() {
           <div className="w-[3px] self-stretch bg-kb-yellow" />
           <div className="flex flex-col leading-none gap-1.5">
             <span className="text-[22px] font-bold text-kb-text tracking-[0.1em]">AX풀뱅크</span>
-            <span className="text-[14px] font-medium text-kb-text-body tracking-[0.08em]">AXful Bank</span>
+            <span className="text-[10px] font-medium text-kb-text-muted tracking-[0.22em] uppercase">AXFULL BANK</span>
           </div>
         </Link>
         <nav className="flex items-center ml-auto">

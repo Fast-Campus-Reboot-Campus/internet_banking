@@ -6,13 +6,11 @@ import { usePathname, useRouter } from 'next/navigation'
 // 로그인 없이 접근 가능한 경로 prefix
 const PUBLIC_PREFIXES = [
   '/login',
-  '/personal',
   '/banking',
   '/cert',
   '/cert-cps',
   '/cert-biz',
   '/products',
-  '/support',
   '/security-install',
 ]
 

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 
-type Child = { label: string; href: string }
+type Child = { label: string; href: string; disabled?: boolean }
 type SidebarItem = { label: string; expandable?: boolean; href?: string; children?: Child[] }
 
 const NAV: SidebarItem[] = [
@@ -27,9 +27,9 @@ const NAV: SidebarItem[] = [
     children: [
       { label: '진행현황조회/실행/예약', href: '/products/loan/status' },
       { label: '사후서류제출',           href: '/products/loan/status/docs' },
-      { label: '배우자정보제공동의',     href: '/products/loan/status/spouse' },
-      { label: '세대원정보제공동의',     href: '/products/loan/status/household' },
-      { label: '제3자담보정보제공동의',   href: '/products/loan/status/collateral' },
+      { label: '배우자정보제공동의',     href: '/products/loan/status/spouse',     disabled: true },
+      { label: '세대원정보제공동의',     href: '/products/loan/status/household',  disabled: true },
+      { label: '제3자담보정보제공동의',   href: '/products/loan/status/collateral', disabled: true },
       { label: '부동산담보대출 전자서명', href: '/products/loan/status/sign' },
     ],
   },
@@ -39,7 +39,7 @@ const NAV: SidebarItem[] = [
     children: [
       { label: '적용금리조회',                         href: '/products/loan/manage/rate' },
       { label: '이자/월부금입금',                       href: '/products/loan/manage/payment' },
-      { label: '대출상환',                             href: '/products/loan/manage/repay' },
+      { label: '대출금상환',                            href: '/products/loan/manage/repay' },
       { label: '대출계약철회 예상조회/완제',             href: '/products/loan/manage/withdraw' },
       { label: '대출한도변경/해지',                     href: '/products/loan/manage/limit' },
       { label: '기한연장',                             href: '/products/loan/manage/extend' },
@@ -140,16 +140,22 @@ export default function LoanSidebar() {
                   <ul className="mb-1">
                     {item.children?.map((child) => (
                       <li key={child.href}>
-                        <Link
-                          href={child.href}
-                          className={`block pl-5 pr-2 py-1.5 text-[12px] leading-snug transition-colors ${
-                            isActive(child.href)
-                              ? 'bg-kb-yellow font-semibold text-kb-text'
-                              : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
-                          }`}
-                        >
-                          {child.label}
-                        </Link>
+                        {child.disabled ? (
+                          <span className="block pl-5 pr-2 py-1.5 text-[12px] leading-snug text-kb-text-muted cursor-pointer select-none">
+                            {child.label}
+                          </span>
+                        ) : (
+                          <Link
+                            href={child.href}
+                            className={`block pl-5 pr-2 py-1.5 text-[12px] leading-snug transition-colors ${
+                              isActive(child.href)
+                                ? 'bg-kb-yellow font-semibold text-kb-text'
+                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                            }`}
+                          >
+                            {child.label}
+                          </Link>
+                        )}
                       </li>
                     ))}
                   </ul>
