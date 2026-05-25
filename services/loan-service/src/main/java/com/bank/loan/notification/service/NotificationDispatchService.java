@@ -12,6 +12,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -57,6 +58,19 @@ public class NotificationDispatchService {
     void init() {
         this.perRowWriter = new TransactionTemplate(txManager);
         this.perRowWriter.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
+    /**
+     * 5초마다 outbox 폴링 — PENDING/FAILED row 를 채널 어댑터로 발송.
+     * fixedDelay: 이전 실행 완료 후 5초 대기 (동시 실행 방지).
+     */
+    @Scheduled(fixedDelay = 5_000)
+    public void scheduledDispatch() {
+        NotificationDispatchSummary result = dispatch(DEFAULT_PAGE_SIZE);
+        if (result.processed() > 0) {
+            log.info("[noti-dispatch] scheduled: total={} sent={} failed={} dead={}",
+                    result.processed(), result.sent(), result.failed(), result.dead());
+        }
     }
 
     public NotificationDispatchSummary dispatch() {

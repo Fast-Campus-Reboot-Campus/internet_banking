@@ -36,7 +36,7 @@ public class NotificationOutbox extends BaseEntity {
     public static final String STATUS_FAILED  = "FAILED";
     public static final String STATUS_DEAD    = "DEAD";
 
-    public static final int DEFAULT_MAX_ATTEMPT = 5;
+    public static final int DEFAULT_MAX_ATTEMPT = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

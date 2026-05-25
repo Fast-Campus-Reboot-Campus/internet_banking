@@ -14,14 +14,17 @@ import com.bank.loan.execution.repository.LoanExecutionRepository;
 import com.bank.loan.guaranteeinsurance.domain.GuaranteeInsurance;
 import com.bank.loan.guaranteeinsurance.repository.GuaranteeInsuranceRepository;
 import com.bank.loan.guarantor.service.GuarantorPolicyValidator;
-import com.bank.loan.notification.event.LoanDisbursedEvent;
+import com.bank.loan.notification.channel.KafkaChannelAdapter;
+import com.bank.loan.notification.channel.StubEmailAdapter;
+import com.bank.loan.notification.channel.StubKakaoAdapter;
+import com.bank.loan.notification.channel.StubSmsAdapter;
+import com.bank.loan.notification.outbox.NotificationOutboxAppender;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
 import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
 import com.bank.loan.schedule.service.RepaymentScheduleService;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +54,7 @@ public class LoanExecutionService {
     private static final String TARGET_CONTRACT = "LOAN_CONTRACT";
     private static final String DEFAULT_CURRENCY = "KRW";
     private static final String REASON_FIRST_DRAWDOWN = "FIRST_DRAWDOWN";
+    private static final String EVENT_LOAN_DISBURSED  = "LOAN_DISBURSED";
 
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
@@ -60,9 +64,9 @@ public class LoanExecutionService {
     private final RepaymentAccountRepository repaymentAccountRepository;
     private final GuaranteeInsuranceRepository guaranteeInsuranceRepository;
     private final RepaymentScheduleService repaymentScheduleService;
+    private final NotificationOutboxAppender outboxAppender;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoanExecutionResponse drawdown(Long cntrId, DrawdownRequest req, String idempotencyKey) {
@@ -142,10 +146,16 @@ public class LoanExecutionService {
             ));
             repaymentScheduleService.generateForFirstDrawdown(contract);
 
-            eventPublisher.publishEvent(new LoanDisbursedEvent(
-                    contract.getCntrId(), contract.getCntrNo(),
-                    contract.getCustomerId(), requested
-            ));
+            // 순수 Outbox 패턴: 도메인 저장과 동일 트랜잭션 안에서 outbox INSERT.
+            // 서버 크래시 시에도 loan_execution row 와 outbox row 가 함께 commit/rollback 된다.
+            // idempotencyKey = "LOAN_DISBURSED:{cntrId}:{channelCd}" — DB UNIQUE 제약으로 중복 차단.
+            String payload = String.format(
+                    "{\"cntrId\":%d,\"cntrNo\":\"%s\",\"customerId\":%d,\"executedAmount\":%d}",
+                    contract.getCntrId(), contract.getCntrNo(), contract.getCustomerId(), requested);
+            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), KafkaChannelAdapter.CHANNEL_CD, payload);
+            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubSmsAdapter.CHANNEL_CD, payload);
+            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubKakaoAdapter.CHANNEL_CD, payload);
+            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubEmailAdapter.CHANNEL_CD, payload);
         }
 
         long cumul = drawnSoFar + requested;
