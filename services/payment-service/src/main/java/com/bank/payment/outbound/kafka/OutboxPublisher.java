@@ -2,6 +2,7 @@ package com.bank.payment.outbound.kafka;
 
 import com.bank.payment.domain.OutboxMessage;
 import com.bank.payment.domain.mapper.OutboxMessageMapper;
+import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -30,6 +31,7 @@ public class OutboxPublisher {
     private final KafkaTemplate<String, String> bokKafkaTemplate;
     private final KafkaTemplate<String, String> internalKafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final PaymentOrchestrator orchestrator;
 
     public OutboxPublisher(
             OutboxMessageMapper outboxMessageMapper,
@@ -37,13 +39,15 @@ public class OutboxPublisher {
             @Qualifier("kftcKafkaTemplate") KafkaTemplate<String, String> kftcKafkaTemplate,
             @Qualifier("bokKafkaTemplate") KafkaTemplate<String, String> bokKafkaTemplate,
             @Qualifier("internalKafkaTemplate") KafkaTemplate<String, String> internalKafkaTemplate,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            PaymentOrchestrator orchestrator) {
         this.outboxMessageMapper = outboxMessageMapper;
         this.transactionHelper = transactionHelper;
         this.kftcKafkaTemplate = kftcKafkaTemplate;
         this.bokKafkaTemplate = bokKafkaTemplate;
         this.internalKafkaTemplate = internalKafkaTemplate;
         this.objectMapper = objectMapper;
+        this.orchestrator = orchestrator;
     }
 
     @Scheduled(fixedDelay = 1000)
@@ -81,11 +85,34 @@ public class OutboxPublisher {
         } catch (ExecutionException e) {
             String lastError = truncate(e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
             log.error("Outbox 발행 실패: messageId={}, topic={}, error={}", messageId, topicName, lastError, e);
-            transactionHelper.markFailed(messageId, lastError);
+            if ("KFTC_REQUEST_SENT".equals(eventType)) {
+                triggerF4Compensation(piId, messageId, lastError);
+            } else {
+                transactionHelper.markFailed(messageId, lastError);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("Outbox 발행 인터럽트: messageId={}", messageId, e);
-            transactionHelper.markFailed(messageId, "INTERRUPTED");
+            if ("KFTC_REQUEST_SENT".equals(eventType)) {
+                triggerF4Compensation(piId, messageId, "INTERRUPTED");
+            } else {
+                transactionHelper.markFailed(messageId, "INTERRUPTED");
+            }
+        }
+    }
+
+    /**
+     * F4 KFTC 송신실패 자동보상 트리거. KFTC_REQUEST_SENT 발행 실패 시에만 호출.
+     * 보상 성공/실패와 무관하게 예외를 루프 밖으로 던지지 않아 다른 Outbox 레코드 격리 유지.
+     */
+    private void triggerF4Compensation(String piId, String messageId, String lastError) {
+        log.error("[F4] KFTC 송신 실패 → 자동보상 트리거. piId={} err={}", piId, lastError);
+        try {
+            orchestrator.processPublishFailure(piId, lastError);
+            transactionHelper.markFailed(messageId, lastError);
+        } catch (Exception ce) {
+            log.error("[F4] 보상 실패 — 수동개입 필요. piId={}", piId, ce);
+            transactionHelper.markFailed(messageId, "COMPENSATION_FAILED: " + truncate(ce.getMessage()));
         }
     }
 

@@ -23,6 +23,7 @@ import com.bank.payment.outbound.feign.dto.BalanceTxData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,9 @@ public class PaymentTransactionService {
 
     private static final DateTimeFormatter CLEARING_AT_FMT =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+    @Value("${payment.timeout.kftc-clearing-minutes:5}")
+    private int kftcClearingTimeoutMinutes;
 
     private final PaymentInstructionMapper paymentInstructionMapper;
     private final IdempotencyKeyMapper idempotencyKeyMapper;
@@ -376,6 +380,9 @@ public class PaymentTransactionService {
         statusHistoryMapper.insert(StatusHistory.of(
                 idGenerator.nextHistoryId(), piId, (maxSeq2 == null ? 0 : maxSeq2) + 1,
                 "PROCESSING", "CLEARING", "KFTC_REQUEST_SENT", "SYSTEM", now));
+
+        // 9-1. F6 폴링워커용 타임아웃 세팅 (CLEARING 전이 직후, 같은 TX 내. version 불간섭)
+        paymentInstructionMapper.updateNextTimeoutAt(piId, now.plusMinutes(kftcClearingTimeoutMinutes));
 
         // 10. Outbox (KFTC_REQUEST_SENT, PENDING) — 워커가 kftc.network.request로 비동기 발행
         String payload;
@@ -743,22 +750,44 @@ public class PaymentTransactionService {
      * @param pi CLEARING 상태 PI (version=3). WHERE version=3, DB version→4
      * @param version WHERE 조건 버전 (freshPi.getVersion()=3)
      * @param rejectMessage 거절메시지 (reason_message 박제용)
-     * @param triggeredBy 트리거주체 (F2='KFTC', F3='BOK')
-     * @param reasonCode 사유코드 (F2='E2001', F3=rejectCode)
+     * @param triggeredBy 트리거주체 (F2='KFTC', F3='BOK', F4='SYSTEM')
+     * @param reasonCode 사유코드 (F2='E2001', F3=rejectCode, F4='PUBLISH_FAILURE')
      */
     @Transactional
     public void txMarkReversingFromClearing(PaymentInstruction pi, Integer version,
                                             String rejectMessage, String triggeredBy, String reasonCode) {
+        txMarkReversingFromClearing(pi, version, rejectMessage, triggeredBy, reasonCode, null);
+    }
+
+    /**
+     * F4 전용 오버로드: 원인이벤트(causeEventType) 1건을 REVERSING 전이 이력 앞에 삽입.
+     * F2/F3는 5-파라미터 버전 사용(causeEventType 불필요, 동작 불변).
+     * @param causeEventType 원인이벤트 (F4='KFTC_REQUEST_FAILED'). null이면 미삽입.
+     */
+    @Transactional
+    public void txMarkReversingFromClearing(PaymentInstruction pi, Integer version,
+                                            String rejectMessage, String triggeredBy, String reasonCode,
+                                            String causeEventType) {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
 
         int updated = paymentInstructionMapper.updateStatus(piId, "REVERSING", null, null, version);
         if (updated == 0) {
-            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(REVERSING/F2F3): " + piId);
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(REVERSING/F2F3F4): " + piId);
         }
 
         Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
         int seq = (maxSeq == null ? 0 : maxSeq) + 1;
+
+        // 원인 이벤트 (F4: KFTC_REQUEST_FAILED, CLEARING→CLEARING 자기전이). F2/F3는 null → 미삽입.
+        if (causeEventType != null) {
+            statusHistoryMapper.insert(StatusHistory.of(
+                    idGenerator.nextHistoryId(), piId, seq,
+                    "CLEARING", "CLEARING", causeEventType, "SYSTEM",
+                    reasonCode, rejectMessage, now));
+            seq++;
+        }
+
         statusHistoryMapper.insert(StatusHistory.of(
                 idGenerator.nextHistoryId(), piId, seq,
                 "CLEARING", "REVERSING", "REVERSAL_STARTED", triggeredBy,
@@ -784,7 +813,10 @@ public class PaymentTransactionService {
             WithdrawCancelData cancelResult,
             String rejectCode,
             String rejectMessage,
-            String clearingNo) {
+            String clearingNo,
+            String reversalReason,
+            String failureCategory,
+            String outboxFailureCategory) {
 
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
@@ -821,7 +853,7 @@ public class PaymentTransactionService {
                 origOut.getAccountNoSnap(), origOut.getHolderNameSnap(),
                 origOut.getAmount(), r01BalanceBefore, r01BalanceAfter,
                 origOut.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 출금취소 역분개", "KFTC_REJECTION");
+                now, "타행이체 출금취소 역분개", reversalReason);
         ledgerMapper.insert(r01);
 
         // R03: KB-CLR-0xx DEBIT REVERSAL_CLEARING_PENDING (jn1 — 원분개와 동일 journal_no)
@@ -831,7 +863,7 @@ public class PaymentTransactionService {
                 origClr.getAccountId(), origClr.getAccountNoSnap(), origClr.getHolderNameSnap(),
                 origClr.getAmount(),
                 origClr.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 청산대기 역분개", "KFTC_REJECTION");
+                now, "타행이체 청산대기 역분개", reversalReason);
         ledgerMapper.insert(r03);
 
         // ★ JN-1역 차대변 검증 (P-014): R03(DEBIT) == R01(CREDIT)
@@ -848,7 +880,7 @@ public class PaymentTransactionService {
                 origFee.getAccountNoSnap(), origFee.getHolderNameSnap(),
                 origFee.getAmount(),
                 origFee.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 수수료 역분개", "KFTC_REJECTION");
+                now, "타행이체 수수료 역분개", reversalReason);
         ledgerMapper.insert(r02);
 
         // R04: KB-FEE-001 DEBIT REVERSAL_FEE_INCOME (jn2 — 원분개와 동일 journal_no)
@@ -857,7 +889,7 @@ public class PaymentTransactionService {
                 origFeeInc.getLedgerId(), origFeeInc.getJournalNo(),
                 origFeeInc.getAmount(),
                 origFeeInc.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 수수료수익 역분개", "KFTC_REJECTION");
+                now, "타행이체 수수료수익 역분개", reversalReason);
         ledgerMapper.insert(r04);
 
         // ★ JN-2역 차대변 검증 (P-014): R04(DEBIT) == R02(CREDIT)
@@ -867,9 +899,9 @@ public class PaymentTransactionService {
                             + " ≠ CREDIT " + r02.getAmount() + " (PI " + piId + ")");
         }
 
-        // PI REVERSING → FAILED (낙관락, failure_category='KFTC_REJECTED' — V1 CHECK 기존값)
+        // PI REVERSING → FAILED (낙관락, failure_category — V1 CHECK 기존값)
         int updated = paymentInstructionMapper.updateStatus(
-                piId, "FAILED", now, "KFTC_REJECTED", version);
+                piId, "FAILED", now, failureCategory, version);
         if (updated == 0) {
             throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(FAILED/F2): " + piId);
         }
@@ -880,21 +912,21 @@ public class PaymentTransactionService {
         statusHistoryMapper.insert(StatusHistory.of(
                 idGenerator.nextHistoryId(), piId, seq,
                 "REVERSING", "FAILED", "PAYMENT_FAILED", "SYSTEM",
-                "E2001", rejectMessage, now));
+                rejectCode, rejectMessage, now));
 
         // CT REQUESTED → REJECTED
         clearingTransactionMapper.updateRejected(piId, rejectCode, rejectMessage);
 
         // Outbox PAYMENT_REVERSED
-        // ★ payload.failureCategory='EXTERNAL_REJECTION' (시나리오 시트8 Outbox 스펙)
-        //   PI.failure_category='KFTC_REJECTED' (V1 CHECK 기존값)과 레이어별로 다름
+        // ★ payload.failureCategory (시나리오 시트8 Outbox 스펙)
+        //   PI.failure_category (V1 CHECK 기존값)과 레이어별로 다름
         String payload;
         try {
             payload = objectMapper.writeValueAsString(Map.of(
                     "paymentInstructionNo", piId,
                     "originalAmount", pi.getTransferAmount(),
                     "fee", pi.getFeeAmount(),
-                    "failureCategory", "EXTERNAL_REJECTION",
+                    "failureCategory", outboxFailureCategory,
                     "failureCode", rejectCode,
                     "failureMessage", rejectMessage,
                     "reversedLedgers", List.of(
@@ -910,7 +942,7 @@ public class PaymentTransactionService {
         // 멱등키 FAILED (원 요청 재시도 방지)
         idempotencyKeyMapper.updateStatus(pi.getIdempotencyKey(), "FAILED", payload);
 
-        return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "KFTC_REJECTED", now);
+        return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", failureCategory, now);
     }
 
     /**

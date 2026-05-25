@@ -41,4 +41,26 @@ public interface PaymentOrchestrator {
      */
     PaymentResult processBokReject(PaymentInstruction freshPi, String bokReferenceNo,
                                     String rejectCode, String rejectMessage, String rejectedAt);
+
+    /**
+     * F4 KFTC 송신실패 자동보상. Outbox 워커가 KFTC_REQUEST_SENT 발행 실패 시 호출.
+     * F2형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
+     * reversal_reason=PUBLISH_FAILURE / failure_category=SYSTEM_ERROR.
+     * @param piId 결제지시번호 (Outbox 레코드에서 추출)
+     * @param lastError 발행 실패 오류 메시지 (OutboxPublisher.truncate 적용된 값)
+     * @return FAILED 결제결과 (보상 불가 시 null)
+     */
+    PaymentResult processPublishFailure(String piId, String lastError);
+
+    /**
+     * F7 KFTC 정산실패 자동보상. SETTLEMENT_NOTIFY responseCode != "0000" 수신 시 호출.
+     * F4형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
+     * reversal_reason=SETTLEMENT_FAILURE / failure_category=SYSTEM_ERROR.
+     * PI=COMPLETED(정상완결 후 뒤늦은 실패통보)는 보상 안 함 — 정책 시트6 케이스3 "범위 외/운영자".
+     * @param clearingNo KFTC 청산식별번호 (CT 조회키)
+     * @param responseCode KFTC responseCode (예: 'E9001')
+     * @param rejectMessage KFTC 정산실패 메시지
+     * @return FAILED 결제결과 (보상 불가 시 null)
+     */
+    PaymentResult processSettlementFailure(String clearingNo, String responseCode, String rejectMessage);
 }

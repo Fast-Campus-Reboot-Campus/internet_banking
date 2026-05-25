@@ -6,6 +6,7 @@ import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.common.exception.PaymentValidationException;
 import com.bank.payment.domain.ExternalCall;
+import com.bank.payment.domain.KftcClearingTransaction;
 import com.bank.payment.domain.Ledger;
 import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.outbound.feign.DepositAccountClient;
@@ -431,7 +432,8 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         // TX-2: 역분개4건 + FAILED + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
         return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, clearingNo);
+                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, clearingNo,
+                "KFTC_REJECTION", "KFTC_REJECTED", "EXTERNAL_REJECTION");
     }
 
     // ── F3: BOK 거절 보상 ────────────────────────────────────────────────────
@@ -486,6 +488,139 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
         return txService.txCompleteBokRejectReversal(
                 freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, bokReferenceNo);
+    }
+
+    // ── F4: KFTC 송신실패 자동보상 ──────────────────────────────────────────────
+
+    /**
+     * F4 KFTC 송신실패 보상. OutboxPublisher가 KFTC_REQUEST_SENT send 실패 시 호출.
+     * F2형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
+     * reversal_reason=PUBLISH_FAILURE / PI.failure_category=SYSTEM_ERROR.
+     */
+    @Override
+    public PaymentResult processPublishFailure(String piId, String lastError) {
+        PaymentInstruction freshPi = txService.selectById(piId);
+        if (freshPi == null) {
+            log.error("[F4] PI 조회 실패, 보상 불가. piId={}", piId);
+            return null;
+        }
+
+        String status = freshPi.getStatus();
+
+        // 이중보상 가드
+        if ("FAILED".equals(status) || "CANCELED".equals(status)) {
+            log.info("[F4] 이중보상 가드: 이미 처리됨. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if ("REVERSING".equals(status)) {
+            log.info("[F4] 이중보상 가드: 보상 진행중. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if (!"CLEARING".equals(status)) {
+            log.warn("[F4] 예상치 못한 상태, skip. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+
+        String rejectMsg = "KFTC 송신 실패: " + (lastError != null ? lastError : "");
+        if (rejectMsg.length() > 200) {
+            rejectMsg = rejectMsg.substring(0, 197) + "...";
+        }
+
+        // TX-1: CLEARING→CLEARING(KFTC_REQUEST_FAILED) + CLEARING→REVERSING(REVERSAL_STARTED)
+        txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMsg, "SYSTEM", "PUBLISH_FAILURE", "KFTC_REQUEST_FAILED");
+        Integer tx2Version = freshPi.getVersion() + 1;
+
+        // B-5: 출금취소 (TX 밖)
+        ExternalCall originalWithdrawCall = txService.selectOriginalWithdrawCall(piId);
+        ExternalCall existingCancelCall   = txService.selectExistingCancelCall(piId);
+
+        WithdrawCancelData cancelResult = null;
+        if (existingCancelCall != null) {
+            log.info("[F4] B-5 이미 수행됨, skip 재호출. piId={}", piId);
+        } else {
+            String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
+            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+        }
+
+        // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
+        List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
+        return txService.txCompleteKftcRejectReversal(
+                freshPi, tx2Version, originals, cancelResult,
+                "PUBLISH_FAILURE", rejectMsg, null,
+                "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE");
+    }
+
+    // ── F7: KFTC 정산실패 자동보상 ──────────────────────────────────────────────
+
+    /**
+     * F7 KFTC 정산실패 보상. SETTLEMENT_NOTIFY responseCode != "0000" 수신 시 호출.
+     * F4형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
+     * reversal_reason=SETTLEMENT_FAILURE / PI.failure_category=SYSTEM_ERROR.
+     */
+    @Override
+    public PaymentResult processSettlementFailure(String clearingNo, String responseCode, String rejectMessage) {
+        KftcClearingTransaction ct = txService.selectByClearingNo(clearingNo);
+        if (ct == null) {
+            log.warn("[F7] CT 조회 실패, 보상 불가. clearingNo={}", clearingNo);
+            return null;
+        }
+        String piId = ct.getOurPaymentInstructionId();
+        PaymentInstruction freshPi = txService.selectById(piId);
+        if (freshPi == null) {
+            log.error("[F7] PI 조회 실패, 보상 불가. piId={}", piId);
+            return null;
+        }
+
+        String status = freshPi.getStatus();
+
+        // 이중보상 가드
+        if ("FAILED".equals(status) || "CANCELED".equals(status)) {
+            log.info("[F7] 이중보상 가드: 이미 처리됨. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if ("REVERSING".equals(status)) {
+            log.info("[F7] 이중보상 가드: 보상 진행중. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        // 정상완결 후 뒤늦은 실패통보 — 정책 시트6 케이스3 "범위 외/운영자" (P-014)
+        if ("COMPLETED".equals(status)) {
+            log.warn("[F7] PI 이미 COMPLETED(범위 외), 보상 skip. piId={}", piId);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if (!"CLEARING".equals(status)) {
+            log.warn("[F7] 예상치 못한 상태, skip. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+
+        String rejectMsg = "KFTC 정산실패: " + (rejectMessage != null && !rejectMessage.isEmpty() ? rejectMessage : responseCode);
+        if (rejectMsg.length() > 200) {
+            rejectMsg = rejectMsg.substring(0, 197) + "...";
+        }
+
+        // TX-1: CLEARING→CLEARING(KFTC_SETTLEMENT_FAILED) + CLEARING→REVERSING(REVERSAL_STARTED)
+        txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMsg, "SYSTEM", "SETTLEMENT_FAILURE", "KFTC_SETTLEMENT_FAILED");
+        Integer tx2Version = freshPi.getVersion() + 1;
+
+        // B-5: 출금취소 (TX 밖)
+        ExternalCall originalWithdrawCall = txService.selectOriginalWithdrawCall(piId);
+        ExternalCall existingCancelCall   = txService.selectExistingCancelCall(piId);
+
+        WithdrawCancelData cancelResult = null;
+        if (existingCancelCall != null) {
+            log.info("[F7] B-5 이미 수행됨, skip 재호출. piId={}", piId);
+        } else {
+            String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
+            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+        }
+
+        // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
+        List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
+        return txService.txCompleteKftcRejectReversal(
+                freshPi, tx2Version, originals, cancelResult,
+                "SETTLEMENT_FAILURE", rejectMsg, clearingNo,
+                "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE");
     }
 
     /**

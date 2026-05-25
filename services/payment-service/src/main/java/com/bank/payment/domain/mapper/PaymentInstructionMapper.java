@@ -4,6 +4,7 @@ import com.bank.payment.domain.PaymentInstruction;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface PaymentInstructionMapper {
 
@@ -20,4 +21,9 @@ public interface PaymentInstructionMapper {
     void updateReceiverHolderSnap(@Param("paymentInstructionId") String paymentInstructionId,
                                   @Param("receiverHolderNameSnap") String receiverHolderNameSnap,
                                   @Param("holderInquiryAt") LocalDateTime holderInquiryAt);
+
+    void updateNextTimeoutAt(@Param("piId") String piId,
+                             @Param("nextTimeoutAt") LocalDateTime nextTimeoutAt);
+
+    List<PaymentInstruction> selectTimedOut();
 }

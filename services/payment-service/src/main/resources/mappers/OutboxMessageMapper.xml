@@ -23,6 +23,8 @@
     </update>
 
     <update id="markFailed">
+        <!-- available_at +5분: 의도적 미사용 — selectPending은 PENDING만 조회하므로 FAILED 레코드는 재선택 안 됨.
+             재시도는 F4 보상으로 대체되었으며 재시도 정책 자체는 별도 과제로 관리. -->
         UPDATE outbox_message
         SET publish_status   = 'FAILED',
             last_error       = #{lastError},

@@ -81,9 +81,6 @@ public class KftcNetworkResponseConsumer {
             case "SETTLEMENT_NOTIFY": {
                 String clearingNo = payload.path("clearingNo").asText();
                 String responseCode = payload.path("responseCode").asText();
-                if (!"0000".equals(responseCode)) {
-                    log.warn("[KFTC] SETTLEMENT_NOTIFY 비정상 responseCode: {} clearingNo={}", responseCode, clearingNo);
-                }
                 KftcClearingTransaction ct = txService.selectByClearingNo(clearingNo);
                 if (ct == null) {
                     log.error("[KFTC] SETTLEMENT_NOTIFY CT 없음, skip. clearingNo={}", clearingNo);
@@ -103,10 +100,17 @@ public class KftcNetworkResponseConsumer {
                     log.warn("[KFTC] SETTLEMENT_NOTIFY CLEARING 아닌 상태, skip. piId={} status={}", piId, pi.getStatus());
                     break;
                 }
-                String settledAt = payload.path("settledAt").asText();
-                String settlementDate = settledAt.length() >= 8 ? settledAt.substring(0, 8) : null;
-                txService.txSettlement(pi, clearingNo, settledAt, settlementDate);
-                log.info("[KFTC] SETTLEMENT_NOTIFY 처리완료. piId={} CLEARING→COMPLETED", piId);
+                if ("0000".equals(responseCode)) {
+                    String settledAt = payload.path("settledAt").asText();
+                    String settlementDate = settledAt.length() >= 8 ? settledAt.substring(0, 8) : null;
+                    txService.txSettlement(pi, clearingNo, settledAt, settlementDate);
+                    log.info("[KFTC] SETTLEMENT_NOTIFY 처리완료. piId={} CLEARING→COMPLETED", piId);
+                } else {
+                    // F7: 정산실패 통보 — 상태 가드(COMPLETED skip / !CLEARING skip) 통과(=CLEARING) 후 진입
+                    String rejectMessage = payload.path("rejectMessage").asText();
+                    log.error("[F7] KFTC 정산실패 통보 수신 → 자동보상. clearingNo={} responseCode={}", clearingNo, responseCode);
+                    orchestrator.processSettlementFailure(clearingNo, responseCode, rejectMessage);
+                }
                 break;
             }
             default:

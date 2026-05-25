@@ -33,6 +33,9 @@ management:
 
 payment:
   bank-code: ${BANK_CODE:A}
+  timeout:
+    kftc-clearing-minutes: ${PAYMENT_TIMEOUT_KFTC_CLEARING_MINUTES:5}
+    poll-interval-ms: ${PAYMENT_TIMEOUT_POLL_INTERVAL_MS:10000}
   kafka:
     kftc:
       bootstrap-servers: ${KFTC_KAFKA_BOOTSTRAP:localhost:9092}
