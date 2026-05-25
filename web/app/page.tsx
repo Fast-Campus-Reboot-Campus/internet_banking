@@ -6,13 +6,13 @@ import { useState, useEffect, useRef } from 'react'
 // ── 메인 헤더 ──
 function MainHeader() {
   return (
-    <header className="bg-white">
-      <div className="max-w-kb-container mx-auto px-6 flex items-center justify-between h-[70px]">
+    <header className="bg-white border-b border-kb-border">
+      <div className="max-w-kb-container mx-auto px-6 flex items-center justify-between h-[60px]">
         <Link href="/" className="flex items-center gap-3">
           <div className="w-[3px] self-stretch bg-kb-yellow" />
-          <div className="flex flex-col leading-none gap-1.5">
+          <div className="flex flex-col leading-none gap-1">
             <span className="text-[22px] font-bold text-kb-text tracking-[0.1em]">AX풀뱅크</span>
-            <span className="text-[14px] font-medium text-kb-text-body tracking-[0.08em]">AXful Bank</span>
+            <span className="text-[10px] font-medium text-kb-text-muted tracking-[0.22em] uppercase">AXFULL BANK</span>
           </div>
         </Link>
         <nav className="flex items-center gap-0 text-body">

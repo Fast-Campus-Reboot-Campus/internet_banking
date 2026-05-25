@@ -1,6 +1,7 @@
 # AX풀뱅크 — 인터넷뱅킹 프론트엔드 클론
 
-AX풀뱅크(AXFUL BANK) 인터넷뱅킹 UI를 구현한 Next.js 프론트엔드 프로젝트입니다.
+국민은행 인터넷뱅킹 UI를 벤치마킹한 Next.js 프론트엔드 프로젝트입니다.  
+브랜드명·컬러·문구는 **AX풀뱅크(AXFULL BANK)** 로 픽션화되어 있으며, KB국민은행 표기는 사용하지 않습니다.
 
 ---
 
@@ -23,7 +24,7 @@ AX풀뱅크(AXFUL BANK) 인터넷뱅킹 UI를 구현한 Next.js 프론트엔드 
 | Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
 | Styling | Tailwind CSS v3 (JIT) |
-| Font-family| Noto Sans KR, -apple-system, sans-serif |
+| Font | Noto Sans KR |
 | 상태관리 | React `useState` / `useEffect` (로컬) |
 | 인증 시뮬레이션 | `localStorage` JWT 파싱 |
 | 패키지 매니저 | npm |
@@ -43,22 +44,18 @@ npm run dev
 npm run build
 ```
 
-개발 서버 실행 후 [http://localhost:3001](http://localhost:3001) 접속.
+개발 서버 실행 후 [http://localhost:3000](http://localhost:3000) 접속.
 
 ### 테스트 계정 (로컬 모의)
 
-| 항목 | 값 |
-|------|----|
-| 이메일 | test@axfulbank.com |
-| 비밀번호 | password123 |
-| 이름 | 홍길동 |
+로그인 페이지(`/login`)에서 아무 아이디/비밀번호나 입력하면 `localStorage`에 모의 JWT가 저장되고 개인홈으로 이동합니다.
 
 ---
 
 ## 디렉토리 구조
 
 ```
-web/
+kb-clone/
 ├── app/
 │   ├── (personal)/          # 개인뱅킹 라우트 그룹 (공통 레이아웃 적용)
 │   │   ├── layout.tsx       # Header + FloatingSidebar 포함
@@ -79,35 +76,8 @@ web/
 │   │   ├── support/         # 고객센터
 │   │   ├── manage/          # 증명서 발급 등
 │   │   └── settings/
-│   ├── (admin)/             # 관리자 라우트 그룹
-│   │   └── admin/
-│   │       ├── login/       # 관리자 로그인
-│   │       ├── dashboard/   # 대시보드
-│   │       ├── customers/   # 고객 목록
-│   │       ├── members/     # 회원 목록
-│   │       │   └── [id]/    # 회원 상세
-│   │       ├── member-status/  # 회원 상태 관리
-│   │       ├── applicants/  # 신청자 관리
-│   │       ├── screening/   # 심사
-│   │       ├── id-verify/   # 본인인증 관리
-│   │       ├── face-routing/ # 대면 라우팅
-│   │       ├── duplicates/  # 중복 회원 관리
-│   │       ├── minor/       # 미성년자 관리
-│   │       ├── edd/         # EDD (강화된 고객확인)
-│   │       ├── fatca/       # FATCA 관리
-│   │       ├── agent/       # AI 에이전트
-│   │       ├── join-stats/  # 가입 통계
-│   │       ├── marketing-stats/ # 마케팅 통계
-│   │       ├── campaigns/   # 캠페인 관리
-│   │       ├── banners/     # 배너 관리
-│   │       ├── events/      # 이벤트 관리
-│   │       │   └── new/     # 이벤트 등록
-│   │       ├── winners/     # 당첨자 관리
-│   │       ├── terms/       # 약관 관리
-│   │       ├── consent-log/ # 동의 이력
-│   │       └── audit-log/   # 감사 로그
 │   ├── page.tsx             # 루트 → /personal 리다이렉트
-│   └── globals.css          # Tailwind 베이스 + 공통 컴포넌트 클래스
+│   └── globals.css          # Tailwind 베이스 + KB 공통 컴포넌트 클래스
 │
 ├── components/
 │   ├── layout/
@@ -131,11 +101,12 @@ web/
 │   │   ├── HeroWithQuickMenu.tsx
 │   │   └── ProductShowcase.tsx
 │   ├── biz/                 # 기업홈 전용 컴포넌트
-│   ├── admin/               # 어드민 전용 컴포넌트
+│   ├── admin/               # 어드민 전용
 │   └── ui/
 │       └── button.tsx
 │
-└── tailwind.config.ts       # 디자인 토큰 정의
+├── tailwind.config.ts       # 디자인 토큰 정의
+└── app/globals.css          # 공통 컴포넌트 클래스 (.btn, .input, .card 등)
 ```
 
 ---
@@ -413,9 +384,10 @@ import LoanSidebar from '@/components/inquiry/LoanSidebar'
 
 ### 브랜드 규칙
 
-- 브랜드명은 **AX풀뱅크 / AXful Bank** 로 통일합니다.
+- **"KB국민은행"** 문구는 절대 사용하지 않습니다.
+- 브랜드명은 **AX풀뱅크 / AXFULL BANK** 로 통일합니다.
 - 뱅킹 앱 이름은 **AXful 스타뱅킹** 입니다.
-- 전화번호: `1588-0000` (대표)
+- 전화번호: `1588-9999` (대표), `1800-9500` (신규상담)
 
 ### 컬러 규칙
 
