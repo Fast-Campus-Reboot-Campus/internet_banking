@@ -87,7 +87,32 @@ public class LoanClosure extends BaseEntity {
     @Column(name = "clos_doc_hash", length = 128)
     private String closDocHash;
 
+    @Column(name = "write_off_amount")
+    private Long writeOffAmount;
+
+    @Column(name = "subrogation_amount")
+    private Long subrogationAmount;
+
+    @Column(name = "subrogation_party_ref", length = 200)
+    private String subrogationPartyRef;
+
+    @Column(name = "write_off_reason_cd", length = 50)
+    private String writeOffReasonCd;
+
     public static boolean requiresZeroBalance(String type) {
         return TYPE_NORMAL.equals(type) || TYPE_EARLY.equals(type);
+    }
+
+    /** SUBROGATION 시에만 보증보험·연대보증인 사전조건 검증. */
+    public static boolean requiresGuaranteeCheck(String type) {
+        return TYPE_SUBROGATION.equals(type);
+    }
+
+    public static boolean isWriteOff(String type) {
+        return TYPE_WRITE_OFF.equals(type);
+    }
+
+    public static boolean isSubrogation(String type) {
+        return TYPE_SUBROGATION.equals(type);
     }
 }

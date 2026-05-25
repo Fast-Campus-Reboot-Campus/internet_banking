@@ -18,7 +18,11 @@ public record LoanClosureResponse(
         String closDate,
         OffsetDateTime closedAt,
         String closDocUrl,
-        String closDocHash
+        String closDocHash,
+        Long writeOffAmount,
+        Long subrogationAmount,
+        String subrogationPartyRef,
+        String writeOffReasonCd
 ) {
     public static LoanClosureResponse of(LoanClosure c) {
         return new LoanClosureResponse(
@@ -27,7 +31,9 @@ public record LoanClosureResponse(
                 c.getFinalPrincipalAmt(), c.getFinalInterestAmt(),
                 c.getFinalFeeAmt(), c.getPrepaymentFeeAmt(), c.getTotalSettledAmt(),
                 c.getClosDate(), c.getClosedAt(),
-                c.getClosDocUrl(), c.getClosDocHash()
+                c.getClosDocUrl(), c.getClosDocHash(),
+                c.getWriteOffAmount(), c.getSubrogationAmount(),
+                c.getSubrogationPartyRef(), c.getWriteOffReasonCd()
         );
     }
 }

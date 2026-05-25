@@ -23,6 +23,9 @@ public record CloseLoanRequest(
         @Min(0) Long prepaymentFeeAmt,
 
         @Size(max = 500) String closureDocUrl,
-        @Size(max = 128) String closureDocHash
+        @Size(max = 128) String closureDocHash,
+
+        @Size(max = 200) String subrogationPartyRef,
+        @Size(max = 50)  String writeOffReasonCd
 ) {
 }
