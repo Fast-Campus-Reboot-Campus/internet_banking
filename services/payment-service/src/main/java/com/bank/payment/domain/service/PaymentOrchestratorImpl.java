@@ -4,6 +4,8 @@ import com.bank.payment.common.BankCodeMapper;
 import com.bank.payment.common.IdGenerator;
 import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.common.exception.LedgerInsertFailureException;
+import com.bank.payment.common.exception.PaymentCancelConflictException;
+import com.bank.payment.common.exception.PaymentNotFoundException;
 import com.bank.payment.common.exception.PaymentValidationException;
 import com.bank.payment.domain.ExternalCall;
 import com.bank.payment.domain.KftcClearingTransaction;
@@ -621,6 +623,81 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 freshPi, tx2Version, originals, cancelResult,
                 "SETTLEMENT_FAILURE", rejectMsg, clearingNo,
                 "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE");
+    }
+
+    // ── F6-Ⅱ-2: 운영자 강제취소 ──────────────────────────────────────────────────
+
+    /**
+     * 운영자 강제취소. CLEARING 상태만 허용. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 + CT REJECTED.
+     * reversal_reason=OPERATOR / failure_category=SYSTEM_ERROR / triggered_by=OPERATOR / operator_id 박제.
+     */
+    @Override
+    public PaymentResult processOperatorCancel(String piId, String operatorId, String reason) {
+        PaymentInstruction freshPi = txService.selectById(piId);
+        if (freshPi == null) {
+            throw new PaymentNotFoundException(piId);
+        }
+
+        String status = freshPi.getStatus();
+        if (!"CLEARING".equals(status)) {
+            throw new PaymentCancelConflictException(status);
+        }
+
+        // TX-1: CLEARING→CLEARING(OPERATOR_CANCEL_DECIDED, OPERATOR, operatorId)
+        //       + CLEARING→REVERSING(REVERSAL_STARTED, OPERATOR, operatorId)
+        txService.txMarkReversingFromClearing(
+                freshPi, freshPi.getVersion(),
+                reason, "OPERATOR", "OPERATOR", "OPERATOR_CANCEL_DECIDED", operatorId);
+        Integer tx2Version = freshPi.getVersion() + 1;
+
+        // B-5: 출금취소 (TX 밖, reason=OPERATOR_CANCEL)
+        ExternalCall originalWithdrawCall = txService.selectOriginalWithdrawCall(piId);
+        ExternalCall existingCancelCall   = txService.selectExistingCancelCall(piId);
+
+        WithdrawCancelData cancelResult = null;
+        if (existingCancelCall != null) {
+            log.info("[F6] B-5 이미 수행됨, skip 재호출. piId={}", piId);
+        } else {
+            String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
+            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
+            cancelResult = performWithdrawCancelOperator(piId, freshPi, originalCallId, depositTxNo);
+        }
+
+        // TX-2: 역분개4건(OPERATOR) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
+        List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
+        return txService.txCompleteKftcRejectReversal(
+                freshPi, tx2Version, originals, cancelResult,
+                "OPERATOR",     // rejectCode (CT reject_code 및 status_history reason_code)
+                reason,         // rejectMessage (운영자 사유)
+                null,           // clearingNo (CT는 piId로 조회하므로 불사용)
+                "OPERATOR",     // reversalReason (역분개4 reversal_reason)
+                "SYSTEM_ERROR", // failureCategory (PI.failure_category)
+                "OPERATOR",     // outboxFailureCategory (Outbox payload)
+                "OPERATOR",     // triggeredBy (REVERSING→FAILED 이력 triggered_by)
+                operatorId);    // operatorId
+    }
+
+    /**
+     * B-5 출금취소 호출 (운영자 취소 전용, reason=OPERATOR_CANCEL).
+     * performWithdrawCancelForReject와 동일 패턴, reason만 다름.
+     */
+    private WithdrawCancelData performWithdrawCancelOperator(
+            String piId, PaymentInstruction pi, String originalCallId, String depositTxNo) {
+        String callIdemKey = piId + "-BALANCE_WITHDRAW_CANCEL-SENDER-1";
+        long amount = pi.getTransferAmount().longValueExact();
+
+        WithdrawCancelRequest request = new WithdrawCancelRequest(
+                depositTxNo,
+                pi.getSenderAccountId(),
+                amount,
+                "OPERATOR_CANCEL",
+                piId);
+
+        DepositResponse<WithdrawCancelData> resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
+        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
+                "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
+                originalCallId);
+        return resp.data();
     }
 
     /**

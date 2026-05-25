@@ -756,7 +756,7 @@ public class PaymentTransactionService {
     @Transactional
     public void txMarkReversingFromClearing(PaymentInstruction pi, Integer version,
                                             String rejectMessage, String triggeredBy, String reasonCode) {
-        txMarkReversingFromClearing(pi, version, rejectMessage, triggeredBy, reasonCode, null);
+        txMarkReversingFromClearing(pi, version, rejectMessage, triggeredBy, reasonCode, null, null);
     }
 
     /**
@@ -768,6 +768,19 @@ public class PaymentTransactionService {
     public void txMarkReversingFromClearing(PaymentInstruction pi, Integer version,
                                             String rejectMessage, String triggeredBy, String reasonCode,
                                             String causeEventType) {
+        txMarkReversingFromClearing(pi, version, rejectMessage, triggeredBy, reasonCode, causeEventType, null);
+    }
+
+    /**
+     * F6-Ⅱ: operatorId 포함 실제 구현체.
+     * 5/6-파라미터 오버로드는 operatorId=null로 위임. F6-Ⅱ-2 운영자 취소는 operatorId 전달.
+     * @param causeEventType 원인이벤트 (F4='KFTC_REQUEST_FAILED', null이면 미삽입)
+     * @param operatorId 운영자ID (triggered_by='OPERATOR'일 때 NOT NULL 강제 — DB CHECK)
+     */
+    @Transactional
+    public void txMarkReversingFromClearing(PaymentInstruction pi, Integer version,
+                                            String rejectMessage, String triggeredBy, String reasonCode,
+                                            String causeEventType, String operatorId) {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
 
@@ -779,19 +792,20 @@ public class PaymentTransactionService {
         Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
         int seq = (maxSeq == null ? 0 : maxSeq) + 1;
 
-        // 원인 이벤트 (F4: KFTC_REQUEST_FAILED, CLEARING→CLEARING 자기전이). F2/F3는 null → 미삽입.
+        // 원인 이벤트 (F4: KFTC_REQUEST_FAILED, 운영자: OPERATOR_CANCEL_DECIDED). F2/F3는 null → 미삽입.
+        // triggeredBy/operatorId를 그대로 관통 (F4=SYSTEM/null, 운영자=OPERATOR/operatorId).
         if (causeEventType != null) {
             statusHistoryMapper.insert(StatusHistory.of(
                     idGenerator.nextHistoryId(), piId, seq,
-                    "CLEARING", "CLEARING", causeEventType, "SYSTEM",
-                    reasonCode, rejectMessage, now));
+                    "CLEARING", "CLEARING", causeEventType, triggeredBy,
+                    reasonCode, rejectMessage, operatorId, now));
             seq++;
         }
 
         statusHistoryMapper.insert(StatusHistory.of(
                 idGenerator.nextHistoryId(), piId, seq,
                 "CLEARING", "REVERSING", "REVERSAL_STARTED", triggeredBy,
-                reasonCode, rejectMessage, now));
+                reasonCode, rejectMessage, operatorId, now));
     }
 
     /**
@@ -817,6 +831,31 @@ public class PaymentTransactionService {
             String reversalReason,
             String failureCategory,
             String outboxFailureCategory) {
+        return txCompleteKftcRejectReversal(pi, version, originals, cancelResult,
+                rejectCode, rejectMessage, clearingNo, reversalReason,
+                failureCategory, outboxFailureCategory, "SYSTEM", null);
+    }
+
+    /**
+     * F6-Ⅱ: triggeredBy/operatorId 포함 실제 구현체.
+     * 10-파라미터 오버로드는 ("SYSTEM", null)로 위임. F6-Ⅱ-2 운영자 취소는 ("OPERATOR", operatorId) 전달.
+     * @param triggeredBy PAYMENT_FAILED 이력의 트리거주체 (F2='SYSTEM', 운영자='OPERATOR')
+     * @param operatorId 운영자ID (triggered_by='OPERATOR'일 때 NOT NULL 강제 — DB CHECK)
+     */
+    @Transactional
+    public PaymentResult txCompleteKftcRejectReversal(
+            PaymentInstruction pi,
+            Integer version,
+            List<Ledger> originals,
+            WithdrawCancelData cancelResult,
+            String rejectCode,
+            String rejectMessage,
+            String clearingNo,
+            String reversalReason,
+            String failureCategory,
+            String outboxFailureCategory,
+            String triggeredBy,
+            String operatorId) {
 
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
@@ -906,13 +945,13 @@ public class PaymentTransactionService {
             throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(FAILED/F2): " + piId);
         }
 
-        // StatusHistory 1건: REVERSING→FAILED, PAYMENT_FAILED, SYSTEM
+        // StatusHistory 1건: REVERSING→FAILED, PAYMENT_FAILED (triggeredBy/operatorId 파라미터화)
         Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
         int seq = (maxSeq == null ? 0 : maxSeq) + 1;
         statusHistoryMapper.insert(StatusHistory.of(
                 idGenerator.nextHistoryId(), piId, seq,
-                "REVERSING", "FAILED", "PAYMENT_FAILED", "SYSTEM",
-                rejectCode, rejectMessage, now));
+                "REVERSING", "FAILED", "PAYMENT_FAILED", triggeredBy,
+                rejectCode, rejectMessage, operatorId, now));
 
         // CT REQUESTED → REJECTED
         clearingTransactionMapper.updateRejected(piId, rejectCode, rejectMessage);

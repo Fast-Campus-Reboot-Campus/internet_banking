@@ -63,4 +63,16 @@ public interface PaymentOrchestrator {
      * @return FAILED 결제결과 (보상 불가 시 null)
      */
     PaymentResult processSettlementFailure(String clearingNo, String responseCode, String rejectMessage);
+
+    /**
+     * F6-Ⅱ-2 운영자 강제취소. CLEARING 상태만 허용. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 + CT REJECTED.
+     * reversal_reason=OPERATOR / failure_category=SYSTEM_ERROR / triggered_by=OPERATOR / operator_id 박제.
+     * @param piId 결제지시번호
+     * @param operatorId 운영자ID (상태이력 operator_id, DB CHECK 필수)
+     * @param reason 취소 사유 (reason_message 박제)
+     * @throws com.bank.payment.common.exception.PaymentNotFoundException PI 미존재 시 (→ 404)
+     * @throws com.bank.payment.common.exception.PaymentCancelConflictException CLEARING 아닌 상태 시 (→ 409)
+     * @return FAILED 결제결과
+     */
+    PaymentResult processOperatorCancel(String piId, String operatorId, String reason);
 }

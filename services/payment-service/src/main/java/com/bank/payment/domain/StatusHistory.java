@@ -111,6 +111,21 @@ public class StatusHistory {
             String previousStatus, String nextStatus, String eventType,
             String triggeredBy, String reasonCode, String reasonMessage,
             LocalDateTime eventOccurredAt) {
+        return of(historyId, paymentInstructionId, sequenceInPayment,
+                previousStatus, nextStatus, eventType,
+                triggeredBy, reasonCode, reasonMessage, null, eventOccurredAt);
+    }
+
+    /**
+     * 상태이력 생성 — operatorId 포함 11-파라미터 오버로드.
+     * F6-Ⅱ: triggered_by='OPERATOR' 시 operator_id NOT NULL (chk_status_history_operator_consistency).
+     * 기존 8/10-param은 operatorId=null로 위임.
+     */
+    public static StatusHistory of(
+            String historyId, String paymentInstructionId, Integer sequenceInPayment,
+            String previousStatus, String nextStatus, String eventType,
+            String triggeredBy, String reasonCode, String reasonMessage,
+            String operatorId, LocalDateTime eventOccurredAt) {
         return StatusHistory.builder()
                 .historyId(historyId)
                 .paymentInstructionId(paymentInstructionId)
@@ -121,6 +136,7 @@ public class StatusHistory {
                 .triggeredBy(triggeredBy)
                 .reasonCode(reasonCode)
                 .reasonMessage(reasonMessage)
+                .operatorId(operatorId)
                 .eventOccurredAt(eventOccurredAt)
                 .build();
     }

@@ -1,16 +1,20 @@
 package com.bank.payment.api;
 
+import com.bank.payment.api.dto.OperatorCancelRequest;
 import com.bank.payment.api.dto.PaymentRequest;
 import com.bank.payment.api.dto.PaymentResponse;
 import com.bank.payment.domain.service.PaymentCommand;
 import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.bank.payment.domain.service.PaymentResult;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 /**
  * 결제 API. POST /api/v1/payments.
@@ -68,5 +72,33 @@ public class PaymentController {
             return ResponseEntity.accepted().body(response);
         }
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 운영자 강제취소. CLEARING 상태 PI만 허용.
+     * 404: PI 없음. 409: CLEARING 아닌 상태. 400: operatorId/reason 빈값.
+     */
+    @PostMapping("/{piId}/operator-cancel")
+    public ResponseEntity<?> operatorCancel(
+            @PathVariable String piId,
+            @RequestBody OperatorCancelRequest request) {
+
+        if (request.operatorId() == null || request.operatorId().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "operatorId는 필수값입니다"));
+        }
+        if (request.reason() == null || request.reason().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "reason은 필수값입니다"));
+        }
+
+        PaymentResult result = paymentOrchestrator.processOperatorCancel(
+                piId, request.operatorId(), request.reason());
+
+        return ResponseEntity.ok(new PaymentResponse(
+                result.paymentInstructionId(),
+                result.transactionNo(),
+                result.status(),
+                result.completedAt(),
+                result.failureCategory()
+        ));
     }
 }
