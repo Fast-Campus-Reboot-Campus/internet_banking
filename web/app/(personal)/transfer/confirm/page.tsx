@@ -47,6 +47,14 @@ export default function TransferConfirmPage() {
       const next = [...pin, key]
       setPin(next)
       if (next.length === 6) {
+        if (data) {
+          const now = new Date()
+          const pad = (n: number) => String(n).padStart(2, '0')
+          const datetime = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())}\n${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+          const entry = { id: Date.now().toString(), datetime, bank: data.toBank, account: data.toAccount, receiver: data.receiverName, amount: data.amount, memo: '' }
+          const prev = JSON.parse(localStorage.getItem('transferHistory') || '[]')
+          localStorage.setItem('transferHistory', JSON.stringify([entry, ...prev]))
+        }
         setTimeout(() => {
           setShowCertModal(false)
           router.push('/transfer/result')

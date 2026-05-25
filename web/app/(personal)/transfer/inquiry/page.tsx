@@ -21,6 +21,7 @@ export default function TransferInquiryPage() {
   const [useCounter, setUseCounter] = useState(false)
   const [searched, setSearched] = useState(false)
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set())
+  const [results, setResults] = useState(MOCK_RESULTS)
 
   function toggleRow(id: string) {
     setCheckedRows(prev => {
@@ -31,10 +32,10 @@ export default function TransferInquiryPage() {
   }
 
   function toggleAll(checked: boolean) {
-    setCheckedRows(checked ? new Set(MOCK_RESULTS.map(r => r.id)) : new Set())
+    setCheckedRows(checked ? new Set(results.map(r => r.id)) : new Set())
   }
 
-  const allChecked = checkedRows.size === MOCK_RESULTS.length
+  const allChecked = results.length > 0 && checkedRows.size === results.length
 
   const displayFrom = startDate.length === 8
     ? `${startDate.slice(0,4)}.${startDate.slice(4,6)}.${startDate.slice(6,8)}`
@@ -193,7 +194,11 @@ export default function TransferInquiryPage() {
             </table>
             <div className="flex justify-center py-4 border-t border-kb-border">
               <button
-                onClick={() => setSearched(true)}
+                onClick={() => {
+                  const history = JSON.parse(localStorage.getItem('transferHistory') || '[]')
+                  setResults([...history, ...MOCK_RESULTS])
+                  setSearched(true)
+                }}
                 className="bg-kb-yellow px-10 py-2 text-[13px] font-bold text-kb-text hover:brightness-95"
               >
                 조회
@@ -230,7 +235,7 @@ export default function TransferInquiryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_RESULTS.map(row => (
+                    {results.map(row => (
                       <tr key={row.id} className="hover:bg-kb-beige-light">
                         <td className="border border-kb-border px-2 py-3 text-center">
                           <input type="checkbox" checked={checkedRows.has(row.id)} onChange={() => toggleRow(row.id)} className="w-4 h-4" />
@@ -257,7 +262,7 @@ export default function TransferInquiryPage() {
                     </button>
                   ))}
                   <span className="ml-2 text-[12px] text-kb-text-muted">
-                    현재 1-{MOCK_RESULTS.length}건 / {MOCK_RESULTS.length}건
+                    현재 1-{results.length}건 / {results.length}건
                   </span>
                 </div>
               </div>
