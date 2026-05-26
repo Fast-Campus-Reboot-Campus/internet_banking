@@ -62,8 +62,8 @@ springdoc:
 
 jwt:
   secret: ${JWT_SECRET:dev-secret-key-please-change-in-production-min-32-chars-long}
-  access-token-validity: 1800000   # 30분 (밀리초)
-  refresh-token-validity: 86400000 # 24시간 (밀리초)
+  access-token-validity: 600000   # 10분 (밀리초)
+  refresh-token-validity: 3600000 # 1시간 (밀리초)
 
 logging:
   file:
