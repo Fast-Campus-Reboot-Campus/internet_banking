@@ -2,6 +2,7 @@ package com.bank.loan;
 
 import com.bank.loan.accounting.repository.DailyAccountingSummaryRepository;
 import com.bank.loan.accounting.repository.MonthlyAccountingSummaryRepository;
+import com.bank.loan.ecl.repository.LoanEclSummaryRepository;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.delinquency.repository.OverdueAccrualRepository;
@@ -56,6 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   100) EOM run baseMonth=203502 → COMPLETED + 합계 적재
  *   101) EOM 동일 baseMonth 재실행 → SKIPPED
  *   102) EOM baseMonth 형식 오류 → 400
+ *   103) EOM 후 ECL 산출 — A(Stage 1) + B(Stage 2, 연체 STAGE_0)
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanEodJobTest extends AbstractLoanIntegrationTest {
@@ -70,6 +72,8 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     private DailyAccountingSummaryRepository accountingSummaryRepository;
     @Autowired
     private MonthlyAccountingSummaryRepository monthlySummaryRepository;
+    @Autowired
+    private LoanEclSummaryRepository eclRepository;
 
     private static final String CNTR_START_DATE = "20350101";
     private static final String EOD_DUE_DATE    = "20350201";  // 납기일 당일
@@ -295,6 +299,29 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     void EOM_baseMonth_형식오류_400() throws Exception {
         mockMvc.perform(post("/api/internal/eom/run").param("baseMonth", "2035-02"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(103)
+    void EOM_후_ECL_산출_Stage1_정상_Stage2_연체() {
+        // EOM 잡이 monthlyAccountingSummaryStep + eclCalculationStep 모두 실행함
+        var rowsByCntr = eclRepository.findBySummaryMonthOrderByCntrIdAsc("203502");
+        // A·B 각 1행
+        assertThat(rowsByCntr).hasSizeGreaterThanOrEqualTo(2);
+
+        var aRow = rowsByCntr.stream().filter(r -> r.getCntrId().equals(cntrIdA)).findFirst().orElseThrow();
+        var bRow = rowsByCntr.stream().filter(r -> r.getCntrId().equals(cntrIdB)).findFirst().orElseThrow();
+
+        // A: 자동이체로 1회차 PAID, 연체 없음 → IFRS STAGE_1, PD=50bps
+        assertThat(aRow.getIfrsStageCd()).isEqualTo("STAGE_1");
+        assertThat(aRow.getPdBps()).isEqualTo(50);
+        assertThat(aRow.getEcl()).isGreaterThanOrEqualTo(0L);
+
+        // B: 4일 연체 (STAGE_0) → IFRS STAGE_2, PD=200bps
+        assertThat(bRow.getIfrsStageCd()).isEqualTo("STAGE_2");
+        assertThat(bRow.getPdBps()).isEqualTo(200);
+        assertThat(bRow.getEcl()).isGreaterThan(0L);
+        // B 의 ECL 이 A 보다 큼 (연체 가중치)
+        assertThat(bRow.getEcl()).isGreaterThan(aRow.getEcl());
     }
 
     @Test @Order(90)
