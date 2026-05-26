@@ -44,11 +44,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   25) A 연체 이자 발생행 없음
  *   30) 동일 baseDate=20350201 재실행 → SKIPPED (JobInstanceAlreadyComplete)
  *   40) baseDate 형식 오류 → 400
- *   50) EOD 이력 조회: baseDate 필터 → COMPLETED 1건, 스텝 7개
+ *   50) EOD 이력 조회: baseDate 필터 → COMPLETED 1건, 스텝 8개
  *   51) from/to 매칭 없으면 빈 배열
  *   60) restart 미존재 baseDate → NOT_FOUND
  *   61) restart COMPLETED 잡 → REJECTED
  *   70) 잡 종료 알림 outbox 적재 — COMPLETED 잡마다 LOAN_EOD_COMPLETED 1건
+ *   80) notificationFlushStep — outbox 상당수가 SENT 로 전이됨
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanEodJobTest extends AbstractLoanIntegrationTest {
@@ -199,9 +200,9 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].baseDate").value(EOD_DUE_DATE))
                 .andExpect(jsonPath("$.data[0].status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data[0].steps.length()").value(7))
+                .andExpect(jsonPath("$.data[0].steps.length()").value(8))
                 .andExpect(jsonPath("$.data[0].steps[0].stepName").value("interestAccrualStep"))
-                .andExpect(jsonPath("$.data[0].steps[6].stepName").value("maturityStep"));
+                .andExpect(jsonPath("$.data[0].steps[7].stepName").value("notificationFlushStep"));
     }
 
     @Test @Order(51)
@@ -245,6 +246,16 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
         assertThat(sample.getPayload()).contains("\"baseDate\"");
         assertThat(sample.getPayload()).contains("\"status\":\"COMPLETED\"");
         assertThat(sample.getPayload()).contains("\"steps\"");
+    }
+
+    @Test @Order(80)
+    void notificationFlushStep_outbox_SENT_전이() {
+        // notificationFlushStep 이 EOD 마지막에 돌면서 PENDING 을 SENT 로 보낸다.
+        // stub 어댑터(SMS/Email/Kakao) 는 항상 성공 → 대부분 SENT.
+        // Kafka 는 testcontainers 라 정상 발행. 따라서 SENT 건수가 양수여야 한다.
+        var sentPage = outboxRepository.findByStatusAndDeletedAtIsNull(
+                "SENT", PageRequest.of(0, 200));
+        assertThat(sentPage.getContent()).isNotEmpty();
     }
 
     // ──────────────────────────────────────────────────────────────
