@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -8,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import Base, engine, get_db
-from app.kafka import KafkaEventPublisher
+from app.kafka import KafkaEventConsumer, KafkaEventPublisher
 from app.llm import LlmHandoffAdapter
 from app.schemas import (
     AgentConnectRequest,
@@ -29,19 +31,45 @@ from app.schemas import (
 )
 from app.services import ChatbotService, ChatService, _chat_status, _SENDER_LABEL
 
+logger = logging.getLogger(__name__)
+
 settings = get_settings()
 events = KafkaEventPublisher(settings)
+consumer = KafkaEventConsumer(settings)
 llm = LlmHandoffAdapter()
 static_dir = Path(__file__).resolve().parents[1] / "static"
+
+
+async def _kafka_consume_loop() -> None:
+    """카프카 이벤트를 수신해서 로그로 출력하는 백그라운드 루프."""
+    try:
+        async for message in consumer:
+            event_type = message.get("eventType", "UNKNOWN")
+            payload = message.get("payload", {})
+            logger.info("[Kafka] event=%s payload=%s", event_type, payload)
+    except asyncio.CancelledError:
+        pass
+    except Exception as exc:
+        logger.exception("[Kafka] consumer loop 오류: %s", exc)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     await events.start()
+    await consumer.start(
+        topics=[
+            settings.kafka_topic_chatbot_events,
+            settings.kafka_topic_chat_events,
+        ],
+        group_id="consultation-service",
+    )
+    consume_task = asyncio.create_task(_kafka_consume_loop())
     try:
         yield
     finally:
+        consume_task.cancel()
+        await consumer.stop()
         await events.stop()
 
 
