@@ -48,6 +48,7 @@ loan:
   batch:
     eod-cron: "${LOAN_EOD_CRON:0 0 1 * * *}"  # 기본 새벽 1시 KST
     eom-cron: "${LOAN_EOM_CRON:0 0 3 1 * *}"  # 기본 매월 1일 03:00 KST
+    calendar-seed-cron: "${LOAN_CALENDAR_SEED_CRON:0 0 4 1 12 *}"  # 기본 매년 12월 1일 04:00 KST
   document:
     storage-dir: ${LOAN_DOCUMENT_STORAGE_DIR:./storage/loan-documents}
   # 외부 신용평가(가심사) 엔진 어댑터 선택
