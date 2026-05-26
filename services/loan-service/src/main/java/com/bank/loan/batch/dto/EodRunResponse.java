@@ -17,4 +17,12 @@ public record EodRunResponse(
     public static EodRunResponse alreadyRun(String baseDate, Long jobExecutionId) {
         return new EodRunResponse(baseDate, "SKIPPED", jobExecutionId, "해당 baseDate 는 이미 처리되었습니다");
     }
+
+    public static EodRunResponse restartRejected(String baseDate, Long jobExecutionId, String reason) {
+        return new EodRunResponse(baseDate, "REJECTED", jobExecutionId, reason);
+    }
+
+    public static EodRunResponse restartNotFound(String baseDate) {
+        return new EodRunResponse(baseDate, "NOT_FOUND", null, "해당 baseDate 의 JobExecution 이 없습니다");
+    }
 }

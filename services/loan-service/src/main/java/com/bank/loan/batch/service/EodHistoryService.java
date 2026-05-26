@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * EOD 잡 실행 이력 조회 (Spring Batch JobExplorer 기반).
@@ -30,6 +31,24 @@ public class EodHistoryService {
     private static final int MAX_INSTANCES = 200;
 
     private final JobExplorer jobExplorer;
+
+    /**
+     * 특정 baseDate 의 가장 최근 JobExecution 을 반환.
+     * 재처리 (restart) 가능 여부 판단용.
+     */
+    public Optional<JobExecution> findLastExecution(String baseDate) {
+        List<JobInstance> instances = jobExplorer.getJobInstances(JOB_NAME, 0, MAX_INSTANCES);
+        for (JobInstance inst : instances) {
+            List<JobExecution> execs = jobExplorer.getJobExecutions(inst);
+            if (execs.isEmpty()) continue;
+            // JobExplorer.getJobExecutions 는 최신순 (생성 역순)
+            JobExecution last = execs.get(0);
+            if (baseDate.equals(last.getJobParameters().getString("baseDate"))) {
+                return Optional.of(last);
+            }
+        }
+        return Optional.empty();
+    }
 
     public List<EodHistoryResponse> list(String from, String to) {
         List<JobInstance> instances = jobExplorer.getJobInstances(JOB_NAME, 0, MAX_INSTANCES);
