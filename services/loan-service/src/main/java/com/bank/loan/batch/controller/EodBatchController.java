@@ -1,7 +1,9 @@
 package com.bank.loan.batch.controller;
 
 import com.bank.common.web.ApiResponse;
+import com.bank.loan.batch.dto.EodHistoryResponse;
 import com.bank.loan.batch.dto.EodRunResponse;
+import com.bank.loan.batch.service.EodHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Pattern;
@@ -17,10 +19,13 @@ import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteExcep
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Tag(name = "EOD 배치", description = "LoanEodJob — 일마감 배치 수동 트리거 (internal)")
 @Slf4j
@@ -33,6 +38,7 @@ public class EodBatchController {
     private final JobLauncher jobLauncher;
     @Qualifier("loanEodJob")
     private final Job loanEodJob;
+    private final EodHistoryService historyService;
 
     @Operation(summary = "EOD 일마감 배치 실행",
             description = "baseDate 기준으로 이자발생 → 자동이체 → 연체롤오버 → 승인만료 순서로 실행한다. " +
@@ -60,5 +66,15 @@ public class EodBatchController {
             log.warn("[EOD] baseDate={} 잡 실행 거부: {}", baseDate, e.getMessage());
             return ApiResponse.ok(EodRunResponse.failed(baseDate, null, e.getMessage()));
         }
+    }
+
+    @Operation(summary = "EOD 실행 이력 조회",
+            description = "loanEodJob 의 JobExecution 이력을 최신순으로 반환한다. " +
+                          "from/to (YYYYMMDD) 가 주어지면 baseDate 가 그 범위에 있는 실행만 반환한다.")
+    @GetMapping("/history")
+    public ApiResponse<List<EodHistoryResponse>> history(
+            @RequestParam(value = "from", required = false) @Pattern(regexp = "\\d{8}") String from,
+            @RequestParam(value = "to",   required = false) @Pattern(regexp = "\\d{8}") String to) {
+        return ApiResponse.ok(historyService.list(from, to));
     }
 }
