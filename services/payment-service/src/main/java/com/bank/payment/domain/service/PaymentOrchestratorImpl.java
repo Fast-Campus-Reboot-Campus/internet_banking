@@ -7,6 +7,7 @@ import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.common.exception.PaymentCancelConflictException;
 import com.bank.payment.common.exception.PaymentNotFoundException;
 import com.bank.payment.common.exception.PaymentValidationException;
+import com.bank.payment.domain.BokSettlementTransaction;
 import com.bank.payment.domain.ExternalCall;
 import com.bank.payment.domain.KftcClearingTransaction;
 import com.bank.payment.domain.Ledger;
@@ -686,6 +687,82 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 freshPi, tx2Version, originals, cancelResult,
                 "SETTLEMENT_FAILURE", rejectMsg, clearingNo,
                 "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE");
+    }
+
+    // ── F7 BOK: 정산실패 자동보상 ────────────────────────────────────────────────
+
+    /**
+     * F7 BOK 정산실패 보상. SETTLEMENT_COMPLETED responseCode != "0000" 수신 시 호출.
+     * F3형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + BST REJECTED.
+     * reversal_reason=SETTLEMENT_FAILURE / PI.failure_category=SYSTEM_ERROR.
+     */
+    @Override
+    public PaymentResult processBokSettlementFailure(String bokReferenceNo, String responseCode, String rejectMessage) {
+        BokSettlementTransaction bst = txService.selectByBokReferenceNo(bokReferenceNo);
+        if (bst == null) {
+            log.warn("[BOK-F7] BST 조회 실패, 보상 불가. bokReferenceNo={}", bokReferenceNo);
+            return null;
+        }
+        String piId = bst.getOurPaymentInstructionId();
+        PaymentInstruction freshPi = txService.selectById(piId);
+        if (freshPi == null) {
+            log.error("[BOK-F7] PI 조회 실패, 보상 불가. piId={}", piId);
+            return null;
+        }
+
+        String status = freshPi.getStatus();
+
+        if ("FAILED".equals(status) || "CANCELED".equals(status)) {
+            log.info("[BOK-F7] 이중보상 가드: 이미 처리됨. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if ("REVERSING".equals(status)) {
+            log.info("[BOK-F7] 이중보상 가드: 보상 진행중. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if ("COMPLETED".equals(status)) {
+            log.warn("[BOK-F7] PI 이미 COMPLETED(범위 외), 보상 skip. piId={}", piId);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+        if (!"CLEARING".equals(status)) {
+            log.warn("[BOK-F7] 예상치 못한 상태, skip. piId={} status={}", piId, status);
+            return new PaymentResult(piId, freshPi.getTransactionNo(), status, null, null);
+        }
+
+        String rejectMsg = "BOK 정산실패: " + (rejectMessage != null && !rejectMessage.isEmpty() ? rejectMessage : responseCode);
+        if (rejectMsg.length() > 200) {
+            rejectMsg = rejectMsg.substring(0, 197) + "...";
+        }
+
+        // TX-1: CLEARING→CLEARING(BOK_SETTLEMENT_FAILED) + CLEARING→REVERSING(REVERSAL_STARTED)
+        txService.txMarkReversingFromClearing(freshPi, freshPi.getVersion(), rejectMsg, "SYSTEM", "SETTLEMENT_FAILURE", "BOK_SETTLEMENT_FAILED");
+        Integer tx2Version = freshPi.getVersion() + 1;
+
+        // B-5: 출금취소 (TX 밖)
+        ExternalCall originalWithdrawCall = txService.selectOriginalWithdrawCall(piId);
+        ExternalCall existingCancelCall   = txService.selectExistingCancelCall(piId);
+
+        WithdrawCancelData cancelResult = null;
+        if (existingCancelCall != null) {
+            log.info("[BOK-F7] B-5 이미 수행됨, skip 재호출. piId={}", piId);
+        } else {
+            String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
+            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+        }
+
+        // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
+        List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
+        return txService.txCompleteBokRejectReversal(
+                freshPi, tx2Version, originals, cancelResult,
+                "SETTLEMENT_FAILURE",   // rejectCode
+                rejectMsg,              // rejectMessage
+                bokReferenceNo,         // bokReferenceNo (BST updateRejected WHERE piId 기준, 참조용)
+                "SETTLEMENT_FAILURE",   // reversalReason
+                "SYSTEM_ERROR",         // failureCategory
+                "SETTLEMENT_FAILURE",   // outboxFailureCategory
+                "SYSTEM",               // triggeredBy
+                null);                  // operatorId
     }
 
     // ── F6-Ⅱ-2: 운영자 강제취소 ──────────────────────────────────────────────────

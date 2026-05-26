@@ -40,10 +40,6 @@ public class BokNetworkResponseConsumer {
             case "SETTLEMENT_COMPLETED": {
                 String bokReferenceNo = payload.path("bokReferenceNo").asText();
                 String responseCode   = payload.path("responseCode").asText();
-                if (!"0000".equals(responseCode)) {
-                    log.warn("[BOK] SETTLEMENT_COMPLETED 비정상 responseCode: {} bokReferenceNo={}",
-                            responseCode, bokReferenceNo);
-                }
 
                 BokSettlementTransaction bst = txService.selectByBokReferenceNo(bokReferenceNo);
                 if (bst == null) {
@@ -58,22 +54,29 @@ public class BokNetworkResponseConsumer {
                     break;
                 }
 
-                // 멱등 가드 1: 이미 COMPLETED (중복수신)
+                // 멱등 가드 1: 이미 COMPLETED (중복수신) — 정상완결 후 뒤늦은 실패통보도 여기서 skip
                 if ("COMPLETED".equals(pi.getStatus())) {
-                    log.info("[BOK] SETTLEMENT_COMPLETED 중복수신 skip(이미 COMPLETED). piId={}", piId);
+                    log.info("[BOK] SETTLEMENT_COMPLETED COMPLETED skip. piId={}", piId);
                     break;
                 }
                 // 멱등 가드 2: CLEARING 아닌 상태 (예상치 못한 전이)
                 if (!"CLEARING".equals(pi.getStatus())) {
-                    log.warn("[BOK] SETTLEMENT_COMPLETED CLEARING 아닌 상태, skip. piId={} status={}",
+                    log.warn("[BOK] SETTLEMENT_COMPLETED !CLEARING skip. piId={} status={}",
                             piId, pi.getStatus());
                     break;
                 }
 
-                String settledAt      = payload.path("settledAt").asText();
-                String settlementDate = settledAt.length() >= 8 ? settledAt.substring(0, 8) : null;
-                txService.txSettlementBok(pi, bokReferenceNo, settledAt, settlementDate);
-                log.info("[BOK] SETTLEMENT_COMPLETED 처리완료. piId={} CLEARING→COMPLETED", piId);
+                if ("0000".equals(responseCode)) {
+                    String settledAt      = payload.path("settledAt").asText();
+                    String settlementDate = settledAt.length() >= 8 ? settledAt.substring(0, 8) : null;
+                    txService.txSettlementBok(pi, bokReferenceNo, settledAt, settlementDate);
+                    log.info("[BOK] SETTLEMENT_COMPLETED 처리완료. piId={} CLEARING→COMPLETED", piId);
+                } else {
+                    String rejectMessage = payload.path("rejectMessage").asText();
+                    log.error("[BOK-F7] 정산실패 통보 수신 → 자동보상. bokReferenceNo={} responseCode={}",
+                            bokReferenceNo, responseCode);
+                    orchestrator.processBokSettlementFailure(bokReferenceNo, responseCode, rejectMessage);
+                }
                 break;
             }
             case "SETTLEMENT_REJECT": {

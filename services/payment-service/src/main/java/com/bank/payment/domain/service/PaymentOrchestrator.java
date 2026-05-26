@@ -75,6 +75,18 @@ public interface PaymentOrchestrator {
     PaymentResult processSettlementFailure(String clearingNo, String responseCode, String rejectMessage);
 
     /**
+     * F7 BOK 정산실패 자동보상. SETTLEMENT_COMPLETED responseCode != "0000" 수신 시 호출.
+     * F3형 보상 재사용: CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + BST REJECTED.
+     * reversal_reason=SETTLEMENT_FAILURE / failure_category=SYSTEM_ERROR.
+     * PI=COMPLETED(정상완결 후 뒤늦은 실패통보)는 보상 안 함.
+     * @param bokReferenceNo BOK 참조번호 (BST 조회키)
+     * @param responseCode BOK responseCode (예: 'B9001')
+     * @param rejectMessage BOK 정산실패 메시지
+     * @return FAILED 결제결과 (보상 불가 시 null)
+     */
+    PaymentResult processBokSettlementFailure(String bokReferenceNo, String responseCode, String rejectMessage);
+
+    /**
      * F6-Ⅱ-2 운영자 강제취소. CLEARING 상태만 허용. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 + CT REJECTED.
      * reversal_reason=OPERATOR / failure_category=SYSTEM_ERROR / triggered_by=OPERATOR / operator_id 박제.
      * @param piId 결제지시번호
