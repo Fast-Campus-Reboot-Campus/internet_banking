@@ -60,6 +60,12 @@ loan:
       http:
         url: ${CREDIT_SCORE_ENGINE_URL:http://localhost:9999}
         api-key: ${CREDIT_SCORE_ENGINE_API_KEY:}
+  # IFRS9 ECL 산정 엔진 어댑터
+  #   mock — MockEclEngine (외부 없이 단순 PD/LGD 룰)
+  #   http — HttpEclEngine (외부 리스크 엔진 — 후속)
+  ecl:
+    engine:
+      type: ${LOAN_ECL_ENGINE_TYPE:mock}
 
 management:
   endpoints:
