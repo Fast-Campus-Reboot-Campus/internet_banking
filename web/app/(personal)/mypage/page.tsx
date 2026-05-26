@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-<<<<<<< HEAD
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
@@ -90,10 +89,6 @@ export default function MyKBPage() {
   const joinedAt = new Date(data.joinedAt)
   const joinedStr = `${joinedAt.getFullYear()}.${String(joinedAt.getMonth() + 1).padStart(2, '0')}.${String(joinedAt.getDate()).padStart(2, '0')} ${String(joinedAt.getHours()).padStart(2, '0')}:${String(joinedAt.getMinutes()).padStart(2, '0')}`
 
-=======
-
-export default function MyKBPage() {
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
   return (
     <div className="max-w-kb-container mx-auto px-6 py-10 pb-16">
       {/* 브레드크럼 */}
@@ -103,11 +98,7 @@ export default function MyKBPage() {
       </div>
 
       <h1 className="text-2xl font-bold text-kb-text mb-1">My AXful</h1>
-<<<<<<< HEAD
       <p className="text-[12px] text-kb-text-muted mb-6">최종 접속시간 : {joinedStr}</p>
-=======
-      <p className="text-[12px] text-kb-text-muted mb-6">최종 접속시간 : 2026.05.24 11:42</p>
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
 
       {/* 인터넷뱅킹정보 */}
       <section className="mb-6">
@@ -121,11 +112,7 @@ export default function MyKBPage() {
           <tbody>
             <tr>
               <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">사용자 ID</td>
-<<<<<<< HEAD
               <td className="border border-kb-border px-4 py-3 text-kb-text-body">{maskId(data.loginId)}</td>
-=======
-              <td className="border border-kb-border px-4 py-3 text-kb-text-body">kimj****</td>
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
               <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[120px]">보안매체</td>
               <td className="border border-kb-border px-4 py-3 text-kb-text-body">보안카드</td>
             </tr>
@@ -164,7 +151,6 @@ export default function MyKBPage() {
         <table className="w-full border-collapse text-[13px]">
           <tbody>
             <tr>
-<<<<<<< HEAD
               <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">성명</td>
               <td className="border border-kb-border px-4 py-3 text-kb-text-body w-[300px]">{data.name}</td>
               <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[120px]">생년월일</td>
@@ -185,18 +171,6 @@ export default function MyKBPage() {
               </td>
               <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">이메일</td>
               <td className="border border-kb-border px-4 py-3 text-kb-text-body">{maskEmail(data.email)}</td>
-=======
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">휴대폰번호</td>
-              <td className="border border-kb-border px-4 py-3 text-kb-text-body w-[300px]">010 ) 23** - 56**</td>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[120px]">자택 전화번호</td>
-              <td className="border border-kb-border px-4 py-3 text-kb-text-muted"></td>
-            </tr>
-            <tr>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">자택주소</td>
-              <td className="border border-kb-border px-4 py-3 text-kb-text-muted">부산광역시 해운대구 ****로 ●●●●●●●●●</td>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">이메일</td>
-              <td className="border border-kb-border px-4 py-3 text-kb-text-body">jihoon****@gmail.com</td>
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
             </tr>
           </tbody>
         </table>
@@ -209,11 +183,7 @@ export default function MyKBPage() {
           <tbody>
             <tr>
               <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">스타클럽</td>
-<<<<<<< HEAD
               <td className="border border-kb-border px-4 py-3 text-kb-text-body w-[300px]">{gradeLabel(data.customerGradeCode)}</td>
-=======
-              <td className="border border-kb-border px-4 py-3 text-kb-text-body w-[300px]">패밀리</td>
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
               <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[120px]">포인트리</td>
               <td className="border border-kb-border px-4 py-3">
                 <div className="flex items-center gap-3">
