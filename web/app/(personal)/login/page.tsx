@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-<<<<<<< HEAD
 import { api } from '@/lib/api'
-=======
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
 
 type LoginTab = 'kb인증서' | '공동금융인증서' | '아이디'
 
@@ -427,29 +424,19 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
 
 /* ── 아이디 로그인 탭 ── */
 function IdLoginTab() {
-<<<<<<< HEAD
   const [loginId, setLoginId] = useState('')
-=======
-  const [email, setEmail] = useState('')
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleLogin() {
-<<<<<<< HEAD
     if (!loginId || !password) {
       setError('아이디와 비밀번호를 입력해주세요.')
-=======
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 입력해주세요.')
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
       return
     }
     setError('')
     setLoading(true)
     try {
-<<<<<<< HEAD
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
       localStorage.setItem('accessToken', data.data.accessToken)
       localStorage.setItem('access_token', data.data.accessToken)
@@ -464,23 +451,6 @@ function IdLoginTab() {
       window.location.href = '/personal'
     } catch (err: any) {
       setError(err.response?.data?.message ?? '로그인에 실패했습니다.')
-=======
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.message ?? '로그인에 실패했습니다.')
-        return
-      }
-      localStorage.setItem('access_token', data.access_token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      window.location.href = '/personal'
-    } catch {
-      setError('네트워크 오류가 발생했습니다.')
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
     } finally {
       setLoading(false)
     }
@@ -490,7 +460,6 @@ function IdLoginTab() {
     <div className="py-10 px-16">
       {/* form-table 스타일 */}
       <div className="space-y-2 mb-5">
-<<<<<<< HEAD
         {/* 아이디 */}
         <div className="flex items-center gap-3">
           <label className="w-20 text-body text-kb-text-body text-right flex-shrink-0">아이디</label>
@@ -502,19 +471,6 @@ function IdLoginTab() {
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             className="input flex-1"
             autoComplete="username"
-=======
-        {/* 이메일 */}
-        <div className="flex items-center gap-3">
-          <label className="w-20 text-body text-kb-text-body text-right flex-shrink-0">이메일</label>
-          <input
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            className="input flex-1"
-            autoComplete="email"
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
           />
         </div>
 
@@ -557,11 +513,7 @@ function IdLoginTab() {
           <span className="text-kb-border">|</span>
           <Link href="#" className="hover:underline">사용자암호변경·재등록</Link>
           <span className="text-kb-border">|</span>
-<<<<<<< HEAD
           <Link href="/support/customer-info/online-join" className="hover:underline">회원가입</Link>
-=======
-          <Link href="#" className="hover:underline">회원가입</Link>
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
         </div>
       </div>
     </div>
