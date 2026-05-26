@@ -37,8 +37,16 @@ spring:
       max-file-size: 10MB
       max-request-size: 20MB
 
+  batch:
+    job:
+      enabled: false        # 부팅 시 자동 실행 방지
+    jdbc:
+      initialize-schema: never  # Flyway로 관리
+
 # 대출 도메인 전용 설정
 loan:
+  batch:
+    eod-cron: "${LOAN_EOD_CRON:0 0 1 * * *}"  # 기본 새벽 1시 KST
   document:
     storage-dir: ${LOAN_DOCUMENT_STORAGE_DIR:./storage/loan-documents}
   # 외부 신용평가(가심사) 엔진 어댑터 선택
