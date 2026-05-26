@@ -6,11 +6,12 @@ from sqlalchemy import bindparam, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
 from app.kafka import KafkaEventPublisher
-from app.llm import LlmHandoffAdapter
+from app.llm import FeatureAnswerFormatter, IntentClassifier, LlmAdapter, LlmHandoffAdapter
 from app.models import (
     ChatConsultation,
     ChatMessageHistory,
     ChatbotConsultation,
+    ChatbotIntent,
     ChatbotNode,
     ChatbotNodeButton,
     ChatbotNodeFlow,
@@ -42,10 +43,13 @@ CODE_MESSAGE_TYPE_TEXT = 1
 
 
 class ChatbotService:
-    def __init__(self, db: Session, events: KafkaEventPublisher, llm: LlmHandoffAdapter):
+    def __init__(self, db: Session, events: KafkaEventPublisher, llm: LlmHandoffAdapter, llm_adapter: LlmAdapter | None = None):
         self.db = db
         self.events = events
         self.llm = llm
+        self._llm_adapter = llm_adapter
+        self._classifier = IntentClassifier()
+        self._formatter = FeatureAnswerFormatter()
 
     async def start(self, customer_no: str, entry_screen: str, app_version: str) -> ChatbotStartResponse:
         scenario = self._get_active_scenario()
@@ -140,13 +144,39 @@ class ChatbotService:
                 chatbot.agent_connected_yn = "Y"
                 self._open_chat_consultation(chatbot)
         else:
-            process_method = "BP002_LLM"
-            process_code = CODE_PROCESS_LLM
-            response_message = self.llm.answer(message)
-            agent_transfer_required = True
-            node_id = current_node_id or 0
-            chatbot.agent_connected_yn = "Y"
-            self._open_chat_consultation(chatbot)
+            # 버튼 매핑 없음 → intent 분류 후 feature 실행 시도
+            intent_name = self._classifier.classify(message or "")
+            intent_record = self._get_intent(chatbot.scenario_id, intent_name) if intent_name else None
+            if intent_name:
+                data = self._run_feature_for_intent(intent_name, message)
+                response_message = self._formatter.format(intent_name, data)
+                process_method = f"FEATURE_{intent_name}"
+                process_code = CODE_PROCESS_SCENARIO
+                node_id = current_node_id or 0
+                agent_transfer_required = False
+                if intent_record:
+                    chatbot.intent_id = intent_record.intent_id
+            elif self._llm_adapter:
+                # intent 분류 실패 → LLM 응답 (상담사 이관 없음)
+                llm_intent = self._get_intent(chatbot.scenario_id, "LLM_FALLBACK")
+                response_message = self._llm_adapter.answer(message or "")
+                process_method = self._llm_adapter.process_method_code
+                process_code = CODE_PROCESS_LLM
+                node_id = current_node_id or 0
+                agent_transfer_required = False
+                if llm_intent:
+                    chatbot.intent_id = llm_intent.intent_id
+            else:
+                agent_intent = self._get_intent(chatbot.scenario_id, "AGENT_TRANSFER")
+                process_method = "BP002_LLM"
+                process_code = CODE_PROCESS_LLM
+                response_message = self.llm.answer(message)
+                agent_transfer_required = True
+                node_id = current_node_id or 0
+                chatbot.agent_connected_yn = "Y"
+                if agent_intent:
+                    chatbot.intent_id = agent_intent.intent_id
+                self._open_chat_consultation(chatbot)
 
         chatbot.total_turn_count += 1
         self._record_message(chatbot, next_node, CODE_SENDER_BOT, response_message, None, process_code)
@@ -290,6 +320,14 @@ class ChatbotService:
                 api_status="AUTH_REQUIRED",
             ),
             ChatbotFeatureResponse(
+                code="MY_CASH_FLOW",
+                category_code="USER_FINANCE",
+                name="내 현금 흐름 조회",
+                summary="고객 본인의 입출금 거래 내역을 조회합니다.",
+                sample_questions=["내 거래 내역 보여줘", "입출금 내역 알려줘", "현금 흐름 조회해줘"],
+                api_status="AUTH_REQUIRED",
+            ),
+            ChatbotFeatureResponse(
                 code="STAFF_CUSTOMER",
                 category_code="STAFF_SUPPORT",
                 name="고객 정보 조회",
@@ -329,6 +367,14 @@ class ChatbotService:
                 sample_questions=["상담 이력 보여줘", "이전 문의 확인"],
                 api_status="STAFF_AUTH_REQUIRED",
             ),
+            ChatbotFeatureResponse(
+                code="STAFF_CASH_FLOW",
+                category_code="STAFF_SUPPORT",
+                name="고객 현금 흐름 조회",
+                summary="직원 권한으로 고객의 입출금 거래 내역을 조회합니다.",
+                sample_questions=["고객 거래 내역 보여줘", "현금 흐름 확인"],
+                api_status="STAFF_AUTH_REQUIRED",
+            ),
         ]
 
     def feature_detail(self, feature_code: str) -> ChatbotFeatureResponse | None:
@@ -355,6 +401,8 @@ class ChatbotService:
             ),
             "MATURITY_SCHEDULE": self._execute_maturity_schedule,
             "INTEREST_HISTORY": self._execute_interest_history,
+            "MY_CASH_FLOW": self._execute_my_cash_flow,
+            "STAFF_CASH_FLOW": self._execute_staff_cash_flow,
             "STAFF_CUSTOMER": self._execute_staff_customer,
             "STAFF_CONTRACT": lambda req: self._execute_customer_contracts(
                 req,
@@ -546,6 +594,29 @@ class ChatbotService:
             "INTEREST_HISTORY", rows, "이자 내역 조회를 완료했습니다.", "조회된 이자 내역이 없습니다.", requires_auth=True
         )
 
+    def _execute_my_cash_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("MY_CASH_FLOW", "현금 흐름 조회에는 고객번호와 본인 인증이 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT t.transaction_id,
+                   a.account_number,
+                   t.transaction_type,
+                   t.amount,
+                   t.status AS transaction_status,
+                   t.created_at
+              FROM deposit_transactions t
+              JOIN deposit_accounts a ON a.account_id = t.account_id
+             WHERE a.customer_id = :customer_no
+             ORDER BY t.transaction_id DESC
+             LIMIT 20
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "MY_CASH_FLOW", rows, "현금 흐름 조회를 완료했습니다.", "조회된 거래 내역이 없습니다.", requires_auth=True
+        )
+
     def _execute_staff_customer(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no or not request.staff_id:
             return self._staff_auth_required("STAFF_CUSTOMER", "직원 고객 정보 조회에는 고객번호와 직원 권한이 필요합니다.")
@@ -608,6 +679,30 @@ class ChatbotService:
         )
         return self._data_response(
             "STAFF_CONSULTATION_HISTORY", rows, "상담 이력 조회를 완료했습니다.", "조회된 상담 이력이 없습니다.", requires_staff_auth=True
+        )
+
+    def _execute_staff_cash_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no or not request.staff_id:
+            return self._staff_auth_required("STAFF_CASH_FLOW", "고객 현금 흐름 조회에는 고객번호와 직원 권한이 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT t.transaction_id,
+                   a.account_number,
+                   a.customer_id AS customer_no,
+                   t.transaction_type,
+                   t.amount,
+                   t.status AS transaction_status,
+                   t.created_at
+              FROM deposit_transactions t
+              JOIN deposit_accounts a ON a.account_id = t.account_id
+             WHERE a.customer_id = :customer_no
+             ORDER BY t.transaction_id DESC
+             LIMIT 20
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "STAFF_CASH_FLOW", rows, "고객 현금 흐름 조회를 완료했습니다.", "조회된 거래 내역이 없습니다.", requires_staff_auth=True
         )
 
     def _execute_customer_contracts(
@@ -761,6 +856,7 @@ class ChatbotService:
             self._ensure_button(start.node_id, spec["button_text"], spec["button_value"], int(spec["sort_order"]))
             self._ensure_flow(start.node_id, node.node_id, int(spec["sort_order"]), str(spec["button_value"]))
         self._deactivate_legacy_start_options(start.node_id, {spec["button_value"] for spec in self._default_flow_specs()})
+        self._ensure_default_intents(scenario.scenario_id)
         return scenario
 
     def _default_flow_specs(self) -> list[dict[str, Any]]:
@@ -957,6 +1053,54 @@ class ChatbotService:
 
     def _is_agent_node(self, node: ChatbotNode) -> bool:
         return node.node_name == "상담사 연결"
+
+    def _run_feature_for_intent(self, feature_code: str, message: str) -> list[dict]:
+        """intent에 해당하는 feature를 실행해 DB 데이터를 반환한다."""
+        from app.schemas import ChatbotFeatureExecuteRequest
+        req = ChatbotFeatureExecuteRequest(query=message)
+        result = self.execute_feature(feature_code, req)
+        return result.data or []
+
+    def _get_intent(self, scenario_id: int | None, intent_name: str) -> ChatbotIntent | None:
+        """intent_name으로 DB에서 챗봇의도 레코드를 조회한다."""
+        return self.db.scalars(
+            select(ChatbotIntent).where(
+                ChatbotIntent.intent_name == intent_name,
+                ChatbotIntent.active_yn == "Y",
+                ChatbotIntent.scenario_id == scenario_id,
+            )
+        ).first()
+
+    def _ensure_default_intents(self, scenario_id: int) -> None:
+        """챗봇의도 기본 레코드를 시딩한다."""
+        intent_specs = [
+            {"intent_name": "RATE_GUIDE",      "intent_desc": "금리/우대금리 안내",      "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 1},
+            {"intent_name": "JOIN_CONDITION",   "intent_desc": "가입 조건 안내",          "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 2},
+            {"intent_name": "PRODUCT_COMPARE",  "intent_desc": "상품 비교",               "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 3},
+            {"intent_name": "TERMS_RAG",        "intent_desc": "약관/중도해지 안내",       "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 4},
+            {"intent_name": "PRODUCT_GUIDE",    "intent_desc": "상품 목록/추천 안내",     "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 5},
+            {"intent_name": "FAQ",              "intent_desc": "자주 묻는 질문",          "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 6},
+            {"intent_name": "LLM_FALLBACK",     "intent_desc": "LLM 자유 응답",           "process_method_code_id": CODE_PROCESS_LLM,      "priority": 7},
+            {"intent_name": "AGENT_TRANSFER",   "intent_desc": "상담사 이관",             "process_method_code_id": CODE_PROCESS_LLM,      "priority": 8},
+        ]
+        for spec in intent_specs:
+            exists = self.db.scalars(
+                select(ChatbotIntent).where(
+                    ChatbotIntent.intent_name == spec["intent_name"],
+                    ChatbotIntent.scenario_id == scenario_id,
+                )
+            ).first()
+            if not exists:
+                self.db.add(ChatbotIntent(
+                    scenario_id=scenario_id,
+                    intent_name=spec["intent_name"],
+                    intent_desc=spec["intent_desc"],
+                    process_method_code_id=spec["process_method_code_id"],
+                    confidence_threshold=70,
+                    priority=spec["priority"],
+                    test_yn="N",
+                    active_yn="Y",
+                ))
 
 
 # ──────────────────────────────────────────────────────────────────────────────

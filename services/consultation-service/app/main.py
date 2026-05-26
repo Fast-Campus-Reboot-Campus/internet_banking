@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import Base, engine, get_db
 from app.kafka import KafkaEventConsumer, KafkaEventPublisher
-from app.llm import LlmHandoffAdapter
+from app.llm import LlmAdapter, LlmHandoffAdapter
 from app.schemas import (
     AgentConnectRequest,
     AgentQueueResponse,
@@ -37,6 +37,7 @@ settings = get_settings()
 events = KafkaEventPublisher(settings)
 consumer = KafkaEventConsumer(settings)
 llm = LlmHandoffAdapter()
+llm_adapter = LlmAdapter(api_key=settings.openai_api_key, model=settings.openai_model) if settings.openai_api_key else None
 static_dir = Path(__file__).resolve().parents[1] / "static"
 
 
@@ -82,7 +83,7 @@ if static_dir.exists():
 # ── 의존성 ──────────────────────────────────────────────────────────────────
 
 def get_chatbot_service(db: Session = Depends(get_db)) -> ChatbotService:
-    return ChatbotService(db, events, llm)
+    return ChatbotService(db, events, llm, llm_adapter)
 
 
 def get_chat_service(db: Session = Depends(get_db)) -> ChatService:
