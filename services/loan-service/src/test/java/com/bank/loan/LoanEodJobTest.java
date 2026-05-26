@@ -1,5 +1,6 @@
 package com.bank.loan;
 
+import com.bank.loan.accounting.repository.DailyAccountingSummaryRepository;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.delinquency.repository.OverdueAccrualRepository;
@@ -44,12 +45,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   25) A 연체 이자 발생행 없음
  *   30) 동일 baseDate=20350201 재실행 → SKIPPED (JobInstanceAlreadyComplete)
  *   40) baseDate 형식 오류 → 400
- *   50) EOD 이력 조회: baseDate 필터 → COMPLETED 1건, 스텝 8개
+ *   50) EOD 이력 조회: baseDate 필터 → COMPLETED 1건, 스텝 9개
  *   51) from/to 매칭 없으면 빈 배열
  *   60) restart 미존재 baseDate → NOT_FOUND
  *   61) restart COMPLETED 잡 → REJECTED
  *   70) 잡 종료 알림 outbox 적재 — COMPLETED 잡마다 LOAN_EOD_COMPLETED 1건
  *   80) notificationFlushStep — outbox 상당수가 SENT 로 전이됨
+ *   90) 일일 회계 요약 적재 — 20350201 자동이체·이자, 20350205 연체이자
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanEodJobTest extends AbstractLoanIntegrationTest {
@@ -60,6 +62,8 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     private OverdueAccrualRepository overdueAccrualRepository;
     @Autowired
     private NotificationOutboxRepository outboxRepository;
+    @Autowired
+    private DailyAccountingSummaryRepository accountingSummaryRepository;
 
     private static final String CNTR_START_DATE = "20350101";
     private static final String EOD_DUE_DATE    = "20350201";  // 납기일 당일
@@ -200,9 +204,10 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].baseDate").value(EOD_DUE_DATE))
                 .andExpect(jsonPath("$.data[0].status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data[0].steps.length()").value(8))
+                .andExpect(jsonPath("$.data[0].steps.length()").value(9))
                 .andExpect(jsonPath("$.data[0].steps[0].stepName").value("interestAccrualStep"))
-                .andExpect(jsonPath("$.data[0].steps[7].stepName").value("notificationFlushStep"));
+                .andExpect(jsonPath("$.data[0].steps[7].stepName").value("accountingSummaryStep"))
+                .andExpect(jsonPath("$.data[0].steps[8].stepName").value("notificationFlushStep"));
     }
 
     @Test @Order(51)
@@ -246,6 +251,20 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
         assertThat(sample.getPayload()).contains("\"baseDate\"");
         assertThat(sample.getPayload()).contains("\"status\":\"COMPLETED\"");
         assertThat(sample.getPayload()).contains("\"steps\"");
+    }
+
+    @Test @Order(90)
+    void 일일_회계_요약_적재() {
+        // 20350201 — 자동이체 1건 + 이자 발생
+        var summary1 = accountingSummaryRepository.findBySummaryDate(EOD_DUE_DATE).orElseThrow();
+        assertThat(summary1.getAutoDebitCount()).isGreaterThanOrEqualTo(1);
+        assertThat(summary1.getInterestRevenue()).isGreaterThan(0L);
+        assertThat(summary1.getActiveContractCount()).isGreaterThanOrEqualTo(2);
+
+        // 20350205 — 연체이자 발생
+        var summary2 = accountingSummaryRepository.findBySummaryDate(EOD_OVERDUE).orElseThrow();
+        assertThat(summary2.getOverdueInterestRevenue()).isGreaterThan(0L);
+        assertThat(summary2.getActiveDelinquencyCount()).isGreaterThanOrEqualTo(1);
     }
 
     @Test @Order(80)
