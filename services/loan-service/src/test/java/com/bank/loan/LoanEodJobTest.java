@@ -44,6 +44,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   40) baseDate 형식 오류 → 400
  *   50) EOD 이력 조회: baseDate 필터 → COMPLETED 1건, 스텝 7개
  *   51) from/to 매칭 없으면 빈 배열
+ *   60) restart 미존재 baseDate → NOT_FOUND
+ *   61) restart COMPLETED 잡 → REJECTED
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanEodJobTest extends AbstractLoanIntegrationTest {
@@ -203,6 +205,24 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
                         .param("from", "20990101").param("to", "20991231"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    // ────────────────────────────────────────────
+    // Phase 5: 재처리 (restart)
+    // ────────────────────────────────────────────
+
+    @Test @Order(60)
+    void restart_미존재_baseDate_NOT_FOUND() throws Exception {
+        mockMvc.perform(post("/api/internal/eod/restart").param("baseDate", "20990101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobStatus").value("NOT_FOUND"));
+    }
+
+    @Test @Order(61)
+    void restart_COMPLETED_잡_REJECTED() throws Exception {
+        mockMvc.perform(post("/api/internal/eod/restart").param("baseDate", EOD_DUE_DATE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobStatus").value("REJECTED"));
     }
 
     // ──────────────────────────────────────────────────────────────
