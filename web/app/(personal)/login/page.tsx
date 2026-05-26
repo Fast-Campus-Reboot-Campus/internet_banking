@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { api } from '@/lib/api'
 
 type LoginTab = 'kb인증서' | '공동금융인증서' | '아이디'
 
@@ -423,34 +424,33 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
 
 /* ── 아이디 로그인 탭 ── */
 function IdLoginTab() {
-  const [email, setEmail] = useState('')
+  const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleLogin() {
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 입력해주세요.')
+    if (!loginId || !password) {
+      setError('아이디와 비밀번호를 입력해주세요.')
       return
     }
     setError('')
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.message ?? '로그인에 실패했습니다.')
-        return
-      }
-      localStorage.setItem('access_token', data.access_token)
-      localStorage.setItem('user', JSON.stringify(data.user))
+      const { data } = await api.post('/api/v1/auth/login', { loginId, password })
+      localStorage.setItem('accessToken', data.data.accessToken)
+      localStorage.setItem('access_token', data.data.accessToken)
+      localStorage.setItem('customerId', String(data.data.customerId))
+
+      // 이름 표시를 위해 내 정보 조회
+      try {
+        const me = await api.get('/api/v1/customers/me')
+        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name }))
+      } catch {}
+
       window.location.href = '/personal'
-    } catch {
-      setError('네트워크 오류가 발생했습니다.')
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -460,17 +460,17 @@ function IdLoginTab() {
     <div className="py-10 px-16">
       {/* form-table 스타일 */}
       <div className="space-y-2 mb-5">
-        {/* 이메일 */}
+        {/* 아이디 */}
         <div className="flex items-center gap-3">
-          <label className="w-20 text-body text-kb-text-body text-right flex-shrink-0">이메일</label>
+          <label className="w-20 text-body text-kb-text-body text-right flex-shrink-0">아이디</label>
           <input
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            placeholder="아이디"
+            value={loginId}
+            onChange={(e) => setLoginId(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             className="input flex-1"
-            autoComplete="email"
+            autoComplete="username"
           />
         </div>
 
@@ -513,7 +513,7 @@ function IdLoginTab() {
           <span className="text-kb-border">|</span>
           <Link href="#" className="hover:underline">사용자암호변경·재등록</Link>
           <span className="text-kb-border">|</span>
-          <Link href="#" className="hover:underline">회원가입</Link>
+          <Link href="/support/customer-info/online-join" className="hover:underline">회원가입</Link>
         </div>
       </div>
     </div>

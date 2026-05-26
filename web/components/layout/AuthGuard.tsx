@@ -6,11 +6,13 @@ import { usePathname, useRouter } from 'next/navigation'
 // 로그인 없이 접근 가능한 경로 prefix
 const PUBLIC_PREFIXES = [
   '/login',
+  '/personal',
   '/banking',
   '/cert',
   '/cert-cps',
   '/cert-biz',
   '/products',
+  '/support',
   '/security-install',
 ]
 
@@ -26,7 +28,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       setAuthorized(true)
       return
     }
-    const token = localStorage.getItem('access_token')
+    const token = localStorage.getItem('accessToken')
     if (!token) {
       router.replace('/login')
     } else {

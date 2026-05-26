@@ -932,7 +932,9 @@ export default function Header() {
 
   function handleLogout() {
     localStorage.removeItem('access_token')
+    localStorage.removeItem('accessToken')
     localStorage.removeItem('user')
+    localStorage.removeItem('customerId')
     window.location.href = '/logout?reason=manual'
   }
 
