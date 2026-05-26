@@ -5,9 +5,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 /**
@@ -18,8 +20,13 @@ import java.util.Optional;
  */
 @Configuration
 @ConditionalOnClass(EntityManager.class)
-@EnableJpaAuditing(auditorAwareRef = "auditorAware")
+@EnableJpaAuditing(auditorAwareRef = "auditorAware", dateTimeProviderRef = "offsetDateTimeProvider")
 public class JpaAuditingConfig {
+
+    @Bean
+    public DateTimeProvider offsetDateTimeProvider() {
+        return () -> Optional.of(OffsetDateTime.now());
+    }
 
     @Bean
     @ConditionalOnMissingBean
