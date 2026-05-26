@@ -1,0 +1,208 @@
+/**
+ * KB Clone 전역 스타일
+ *
+ * 1. 폰트 임포트 (Pretendard)
+ * 2. Tailwind 기본 레이어
+ * 3. KB 공통 컴포넌트 클래스 (버튼, 입력, 카드 등)
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   Base Reset (KB 테마)
+   ============================================ */
+@layer base {
+  html {
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: #1A1A1A;
+    letter-spacing: 0.025em;
+  }
+
+  body {
+    @apply bg-white text-kb-text;
+    font-size: 14px;
+    line-height: 1.75;
+    font-weight: 400;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  input, button, select, textarea {
+    font-family: inherit;
+  }
+}
+
+/* ============================================
+   KB 공통 컴포넌트 클래스
+   ============================================ */
+@layer components {
+
+  /* ----- 버튼 ----- */
+  .btn {
+    @apply inline-flex items-center justify-center
+           px-6 py-2.5 text-body font-medium
+           transition-colors duration-kb
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Primary: KB 노랑 CTA */
+  .btn-primary {
+    @apply btn bg-kb-yellow text-kb-text rounded-kb
+           hover:bg-kb-yellow-dark;
+  }
+
+  /* Secondary: 황갈색 (조회/실행 버튼) */
+  .btn-secondary {
+    @apply btn bg-kb-taupe text-white rounded-kb
+           hover:bg-kb-taupe-dark;
+  }
+
+  /* Outline: 보조 버튼 */
+  .btn-outline {
+    @apply btn bg-white text-kb-text-body border border-kb-border rounded-kb
+           hover:bg-kb-beige-light;
+  }
+
+  /* Ghost: 텍스트 버튼 */
+  .btn-ghost {
+    @apply btn text-kb-text-body hover:bg-kb-beige-light;
+  }
+
+  /* 빠른 금액 버튼 (이체 화면용) */
+  .btn-amount {
+    @apply px-3 py-1.5 text-caption border border-kb-border rounded-kb-sm
+           hover:bg-kb-beige hover:border-kb-yellow
+           transition-colors duration-kb;
+  }
+
+  /* ----- 입력 필드 ----- */
+  .input {
+    @apply w-full px-3 py-2 text-body
+           bg-white border border-kb-border rounded-kb
+           text-kb-text placeholder:text-kb-text-light
+           focus:outline-none focus:border-kb-yellow
+           focus:ring-1 focus:ring-kb-yellow
+           transition-colors duration-kb;
+  }
+
+  /* ----- 카드 ----- */
+  .card {
+    @apply bg-white border border-kb-border rounded-kb;
+  }
+
+  .card-bordered {
+    @apply card p-6;
+  }
+
+  .card-flat {
+    @apply bg-white p-6;
+  }
+
+  /* ----- 테이블형 폼 (KB 핵심 패턴) -----
+     좌측: 라벨, 우측: 입력 필드
+  */
+  .form-table {
+    @apply w-full border-t border-kb-border-dark;
+  }
+
+  .form-table-row {
+    @apply flex items-center border-b border-kb-border min-h-[60px];
+  }
+
+  .form-table-label {
+    @apply w-40 px-4 py-3 text-body text-kb-text-body bg-kb-beige-light flex-shrink-0;
+  }
+
+  .form-table-field {
+    @apply flex-1 px-4 py-3;
+  }
+
+  /* ----- 탭 ----- */
+  .tabs {
+    @apply flex border-b border-kb-border;
+  }
+
+  .tab {
+    @apply px-6 py-3 text-body text-kb-text-muted cursor-pointer
+           transition-colors duration-kb;
+  }
+
+  .tab-active {
+    @apply text-kb-text font-medium border-b-2 border-kb-text bg-white;
+  }
+
+  .tab-filled-active {
+    @apply bg-kb-taupe-dark text-white;
+  }
+
+  /* ----- 사이드 메뉴 ----- */
+  .sidemenu {
+    @apply w-sidebar bg-white border-r border-kb-border flex-shrink-0;
+  }
+
+  .sidemenu-section {
+    @apply px-4 py-3 text-h3 text-kb-text border-b border-kb-border;
+  }
+
+  .sidemenu-item {
+    @apply block px-4 py-2.5 text-body text-kb-text-body
+           hover:bg-kb-beige-light transition-colors duration-kb;
+  }
+
+  .sidemenu-item-active {
+    @apply sidemenu-item bg-kb-yellow text-kb-text font-medium
+           hover:bg-kb-yellow;
+  }
+
+  /* ----- 브레드크럼 ----- */
+  .breadcrumb {
+    @apply flex items-center gap-2 text-caption text-kb-text-muted;
+  }
+
+  .breadcrumb-separator {
+    @apply text-kb-text-light;
+  }
+
+  .breadcrumb-current {
+    @apply text-kb-text font-medium;
+  }
+
+  /* ----- 페이지 타이틀 ----- */
+  .page-title {
+    @apply text-display text-kb-text mb-6;
+  }
+
+  .section-title {
+    @apply text-h1 text-kb-text mb-4;
+  }
+
+  /* ----- 안내 박스 ----- */
+  .notice-box {
+    @apply bg-kb-beige-light border border-kb-border rounded-kb p-4
+           text-caption text-kb-text-body;
+  }
+
+  .notice-box-yellow {
+    @apply bg-kb-yellow-light border border-kb-yellow rounded-kb p-4
+           text-caption text-kb-text;
+  }
+}
+
+/* ============================================
+   유틸리티
+   ============================================ */
+@layer utilities {
+
+  .stub-placeholder {
+    @apply flex flex-col items-center justify-center
+           min-h-[400px] bg-kb-beige-light rounded-kb
+           text-kb-text-muted;
+  }
+}
