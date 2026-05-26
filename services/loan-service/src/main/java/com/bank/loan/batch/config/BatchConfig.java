@@ -5,6 +5,7 @@ import com.bank.loan.applicationexpiry.service.ApplicationExpiryBatchService;
 import com.bank.loan.autodebit.service.AutoDebitBatchService;
 import com.bank.loan.delinquency.service.DelinquencyRolloverService;
 import com.bank.loan.delinquency.service.OverdueInterestAccrualBatchService;
+import com.bank.loan.guaranteeinsuranceexpiry.service.GuaranteeInsuranceExpiryBatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -26,6 +27,7 @@ import org.springframework.transaction.PlatformTransactionManager;
  *   3. delinquencyRolloverStep     — 연체 판정·갱신·스냅샷
  *   4. overdueInterestAccrualStep  — 연체 이자 일별 발생 (rollover 직후 ACTIVE dlq 기준)
  *   5. applicationExpiryStep       — 승인 만료 처리
+ *   6. guaranteeInsuranceExpiryStep — 보증보험 만기 처리 (gins_end_date < baseDate)
  *
  * 각 Tasklet 은 서비스 예외를 catch 해 로그만 남기고 다음 스텝을 계속 진행한다.
  * Spring Batch JobRepository 에 스텝별 실행 이력이 기록된다.
@@ -44,6 +46,7 @@ public class BatchConfig {
     private final DelinquencyRolloverService delinquencyRolloverService;
     private final OverdueInterestAccrualBatchService overdueInterestAccrualBatchService;
     private final ApplicationExpiryBatchService applicationExpiryBatchService;
+    private final GuaranteeInsuranceExpiryBatchService guaranteeInsuranceExpiryBatchService;
 
     @Bean
     public Job loanEodJob(JobRepository jobRepository,
@@ -51,13 +54,15 @@ public class BatchConfig {
                           Step autoDebitStep,
                           Step delinquencyRolloverStep,
                           Step overdueInterestAccrualStep,
-                          Step applicationExpiryStep) {
+                          Step applicationExpiryStep,
+                          Step guaranteeInsuranceExpiryStep) {
         return new JobBuilder("loanEodJob", jobRepository)
                 .start(interestAccrualStep)
                 .next(autoDebitStep)
                 .next(delinquencyRolloverStep)
                 .next(overdueInterestAccrualStep)
                 .next(applicationExpiryStep)
+                .next(guaranteeInsuranceExpiryStep)
                 .build();
     }
 
@@ -141,6 +146,23 @@ public class BatchConfig {
                         log.info("[EOD][{}] applicationExpiry expired={}", baseDate, result.processed());
                     } catch (Exception e) {
                         log.error("[EOD][{}] applicationExpiry 실패: {}", baseDate, e.getMessage(), e);
+                    }
+                    return RepeatStatus.FINISHED;
+                }, txManager)
+                .build();
+    }
+
+    @Bean
+    public Step guaranteeInsuranceExpiryStep(JobRepository jobRepository, PlatformTransactionManager txManager) {
+        return new StepBuilder("guaranteeInsuranceExpiryStep", jobRepository)
+                .tasklet((contribution, chunkContext) -> {
+                    String baseDate = baseDate(chunkContext);
+                    try {
+                        var result = guaranteeInsuranceExpiryBatchService.run(baseDate);
+                        log.info("[EOD][{}] guaranteeInsuranceExpiry total={} expired={}",
+                                baseDate, result.totalCandidates(), result.processed());
+                    } catch (Exception e) {
+                        log.error("[EOD][{}] guaranteeInsuranceExpiry 실패: {}", baseDate, e.getMessage(), e);
                     }
                     return RepeatStatus.FINISHED;
                 }, txManager)
