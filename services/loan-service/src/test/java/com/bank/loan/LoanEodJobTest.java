@@ -1,6 +1,7 @@
 package com.bank.loan;
 
 import com.bank.loan.accounting.repository.DailyAccountingSummaryRepository;
+import com.bank.loan.accounting.repository.MonthlyAccountingSummaryRepository;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.delinquency.repository.OverdueAccrualRepository;
@@ -52,6 +53,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   70) 잡 종료 알림 outbox 적재 — COMPLETED 잡마다 LOAN_EOD_COMPLETED 1건
  *   80) notificationFlushStep — outbox 상당수가 SENT 로 전이됨
  *   90) 일일 회계 요약 적재 — 20350201 자동이체·이자, 20350205 연체이자
+ *   100) EOM run baseMonth=203502 → COMPLETED + 합계 적재
+ *   101) EOM 동일 baseMonth 재실행 → SKIPPED
+ *   102) EOM baseMonth 형식 오류 → 400
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanEodJobTest extends AbstractLoanIntegrationTest {
@@ -64,6 +68,8 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     private NotificationOutboxRepository outboxRepository;
     @Autowired
     private DailyAccountingSummaryRepository accountingSummaryRepository;
+    @Autowired
+    private MonthlyAccountingSummaryRepository monthlySummaryRepository;
 
     private static final String CNTR_START_DATE = "20350101";
     private static final String EOD_DUE_DATE    = "20350201";  // 납기일 당일
@@ -251,6 +257,44 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
         assertThat(sample.getPayload()).contains("\"baseDate\"");
         assertThat(sample.getPayload()).contains("\"status\":\"COMPLETED\"");
         assertThat(sample.getPayload()).contains("\"steps\"");
+    }
+
+    // ────────────────────────────────────────────
+    // Phase 8: EOM (월마감) — baseMonth=203502
+    // ────────────────────────────────────────────
+
+    @Test @Order(100)
+    void EOM_baseMonth_203502_COMPLETED_합계_적재() throws Exception {
+        mockMvc.perform(post("/api/internal/eom/run").param("baseMonth", "203502"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobStatus").value("COMPLETED"));
+
+        var summary = monthlySummaryRepository.findBySummaryMonth("203502").orElseThrow();
+        assertThat(summary.getBaseMonthStartDate()).isEqualTo("20350201");
+        assertThat(summary.getBaseMonthEndDate()).isEqualTo("20350228");
+        // 2035-02 안에서 발생한 이자 (2일치)
+        assertThat(summary.getInterestRevenue()).isGreaterThan(0L);
+        // 2035-02-05 의 연체이자
+        assertThat(summary.getOverdueInterestRevenue()).isGreaterThan(0L);
+        // 2035-02-01 의 자동이체 1건 (A)
+        assertThat(summary.getAutoDebitCount()).isGreaterThanOrEqualTo(1);
+        // 월말 시점 ACTIVE 약정 (A, B)
+        assertThat(summary.getMonthEndActiveContracts()).isGreaterThanOrEqualTo(2);
+        // STAGE_0 (4일 연체) — NPL 아님
+        assertThat(summary.getMonthEndNplCount()).isEqualTo(0);
+    }
+
+    @Test @Order(101)
+    void EOM_동일_baseMonth_재실행_SKIPPED() throws Exception {
+        mockMvc.perform(post("/api/internal/eom/run").param("baseMonth", "203502"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobStatus").value("SKIPPED"));
+    }
+
+    @Test @Order(102)
+    void EOM_baseMonth_형식오류_400() throws Exception {
+        mockMvc.perform(post("/api/internal/eom/run").param("baseMonth", "2035-02"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test @Order(90)
