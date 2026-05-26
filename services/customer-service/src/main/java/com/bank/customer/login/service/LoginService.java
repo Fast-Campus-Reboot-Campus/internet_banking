@@ -9,6 +9,7 @@ import com.bank.customer.customer.repository.CustomerRepository;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.support.CustomerErrorCode;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class LoginService {
     private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final MeterRegistry meterRegistry;
 
     /**
      * noRollbackFor: 비밀번호 실패 카운트·잠금 상태는 예외 발생 시에도 반드시 커밋돼야 한다.
@@ -33,23 +35,30 @@ public class LoginService {
 
         Credential credential = credentialRepository
                 .findByLoginIdAndDeletedAtIsNull(request.loginId())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_010));
+                .orElseThrow(() -> {
+                    meterRegistry.counter("customer.login.failure", "reason", "bad_credentials").increment();
+                    return new BusinessException(CustomerErrorCode.CUST_010);
+                });
 
         if (credential.isLocked()) {
+            meterRegistry.counter("customer.login.failure", "reason", "locked").increment();
             throw new BusinessException(CustomerErrorCode.CUST_011);
         }
         if (!credential.isActive()) {
+            meterRegistry.counter("customer.login.failure", "reason", "inactive").increment();
             throw new BusinessException(CustomerErrorCode.CUST_012);
         }
         if (credential.isPasswordExpired()) {
+            meterRegistry.counter("customer.login.failure", "reason", "password_expired").increment();
             throw new BusinessException(CustomerErrorCode.CUST_013);
         }
 
         if (!passwordEncoder.matches(request.password(), credential.getPasswordHash())) {
             credential.recordLoginFailure();
+            boolean locked = credential.isLocked();
+            meterRegistry.counter("customer.login.failure", "reason", locked ? "locked" : "bad_credentials").increment();
             // 임계치 도달로 잠금 전환된 경우 잠금 오류 코드로 응답
-            throw new BusinessException(
-                    credential.isLocked() ? CustomerErrorCode.CUST_011 : CustomerErrorCode.CUST_010);
+            throw new BusinessException(locked ? CustomerErrorCode.CUST_011 : CustomerErrorCode.CUST_010);
         }
 
         Customer customer = customerRepository
@@ -57,10 +66,12 @@ public class LoginService {
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
 
         if (!customer.isActive()) {
+            meterRegistry.counter("customer.login.failure", "reason", "inactive").increment();
             throw new BusinessException(CustomerErrorCode.CUST_012);
         }
 
         credential.recordLoginSuccess();
+        meterRegistry.counter("customer.login.success").increment();
 
         String accessToken  = jwtProvider.generateAccessToken(
                 customer.getCustomerId(), customer.getEmail(), List.of("ROLE_CUSTOMER"));

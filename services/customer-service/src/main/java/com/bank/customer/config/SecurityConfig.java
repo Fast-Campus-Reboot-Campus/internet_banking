@@ -2,6 +2,8 @@ package com.bank.customer.config;
 
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.customer.security.JwtAuthenticationFilter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,10 +22,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
+    private final MeterRegistry meterRegistry;
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtProvider);
+        return new JwtAuthenticationFilter(jwtProvider, meterRegistry);
     }
 
     @Bean
@@ -41,6 +44,12 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info",
                                  "/actuator/prometheus").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .accessDeniedHandler((request, response, e) -> {
+                    meterRegistry.counter("customer.auth.access_denied").increment();
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                })
             );
 
         return http.build();

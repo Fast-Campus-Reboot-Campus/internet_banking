@@ -14,6 +14,7 @@ import com.bank.customer.party.repository.PartyRepository;
 import com.bank.customer.register.dto.RegisterRequest;
 import com.bank.customer.register.dto.RegisterResponse;
 import com.bank.customer.support.CustomerErrorCode;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,10 +37,12 @@ public class RegisterService {
     private final CredentialRepository credentialRepository;
     private final CustomerStatusHistoryRepository customerStatusHistoryRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MeterRegistry meterRegistry;
 
     public RegisterResponse register(RegisterRequest request) {
 
         if (credentialRepository.existsByLoginIdAndDeletedAtIsNull(request.loginId())) {
+            meterRegistry.counter("customer.register.failure", "reason", "duplicate_login_id").increment();
             throw new BusinessException(CustomerErrorCode.CUST_001);
         }
 
@@ -87,6 +90,7 @@ public class RegisterService {
         customerStatusHistoryRepository.save(
                 CustomerStatusHistory.ofInitial(customer.getCustomerId(), now));
 
+        meterRegistry.counter("customer.register.success").increment();
         return new RegisterResponse(customer.getCustomerId(), request.loginId());
     }
 }
