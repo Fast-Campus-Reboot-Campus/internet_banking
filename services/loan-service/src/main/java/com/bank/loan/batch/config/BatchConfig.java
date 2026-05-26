@@ -6,6 +6,7 @@ import com.bank.loan.autodebit.service.AutoDebitBatchService;
 import com.bank.loan.delinquency.service.DelinquencyRolloverService;
 import com.bank.loan.delinquency.service.OverdueInterestAccrualBatchService;
 import com.bank.loan.guaranteeinsuranceexpiry.service.GuaranteeInsuranceExpiryBatchService;
+import com.bank.loan.batch.listener.EodNotificationListener;
 import com.bank.loan.maturity.service.MaturityBatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,9 @@ import org.springframework.transaction.PlatformTransactionManager;
  * 각 Tasklet 은 서비스 예외를 catch 해 로그만 남기고 다음 스텝을 계속 진행한다.
  * Spring Batch JobRepository 에 스텝별 실행 이력이 기록된다.
  *
+ * 잡 종료 후 EodNotificationListener.afterJob() 이 결과를 NotificationOutbox 에 적재한다.
+ * outbox dispatch 배치가 Kafka 토픽 "loan-domain-events" 로 발행 → 외부 모니터링 시스템 수신.
+ *
  * 멱등성: baseDate 를 JobParameter 로 사용한다.
  *   같은 baseDate 로 재실행 시 이미 완료된 JobExecution 이 존재하면 JobInstanceAlreadyCompleteException 발생.
  *   실패한 잡은 재실행 가능 (Spring Batch 기본 동작).
@@ -59,8 +63,10 @@ public class BatchConfig {
                           Step overdueInterestAccrualStep,
                           Step applicationExpiryStep,
                           Step guaranteeInsuranceExpiryStep,
-                          Step maturityStep) {
+                          Step maturityStep,
+                          EodNotificationListener eodNotificationListener) {
         return new JobBuilder("loanEodJob", jobRepository)
+                .listener(eodNotificationListener)
                 .start(interestAccrualStep)
                 .next(autoDebitStep)
                 .next(delinquencyRolloverStep)
