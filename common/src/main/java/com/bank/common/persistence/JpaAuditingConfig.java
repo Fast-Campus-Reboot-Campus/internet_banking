@@ -14,8 +14,13 @@ import java.util.Optional;
 
 @Configuration
 @ConditionalOnClass(EntityManager.class)
-@EnableJpaAuditing(auditorAwareRef = "auditorAware", dateTimeProviderRef = "auditingDateTimeProvider")
+@EnableJpaAuditing(auditorAwareRef = "auditorAware", dateTimeProviderRef = "offsetDateTimeProvider")
 public class JpaAuditingConfig {
+
+    @Bean
+    public DateTimeProvider offsetDateTimeProvider() {
+        return () -> Optional.of(OffsetDateTime.now());
+    }
 
     @Bean
     @ConditionalOnMissingBean

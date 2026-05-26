@@ -10,24 +10,29 @@ scrape_configs:
   - job_name: 'customer-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['host.docker.internal:8081']
+      - targets: ['localhost:8081']
 
   - job_name: 'deposit-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['host.docker.internal:8082']
+      - targets: ['localhost:8082']
 
   - job_name: 'loan-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['host.docker.internal:8083']
+      - targets: ['localhost:8083']
 
   - job_name: 'payment-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['host.docker.internal:8084']
+      - targets: ['localhost:8084']
 
   - job_name: 'master-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['host.docker.internal:8085']
+      - targets: ['localhost:8085']
+
+  - job_name: 'ai-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['localhost:8086']

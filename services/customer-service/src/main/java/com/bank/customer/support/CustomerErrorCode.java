@@ -1,0 +1,34 @@
+package com.bank.customer.support;
+
+import com.bank.common.web.ErrorCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+
+/**
+ * CUST 도메인 에러코드.
+ * 회원(001-009) / 인증(010-019) / 계정(020-029) 구간 사용.
+ */
+@Getter
+@RequiredArgsConstructor
+public enum CustomerErrorCode implements ErrorCode {
+
+    // 회원
+    CUST_001(HttpStatus.CONFLICT,   "이미 사용 중인 로그인 ID입니다."),
+    CUST_002(HttpStatus.NOT_FOUND,  "고객 정보를 찾을 수 없습니다."),
+    CUST_003(HttpStatus.CONFLICT,   "이미 가입된 고객입니다."),
+
+    // 인증
+    CUST_010(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."),
+    CUST_011(HttpStatus.FORBIDDEN,    "계정이 잠겨 있습니다. 비밀번호 5회 오류."),
+    CUST_012(HttpStatus.FORBIDDEN,    "탈퇴하거나 비활성화된 계정입니다."),
+    CUST_013(HttpStatus.UNAUTHORIZED, "비밀번호가 만료되었습니다.");
+
+    private final HttpStatus status;
+    private final String message;
+
+    @Override
+    public String getCode() {
+        return name();
+    }
+}
