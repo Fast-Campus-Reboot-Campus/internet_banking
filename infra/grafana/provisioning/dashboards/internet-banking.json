@@ -226,11 +226,11 @@
       "id": 9,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connection_acquisition_seconds_bucket{application=\"$application\"}[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_acquire_seconds_bucket{application=\"$application\"}[1m])) by (le))",
           "legendFormat": "커넥션 획득 p95"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connection_usage_seconds_bucket{application=\"$application\"}[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_usage_seconds_bucket{application=\"$application\"}[1m])) by (le))",
           "legendFormat": "쿼리 사용 p95"
         }
       ],
