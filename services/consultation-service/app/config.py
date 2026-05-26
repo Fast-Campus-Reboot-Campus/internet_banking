@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     kafka_enabled: bool = False
     kafka_topic_chatbot_events: str = "consultation.chatbot.events"
     kafka_topic_chat_events: str = "consultation.chat.events"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
     llm_confidence_threshold: int = 70
 
     model_config = SettingsConfigDict(

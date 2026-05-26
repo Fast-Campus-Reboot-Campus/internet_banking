@@ -131,11 +131,11 @@ class TestFeaturesListEndpoint:
         finally:
             app.dependency_overrides.clear()
 
-    def test_total_count_is_16(self, service):
+    def test_total_count_is_18(self, service):
         client = _client(service)
         try:
             features = client.get("/chatbot/features").json()
-            assert len(features) == 16
+            assert len(features) == 18
         finally:
             app.dependency_overrides.clear()
 

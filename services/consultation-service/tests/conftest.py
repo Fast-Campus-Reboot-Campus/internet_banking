@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -9,9 +10,10 @@ from sqlalchemy.pool import StaticPool
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+os.environ["CONSULTATION_KAFKA_ENABLED"] = "false"
 
 from app.database import Base
-from app.llm import LlmHandoffAdapter
+from app.llm import LlmAdapter, LlmHandoffAdapter
 from app.services import ChatbotService
 
 
@@ -146,9 +148,30 @@ def db() -> Session:
         engine.dispose()
 
 
+class MockLlmAdapter(LlmAdapter):
+    """실제 API 호출 없이 고정 응답을 반환하는 LLM mock."""
+    def __init__(self):
+        super().__init__(api_key="mock-key", model="gpt-4o-mini")
+
+    def answer(self, message: str, context: str = "") -> str:
+        return f"[LLM 응답] {message}에 대한 AI 답변입니다."
+
+
 @pytest.fixture()
 def service(db: Session) -> ChatbotService:
     return ChatbotService(db, AsyncMock(), LlmHandoffAdapter())
+
+
+@pytest.fixture()
+def llm_service(db: Session) -> ChatbotService:
+    """LlmAdapter(mock)가 연결된 서비스 — LLM fallback 시나리오 전용."""
+    return ChatbotService(db, AsyncMock(), LlmHandoffAdapter(), MockLlmAdapter())
+
+
+@pytest.fixture()
+def rich_llm_service(rich_db: Session) -> ChatbotService:
+    """LlmAdapter(mock) + 풍부한 DB."""
+    return ChatbotService(rich_db, AsyncMock(), LlmHandoffAdapter(), MockLlmAdapter())
 
 
 @pytest.fixture()
