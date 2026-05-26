@@ -42,6 +42,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   25) A 연체 이자 발생행 없음
  *   30) 동일 baseDate=20350201 재실행 → SKIPPED (JobInstanceAlreadyComplete)
  *   40) baseDate 형식 오류 → 400
+ *   50) EOD 이력 조회: baseDate 필터 → COMPLETED 1건, 스텝 7개
+ *   51) from/to 매칭 없으면 빈 배열
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanEodJobTest extends AbstractLoanIntegrationTest {
@@ -176,6 +178,31 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     void baseDate_형식오류_400() throws Exception {
         mockMvc.perform(post("/api/internal/eod/run").param("baseDate", "2035-02-01"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ────────────────────────────────────────────
+    // Phase 4: 이력 조회
+    // ────────────────────────────────────────────
+
+    @Test @Order(50)
+    void EOD_이력_조회_baseDate_status_steps_포함() throws Exception {
+        // 20350201 만 필터 → 정확히 COMPLETED 1건이 있어야 한다
+        mockMvc.perform(get("/api/internal/eod/history")
+                        .param("from", EOD_DUE_DATE).param("to", EOD_DUE_DATE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].baseDate").value(EOD_DUE_DATE))
+                .andExpect(jsonPath("$.data[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data[0].steps.length()").value(7))
+                .andExpect(jsonPath("$.data[0].steps[0].stepName").value("interestAccrualStep"))
+                .andExpect(jsonPath("$.data[0].steps[6].stepName").value("maturityStep"));
+    }
+
+    @Test @Order(51)
+    void EOD_이력_from_to_매칭없음_빈배열() throws Exception {
+        mockMvc.perform(get("/api/internal/eod/history")
+                        .param("from", "20990101").param("to", "20991231"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     // ──────────────────────────────────────────────────────────────
