@@ -287,6 +287,9 @@ Docker Compose를 사용하는 경우 프로젝트 루트에서:
 docker compose up kafka -d
 ```
 
+> **Kafka 이미지**: `apache/kafka:latest` (KRaft 단일 브로커, 포트 9092)  
+> 토픽(`consultation.chatbot.events`, `consultation.chat.events`)은 브로커 기동 후 자동 생성됩니다.
+
 Kafka 없이 로컬 개발만 하는 경우 `.env`에서 비활성화:
 
 ```dotenv
@@ -379,7 +382,11 @@ pytest tests/test_chat_api.py -v
 
 | 클래스 | 파일 | 설명 |
 |--------|------|------|
-| `KafkaEventConsumer` | `app/kafka.py` | 비동기 이터레이터 인터페이스 제공 (향후 WebSocket 알림 연동용) |
+| `KafkaEventConsumer` | `app/kafka.py` | 비동기 이터레이터 인터페이스. 서비스 기동 시 `consultation.chatbot.events`, `consultation.chat.events` 두 토픽을 구독하고 수신 이벤트를 로그로 출력. 향후 WebSocket 푸시 알림 연동 시 확장 지점. |
+
+> **Consumer 구동 방식**  
+> `app/main.py` lifespan에서 `consumer.start()` 호출 후 `asyncio.create_task()`로 백그라운드 루프 실행.  
+> 서비스 종료 시 태스크 취소 → `consumer.stop()` 순으로 정리됩니다.
 
 ### 챗봇 이벤트 (`consultation.chatbot.events`)
 
@@ -446,6 +453,7 @@ kafka-console-consumer.sh \
 
 | 날짜 | 내용 |
 |------|------|
+| 2026-05-26 | **Kafka Consumer 연결** — `KafkaEventConsumer`를 `main.py` lifespan에 연결, 백그라운드 루프로 `chatbot.events`·`chat.events` 구독 시작. `docker-compose.yml` Kafka 이미지 교체 (`bitnami/kafka` → `apache/kafka`, KRaft 모드). `main.py` import 스타일 정리 (`logger` 선언 위치 이동). |
 | 2026-05-24 | Kafka 이벤트 발행 활성화 — `.env.example` 추가, README Kafka 섹션 상세화 |
 | 2026-05-24 | `ChatService.send_message()` 종료 상담 가드 추가 — 종료된 상담(`active_yn="N"`)에 메시지 전송 시 `ValueError` 발생 → HTTP 404 반환. 관련 테스트 3개 추가 |
 | 2026-05-24 | 챗봇·상담 서비스 초기 구현 |
