@@ -3,10 +3,10 @@ server:
   grpc_listen_port: 0
 
 positions:
-  filename: C:/loki-data/positions.yaml
+  filename: ${LOKI_DATA_DIR:-C:/loki-data}/positions.yaml
 
 clients:
-  - url: http://127.0.0.1:3100/loki/api/v1/push
+  - url: http://${LOKI_HOST:-127.0.0.1}:${LOKI_PORT:-3100}/loki/api/v1/push
 
 scrape_configs:
   - job_name: customer-service
@@ -16,7 +16,7 @@ scrape_configs:
         labels:
           job: customer-service
           application: customer-service
-          __path__: C:/logs/internet-banking/customer-service.log
+          __path__: ${LOG_DIR:-C:/logs/internet-banking}/customer-service.log
     pipeline_stages:
       - regex:
           expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'

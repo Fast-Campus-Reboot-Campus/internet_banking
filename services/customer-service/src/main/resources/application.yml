@@ -67,6 +67,6 @@ jwt:
 
 logging:
   file:
-    name: C:/logs/internet-banking/customer-service.log
+    name: ${LOG_DIR:C:/logs/internet-banking}/customer-service.log
   pattern:
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
