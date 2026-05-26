@@ -2,6 +2,7 @@ package com.bank.loan;
 
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
+import com.bank.loan.delinquency.repository.OverdueAccrualRepository;
 import com.bank.loan.support.AbstractLoanIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -14,6 +15,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -36,6 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   21) B 회차1=OVERDUE
  *   22) B 연체 ACTIVE, dlqDays=4, STAGE_0
  *   23) A 연체 없음 (납기일에 이미 PAID)
+ *   24) B 연체 이자 발생행 존재, dailyOverdueInterest > 0
+ *   25) A 연체 이자 발생행 없음
  *   30) 동일 baseDate=20350201 재실행 → SKIPPED (JobInstanceAlreadyComplete)
  *   40) baseDate 형식 오류 → 400
  */
@@ -44,6 +48,8 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
 
     @Autowired
     private LoanApplicationRepository applicationRepository;
+    @Autowired
+    private OverdueAccrualRepository overdueAccrualRepository;
 
     private static final String CNTR_START_DATE = "20350101";
     private static final String EOD_DUE_DATE    = "20350201";  // 납기일 당일
@@ -136,6 +142,23 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     void A_연체_없음_납기일에_이미_상환() throws Exception {
         mockMvc.perform(get("/api/loan-contracts/{cntrId}/delinquency", cntrIdA))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test @Order(24)
+    void B_연체이자_발생행_존재_dailyOverdueInterest_양수() {
+        var rows = overdueAccrualRepository.findAll().stream()
+                .filter(oa -> oa.getCntrId().equals(cntrIdB))
+                .toList();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getAccrualDate()).isEqualTo(EOD_OVERDUE);
+        assertThat(rows.get(0).getDailyOverdueInterest()).isGreaterThan(0L);
+        assertThat(rows.get(0).getCumulativeOverdueInterest()).isGreaterThan(0L);
+    }
+
+    @Test @Order(25)
+    void A_연체이자_발생행_없음() {
+        boolean exists = overdueAccrualRepository.existsByCntrIdAndAccrualDate(cntrIdA, EOD_OVERDUE);
+        assertThat(exists).isFalse();
     }
 
     // ────────────────────────────────────────────
