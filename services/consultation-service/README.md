@@ -1,459 +1,238 @@
-# consultation-service
+# Consultation Service — 챗봇·상담 서비스
 
-인터넷뱅킹 MVP의 **챗봇·상담사 채팅** 서비스입니다.  
-고객은 챗봇과 대화하고, 필요 시 실시간 상담사 채팅으로 이관됩니다.
-
----
-
-## 목차
-
-1. [서비스 개요](#서비스-개요)
-2. [아키텍처](#아키텍처)
-3. [기술 스택](#기술-스택)
-4. [디렉터리 구조](#디렉터리-구조)
-5. [도메인 모델](#도메인-모델)
-6. [API 엔드포인트](#api-엔드포인트)
-7. [챗봇 기능 목록](#챗봇-기능-목록)
-8. [상담 흐름](#상담-흐름)
-9. [환경 변수](#환경-변수)
-10. [로컬 실행](#로컬-실행)
-11. [테스트](#테스트)
-12. [Kafka 이벤트](#kafka-이벤트)
-13. [변경 이력](#변경-이력)
-
----
-
-## 서비스 개요
-
-| 항목 | 내용 |
-|------|------|
-| 역할 | 챗봇 상담 + 상담사 이관 채팅 |
-| 포트 | `8002` (기본값) |
-| DB | PostgreSQL 16 (`deposit_db`) |
-| 메시지 브로커 | Kafka (비활성화 가능) |
-| 런타임 | Python 3.11 / FastAPI 0.115 |
-
----
-
-## 아키텍처
-
-```
-고객 (앱/웹)
-    │
-    ▼
-FastAPI (consultation-service)
-    ├── ChatbotService   ─── 시나리오 기반 응답 + LLM fallback
-    └── ChatService      ─── 상담사 채팅 관리
-            │
-            ├── PostgreSQL  (consultation, chatbot_consultation,
-            │                chat_consultation, chat_message_history …)
-            └── Kafka       (chatbot.events / chat.events)
-```
-
-### 상담 흐름 요약
-
-```
-[챗봇 시작]
-    │  POST /chatbot/consultations/start
-    ▼
-[시나리오 응답]
-    │  POST /chatbot/consultations/{id}/messages
-    │  button_value 매핑 → 다음 노드 응답
-    │  매핑 없음         → LLM fallback + agent_transfer_required=true
-    ▼
-[상담사 이관 → 대기열]
-    │  GET  /chat/queue
-    ▼
-[상담사 연결]
-    │  POST /chat/consultations/{id}/connect
-    ▼
-[메시지 교환]
-    │  POST /chat/consultations/{id}/messages
-    │  GET  /chat/consultations/{id}/messages
-    ▼
-[상담 종료]
-       POST /chat/consultations/{id}/end
-```
+인터넷뱅킹 플랫폼의 **고객 챗봇 및 상담사 채팅 도메인 백엔드 서비스**입니다.  
+시나리오 기반 챗봇, 키워드 Intent 분류, OpenAI LLM 폴백, 상담사 연결(Live Chat), Kafka 이벤트 발행까지 상담 업무 전 흐름을 담당합니다.
 
 ---
 
 ## 기술 스택
 
-| 분류 | 라이브러리 | 버전 |
-|------|-----------|------|
-| 웹 프레임워크 | FastAPI | 0.115.6 |
-| ASGI 서버 | Uvicorn | 0.34.0 |
-| ORM | SQLAlchemy | 2.0.36 |
-| DB 드라이버 | psycopg (v3) | 3.2.3 |
-| 설정 | pydantic-settings | 2.7.1 |
-| Kafka 클라이언트 | aiokafka | 0.12.0 |
-| 테스트 | pytest | 8.3.4 |
-| HTTP 클라이언트 | httpx | 0.28.1 |
-
----
-
-## 디렉터리 구조
-
-```
-consultation-service/
-├── app/
-│   ├── __init__.py
-│   ├── config.py       # 환경 변수 설정 (pydantic-settings)
-│   ├── database.py     # SQLAlchemy 엔진·세션
-│   ├── kafka.py        # KafkaEventPublisher (aiokafka)
-│   ├── llm.py          # LlmHandoffAdapter (BP002 fallback)
-│   ├── main.py         # FastAPI 라우터
-│   ├── models.py       # SQLAlchemy ORM 모델
-│   ├── schemas.py      # Pydantic 요청/응답 스키마
-│   └── services.py     # ChatbotService / ChatService 비즈니스 로직
-├── tests/
-│   ├── conftest.py                       # pytest fixture (in-memory SQLite)
-│   ├── test_basic.py                     # 기본 동작·헬스체크
-│   ├── test_api_validation.py            # 입력값 유효성 검증
-│   ├── test_chat_api.py                  # 상담사 채팅 HTTP API
-│   ├── test_chat_service.py              # ChatService 단위 테스트
-│   ├── test_chatbot_api.py               # 챗봇 HTTP API
-│   ├── test_chatbot_service.py           # ChatbotService 단위 테스트
-│   ├── test_features_product_advice.py   # PRODUCT_ADVICE 기능 상세
-│   ├── test_features_staff_support.py    # STAFF_SUPPORT 기능 상세
-│   ├── test_features_user_finance.py     # USER_FINANCE 기능 상세
-│   └── test_runtime_contracts.py        # DB 스키마·Kafka 계약 검증
-├── static/                              # 챗 UI (선택, 없으면 /chat → 404)
-├── pytest.ini
-└── requirements.txt
-```
-
----
-
-## 도메인 모델
-
-### 주요 테이블
-
-| 테이블 | 설명 |
-|--------|------|
-| `consultation` | 상담 마스터 (챗봇·채팅 공통 부모) |
-| `chatbot_consultation` | 챗봇 상담 세션 |
-| `chat_consultation` | 상담사 채팅 세션 |
-| `chatbot_scenario` | 시나리오 정의 |
-| `chatbot_node` | 시나리오 노드 (메시지 + 버튼) |
-| `chatbot_node_button` | 노드 버튼 정의 |
-| `chatbot_node_flow` | 노드 간 이동 규칙 |
-| `chat_message_history` | 챗봇·상담사 메시지 통합 이력 |
-
-### 상태값
-
-**ChatConsultation.active_yn**
-
-| 값 | 의미 |
-|----|------|
-| `"Y"` | 진행 중 |
-| `"N"` | 종료됨 |
-
-> 종료된 상담(`active_yn="N"`)에는 메시지 전송이 차단됩니다.
-
----
-
-## API 엔드포인트
-
-### 공통
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| GET | `/health` | 헬스체크 |
-| GET | `/chat` | 챗 UI (static/index.html) |
-
-### 챗봇
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| POST | `/chatbot/scenarios/default` | 기본 시나리오 시드 |
-| GET | `/chatbot/categories` | 기능 카테고리 목록 |
-| GET | `/chatbot/features` | 전체 기능 목록 |
-| GET | `/chatbot/features/{code}` | 기능 상세 |
-| POST | `/chatbot/features/{code}/execute` | 기능 실행 |
-| POST | `/chatbot/consultations/start` | 챗봇 상담 시작 |
-| POST | `/chatbot/consultations/{id}/messages` | 챗봇 메시지 전송 |
-
-### 상담사 채팅
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| GET | `/chat/queue` | 대기 중인 상담 목록 |
-| POST | `/chat/consultations/{id}/connect` | 상담사 연결 수락 |
-| POST | `/chat/consultations/{id}/messages` | 메시지 전송 |
-| GET | `/chat/consultations/{id}/messages` | 메시지 이력 조회 |
-| POST | `/chat/consultations/{id}/end` | 상담 종료 |
-
-### 에러 코드
-
-| HTTP | 상황 |
+| 항목 | 내용 |
 |------|------|
-| 400 | 이미 연결/종료된 상담에 재요청 |
-| 404 | 존재하지 않는 상담 ID / 종료된 상담에 메시지 전송 |
-| 422 | 필수 필드 누락 또는 유효성 실패 |
+| Language | Python 3.11+ |
+| Framework | FastAPI |
+| DB | PostgreSQL (운영) / SQLite (테스트) |
+| ORM | SQLAlchemy |
+| 메시지 큐 | Apache Kafka (aiokafka) |
+| LLM | OpenAI API (`gpt-4o-mini`) |
+| 테스트 | pytest + pytest-asyncio |
+| 컨테이너 | Docker / Docker Compose |
 
 ---
 
-## 챗봇 기능 목록
+## 서비스 아키텍처
 
-### PRODUCT_ADVICE — 금융상품 상담
-
-| 코드 | 기능 | 인증 |
-|------|------|------|
-| `PRODUCT_GUIDE` | 예금·적금·청약 상품 안내 | 불필요 |
-| `RATE_GUIDE` | 금리·우대금리 설명 | 불필요 |
-| `JOIN_CONDITION` | 가입 조건 안내 | 불필요 |
-| `PRODUCT_COMPARE` | 상품 비교 | 불필요 |
-| `TERMS_RAG` | 약관 키워드 검색 | 불필요 |
-| `FAQ` | FAQ 응답 | 불필요 |
-
-### USER_FINANCE — 사용자 금융정보 조회
-
-| 코드 | 기능 | 인증 |
-|------|------|------|
-| `MY_ACCOUNTS` | 내 계좌 목록·잔액 | 고객 인증 |
-| `MY_PRODUCTS` | 가입 상품 조회 | 고객 인증 |
-| `CONTRACT_STATUS` | 계약 상태 조회 | 고객 인증 |
-| `MATURITY_SCHEDULE` | 만기 예정 조회 | 고객 인증 |
-| `INTEREST_HISTORY` | 이자 내역 조회 | 고객 인증 |
-
-### STAFF_SUPPORT — 직원 업무 지원
-
-| 코드 | 기능 | 인증 |
-|------|------|------|
-| `STAFF_CUSTOMER` | 고객 계좌 조회 | 직원 인증 |
-| `STAFF_CONTRACT` | 고객 계약 조회 | 직원 인증 |
-| `STAFF_ACCOUNT` | 고객 계좌 상세 | 직원 인증 |
-| `STAFF_TRANSFER_FLOW` | 이체 흐름 조회 | 직원 인증 |
-| `STAFF_CONSULTATION_HISTORY` | 상담 이력 조회 | 직원 인증 |
-
-> **인증 응답 status**  
-> - `AUTH_REQUIRED` : `customer_no` 없이 USER_FINANCE 기능 호출  
-> - `STAFF_AUTH_REQUIRED` : `customer_no` 또는 `staff_id` 누락 시 STAFF_SUPPORT 기능 호출  
-> - `EMPTY` : 인증은 통과했으나 조회 결과 없음
-
----
-
-## 환경 변수
-
-모든 변수는 `CONSULTATION_` 접두사를 사용합니다.  
-`.env.example`을 복사하여 `.env`로 사용합니다 (`.env`는 gitignore 대상).
-
-```bash
-cp services/consultation-service/.env.example services/consultation-service/.env
+```
+고객 요청
+    │
+    ▼
+[챗봇 상담 시작]  POST /chatbot/consultations/start
+    │
+    ▼
+[메시지 처리]     POST /chatbot/consultations/{id}/messages
+    │
+    ├─ 시나리오 버튼 → 정해진 노드 흐름으로 응답
+    │
+    ├─ 자유 텍스트
+    │     ├─ IntentClassifier (키워드 기반)
+    │     │       ↓ 매칭된 경우
+    │     │   Feature 실행 (DB 조회 → 포맷팅 응답)
+    │     │
+    │     └─ 미매칭 → LLM Adapter (OpenAI) 폴백 응답
+    │
+    └─ '상담사 연결' 선택 → ChatConsultation 생성
+            │
+            ▼
+    [상담사 채팅]  /chat/consultations/*
+            │
+            ├─ 상담사 수락: POST /chat/consultations/{id}/connect
+            ├─ 메시지 전송: POST /chat/consultations/{id}/messages
+            ├─ 이력 조회:   GET  /chat/consultations/{id}/messages
+            └─ 상담 종료:   POST /chat/consultations/{id}/end
 ```
 
-| 변수 | 기본값 | 설명 |
-|------|--------|------|
-| `CONSULTATION_DATABASE_URL` | `postgresql+psycopg://deposit:deposit@localhost:5432/deposit_db` | DB 연결 URL |
-| `CONSULTATION_KAFKA_ENABLED` | `false` | Kafka 활성화 여부 (`true` 시 브로커 필수) |
-| `CONSULTATION_KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka 브로커 주소 |
-| `CONSULTATION_KAFKA_TOPIC_CHATBOT_EVENTS` | `consultation.chatbot.events` | 챗봇 이벤트 토픽 |
-| `CONSULTATION_KAFKA_TOPIC_CHAT_EVENTS` | `consultation.chat.events` | 채팅 이벤트 토픽 |
-| `CONSULTATION_LLM_CONFIDENCE_THRESHOLD` | `70` | LLM 신뢰도 임계값 |
+---
 
-> **주의**: `CONSULTATION_KAFKA_ENABLED=true` 상태에서 Kafka 브로커가 실행 중이지 않으면  
-> 서비스 기동 시 `KafkaConnectionError`가 발생하여 시작이 실패합니다.
+## 주요 기능
+
+### 1. 수신 상품 안내 (상품 연계)
+챗봇은 **deposit-service DB를 직접 조회**하여 고객에게 실시간 상품 정보를 안내합니다.
+
+| Intent 코드 | 키워드 예시 | 응답 내용 |
+|-------------|------------|-----------|
+| `PRODUCT_GUIDE` | 상품 추천, 어떤 예금, 적금 알려줘 | 수신 상품 목록 (최대 5개) |
+| `RATE_GUIDE` | 금리, 이자율, 이율 | 상품별 금리 안내 |
+| `JOIN_CONDITION` | 가입 조건, 가입 가능 | 가입 금액·기간·혜택 |
+| `PRODUCT_COMPARE` | 비교, 차이, 뭐가 나아 | 상품 비교표 |
+| `TERMS_RAG` | 약관, 중도해지, 수수료 | 특약 검색 결과 |
+| `FAQ` | 자주 묻는, FAQ | 자주 묻는 질문 |
+
+### 2. 챗봇 시스템 (시나리오 기반)
+- **시나리오 노드** 구조: 노드(`ChatbotNode`) → 버튼(`ChatbotNodeButton`) → 다음 노드 흐름(`ChatbotNodeFlow`)
+- 기본 시나리오 자동 시드: `POST /chatbot/scenarios/default`
+- 챗봇 상담 전 과정 DB 기록 (`ChatbotConsultation`, `ChatbotIntent`)
+- 버튼 선택 / 자유 텍스트 입력 모두 처리
+- 종료된 상담에 메시지 전송 차단 (상태 검증)
+
+### 3. LLM 폴백 (OpenAI)
+시나리오·키워드로 처리되지 않는 자유 문의는 **OpenAI LLM**이 응답합니다.
+
+```
+처리 우선순위
+1. 시나리오 버튼 선택 → 노드 흐름 응답
+2. IntentClassifier 키워드 매칭 → DB 조회 후 포맷팅 응답
+3. 미매칭 + OPENAI_API_KEY 설정 → gpt-4o-mini 응답 (LlmAdapter)
+4. OPENAI_API_KEY 미설정 → 상담사 연결 안내 (LlmHandoffAdapter)
+```
+
+**LLM 시스템 프롬프트 요약:**
+> 인터넷뱅킹 고객 상담 챗봇으로서 수신 금융상품(예금·적금·청약) 질문에 친절하게 답변.  
+> 인증이 필요한 내용은 '상담사 연결'로 안내. 답변은 한국어, 간결하게.
+
+### 4. Kafka 이벤트
+상담 흐름의 주요 이벤트를 Kafka로 발행합니다.
+
+| 이벤트 | 토픽 | 발행 시점 |
+|--------|------|-----------|
+| `ChatbotStarted` | `chatbot-events` | 챗봇 상담 시작 |
+| `ChatbotMessageSent` | `chatbot-events` | 챗봇 메시지 전송 |
+| `AgentHandoffRequested` | `chatbot-events` | 상담사 연결 요청 |
+| `AgentConnected` | `chat-events` | 상담사 수락 |
+| `ChatMessageSent` | `chat-events` | 채팅 메시지 전송 |
+| `ChatEnded` | `chat-events` | 상담 종료 |
+
+> `KAFKA_ENABLED=false`(기본값) 시 발행 없이 서비스 정상 동작. 테스트 환경에서도 비활성화.
+
+### 5. 상담사 채팅 (Live Chat)
+- 상담사 대기열 조회: `GET /chat/queue`
+- 상담사 수락 → 채팅 시작
+- 챗봇 메시지 + 상담사 메시지 통합 이력 조회 (시간순)
+- 만족도 점수 기록 후 상담 종료
 
 ---
 
-## 로컬 실행
+## API 엔드포인트 요약
 
-### 1. 가상환경 및 의존성 설치
+| Method | Path | 설명 |
+|--------|------|------|
+| `GET` | `/health` | 헬스 체크 |
+| `GET` | `/chat` | 챗 UI (index.html) |
+| `POST` | `/chatbot/scenarios/default` | 기본 시나리오 시드 |
+| `GET` | `/chatbot/categories` | 챗봇 카테고리 목록 |
+| `GET` | `/chatbot/features` | 챗봇 기능 목록 |
+| `GET` | `/chatbot/features/{code}` | 챗봇 기능 상세 |
+| `POST` | `/chatbot/features/{code}/execute` | 챗봇 기능 실행 |
+| `POST` | `/chatbot/consultations/start` | 챗봇 상담 시작 |
+| `POST` | `/chatbot/consultations/{id}/messages` | 챗봇 메시지 전송 |
+| `GET` | `/chat/queue` | 상담사 대기열 조회 |
+| `POST` | `/chat/consultations/{id}/connect` | 상담사 연결 수락 |
+| `POST` | `/chat/consultations/{id}/messages` | 채팅 메시지 전송 |
+| `GET` | `/chat/consultations/{id}/messages` | 채팅 메시지 이력 |
+| `POST` | `/chat/consultations/{id}/end` | 상담 종료 |
+
+> Swagger UI: `http://localhost:8090/docs`
+
+---
+
+## 환경 변수 설정
+
+`.env.sample`을 복사해 `.env` 작성:
+
+```env
+# DB
+DATABASE_URL=postgresql://user:pass@localhost:5432/consultation_db
+
+# Kafka (비활성화 시 KAFKA_ENABLED=false)
+KAFKA_ENABLED=false
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KAFKA_TOPIC_CHATBOT_EVENTS=chatbot-events
+KAFKA_TOPIC_CHAT_EVENTS=chat-events
+
+# LLM (미설정 시 상담사 연결 안내로 폴백)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+---
+
+## 로컬 실행 방법
+
+### 가상환경 설정
 
 ```bash
 cd services/consultation-service
 python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. 환경 변수 설정
+### 서비스 시작
 
 ```bash
-cp .env.example .env
-# 필요 시 .env 내용 수정
+uvicorn app.main:app --reload --port 8090
 ```
 
-### 3. Kafka 브로커 실행 (Kafka 연동 시)
+또는 스크립트 사용:
 
-Docker Compose를 사용하는 경우 프로젝트 루트에서:
+```powershell
+.\scripts\start.ps1
+```
+
+### 기본 시나리오 시드
+
+서비스 시작 후 한 번 실행:
 
 ```bash
-docker compose up kafka -d
-```
-
-> **Kafka 이미지**: `apache/kafka:latest` (KRaft 단일 브로커, 포트 9092)  
-> 토픽(`consultation.chatbot.events`, `consultation.chat.events`)은 브로커 기동 후 자동 생성됩니다.
-
-Kafka 없이 로컬 개발만 하는 경우 `.env`에서 비활성화:
-
-```dotenv
-CONSULTATION_KAFKA_ENABLED=false
-```
-
-### 4. 서버 실행
-
-```bash
-uvicorn app.main:app --reload --port 8002
-```
-
-### 5. API 문서 확인
-
-서버 실행 후 브라우저에서 접속:
-
-- Swagger UI : http://localhost:8002/docs
-- ReDoc      : http://localhost:8002/redoc
-
-### 6. Docker Compose (전체 스택)
-
-프로젝트 루트에서:
-
-```bash
-docker compose up consultation-service
+curl -X POST http://localhost:8090/chatbot/scenarios/default
 ```
 
 ---
 
-## 테스트
-
-### 테스트 실행
+## 테스트 실행
 
 ```bash
-cd services/consultation-service
-
-# 전체 테스트
 pytest
-
-# 상세 출력
-pytest -v
-
-# 특정 파일만
-pytest tests/test_chat_service.py -v
-pytest tests/test_chat_api.py -v
 ```
 
-### 테스트 환경
-
-- DB : SQLite in-memory (PostgreSQL 불필요)
-- Kafka : `AsyncMock` 으로 대체 (실제 브로커 불필요)
-- 픽스처 : `conftest.py` — `db`, `service`, `chat_service`, `empty_service`, `rich_service`
-
-### 테스트 현황 (2026-05-24 기준)
-
-| 파일 | 테스트 수 | 내용 |
-|------|----------|------|
-| test_basic.py | 6 | 기본 동작·상품·계좌·거래 조회 |
-| test_api_validation.py | 6 | 입력값 유효성 (필수 필드·범위) |
-| test_chatbot_api.py | 7 | 챗봇 HTTP API |
-| test_chatbot_service.py | 5 + 17 = 22 | ChatbotService 단위·파라미터화 |
-| test_chat_api.py | 15 | 상담사 채팅 HTTP API |
-| test_chat_service.py | 17 | ChatService 단위 |
-| test_features_product_advice.py | 53 | PRODUCT_ADVICE 기능 상세 |
-| test_features_user_finance.py | 54 | USER_FINANCE 기능 상세 |
-| test_features_staff_support.py | 62 | STAFF_SUPPORT 기능 상세 |
-| test_runtime_contracts.py | 8 | DB 스키마·Kafka 계약 |
-| **합계** | **328** | |
-
-> 전체 328개 중 326개 통과 / 1개 스킵 / 1개 기존 실패  
-> (기존 실패: `test_chat_page_returns_static_html` — 테스트 환경에 static 디렉터리 없음)
+| 테스트 파일 | 내용 |
+|-------------|------|
+| `test_chatbot_api.py` | 챗봇 API 엔드포인트 |
+| `test_chatbot_service.py` | 챗봇 서비스 유닛 테스트 |
+| `test_chat_api.py` | 상담사 채팅 API |
+| `test_chat_service.py` | 채팅 서비스 유닛 테스트 |
+| `test_features_product_advice.py` | 상품 안내 Feature 테스트 |
+| `test_features_staff_support.py` | 상담사 지원 Feature 테스트 |
+| `test_features_user_finance.py` | 사용자 금융 Feature 테스트 |
+| `test_runtime_contracts.py` | 런타임 계약 연동 테스트 |
+| `test_scenario_flow.py` | 시나리오 전체 흐름 테스트 |
+| `test_api_validation.py` | 입력 유효성 검증 테스트 |
 
 ---
 
-## Kafka 이벤트
+## 도메인 모델 (주요 엔티티)
 
-### 동작 방식
-
-`CONSULTATION_KAFKA_ENABLED=false`(기본값)이면 모든 `publish()` 호출이 **조용히 무시**됩니다.  
-`CONSULTATION_KAFKA_ENABLED=true`이면 서비스 기동 시 브로커에 연결하고, 각 API 처리 시점에 이벤트를 발행합니다.  
-토픽은 Kafka `auto.create.topics.enable=true` 설정으로 **자동 생성**됩니다.
-
-### Producer
-
-| 클래스 | 파일 | 설명 |
-|--------|------|------|
-| `KafkaEventPublisher` | `app/kafka.py` | 챗봇·채팅 이벤트 발행 |
-
-### Consumer
-
-| 클래스 | 파일 | 설명 |
-|--------|------|------|
-| `KafkaEventConsumer` | `app/kafka.py` | 비동기 이터레이터 인터페이스. 서비스 기동 시 `consultation.chatbot.events`, `consultation.chat.events` 두 토픽을 구독하고 수신 이벤트를 로그로 출력. 향후 WebSocket 푸시 알림 연동 시 확장 지점. |
-
-> **Consumer 구동 방식**  
-> `app/main.py` lifespan에서 `consumer.start()` 호출 후 `asyncio.create_task()`로 백그라운드 루프 실행.  
-> 서비스 종료 시 태스크 취소 → `consumer.stop()` 순으로 정리됩니다.
-
-### 챗봇 이벤트 (`consultation.chatbot.events`)
-
-| 이벤트 | 발행 시점 | 주요 필드 |
-|--------|----------|----------|
-| `ChatbotConsultationStarted` | `POST /chatbot/consultations/start` | `consultationId`, `chatbotConsultationId`, `customerNo` |
-| `ChatbotMessageHandled` | `POST /chatbot/consultations/{id}/messages` | `chatbotConsultationId`, `message`, `processMethod`, `agentTransferRequired` |
-| `ChatbotAgentTransferRequested` | 위 API에서 `agentTransferRequired=true`일 때 추가 발행 | `chatbotConsultationId`, `consultationId` |
-
-**메시지 예시**
-
-```json
-{"eventType": "ChatbotConsultationStarted",
- "payload": {"consultationId": 1, "chatbotConsultationId": 1, "customerNo": "CUST001"}}
-
-{"eventType": "ChatbotMessageHandled",
- "payload": {"chatbotConsultationId": 1, "message": "상품 안내해줘",
-             "processMethod": "SCENARIO", "agentTransferRequired": false}}
-
-{"eventType": "ChatbotAgentTransferRequested",
- "payload": {"chatbotConsultationId": 1, "consultationId": 1}}
 ```
+Consultation (상담)
+├── ChatbotConsultation   (챗봇 상담)
+│   ├── ChatbotIntent     (Intent 기록)
+│   └── ChatbotNode 참조 → ChatbotScenario
+└── ChatConsultation      (상담사 채팅)
+    └── ChatMessageHistory (채팅 메시지 이력)
 
-### 채팅 이벤트 (`consultation.chat.events`)
-
-| 이벤트 | 발행 시점 | 주요 필드 |
-|--------|----------|----------|
-| `AgentConnected` | `POST /chat/consultations/{id}/connect` | `chatConsultationId`, `consultationId`, `employeeId`, `customerNo` |
-| `ChatMessageSent` | `POST /chat/consultations/{id}/messages` | `chatConsultationId`, `senderType`, `message` |
-| `ChatEnded` | `POST /chat/consultations/{id}/end` | `chatConsultationId`, `consultationId`, `satisfactionScore` |
-
-**메시지 예시**
-
-```json
-{"eventType": "AgentConnected",
- "payload": {"chatConsultationId": 1, "consultationId": 1, "employeeId": 1, "customerNo": "CUST001"}}
-
-{"eventType": "ChatMessageSent",
- "payload": {"chatConsultationId": 1, "senderType": "AGENT", "message": "안녕하세요 상담사입니다"}}
-
-{"eventType": "ChatEnded",
- "payload": {"chatConsultationId": 1, "consultationId": 1, "satisfactionScore": 5}}
-```
-
-### Kafka Consumer 수동 확인 (개발용)
-
-```bash
-# 챗봇 이벤트 실시간 확인
-kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic consultation.chatbot.events \
-  --from-beginning
-
-# 채팅 이벤트 실시간 확인
-kafka-console-consumer.sh \
-  --bootstrap-server localhost:9092 \
-  --topic consultation.chat.events \
-  --from-beginning
+ChatbotScenario (챗봇 시나리오)
+└── ChatbotNode           (노드)
+    ├── ChatbotNodeButton (버튼 선택지)
+    └── ChatbotNodeFlow   (다음 노드 연결)
 ```
 
 ---
 
-## 변경 이력
+## 주요 설계 결정
 
-| 날짜 | 내용 |
+| 결정 | 이유 |
 |------|------|
-| 2026-05-26 | **Kafka Consumer 연결** — `KafkaEventConsumer`를 `main.py` lifespan에 연결, 백그라운드 루프로 `chatbot.events`·`chat.events` 구독 시작. `docker-compose.yml` Kafka 이미지 교체 (`bitnami/kafka` → `apache/kafka`, KRaft 모드). `main.py` import 스타일 정리 (`logger` 선언 위치 이동). |
-| 2026-05-24 | Kafka 이벤트 발행 활성화 — `.env.example` 추가, README Kafka 섹션 상세화 |
-| 2026-05-24 | `ChatService.send_message()` 종료 상담 가드 추가 — 종료된 상담(`active_yn="N"`)에 메시지 전송 시 `ValueError` 발생 → HTTP 404 반환. 관련 테스트 3개 추가 |
-| 2026-05-24 | 챗봇·상담 서비스 초기 구현 |
+| Intent 우선순위 분류 | 금리·가입조건 등 금융 특화 키워드를 먼저 처리해 LLM 호출 최소화 |
+| LLM 폴백 선택적 적용 | API 키 미설정 시에도 서비스 정상 동작, 비용 제어 가능 |
+| Kafka 비활성화 옵션 | 로컬·테스트 환경에서 Kafka 없이 즉시 실행 가능 |
+| 챗봇·채팅 DB 분리 | 챗봇 이력과 상담사 채팅 이력을 독립적으로 관리 |
+| 시나리오 자동 시드 | 첫 실행 시 기본 시나리오 자동 생성으로 빠른 시연 가능 |
