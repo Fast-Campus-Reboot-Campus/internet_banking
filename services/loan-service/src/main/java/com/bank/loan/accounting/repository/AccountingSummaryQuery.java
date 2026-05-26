@@ -91,6 +91,80 @@ public class AccountingSummaryQuery {
                 """);
     }
 
+    // ───────────────────────────────────────────────────────────
+    // 월별 (EOM) 합계 — start/end 는 YYYYMMDD inclusive
+    // ───────────────────────────────────────────────────────────
+
+    public long sumMonthlyInterest(String startDate, String endDate) {
+        return queryLong("""
+                SELECT COALESCE(SUM(daily_interest_amt), 0)
+                  FROM interest_accrual
+                 WHERE accrual_date BETWEEN ? AND ?
+                   AND iacc_status_cd = 'ACCRUED'
+                """, startDate, endDate);
+    }
+
+    public long sumMonthlyOverdueInterest(String startDate, String endDate) {
+        return queryLong("""
+                SELECT COALESCE(SUM(daily_overdue_interest), 0)
+                  FROM overdue_accrual
+                 WHERE accrual_date BETWEEN ? AND ?
+                   AND oa_status_cd = 'ACCRUED'
+                """, startDate, endDate);
+    }
+
+    public RepaymentTxnSummary sumMonthlyAutoDebit(String startDate, String endDate) {
+        return jdbc.queryForObject("""
+                SELECT
+                    COALESCE(SUM(principal_amount), 0)         AS principal,
+                    COALESCE(SUM(interest_amount), 0)          AS interest,
+                    COALESCE(SUM(overdue_interest_amount), 0)  AS overdue_interest,
+                    COUNT(*)                                   AS cnt
+                FROM repayment_transaction
+                WHERE value_date BETWEEN ? AND ?
+                  AND channel_cd = 'AUTO_DEBIT'
+                  AND rtx_status_cd = 'SUCCESS'
+                  AND reversal_yn = 'N'
+                  AND deleted_at IS NULL
+                """, (rs, n) -> new RepaymentTxnSummary(
+                        rs.getLong("principal"),
+                        rs.getLong("interest"),
+                        rs.getLong("overdue_interest"),
+                        rs.getInt("cnt")),
+                startDate, endDate);
+    }
+
+    public DisbursementSummary sumMonthlyDisbursement(String startDate, String endDate) {
+        return jdbc.queryForObject("""
+                SELECT
+                    COALESCE(SUM(executed_amount), 0) AS amount,
+                    COUNT(*)                          AS cnt
+                FROM loan_execution
+                WHERE value_date BETWEEN ? AND ?
+                  AND exec_status_cd = 'DONE'
+                  AND deleted_at IS NULL
+                """, (rs, n) -> new DisbursementSummary(
+                        rs.getLong("amount"),
+                        rs.getInt("cnt")),
+                startDate, endDate);
+    }
+
+    public NplSummary sumNpl() {
+        return jdbc.queryForObject("""
+                SELECT
+                    COUNT(*)                              AS cnt,
+                    COALESCE(SUM(dlq_principal_amt), 0)   AS principal
+                FROM delinquency
+                WHERE dlq_status_cd = 'ACTIVE'
+                  AND dlq_stage_cd  = 'STAGE_3'
+                  AND deleted_at IS NULL
+                """, (rs, n) -> new NplSummary(
+                        rs.getInt("cnt"),
+                        rs.getLong("principal")));
+    }
+
+    public record NplSummary(int count, long principal) {}
+
     private long queryLong(String sql, Object... args) {
         Long v = jdbc.queryForObject(sql, Long.class, args);
         return v == null ? 0L : v;
