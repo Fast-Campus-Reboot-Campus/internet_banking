@@ -3,7 +3,6 @@ package com.bank.customer.security;
 import com.bank.common.security.jwt.JwtClaims;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.security.jwt.TokenType;
-import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,7 +33,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProvider jwtProvider;
-    private final MeterRegistry meterRegistry;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -61,8 +59,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
-            } else {
-                meterRegistry.counter("customer.jwt.invalid").increment();
             }
         }
 
