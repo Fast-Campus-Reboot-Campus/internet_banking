@@ -364,6 +364,61 @@
       ],
       "title": "Network I/O",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 45 },
+      "id": 105,
+      "title": "로그",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 46 },
+      "id": 15,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+          "expr": "{application=\"$application\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "애플리케이션 로그",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 58 },
+      "id": 16,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+          "expr": "{application=\"$application\"} |= \"ERROR\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "ERROR 로그",
+      "type": "logs"
     }
   ],
   "refresh": "30s",
