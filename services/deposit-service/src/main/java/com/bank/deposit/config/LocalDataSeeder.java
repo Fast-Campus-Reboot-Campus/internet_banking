@@ -94,6 +94,38 @@ public class LocalDataSeeder implements ApplicationRunner {
                 .releasedAt("20260101")
                 .build());
 
+        Product regular12 = productRepository.save(Product.builder()
+                .productType(ProductType.SAVINGS)
+                .productName("포스트맨 정기적금(12개월)")
+                .description("Postman 테스트용 정기적금 상품 (12개월)")
+                .departmentId(productDepartment.getDepartmentId())
+                .baseInterestRate(bd("3.00"))
+                .minJoinAmount(bd("10000"))
+                .maxJoinAmount(bd("30000000"))
+                .minPeriodMonth(12)
+                .maxPeriodMonth(36)
+                .isEarlyTerminationAllowed(true)
+                .isTaxBenefitAvailable(true)
+                .isAutoRenewalAvailable(false)
+                .releasedAt("20260101")
+                .build());
+
+        Product regular24 = productRepository.save(Product.builder()
+                .productType(ProductType.SAVINGS)
+                .productName("포스트맨 정기적금(24개월)")
+                .description("Postman 테스트용 정기적금 상품 (24개월)")
+                .departmentId(productDepartment.getDepartmentId())
+                .baseInterestRate(bd("3.50"))
+                .minJoinAmount(bd("30000"))
+                .maxJoinAmount(bd("50000000"))
+                .minPeriodMonth(24)
+                .maxPeriodMonth(60)
+                .isEarlyTerminationAllowed(true)
+                .isTaxBenefitAvailable(true)
+                .isAutoRenewalAvailable(false)
+                .releasedAt("20260101")
+                .build());
+
         depositProductRepository.save(DepositProduct.builder()
                 .productId(deposit.getProductId())
                 .depositType(DepositType.TERM)
@@ -111,6 +143,18 @@ public class LocalDataSeeder implements ApplicationRunner {
                 .minMonthlyPayment(bd("20000"))
                 .maxMonthlyPayment(bd("500000"))
                 .maxRecognizedPaymentAmount(bd("10000000"))
+                .build());
+        savingsProductRepository.save(SavingsProduct.builder()
+                .productId(regular12.getProductId())
+                .savingType(SavingType.REGULAR)
+                .monthlyPaymentMinAmount(bd("10000"))
+                .monthlyPaymentMaxAmount(bd("1000000"))
+                .build());
+        savingsProductRepository.save(SavingsProduct.builder()
+                .productId(regular24.getProductId())
+                .savingType(SavingType.REGULAR)
+                .monthlyPaymentMinAmount(bd("30000"))
+                .monthlyPaymentMaxAmount(bd("3000000"))
                 .build());
 
         TargetGroup personal = targetGroupRepository.save(TargetGroup.builder()
@@ -131,6 +175,12 @@ public class LocalDataSeeder implements ApplicationRunner {
         productTargetGroupRepository.save(ProductTargetGroup.builder()
                 .id(new ProductTargetGroupId(savings.getProductId(), worker.getTargetGroupId()))
                 .build());
+        productTargetGroupRepository.save(ProductTargetGroup.builder()
+                .id(new ProductTargetGroupId(regular12.getProductId(), personal.getTargetGroupId()))
+                .build());
+        productTargetGroupRepository.save(ProductTargetGroup.builder()
+                .id(new ProductTargetGroupId(regular24.getProductId(), personal.getTargetGroupId()))
+                .build());
 
         joinChannelRepository.save(ProductJoinChannel.builder()
                 .productId(deposit.getProductId())
@@ -143,6 +193,22 @@ public class LocalDataSeeder implements ApplicationRunner {
         joinChannelRepository.save(ProductJoinChannel.builder()
                 .productId(savings.getProductId())
                 .joinChannelCode(JoinChannel.WEB)
+                .build());
+        joinChannelRepository.save(ProductJoinChannel.builder()
+                .productId(regular12.getProductId())
+                .joinChannelCode(JoinChannel.WEB)
+                .build());
+        joinChannelRepository.save(ProductJoinChannel.builder()
+                .productId(regular12.getProductId())
+                .joinChannelCode(JoinChannel.MOBILE)
+                .build());
+        joinChannelRepository.save(ProductJoinChannel.builder()
+                .productId(regular24.getProductId())
+                .joinChannelCode(JoinChannel.WEB)
+                .build());
+        joinChannelRepository.save(ProductJoinChannel.builder()
+                .productId(regular24.getProductId())
+                .joinChannelCode(JoinChannel.MOBILE)
                 .build());
 
         ProductInterestRate depositBaseRate = interestRateRepository.save(ProductInterestRate.builder()
@@ -174,6 +240,28 @@ public class LocalDataSeeder implements ApplicationRunner {
                 .maximumJoinAmount(bd("50000000"))
                 .rate(bd("3.60"))
                 .conditionDescription("자유적금 기본 금리")
+                .effectiveStartDate("20260101")
+                .build());
+        interestRateRepository.save(ProductInterestRate.builder()
+                .productId(regular12.getProductId())
+                .rateType(RateType.BASE)
+                .minimumContractPeriod(12)
+                .maximumContractPeriod(36)
+                .minimumJoinAmount(bd("10000"))
+                .maximumJoinAmount(bd("30000000"))
+                .rate(bd("3.00"))
+                .conditionDescription("정기적금 12개월 기본 금리")
+                .effectiveStartDate("20260101")
+                .build());
+        interestRateRepository.save(ProductInterestRate.builder()
+                .productId(regular24.getProductId())
+                .rateType(RateType.BASE)
+                .minimumContractPeriod(24)
+                .maximumContractPeriod(60)
+                .minimumJoinAmount(bd("30000"))
+                .maximumJoinAmount(bd("50000000"))
+                .rate(bd("3.50"))
+                .conditionDescription("정기적금 24개월 기본 금리")
                 .effectiveStartDate("20260101")
                 .build());
 
