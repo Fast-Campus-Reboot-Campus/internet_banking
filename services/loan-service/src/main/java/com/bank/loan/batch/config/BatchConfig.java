@@ -1,5 +1,6 @@
 package com.bank.loan.batch.config;
 
+import com.bank.loan.accounting.service.AccountingSummaryBatchService;
 import com.bank.loan.accrual.service.InterestAccrualBatchService;
 import com.bank.loan.applicationexpiry.service.ApplicationExpiryBatchService;
 import com.bank.loan.autodebit.service.AutoDebitBatchService;
@@ -32,7 +33,8 @@ import org.springframework.transaction.PlatformTransactionManager;
  *   5. applicationExpiryStep       — 승인 만료 처리
  *   6. guaranteeInsuranceExpiryStep — 보증보험 만기 처리 (gins_end_date < baseDate)
  *   7. maturityStep                 — 약정 만기 도래 ACTIVE → MATURED 전이
- *   8. notificationFlushStep        — 알림 outbox PENDING 일괄 처리 (백로그 해소)
+ *   8. accountingSummaryStep        — 일일 회계 요약 적재 (이자/연체이자/자동이체/실행 합계)
+ *   9. notificationFlushStep        — 알림 outbox PENDING 일괄 처리 (백로그 해소)
  *
  * 각 Tasklet 은 서비스 예외를 catch 해 로그만 남기고 다음 스텝을 계속 진행한다.
  * Spring Batch JobRepository 에 스텝별 실행 이력이 기록된다.
@@ -57,6 +59,7 @@ public class BatchConfig {
     private final GuaranteeInsuranceExpiryBatchService guaranteeInsuranceExpiryBatchService;
     private final MaturityBatchService maturityBatchService;
     private final NotificationFlushBatchService notificationFlushBatchService;
+    private final AccountingSummaryBatchService accountingSummaryBatchService;
 
     @Bean
     public Job loanEodJob(JobRepository jobRepository,
@@ -67,6 +70,7 @@ public class BatchConfig {
                           Step applicationExpiryStep,
                           Step guaranteeInsuranceExpiryStep,
                           Step maturityStep,
+                          Step accountingSummaryStep,
                           Step notificationFlushStep,
                           EodNotificationListener eodNotificationListener) {
         return new JobBuilder("loanEodJob", jobRepository)
@@ -78,6 +82,7 @@ public class BatchConfig {
                 .next(applicationExpiryStep)
                 .next(guaranteeInsuranceExpiryStep)
                 .next(maturityStep)
+                .next(accountingSummaryStep)
                 .next(notificationFlushStep)
                 .build();
     }
@@ -196,6 +201,25 @@ public class BatchConfig {
                                 baseDate, result.totalCandidates(), result.processed());
                     } catch (Exception e) {
                         log.error("[EOD][{}] maturity 실패: {}", baseDate, e.getMessage(), e);
+                    }
+                    return RepeatStatus.FINISHED;
+                }, txManager)
+                .build();
+    }
+
+    @Bean
+    public Step accountingSummaryStep(JobRepository jobRepository, PlatformTransactionManager txManager) {
+        return new StepBuilder("accountingSummaryStep", jobRepository)
+                .tasklet((contribution, chunkContext) -> {
+                    String baseDate = baseDate(chunkContext);
+                    try {
+                        var result = accountingSummaryBatchService.run(baseDate);
+                        log.info("[EOD][{}] accountingSummary created={} interest={} overdueInt={} autoDebitCnt={} disbursedCnt={}",
+                                baseDate, result.created(), result.interestRevenue(),
+                                result.overdueInterestRevenue(),
+                                result.autoDebitCount(), result.disbursedCount());
+                    } catch (Exception e) {
+                        log.error("[EOD][{}] accountingSummary 실패: {}", baseDate, e.getMessage(), e);
                     }
                     return RepeatStatus.FINISHED;
                 }, txManager)
