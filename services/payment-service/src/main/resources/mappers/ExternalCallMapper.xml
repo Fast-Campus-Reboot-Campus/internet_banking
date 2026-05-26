@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.ExternalCallMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.ExternalCall">
+        INSERT INTO external_call (
+            call_id,
+            call_idempotency_key,
+            compensation_type,
+            compensation_target_call_id,
+            payment_instruction_id,
+            parent_call_id,
+            session_id,
+            user_id,
+            call_type,
+            target_system,
+            endpoint_url,
+            http_method,
+            request_id,
+            request_header,
+            request_body,
+            request_body_hash,
+            response_status_code,
+            response_header,
+            response_body,
+            business_response_code,
+            response_message,
+            result,
+            attempt_no,
+            requested_at,
+            responded_at,
+            response_time_ms,
+            timeout_ms,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{callId},
+            #{callIdempotencyKey},
+            #{compensationType},
+            #{compensationTargetCallId},
+            #{paymentInstructionId},
+            #{parentCallId},
+            #{sessionId},
+            #{userId},
+            #{callType},
+            #{targetSystem},
+            #{endpointUrl},
+            #{httpMethod},
+            #{requestId},
+            #{requestHeader}::jsonb,
+            #{requestBody}::jsonb,
+            #{requestBodyHash},
+            #{responseStatusCode},
+            #{responseHeader}::jsonb,
+            #{responseBody}::jsonb,
+            #{businessResponseCode},
+            #{responseMessage},
+            #{result},
+            #{attemptNo},
+            #{requestedAt},
+            #{respondedAt},
+            #{responseTimeMs},
+            #{timeoutMs},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <update id="updateResponse">
+        UPDATE external_call
+        SET response_status_code  = #{responseStatusCode},
+            response_header       = #{responseHeader}::jsonb,
+            response_body         = #{responseBody}::jsonb,
+            business_response_code = #{businessResponseCode},
+            response_message      = #{responseMessage},
+            result                = #{result},
+            response_time_ms      = #{responseTimeMs},
+            responded_at          = #{respondedAt},
+            last_modified_at      = now()
+        WHERE call_id = #{callId}
+    </update>
+
+    <select id="selectByPiIdAndCallType" resultType="com.bank.payment.domain.ExternalCall">
+        SELECT *
+        FROM external_call
+        WHERE payment_instruction_id = #{piId}
+          AND call_type = #{callType}
+        ORDER BY call_id DESC
+        LIMIT 1
+    </select>
+
+</mapper>

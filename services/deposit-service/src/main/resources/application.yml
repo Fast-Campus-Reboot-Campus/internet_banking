@@ -43,8 +43,28 @@ management:
   endpoint:
     health:
       show-details: always
+  metrics:
+    distribution:
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
 
 logging:
   level:
     com.bank.deposit: DEBUG
     org.springframework.web: INFO
+
+# ---- OpenAPI / Swagger UI ----
+# 접속: http://localhost:${DEPOSIT_APP_PORT:8082}/api/swagger-ui.html
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  packages-to-scan: com.bank.deposit
+  default-produces-media-type: application/json

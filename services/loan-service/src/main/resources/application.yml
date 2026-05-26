@@ -22,6 +22,34 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all          # 브로커 응답 대기 — 메시지 유실 방지
+      retries: 3
+      properties:
+        enable.idempotence: true   # 프로듀서 멱등성 — 중복 발행 방지
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+# 대출 도메인 전용 설정
+loan:
+  document:
+    storage-dir: ${LOAN_DOCUMENT_STORAGE_DIR:./storage/loan-documents}
+  # 외부 신용평가(가심사) 엔진 어댑터 선택
+  #   mock — MockCreditScoreEngine (외부 호출 없음, 자체 룰)
+  #   http — HttpCreditScoreEngine (외부 신용평가사 HTTP API 호출)
+  credit-score:
+    engine:
+      type: ${CREDIT_SCORE_ENGINE_TYPE:mock}
+      http:
+        url: ${CREDIT_SCORE_ENGINE_URL:http://localhost:9999}
+        api-key: ${CREDIT_SCORE_ENGINE_API_KEY:}
 
 management:
   endpoints:
@@ -31,3 +59,23 @@ management:
   endpoint:
     health:
       show-details: always
+  metrics:
+    distribution:
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
+
+# ---- OpenAPI / Swagger UI ----
+# 접속: http://localhost:${LOAN_APP_PORT}/swagger-ui.html
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  packages-to-scan: com.bank.loan
+  default-produces-media-type: application/json

@@ -1,7 +1,11 @@
 rootProject.name = 'internet-banking'
 
 include 'common'
+include 'services:api-gateway'
 include 'services:customer-service'
 include 'services:deposit-service'
 include 'services:loan-service'
 include 'services:payment-service'
+include 'services:master-service'
+include 'services:ai-service'
+include 'services:gateway-service'

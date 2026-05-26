@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.LedgerMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.Ledger">
+        INSERT INTO ledger (
+            ledger_id,
+            payment_instruction_id,
+            account_id,
+            original_ledger_id,
+            journal_no,
+            account_no_snap,
+            holder_name_snap,
+            debit_credit,
+            journal_type,
+            amount,
+            currency,
+            balance_before,
+            balance_after,
+            counterparty_account_no_snap,
+            counterparty_bank_code_snap,
+            counterparty_holder_name_snap,
+            transaction_date,
+            posting_date,
+            value_date,
+            posted_at,
+            system_description,
+            passbook_memo_snap,
+            is_reversal,
+            reversal_reason,
+            posting_status,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{ledgerId},
+            #{paymentInstructionId},
+            #{accountId},
+            #{originalLedgerId},
+            #{journalNo},
+            #{accountNoSnap},
+            #{holderNameSnap},
+            #{debitCredit},
+            #{journalType},
+            #{amount},
+            #{currency},
+            #{balanceBefore},
+            #{balanceAfter},
+            #{counterpartyAccountNoSnap},
+            #{counterpartyBankCodeSnap},
+            #{counterpartyHolderNameSnap},
+            #{transactionDate},
+            #{postingDate},
+            #{valueDate},
+            #{postedAt},
+            #{systemDescription},
+            #{passbookMemoSnap},
+            #{isReversal},
+            #{reversalReason},
+            #{postingStatus},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <select id="selectByPaymentId" resultType="com.bank.payment.domain.Ledger">
+        SELECT *
+        FROM ledger
+        WHERE payment_instruction_id = #{paymentInstructionId}
+        ORDER BY ledger_id
+    </select>
+
+    <select id="selectOriginalsByPaymentId" resultType="com.bank.payment.domain.Ledger">
+        SELECT *
+        FROM ledger
+        WHERE payment_instruction_id = #{piId}
+          AND is_reversal = FALSE
+        ORDER BY ledger_id
+    </select>
+
+</mapper>

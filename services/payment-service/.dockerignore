@@ -1,0 +1,34 @@
+# Build context: project root
+# Docker 20.10+: Dockerfile 디렉토리의 .dockerignore 우선 적용
+
+# Gradle 캐시 및 빌드 산출물
+.gradle/
+**/build/
+
+# IDE
+.idea/
+*.iml
+
+# Git
+.git/
+
+# 환경변수 (보안)
+.env
+**/.env
+.env.local
+**/.env.local
+
+# 문서 및 AI 도구
+docs/
+**/docs/
+.claude/
+**/.claude/
+
+# 빌드에 불필요한 다른 서비스 (build context 최소화)
+services/customer-service/
+services/deposit-service/
+services/loan-service/
+
+# 인프라 파일
+infra/
+**/docker-compose*.yml
