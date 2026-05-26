@@ -3,7 +3,9 @@ package com.bank.loan;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.delinquency.repository.OverdueAccrualRepository;
+import com.bank.loan.notification.outbox.NotificationOutboxRepository;
 import com.bank.loan.support.AbstractLoanIntegrationTest;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -46,6 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   51) from/to 매칭 없으면 빈 배열
  *   60) restart 미존재 baseDate → NOT_FOUND
  *   61) restart COMPLETED 잡 → REJECTED
+ *   70) 잡 종료 알림 outbox 적재 — COMPLETED 잡마다 LOAN_EOD_COMPLETED 1건
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class LoanEodJobTest extends AbstractLoanIntegrationTest {
@@ -54,6 +57,8 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     private LoanApplicationRepository applicationRepository;
     @Autowired
     private OverdueAccrualRepository overdueAccrualRepository;
+    @Autowired
+    private NotificationOutboxRepository outboxRepository;
 
     private static final String CNTR_START_DATE = "20350101";
     private static final String EOD_DUE_DATE    = "20350201";  // 납기일 당일
@@ -223,6 +228,23 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/internal/eod/restart").param("baseDate", EOD_DUE_DATE))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.jobStatus").value("REJECTED"));
+    }
+
+    // ────────────────────────────────────────────
+    // Phase 6: 잡 종료 알림 (outbox 적재)
+    // ────────────────────────────────────────────
+
+    @Test @Order(70)
+    void EOD_COMPLETED_outbox_적재_KAFKA_채널() {
+        var page = outboxRepository.findByEventTypeCdAndDeletedAtIsNull(
+                "LOAN_EOD_COMPLETED", PageRequest.of(0, 50));
+        // Order 10·20 두 번 COMPLETED → outbox 2건 이상
+        assertThat(page.getContent()).hasSizeGreaterThanOrEqualTo(2);
+        var sample = page.getContent().get(0);
+        assertThat(sample.getChannelCd()).isEqualTo("KAFKA_DOMAIN_EVENT");
+        assertThat(sample.getPayload()).contains("\"baseDate\"");
+        assertThat(sample.getPayload()).contains("\"status\":\"COMPLETED\"");
+        assertThat(sample.getPayload()).contains("\"steps\"");
     }
 
     // ──────────────────────────────────────────────────────────────
