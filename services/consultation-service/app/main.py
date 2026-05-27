@@ -32,6 +32,7 @@ from app.schemas import (
 from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
 from app.services import (
     CODE_SENDER_AGENT,
+    CODE_SENDER_USER,
     ChatbotService,
     ChatService,
     _chat_status,
@@ -361,7 +362,7 @@ async def send_chat_message(
     request: ChatSendMessageRequest,
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageHistoryResponse:
-    sender_code = CODE_SENDER_AGENT if request.sender_type == "AGENT" else 1
+    sender_code = CODE_SENDER_AGENT if request.sender_type == "AGENT" else CODE_SENDER_USER
     try:
         msg = await service.send_message(chat_consultation_id, request.message, sender_code)
         return ChatMessageHistoryResponse(
