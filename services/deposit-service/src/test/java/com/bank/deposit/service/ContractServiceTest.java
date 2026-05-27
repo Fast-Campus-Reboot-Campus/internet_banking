@@ -7,6 +7,7 @@ import com.bank.deposit.domain.entity.Product;
 import com.bank.deposit.domain.enums.*;
 import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.repository.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,8 +15,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,7 +34,6 @@ import static org.mockito.BDDMockito.then;
 @DisplayName("ContractService")
 class ContractServiceTest {
 
-    @InjectMocks
     private ContractService contractService;
 
     @Mock private ContractRepository contractRepository;
@@ -37,6 +41,20 @@ class ContractServiceTest {
     @Mock private ProductRepository productRepository;
     @Mock private ContractAppliedRateRepository appliedRateRepository;
     @Mock private ContractSpecialTermAgreementRepository agreementRepository;
+    @Mock private PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void setUp() {
+        Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        contractService = new ContractService(contractRepository, accountRepository, productRepository,
+                appliedRateRepository, agreementRepository, passwordEncoder, clock);
+        org.mockito.Mockito.lenient()
+                .when(passwordEncoder.encode(org.mockito.ArgumentMatchers.any()))
+                .thenReturn("$2a$10$abcdefghijklmnopqrstuu9QwmFAnNd0x5QyZ9LhQOW7bpcE6Pj2a");
+        org.mockito.Mockito.lenient()
+                .when(accountRepository.nextAccountNumberSequenceValue())
+                .thenReturn(100000000001L);
+    }
 
     @Nested
     @DisplayName("계약 목록 조회")
@@ -261,7 +279,7 @@ class ContractServiceTest {
                     .totalPreferentialRate(BigDecimal.ZERO)
                     .finalInterestRate(BigDecimal.valueOf(3.0))
                     .contractPeriodMonth(12)
-                    .startedAt("20260101")
+                    .startedAt(java.time.LocalDate.of(2026, 1, 1))
                     .joinChannel(JoinChannel.WEB)
                     .contractStatus(ContractStatus.TERMINATED)
                     .build();
@@ -451,7 +469,7 @@ class ContractServiceTest {
                 .totalPreferentialRate(BigDecimal.ZERO)
                 .finalInterestRate(BigDecimal.valueOf(3.0))
                 .contractPeriodMonth(12)
-                .startedAt("20260101")
+                .startedAt(java.time.LocalDate.of(2026, 1, 1))
                 .joinChannel(JoinChannel.WEB)
                 .build();
     }

@@ -1,11 +1,13 @@
 package com.bank.deposit.controller;
 
 import com.bank.deposit.dto.response.ProductRecommendResponse;
+import com.bank.deposit.security.AuthenticatedCustomerValidator;
 import com.bank.deposit.service.CashflowBasedRecommendService;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RecommendAgentController {
 
     private final CashflowBasedRecommendService cashflowBasedRecommendService;
+    private final AuthenticatedCustomerValidator customerValidator;
 
     /**
      * 현금흐름 기반 수신 상품 추천.
@@ -24,8 +27,10 @@ public class RecommendAgentController {
      */
     @GetMapping("/products/recommend-agent")
     public ProductRecommendResponse recommend(
+            @RequestHeader(value = AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, required = false) String authenticatedCustomerId,
             @RequestParam String customerId,
             @RequestParam(defaultValue = "3") @Min(1) int periodMonth) {
+        customerValidator.validate(authenticatedCustomerId, customerId);
         return cashflowBasedRecommendService.recommend(customerId, periodMonth);
     }
 }

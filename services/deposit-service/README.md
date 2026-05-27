@@ -50,9 +50,10 @@
 - 특약 등록 및 상품·계약별 특약 동의 연결
 - 공통 약관 참조 연동
 
-### 7. 현금흐름 기반 상품 추천 에이전트
+### 7. 현금흐름 기반 상품 추천
 - 고객 거래 이력을 분석해 최적 수신 상품 자동 추천
 - `GET /products/recommend-agent?customerId={id}&periodMonth={n}` 으로 호출
+- `X-Customer-Id` 헤더와 요청 `customerId`가 일치해야 조회 가능
 - 분석 기간(periodMonth) 동안의 순입금액 기준 → 금리 최고 상품 매칭
 
 ---
@@ -89,11 +90,19 @@
 | 버전 | 파일 | 내용 |
 |------|------|------|
 | V1 | `V1__initial_schema.sql` | 초기 스키마 |
-| V2 | `V2__seed_postman_data.sql` | Postman 테스트용 시드 데이터 |
+| V2 | `V2__seed_postman_data.sql` | no-op, 과거 Postman 시드 이관 흔적 |
+| V3 | `V3__add_product_indexes.sql` | 상품 조회 인덱스 |
+| V4 | `V4__add_product_rate_constraints.sql` | 상품 금리 제약 |
 | V5 | `V5__full_erd_schema.sql` | 전체 ERD 반영 스키마 |
 | V6 | `V6__term_application_management.sql` | 약관 신청 관리 테이블 |
-| V7 | `V7__seed_regular_savings.sql` | 적금 상품 시드 데이터 |
-| V8 | `V8__seed_customer_frontend_products.sql` | 고객 대면 상품 21종 시드 데이터 |
+| V7 | `V7__seed_regular_savings.sql` | no-op, 과거 적금 시드 이관 흔적 |
+| V8 | `V8__seed_customer_frontend_products.sql` | no-op, 과거 고객 대면 시드 이관 흔적 |
+| V9 | `V9__add_account_version_column.sql` | 계좌 낙관락 버전 컬럼 |
+| V10 | `V10__account_dates_and_number_sequence.sql` | 계좌/계약 날짜 DATE 변환, 계좌번호 sequence |
+
+시드 데이터는 Flyway 버전 마이그레이션에 넣지 않는다. 로컬 개발용 상품 데이터는
+`LocalDataSeeder`가 `local` 프로파일에서만 삽입한다. 운영 데이터는 별도 운영 절차로
+관리한다. `V3`, `V4`는 실제 마이그레이션 파일이 있으므로 버전 갭은 없다.
 
 ---
 
@@ -137,7 +146,8 @@ SpecialTerm (수신 특약)
 ./gradlew :services:deposit-service:bootRun --args="--spring.profiles.active=local"
 ```
 
-실행 시 `LocalDataSeeder`가 초기 상품 데이터를 자동 삽입합니다.
+실행 시 `LocalDataSeeder`가 초기 상품 데이터를 자동 삽입합니다. 이 데이터는
+`local` 프로파일 전용이며 운영 Flyway에는 포함하지 않습니다.
 
 ### PostgreSQL 연결 (default 프로파일)
 
@@ -170,5 +180,21 @@ SpecialTerm (수신 특약)
 | Flyway 마이그레이션 | 환경별 스키마 일관성 보장 |
 | H2 로컬 프로파일 분리 | DB 없이 즉시 개발·검증 가능 |
 | `StatusHistory` 자동 기록 | 계약·계좌 상태 변경 감사 추적 |
-| 추천 에이전트 별도 컨트롤러 분리 | AI 기능 확장 시 독립적 교체 가능 |
-| V8 고객 대면 시드 분리 | 프론트엔드 product 페이지와 ID 1:1 매핑 |
+| 현금흐름 기반 추천 서비스 | LLM 호출 없는 규칙 기반 추천임을 명확히 분리 |
+| 로컬 시드 분리 | 운영 DB에 테스트·프론트 데모 데이터가 섞이지 않도록 `LocalDataSeeder`로 제한 |
+| `X-Customer-Id` 검증 | Gateway가 전달한 인증 고객과 요청 고객 불일치 시 IDOR 차단 |
+
+---
+
+## 보안·정합성 보강 사항
+
+| 항목 | 적용 내용 |
+|------|------|
+| 내부 이체 검증 | 수신 계좌 ID와 계좌번호를 함께 검증하고, 수신 계좌가 없으면 출금하지 않음 |
+| 거래 동시성 | 계좌 조회에 `PESSIMISTIC_WRITE` 락을 적용하고 `@Version`으로 낙관락 컬럼도 유지 |
+| 계좌 비밀번호 | 저장 전 BCrypt 해시 처리, 엔티티 저장 직전 평문 유입 차단 |
+| 외부 이체 | 외부 이체는 출금 거래만 기록하고 내부 수신 거래를 생성하지 않음 |
+| 날짜 타입 | 계좌·계약 주요 날짜를 `LocalDate` / SQL `DATE`로 관리 |
+| 계좌번호 | DB sequence와 check digit 기반으로 발급 |
+| 상품 추천 | 가입금액 필터를 SQL로 푸시다운하고 금리는 상품 ID 목록 기준으로 일괄 조회 |
+| 시간 의존성 | 비즈니스 로직에서 `Clock`을 주입받아 테스트 결정성 확보 |

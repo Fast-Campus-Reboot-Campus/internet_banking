@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -17,6 +20,9 @@ import java.util.List;
 public class SpecialTermService {
 
     private final SpecialTermRepository specialTermRepository;
+    private final Clock clock;
+
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     public List<SpecialTerm> findAll(Boolean isActive) {
         if (isActive != null) {
@@ -54,7 +60,7 @@ public class SpecialTermService {
     @Transactional
     public SpecialTerm changeStatus(Long id, SpecialTermStatus status) {
         SpecialTerm term = findById(id);
-        term.changeStatus(status, java.time.LocalDate.now().toString().replace("-", ""));
+        term.changeStatus(status, LocalDate.now(clock).format(DATE_FMT));
         return term;
     }
 }

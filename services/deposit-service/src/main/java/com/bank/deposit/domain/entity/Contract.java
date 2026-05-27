@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "deposit_contracts")
@@ -41,7 +42,6 @@ public class Contract extends BaseEntity {
     @Column(name = "payment_count_total")
     private Integer paymentCountTotal;
 
-    /** 월 납입일 (YYYYMMDD 또는 DD 형식 최대 6자리, DB: VARCHAR(6)) */
     @Column(name = "monthly_payment_day", columnDefinition = "VARCHAR(6)")
     private String monthlyPaymentDay;
 
@@ -73,14 +73,14 @@ public class Contract extends BaseEntity {
     @Column(name = "contract_period_month", nullable = false)
     private Integer contractPeriodMonth;
 
-    @Column(name = "started_at", columnDefinition = "CHAR(8)", nullable = false)
-    private String startedAt;
+    @Column(name = "started_at", columnDefinition = "DATE", nullable = false)
+    private LocalDate startedAt;
 
-    @Column(name = "maturity_at", columnDefinition = "CHAR(8)")
-    private String maturityAt;
+    @Column(name = "maturity_at", columnDefinition = "DATE")
+    private LocalDate maturityAt;
 
-    @Column(name = "terminated_at", columnDefinition = "CHAR(8)")
-    private String terminatedAt;
+    @Column(name = "terminated_at", columnDefinition = "DATE")
+    private LocalDate terminatedAt;
 
     @Column(name = "termination_reason", length = 200)
     private String terminationReason;
@@ -101,8 +101,8 @@ public class Contract extends BaseEntity {
     @Builder.Default
     private ContractStatus contractStatus = ContractStatus.ACTIVE;
 
-    @Column(name = "status_changed_at", columnDefinition = "CHAR(8)")
-    private String statusChangedAt;
+    @Column(name = "status_changed_at", columnDefinition = "DATE")
+    private LocalDate statusChangedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "join_channel", nullable = false)
@@ -140,19 +140,19 @@ public class Contract extends BaseEntity {
     @Column(name = "contract_file_url", length = 500)
     private String contractFileUrl;
 
-    public void terminate(String terminatedAt, String reason) {
+    public void terminate(LocalDate terminatedAt, String reason) {
         this.contractStatus = ContractStatus.TERMINATED;
         this.terminatedAt = terminatedAt;
         this.terminationReason = reason;
         this.statusChangedAt = terminatedAt;
     }
 
-    public void mature(String statusChangedAt) {
+    public void mature(LocalDate statusChangedAt) {
         this.contractStatus = ContractStatus.MATURED;
         this.statusChangedAt = statusChangedAt;
     }
 
-    public void changeStatus(ContractStatus status, String statusChangedAt) {
+    public void changeStatus(ContractStatus status, LocalDate statusChangedAt) {
         this.contractStatus = status;
         this.statusChangedAt = statusChangedAt;
     }

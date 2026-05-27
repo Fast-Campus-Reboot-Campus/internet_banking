@@ -6,7 +6,6 @@ import com.bank.deposit.domain.entity.ProductInterestRate;
 import com.bank.deposit.domain.entity.Transaction;
 import com.bank.deposit.domain.enums.AccountStatus;
 import com.bank.deposit.domain.enums.DirectionType;
-import com.bank.deposit.domain.enums.ProductStatus;
 import com.bank.deposit.domain.enums.TransactionStatus;
 import com.bank.deposit.dto.response.CashFlowSummary;
 import com.bank.deposit.dto.response.ProductRecommendResponse;
@@ -37,7 +36,7 @@ import java.util.stream.Collectors;
  * <p>고객의 실제 거래 내역(입출금 합계)을 분석해 월 평균 잉여자금을 계산하고,
  * 해당 금액에 적합한 수신 상품을 금리 내림차순으로 최대 5개 추천한다.
  *
- * <p>LLM 호출 없이 순수 규칙 기반으로 동작한다. AI 추천이 필요하면
+ * <p>LLM 호출 없이 순수 규칙 기반으로 동작한다. 자연어 기반 추천이 필요하면
  * consultation-service 의 CASH_FLOW_RECOMMEND 피처를 이용할 것.
  */
 @Service

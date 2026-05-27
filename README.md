@@ -94,6 +94,7 @@ internet_banking/
 
 ```
 GET /api/products/recommend-agent?customerId={customerId}&periodMonth={periodMonth}
+X-Customer-Id: {customerId}
 ```
 
 | 파라미터 | 필수 | 기본값 | 제약 | 설명 |
@@ -387,6 +388,7 @@ GET http://localhost:8082/api/transactions?accountId={id}
 
 ```
 GET http://localhost:8082/api/products/recommend-agent?customerId=CUST001&periodMonth=3
+X-Customer-Id: CUST001
 ```
 
 확인 항목:
@@ -424,7 +426,7 @@ POST http://localhost:8001/chatbot/consultations/start
 [ ] GET /actuator/health                  — {"status":"UP"} 확인
 [ ] GET /health (consultation)            — {"status":"UP"} 확인
 [ ] GET /api/products                     — 상품 목록 1건 이상 확인
-[ ] GET /recommend-agent (CUST001)        — recommendations 1건 이상 확인
+[ ] GET /recommend-agent (CUST001, X-Customer-Id 포함) — recommendations 1건 이상 확인
 [ ] cashFlow.estimatedSavingsAmount > 0   — 수치 정상 확인
 [ ] recommendations[0].reason 표시        — reason 문자열 포함 확인
 [ ] GET /chatbot/features                 — 16개 기능 코드 확인

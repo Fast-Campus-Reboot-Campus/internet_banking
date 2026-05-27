@@ -3,6 +3,7 @@ package com.bank.deposit.controller;
 import com.bank.deposit.domain.entity.*;
 import com.bank.deposit.domain.enums.*;
 import com.bank.deposit.dto.request.*;
+import com.bank.deposit.dto.response.ProductResponse;
 import com.bank.deposit.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,14 +22,16 @@ public class ProductController {
     // ── 공통 상품 ──────────────────────────────────────────────────────────────
 
     @GetMapping("/products")
-    public List<Product> list(
+    public List<ProductResponse> list(
             @RequestParam(required = false) ProductType productType,
             @RequestParam(required = false) ProductStatus productStatus) {
-        return productService.findAll(productType, productStatus);
+        return productService.findAll(productType, productStatus).stream()
+                .map(ProductResponse::from)
+                .toList();
     }
 
     @PostMapping("/products")
-    public ResponseEntity<Product> create(@Valid @RequestBody ProductCreateRequest req) {
+    public ResponseEntity<ProductResponse> create(@Valid @RequestBody ProductCreateRequest req) {
         Product product = productService.create(
                 req.productType(), req.productName(), req.description(),
                 req.departmentId(), req.baseInterestRate(),
@@ -36,22 +39,22 @@ public class ProductController {
                 req.minJoinAmount(), req.maxJoinAmount(),
                 req.isEarlyTerminationAllowed(), req.isTaxBenefitAvailable(),
                 req.isAutoRenewalAvailable(), req.releasedAt());
-        return ResponseEntity.status(HttpStatus.CREATED).body(product);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ProductResponse.from(product));
     }
 
     @GetMapping("/products/{productId:\\d+}")
-    public Product get(@PathVariable Long productId) {
-        return productService.findById(productId);
+    public ProductResponse get(@PathVariable Long productId) {
+        return ProductResponse.from(productService.findById(productId));
     }
 
     @PutMapping("/products/{productId}")
-    public Product update(@PathVariable Long productId, @Valid @RequestBody ProductUpdateRequest req) {
-        return productService.update(productId, req.productName(), req.description(), req.baseInterestRate());
+    public ProductResponse update(@PathVariable Long productId, @Valid @RequestBody ProductUpdateRequest req) {
+        return ProductResponse.from(productService.update(productId, req.productName(), req.description(), req.baseInterestRate()));
     }
 
     @PatchMapping("/products/{productId}")
-    public Product changeStatus(@PathVariable Long productId, @Valid @RequestBody ProductStatusUpdateRequest req) {
-        return productService.changeStatus(productId, req.productStatus());
+    public ProductResponse changeStatus(@PathVariable Long productId, @Valid @RequestBody ProductStatusUpdateRequest req) {
+        return ProductResponse.from(productService.changeStatus(productId, req.productStatus()));
     }
 
     // ── 수신 상품 ──────────────────────────────────────────────────────────────
