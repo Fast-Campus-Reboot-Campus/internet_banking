@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.StatusHistoryMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.StatusHistory">
+        INSERT INTO status_history (
+            history_id,
+            payment_instruction_id,
+            related_external_call_id,
+            sequence_in_payment,
+            previous_status,
+            next_status,
+            event_type,
+            reason_code,
+            reason_message,
+            triggered_by,
+            operator_id,
+            payload_snapshot,
+            event_occurred_at,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{historyId},
+            #{paymentInstructionId},
+            #{relatedExternalCallId},
+            #{sequenceInPayment},
+            #{previousStatus},
+            #{nextStatus},
+            #{eventType},
+            #{reasonCode},
+            #{reasonMessage},
+            #{triggeredBy},
+            #{operatorId},
+            #{payloadSnapshot},
+            #{eventOccurredAt},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <select id="selectMaxSequence" resultType="java.lang.Integer">
+        SELECT COALESCE(MAX(sequence_in_payment), 0)
+        FROM status_history
+        WHERE payment_instruction_id = #{paymentInstructionId}
+    </select>
+
+</mapper>

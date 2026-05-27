@@ -208,6 +208,19 @@ public class LoanReviewAutoDecideService {
         ));
 
         enqueueBiasCheck(review, application);
+        String applBefore = application.currentStatus();
+        if (approved) {
+            application.markApproved();
+        } else {
+            application.markRejected();
+        }
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_APPLICATION, applId,
+                applBefore, application.currentStatus(),
+                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                "confirm, revId=" + review.getRevId(),
+                actorId
+        ));
 
         return LoanReviewResponse.of(review);
     }

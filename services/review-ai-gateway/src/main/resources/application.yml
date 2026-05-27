@@ -1,0 +1,47 @@
+server:
+  port: ${AIGATEWAY_APP_PORT:8088}
+
+spring:
+  application:
+    name: review-ai-gateway
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    distribution:
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  packages-to-scan: com.bank.aigateway
+  default-produces-media-type: application/json
+
+llm:
+  provider: ${LLM_PROVIDER:mock}
+  claude:
+    base-url: ${CLAUDE_BASE_URL:https://api.anthropic.com}
+    api-key: ${CLAUDE_API_KEY:}
+    model: ${CLAUDE_MODEL:claude-opus-4-7}
+    max-tokens: ${CLAUDE_MAX_TOKENS:2048}
+    timeout-ms: ${CLAUDE_TIMEOUT_MS:30000}
+    connect-timeout-ms: ${CLAUDE_CONNECT_TIMEOUT_MS:3000}
+    max-attempts: ${CLAUDE_MAX_ATTEMPTS:3}
+    retry-backoff-ms: ${CLAUDE_RETRY_BACKOFF_MS:500}

@@ -226,16 +226,199 @@
       "id": 9,
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connection_acquisition_seconds_bucket{application=\"$application\"}[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_acquire_seconds_bucket{application=\"$application\"}[1m])) by (le))",
           "legendFormat": "커넥션 획득 p95"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connection_usage_seconds_bucket{application=\"$application\"}[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_usage_seconds_bucket{application=\"$application\"}[1m])) by (le))",
           "legendFormat": "쿼리 사용 p95"
         }
       ],
       "title": "DB 쿼리 지연시간",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 103,
+      "title": "인증 / 보안",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 28 },
+      "id": 10,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(increase(customer_login_success_total{application=\"$application\"}[5m]))",
+          "legendFormat": "로그인 성공"
+        },
+        {
+          "expr": "sum(increase(customer_login_failure_total{application=\"$application\"}[5m]))",
+          "legendFormat": "로그인 실패 (전체)"
+        },
+        {
+          "expr": "sum(increase(customer_login_failure_total{application=\"$application\", reason=\"locked\"}[5m]))",
+          "legendFormat": "계정 잠금"
+        },
+        {
+          "expr": "sum(increase(customer_login_failure_total{application=\"$application\", reason=\"bad_credentials\"}[5m]))",
+          "legendFormat": "비밀번호 오류"
+        }
+      ],
+      "title": "로그인 성공 / 실패 (5분)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 28 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "sum(increase(customer_jwt_invalid_total{application=\"$application\"}[5m]))",
+          "legendFormat": "JWT 검증 실패"
+        },
+        {
+          "expr": "sum(increase(customer_auth_access_denied_total{application=\"$application\"}[5m]))",
+          "legendFormat": "권한 거부 (403)"
+        }
+      ],
+      "title": "JWT 실패 / 권한 거부 (5분)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 28 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum(increase(customer_register_success_total{application=\"$application\"}[5m]))",
+          "legendFormat": "회원가입 완료"
+        },
+        {
+          "expr": "sum(increase(customer_register_failure_total{application=\"$application\", reason=\"duplicate_login_id\"}[5m]))",
+          "legendFormat": "중복 아이디"
+        }
+      ],
+      "title": "회원가입 현황 (5분)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "id": 104,
+      "title": "서버 자원 (Node Exporter)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 37 },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "windows_logical_disk_size_bytes{volume=\"C:\"} - windows_logical_disk_free_bytes{volume=\"C:\"}",
+          "legendFormat": "사용 중"
+        },
+        {
+          "expr": "windows_logical_disk_size_bytes{volume=\"C:\"}",
+          "legendFormat": "전체"
+        }
+      ],
+      "title": "Disk 사용량 (C:)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "Bps" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 37 },
+      "id": 14,
+      "targets": [
+        {
+          "expr": "rate(windows_net_bytes_received_total[1m])",
+          "legendFormat": "수신 {{nic}}"
+        },
+        {
+          "expr": "rate(windows_net_bytes_sent_total[1m])",
+          "legendFormat": "송신 {{nic}}"
+        }
+      ],
+      "title": "Network I/O",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 45 },
+      "id": 105,
+      "title": "로그",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 46 },
+      "id": 15,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+          "expr": "{application=\"$application\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "애플리케이션 로그",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 58 },
+      "id": 16,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "dfn7to73pbdvke" },
+          "expr": "{application=\"$application\"} |= \"ERROR\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "ERROR 로그",
+      "type": "logs"
     }
   ],
   "refresh": "30s",

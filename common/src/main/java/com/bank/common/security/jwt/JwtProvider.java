@@ -1,14 +1,20 @@
 package com.bank.common.security.jwt;
 
+import com.bank.common.web.BusinessException;
+import com.bank.common.web.CommonErrorCode;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * JWT 생성·파싱·검증 유틸.
@@ -46,6 +52,7 @@ public class JwtProvider {
     public String generateRefreshToken(Long customerId) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(customerId))
                 .claim(CLAIM_TOKEN_TYPE, TokenType.REFRESH.name())
                 .issuedAt(new Date(now))
@@ -76,14 +83,17 @@ public class JwtProvider {
     }
 
     /**
-     * 서명·만료를 검증한다. 유효하면 true, 그 외 false.
+     * 서명·만료를 검증한다. 실패 시 원인별 BusinessException 을 던진다.
      */
-    public boolean validate(String token) {
+    public void validate(String token) {
         try {
             Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
-            return true;
+        } catch (ExpiredJwtException e) {
+            throw new BusinessException(CommonErrorCode.TOKEN_EXPIRED);
+        } catch (MalformedJwtException | UnsupportedJwtException e) {
+            throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
         } catch (JwtException | IllegalArgumentException e) {
-            return false;
+            throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
         }
     }
 }

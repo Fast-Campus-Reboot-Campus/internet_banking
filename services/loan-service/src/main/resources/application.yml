@@ -103,3 +103,11 @@ springdoc:
     try-it-out-enabled: true
   packages-to-scan: com.bank.loan
   default-produces-media-type: application/json
+
+
+# ---- Advisory / AI Gateway ----
+advisory:
+  ai-gateway:
+    base-url: ${AIGATEWAY_BASE_URL:http://localhost:8088}
+    timeout-ms: ${AIGATEWAY_TIMEOUT_MS:35000}
+    connect-timeout-ms: ${AIGATEWAY_CONNECT_TIMEOUT_MS:3000}

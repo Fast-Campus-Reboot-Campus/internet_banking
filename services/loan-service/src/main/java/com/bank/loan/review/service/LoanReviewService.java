@@ -12,12 +12,14 @@ import com.bank.loan.dsr.domain.DsrCalculation;
 import com.bank.loan.dsr.repository.DsrCalculationRepository;
 import com.bank.loan.guarantor.service.GuarantorPolicyValidator;
 import com.bank.loan.notification.channel.KafkaChannelAdapter;
+import com.bank.loan.notification.event.LoanApprovedEvent;
 import com.bank.loan.notification.outbox.NotificationOutboxAppender;
 import com.bank.loan.product.domain.LoanProduct;
+import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.event.LoanBiasCheckRequestedPayload;
+import com.bank.loan.review.event.LoanReviewCompletedEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviewStatsResponse;
@@ -161,6 +163,7 @@ public class LoanReviewService {
                 .revRemark(req.revRemark())
                 .reviewerId(req.reviewerId())
                 .reviewedAt(now)
+                .approvedAt(approvedAt)
                 .build());
 
         checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req);

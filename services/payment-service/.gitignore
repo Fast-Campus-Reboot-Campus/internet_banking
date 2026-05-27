@@ -1,0 +1,7 @@
+# 로컬 시크릿 (루트 *.local 보완 — 파일명 명시)
+src/main/resources/application-local.yml
+
+# Claude Code 로컬 설정 (루트 미처리)
+.claude/settings.local.json
+.claude/sessions/
+docs/

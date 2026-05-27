@@ -31,6 +31,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 public class AsyncConfig {
 
     public static final String NOTIFICATION_EXECUTOR = "notificationExecutor";
+    public static final String ADVISORY_EXECUTOR     = "advisoryExecutor";
 
     @Bean(name = NOTIFICATION_EXECUTOR)
     public ThreadPoolTaskExecutor notificationExecutor() {
@@ -44,6 +45,21 @@ public class AsyncConfig {
         executor.setAwaitTerminationSeconds(10);
         executor.initialize();
         log.info("notificationExecutor initialized: core=4, max=8, queue=100, policy=CallerRunsPolicy");
+        return executor;
+    }
+
+    @Bean(name = ADVISORY_EXECUTOR)
+    public ThreadPoolTaskExecutor advisoryExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("loan-advisory-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        log.info("advisoryExecutor initialized: core=2, max=4, queue=50, policy=DiscardPolicy");
         return executor;
     }
 }
