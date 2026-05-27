@@ -72,6 +72,7 @@ public abstract class AbstractLoanIntegrationTest {
 
         Path storage = Paths.get(System.getProperty("java.io.tmpdir"), "loan-test-docs");
         r.add("loan.document.storage-dir", storage::toString);
+        r.add("loan.review.bias-check.enabled", () -> "false");
     }
 
     @Autowired private WebApplicationContext wac;
