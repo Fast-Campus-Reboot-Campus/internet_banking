@@ -36,7 +36,11 @@ import org.springframework.transaction.PlatformTransactionManager;
  *   8. accountingSummaryStep        — 일일 회계 요약 적재 (이자/연체이자/자동이체/실행 합계)
  *   9. notificationFlushStep        — 알림 outbox PENDING 일괄 처리 (백로그 해소)
  *
- * 각 Tasklet 은 서비스 예외를 catch 해 로그만 남기고 다음 스텝을 계속 진행한다.
+ * 스텝 실패 정책:
+ *   - CRITICAL (이자·자동이체·연체·연체이자·회계요약): 예외를 rethrow → Job FAILED, 후속 스텝 중단.
+ *     선행 스텝 실패 시 회계 요약에 잘못된 데이터가 집계되는 것을 방지.
+ *   - INDEPENDENT (승인만료·보증보험만기·약정만기·알림): 예외를 catch·log 후 계속 진행.
+ *     재무 정합성에 영향 없는 부가 처리이므로 단독 실패가 Job 전체를 중단시키지 않음.
  * Spring Batch JobRepository 에 스텝별 실행 이력이 기록된다.
  *
  * 잡 종료 후 EodNotificationListener.afterJob() 이 결과를 NotificationOutbox 에 적재한다.
@@ -97,7 +101,9 @@ public class BatchConfig {
                         log.info("[EOD][{}] interestAccrual processed={} skipped={}",
                                 baseDate, result.processed(), result.skipped());
                     } catch (Exception e) {
-                        log.error("[EOD][{}] interestAccrual 실패: {}", baseDate, e.getMessage(), e);
+                        // CRITICAL: 이자 발생 실패 시 회계 요약 집계 불가 → Job 중단
+                        log.error("[EOD][{}] interestAccrual 실패 — Job 중단: {}", baseDate, e.getMessage(), e);
+                        throw e;
                     }
                     return RepeatStatus.FINISHED;
                 }, txManager)
@@ -114,7 +120,9 @@ public class BatchConfig {
                         log.info("[EOD][{}] autoDebit processed={} skipped={} skipReason={}",
                                 baseDate, result.processed(), result.skipped(), result.skipReason());
                     } catch (Exception e) {
-                        log.error("[EOD][{}] autoDebit 실패: {}", baseDate, e.getMessage(), e);
+                        // CRITICAL: 자동이체 실패 시 회계 요약 자동이체 집계 불가 → Job 중단
+                        log.error("[EOD][{}] autoDebit 실패 — Job 중단: {}", baseDate, e.getMessage(), e);
+                        throw e;
                     }
                     return RepeatStatus.FINISHED;
                 }, txManager)
@@ -133,7 +141,9 @@ public class BatchConfig {
                                 result.activeDelinquencies(), result.resolvedDelinquencies(),
                                 result.snapshotsCreated());
                     } catch (Exception e) {
-                        log.error("[EOD][{}] delinquencyRollover 실패: {}", baseDate, e.getMessage(), e);
+                        // CRITICAL: 연체 판정 실패 시 연체이자 발생·회계 요약 기준 오염 → Job 중단
+                        log.error("[EOD][{}] delinquencyRollover 실패 — Job 중단: {}", baseDate, e.getMessage(), e);
+                        throw e;
                     }
                     return RepeatStatus.FINISHED;
                 }, txManager)
@@ -150,7 +160,9 @@ public class BatchConfig {
                         log.info("[EOD][{}] overdueInterestAccrual processed={} skipped={}",
                                 baseDate, result.processed(), result.skipped());
                     } catch (Exception e) {
-                        log.error("[EOD][{}] overdueInterestAccrual 실패: {}", baseDate, e.getMessage(), e);
+                        // CRITICAL: 연체이자 발생 실패 시 회계 요약 연체이자 집계 불가 → Job 중단
+                        log.error("[EOD][{}] overdueInterestAccrual 실패 — Job 중단: {}", baseDate, e.getMessage(), e);
+                        throw e;
                     }
                     return RepeatStatus.FINISHED;
                 }, txManager)
@@ -219,7 +231,9 @@ public class BatchConfig {
                                 result.overdueInterestRevenue(),
                                 result.autoDebitCount(), result.disbursedCount());
                     } catch (Exception e) {
-                        log.error("[EOD][{}] accountingSummary 실패: {}", baseDate, e.getMessage(), e);
+                        // CRITICAL: 회계 요약 적재 실패 = 일일 재무 데이터 유실 → Job 중단
+                        log.error("[EOD][{}] accountingSummary 실패 — Job 중단: {}", baseDate, e.getMessage(), e);
+                        throw e;
                     }
                     return RepeatStatus.FINISHED;
                 }, txManager)
