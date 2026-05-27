@@ -42,6 +42,7 @@ CODE_PROCESS_SCENARIO = 1
 CODE_PROCESS_LLM = 2
 CODE_SENDER_USER = 1
 CODE_SENDER_BOT = 2
+CODE_SENDER_AGENT = 3
 CODE_MESSAGE_TYPE_TEXT = 1
 
 
@@ -184,10 +185,10 @@ class ChatbotService:
                 rag_ctx = self._build_rag_context(message or "")
                 llm_context = "\n\n".join(filter(None, [rag_ctx, history_ctx]))
 
-                llm_response = self._llm_adapter.answer(message or "", context=llm_context)
+                llm_response, llm_error = self._llm_adapter.answer(message or "", context=llm_context)
 
-                # LLM 실패 시(에러 메시지 반환) → 상담사 이관
-                if self._is_llm_error(llm_response):
+                # LLM 실패 시(is_error 플래그) → 상담사 이관
+                if llm_error:
                     agent_intent = self._get_intent(chatbot.scenario_id, "AGENT_TRANSFER")
                     response_message = "죄송합니다, 일시적인 오류가 발생했습니다. 상담사에게 연결해 드리겠습니다."
                     process_method = "AGENT_TRANSFER"
@@ -795,13 +796,6 @@ class ChatbotService:
                 lines.append(f"- {name}: {desc}" if desc else f"- {name}")
         return "\n".join(lines) if len(lines) > 1 else ""
 
-    def _is_llm_error(self, response: str) -> bool:
-        """LlmAdapter.answer() 가 오류 응답을 반환했는지 확인한다.
-
-        LlmAdapter 예외 처리에서 항상 이 접두어로 시작하는 메시지를 반환한다.
-        """
-        return response.startswith("죄송합니다, 일시적인 오류가 발생했습니다.")
-
     def _ensure_default_intents(self, scenario_id: int) -> None:
         """챗봇의도 기본 레코드를 시딩한다."""
         intent_specs = [
@@ -838,10 +832,7 @@ class ChatbotService:
 # ──────────────────────────────────────────────────────────────────────────────
 # 인간 상담원 채팅 서비스
 # ──────────────────────────────────────────────────────────────────────────────
-
-CODE_SENDER_USER = 1
-CODE_SENDER_BOT = 2
-CODE_SENDER_AGENT = 3
+# CODE_SENDER_* 상수는 파일 상단에 통합 정의 (중복 선언 제거)
 
 _SENDER_LABEL = {
     CODE_SENDER_USER: "USER",
