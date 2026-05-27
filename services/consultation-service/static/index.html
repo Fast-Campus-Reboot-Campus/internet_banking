@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>상담 챗봇</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5d6975;
+      --line: #d8dee5;
+      --surface: #ffffff;
+      --band: #f4f7fa;
+      --brand: #0f766e;
+      --brand-dark: #0b5f59;
+      --warn: #b45309;
+      --agent: #7c3aed;
+      --agent-bg: #f5f3ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      color: var(--ink);
+      background: var(--band);
+    }
+    main {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    }
+
+    /* ── 사이드바 ── */
+    aside {
+      padding: 20px;
+      background: #102a2a;
+      color: #f8fbfb;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    aside h1 { margin: 0; font-size: 22px; }
+    .meta { margin: 0; color: #bfd2d2; font-size: 13px; line-height: 1.5; }
+    aside h2 { margin: 0; font-size: 13px; color: #7eb8b8; text-transform: uppercase; letter-spacing: .05em; }
+    .feature-list { display: grid; gap: 6px; }
+    .feature-list button {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 6px;
+      background: transparent;
+      color: #f8fbfb;
+      text-align: left;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .feature-list button:hover { background: rgba(255,255,255,.08); }
+    .primary {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--brand);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .primary:hover { background: var(--brand-dark); }
+
+    /* ── 상담사 대기열 패널 ── */
+    #queuePanel {
+      background: rgba(255,255,255,.06);
+      border-radius: 8px;
+      padding: 10px;
+      display: none;
+    }
+    #queuePanel.visible { display: block; }
+    #queueList { margin: 6px 0 0; display: grid; gap: 4px; }
+    .queue-item {
+      padding: 6px 8px;
+      background: rgba(255,255,255,.1);
+      border-radius: 4px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .queue-item button {
+      padding: 3px 8px;
+      border: 0;
+      border-radius: 4px;
+      background: var(--brand);
+      color: white;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* ── 메인 채팅 영역 ── */
+    section {
+      display: grid;
+      grid-template-rows: auto 1fr auto auto auto;
+      min-height: 100vh;
+    }
+    header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header strong { font-size: 16px; }
+    #status { color: var(--muted); font-size: 13px; }
+
+    /* 이관 알림 배너 */
+    #transferBanner {
+      display: none;
+      padding: 10px 20px;
+      background: #fff7ed;
+      border-bottom: 1px solid #fcd34d;
+      color: var(--warn);
+      font-size: 13px;
+    }
+    #transferBanner.visible { display: flex; align-items: center; gap: 10px; }
+
+    /* 상담사 연결 패널 */
+    #agentPanel {
+      display: none;
+      padding: 10px 20px;
+      background: var(--agent-bg);
+      border-bottom: 1px solid #ddd6fe;
+    }
+    #agentPanel.visible { display: block; }
+    #agentPanel h3 { margin: 0 0 8px; font-size: 13px; color: var(--agent); }
+    #agentInfo { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .agent-row { display: flex; gap: 8px; }
+    #agentInput {
+      flex: 1;
+      height: 36px;
+      border: 1px solid #ddd6fe;
+      border-radius: 6px;
+      padding: 0 10px;
+      font-size: 14px;
+    }
+    .agent-btn {
+      height: 36px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: white;
+    }
+    #sendAgentBtn { background: var(--agent); }
+    #endChatBtn { background: #dc2626; }
+
+    /* 메시지 목록 */
+    #messages {
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg {
+      max-width: min(640px, 85%);
+      padding: 10px 13px;
+      border-radius: 8px;
+      line-height: 1.45;
+      font-size: 14px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      white-space: pre-wrap;
+    }
+    .msg .sender-label {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 3px;
+      opacity: .7;
+    }
+    .user { align-self: flex-end; background: #e6f4f1; border-color: #b8ddd6; }
+    .bot  { align-self: flex-start; }
+    .agent-msg {
+      align-self: flex-start;
+      background: var(--agent-bg);
+      border-color: #ddd6fe;
+      color: var(--agent);
+    }
+    .notice { border-color: #fcd34d; background: #fff7ed; color: var(--warn); }
+
+    /* 시나리오 버튼 */
+    #quickButtons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 0 20px 10px;
+    }
+    #quickButtons button {
+      height: 34px;
+      border: 1px solid var(--brand);
+      border-radius: 6px;
+      background: #ecfdf5;
+      color: var(--brand-dark);
+      padding: 0 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* 고객 입력폼 */
+    form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 12px 20px 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+    }
+    input {
+      min-width: 0;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 12px;
+      font-size: 15px;
+    }
+    form button {
+      height: 42px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 16px;
+      background: var(--brand);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    @media (max-width: 760px) {
+      main { grid-template-columns: 1fr; }
+      aside { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <!-- ── 사이드바 ── -->
+  <aside>
+    <div>
+      <h1>상담 챗봇</h1>
+      <p class="meta">챗봇 → LLM → 상담사 연결 흐름을 체험합니다.</p>
+    </div>
+
+    <button class="primary" id="startButton">상담 시작</button>
+
+    <!-- 직원용: 대기열 새로고침 -->
+    <div>
+      <h2>상담사 대기열 <button id="refreshQueue" style="background:transparent;border:1px solid rgba(255,255,255,.3);color:#f8fbfb;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">새로고침</button></h2>
+      <div id="queuePanel">
+        <div id="queueList"></div>
+      </div>
+    </div>
+
+    <!-- 기능 목록 -->
+    <div>
+      <h2>기능 목록</h2>
+      <div class="feature-list" id="featureList"></div>
+    </div>
+  </aside>
+
+  <!-- ── 채팅 영역 ── -->
+  <section>
+    <header>
+      <div>
+        <strong>챗봇 상담</strong>
+        <span id="status"> · 대기 중</span>
+      </div>
+      <span id="consultationBadge" style="font-size:12px;color:var(--muted);"></span>
+    </header>
+
+    <!-- 이관 알림 배너 -->
+    <div id="transferBanner">
+      <span>⏳</span>
+      <span>상담사 연결 요청이 접수되었습니다. 잠시 기다려 주세요.</span>
+    </div>
+
+    <!-- 상담사 패널 (연결 후 표시) -->
+    <div id="agentPanel">
+      <h3>👤 상담사 채팅</h3>
+      <div id="agentInfo">연결된 상담사 정보 표시 영역</div>
+      <div class="agent-row">
+        <input id="agentInput" placeholder="상담사 메시지 입력..." autocomplete="off">
+        <button class="agent-btn" id="sendAgentBtn">전송 (상담사)</button>
+        <button class="agent-btn" id="endChatBtn">상담 종료</button>
+      </div>
+    </div>
+
+    <!-- 메시지 목록 -->
+    <div id="messages"></div>
+
+    <!-- 시나리오 버튼 -->
+    <div id="quickButtons"></div>
+
+    <!-- 고객 입력 -->
+    <form id="chatForm">
+      <input id="messageInput" placeholder="문의 내용을 입력하세요" autocomplete="off">
+      <button type="submit">전송</button>
+    </form>
+  </section>
+</main>
+
+<script>
+  // ── 상태 ──────────────────────────────────────────────────────────────────
+  const state = {
+    consultationId: null,
+    chatbotConsultationId: null,
+    chatConsultationId: null,
+    phase: 'IDLE',  // IDLE | CHATBOT | LLM | AGENT | ENDED
+  };
+
+  // ── DOM ───────────────────────────────────────────────────────────────────
+  const $messages   = document.querySelector('#messages');
+  const $quickBtns  = document.querySelector('#quickButtons');
+  const $statusEl   = document.querySelector('#status');
+  const $input      = document.querySelector('#messageInput');
+  const $agentPanel = document.querySelector('#agentPanel');
+  const $agentInfo  = document.querySelector('#agentInfo');
+  const $agentInput = document.querySelector('#agentInput');
+  const $banner     = document.querySelector('#transferBanner');
+  const $badge      = document.querySelector('#consultationBadge');
+  const $queuePanel = document.querySelector('#queuePanel');
+  const $queueList  = document.querySelector('#queueList');
+
+  // ── 메시지 렌더 ───────────────────────────────────────────────────────────
+  function addMessage(text, type = 'bot', label = '') {
+    const el = document.createElement('div');
+    el.className = `msg ${type}`;
+    if (label) {
+      const lbl = document.createElement('div');
+      lbl.className = 'sender-label';
+      lbl.textContent = label;
+      el.appendChild(lbl);
+    }
+    const content = document.createTextNode(text);
+    el.appendChild(content);
+    $messages.appendChild(el);
+    $messages.scrollTop = $messages.scrollHeight;
+  }
+
+  function renderButtons(buttons) {
+    $quickBtns.innerHTML = '';
+    (buttons || []).forEach(btn => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.textContent = btn.text;
+      el.addEventListener('click', () => sendChatbotMessage(btn.text, btn.value));
+      $quickBtns.appendChild(el);
+    });
+  }
+
+  function setStatus(text) { $statusEl.textContent = ` · ${text}`; }
+
+  // ── 챗봇 흐름 ─────────────────────────────────────────────────────────────
+  async function startConsultation() {
+    await fetch('/chatbot/scenarios/default', { method: 'POST' });
+    const res = await fetch('/chatbot/consultations/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_no: 'CUST001', entry_screen: 'CHAT', app_version: '0.1.0' }),
+    });
+    const data = await res.json();
+    state.consultationId = data.consultation_id;
+    state.chatbotConsultationId = data.chatbot_consultation_id;
+    state.phase = 'CHATBOT';
+
+    $messages.innerHTML = '';
+    $banner.classList.remove('visible');
+    $agentPanel.classList.remove('visible');
+    $badge.textContent = `상담 #${data.chatbot_consultation_id}`;
+    setStatus('챗봇 상담 중');
+
+    addMessage(data.message, 'bot', '🤖 챗봇');
+    renderButtons(data.buttons);
+  }
+
+  async function sendChatbotMessage(message, buttonValue = null) {
+    if (!state.chatbotConsultationId) await startConsultation();
+
+    addMessage(message, 'user', '👤 고객');
+    renderButtons([]);
+
+    const res = await fetch(`/chatbot/consultations/${state.chatbotConsultationId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, button_value: buttonValue }),
+    });
+    const data = await res.json();
+
+    if (data.agent_transfer_required) {
+      addMessage(data.message, 'notice', '⚡ 시스템');
+      $banner.classList.add('visible');
+      setStatus('상담사 연결 대기 중...');
+      state.phase = 'LLM';
+      renderButtons([]);
+      // 대기열 자동 새로고침
+      await refreshQueue();
+    } else {
+      addMessage(data.message, 'bot', '🤖 챗봇');
+      renderButtons(data.buttons);
+    }
+  }
+
+  // ── 상담사 대기열 ──────────────────────────────────────────────────────────
+  async function refreshQueue() {
+    const res = await fetch('/chat/queue');
+    const queue = await res.json();
+
+    if (queue.length === 0) {
+      $queuePanel.classList.remove('visible');
+      $queueList.innerHTML = '<div style="font-size:12px;color:#7eb8b8;">대기 중인 상담 없음</div>';
+      return;
+    }
+
+    $queuePanel.classList.add('visible');
+    $queueList.innerHTML = '';
+    queue.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'queue-item';
+      div.innerHTML = `
+        <span>${item.customer_no} · #${item.chat_consultation_id}</span>
+        <button onclick="connectAgent(${item.chat_consultation_id})">수락</button>
+      `;
+      $queueList.appendChild(div);
+    });
+  }
+
+  // ── 상담사 연결 ───────────────────────────────────────────────────────────
+  async function connectAgent(chatId) {
+    const res = await fetch(`/chat/consultations/${chatId}/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: 1001 }),
+    });
+    const data = await res.json();
+
+    state.chatConsultationId = chatId;
+    state.phase = 'AGENT';
+
+    $banner.classList.remove('visible');
+    $agentPanel.classList.add('visible');
+    $agentInfo.textContent = `상담사 #${data.employee_id} 연결됨 · 채팅 상담 #${chatId}`;
+    setStatus('상담사 연결됨');
+
+    addMessage('상담사가 연결되었습니다. 무엇을 도와드릴까요?', 'agent-msg', '👤 상담사');
+
+    await refreshQueue();
+    await loadChatHistory(chatId);
+  }
+
+  async function loadChatHistory(chatId) {
+    const res = await fetch(`/chat/consultations/${chatId}/messages`);
+    const messages = await res.json();
+    messages.forEach(m => {
+      if (m.sender_type === 'BOT') addMessage(m.message, 'bot', '🤖 챗봇');
+      else if (m.sender_type === 'AGENT') addMessage(m.message, 'agent-msg', '👤 상담사');
+      // USER 메시지는 이미 화면에 있으므로 스킵
+    });
+  }
+
+  // ── 상담사 메시지 전송 ────────────────────────────────────────────────────
+  document.querySelector('#sendAgentBtn').addEventListener('click', async () => {
+    const msg = $agentInput.value.trim();
+    if (!msg || !state.chatConsultationId) return;
+    $agentInput.value = '';
+
+    await fetch(`/chat/consultations/${state.chatConsultationId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, sender_type: 'AGENT' }),
+    });
+    addMessage(msg, 'agent-msg', '👤 상담사');
+  });
+
+  // ── 상담 종료 ─────────────────────────────────────────────────────────────
+  document.querySelector('#endChatBtn').addEventListener('click', async () => {
+    if (!state.chatConsultationId) return;
+    const score = prompt('만족도를 입력하세요 (1~5, 건너뛰려면 취소)');
+    const body = score ? { satisfaction_score: parseInt(score, 10) } : {};
+
+    await fetch(`/chat/consultations/${state.chatConsultationId}/end`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    state.phase = 'ENDED';
+    $agentPanel.classList.remove('visible');
+    setStatus('상담 종료됨');
+    addMessage('상담이 종료되었습니다. 이용해 주셔서 감사합니다.', 'notice', '⚡ 시스템');
+    renderButtons([]);
+    await refreshQueue();
+  });
+
+  // ── 기능 목록 ─────────────────────────────────────────────────────────────
+  async function loadFeatures() {
+    const res = await fetch('/chatbot/features');
+    const features = await res.json();
+    const list = document.querySelector('#featureList');
+    features.forEach(f => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = `${f.name}`;
+      btn.title = f.api_status;
+      btn.addEventListener('click', async () => {
+        const r = await fetch(`/chatbot/features/${f.code}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_no: 'CUST001', query: $input.value || f.name, staff_id: 'EMP001' }),
+        });
+        const d = await r.json();
+        addMessage(`[${f.name}]\n${d.message}`, 'bot', '🔍 기능');
+      });
+      list.appendChild(btn);
+    });
+  }
+
+  // ── 이벤트 바인딩 ─────────────────────────────────────────────────────────
+  document.querySelector('#startButton').addEventListener('click', startConsultation);
+
+  document.querySelector('#chatForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const msg = $input.value.trim();
+    if (!msg) return;
+    $input.value = '';
+
+    if (state.phase === 'AGENT' && state.chatConsultationId) {
+      // 상담사 연결 이후에는 고객 메시지도 채팅 API로 전송
+      fetch(`/chat/consultations/${state.chatConsultationId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, sender_type: 'USER' }),
+      });
+      addMessage(msg, 'user', '👤 고객');
+    } else {
+      sendChatbotMessage(msg);
+    }
+  });
+
+  document.querySelector('#refreshQueue').addEventListener('click', refreshQueue);
+
+  // ── 초기화 ────────────────────────────────────────────────────────────────
+  loadFeatures();
+  refreshQueue();
+</script>
+</body>
+</html>

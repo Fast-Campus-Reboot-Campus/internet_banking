@@ -32,6 +32,9 @@ env/
 *.log
 logs/
 
+# Local service launchers
+services/consultation-service/start-*.bat
+
 # Java
 *.class
 hs_err_pid*

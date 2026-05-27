@@ -1,0 +1,98 @@
+version: "3.9"
+
+# consultation-service 단독 실행용 docker-compose.
+# deposit 서비스와 DB를 공유하는 구조이므로 동일 deposit_db / deposit 계정을 사용합니다.
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: consultation-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       deposit_db
+      POSTGRES_USER:     deposit
+      POSTGRES_PASSWORD: deposit
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/ddl.sql:/docker-entrypoint-initdb.d/01_ddl.sql
+      - ./sql/deposit-schema.sql:/docker-entrypoint-initdb.d/02_deposit_schema.sql
+      - ./sql/demo-data.sql:/docker-entrypoint-initdb.d/03_demo_data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deposit -d deposit_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Zookeeper ──────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: consultation-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME:   2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+
+  # ── Kafka ──────────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: consultation-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID:                        1
+      KAFKA_ZOOKEEPER_CONNECT:                zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS:             PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:   PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME:       PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE:        "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── consultation-service ───────────────────────────────────────────────────
+  consultation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: consultation-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
+    environment:
+      CONSULTATION_DATABASE_URL:                   postgresql+psycopg://deposit:deposit@postgres:5432/deposit_db
+      CONSULTATION_KAFKA_ENABLED:                  "true"
+      CONSULTATION_KAFKA_BOOTSTRAP_SERVERS:        kafka:29092
+      CONSULTATION_KAFKA_TOPIC_CHATBOT_EVENTS:     consultation.chatbot.events
+      CONSULTATION_KAFKA_TOPIC_CHAT_EVENTS:        consultation.chat.events
+      CONSULTATION_LLM_CONFIDENCE_THRESHOLD:       "70"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8090/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
