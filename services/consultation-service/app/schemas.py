@@ -74,6 +74,7 @@ class ChatbotFeatureExecuteRequest(BaseModel):
     product_id: int | None = None
     compare_product_ids: list[int] = Field(default_factory=list)
     staff_id: str | None = None
+    chatbot_consultation_id: int | None = None  # 대화 이력 조회용 (CASH_FLOW_RECOMMEND 등)
 
 
 class ChatbotFeatureExecuteResponse(BaseModel):

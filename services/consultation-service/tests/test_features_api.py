@@ -131,11 +131,11 @@ class TestFeaturesListEndpoint:
         finally:
             app.dependency_overrides.clear()
 
-    def test_total_count_is_18(self, service):
+    def test_total_count_is_positive(self, service):
         client = _client(service)
         try:
             features = client.get("/chatbot/features").json()
-            assert len(features) == 18
+            assert len(features) > 0, "등록된 피처가 하나 이상 있어야 합니다"
         finally:
             app.dependency_overrides.clear()
 

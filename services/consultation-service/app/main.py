@@ -29,6 +29,7 @@ from app.schemas import (
     ChatSendMessageRequest,
     ScenarioSeedResponse,
 )
+from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
 from app.services import ChatbotService, ChatService, _chat_status, _SENDER_LABEL
 
 logger = logging.getLogger(__name__)
@@ -40,18 +41,87 @@ llm = LlmHandoffAdapter()
 llm_adapter = LlmAdapter(api_key=settings.openai_api_key, model=settings.openai_model) if settings.openai_api_key else None
 static_dir = Path(__file__).resolve().parents[1] / "static"
 
+# RAG 엔진: OpenAI API 키가 있을 때만 활성화
+rag_engine: ProductRagEngine | None = (
+    ProductRagEngine(OpenAIEmbeddingProvider(settings.openai_api_key))
+    if settings.openai_api_key else None
+)
+
+
+async def _handle_contract_created(payload: dict) -> None:
+    """deposit-api 에서 ContractCreated 이벤트 수신 시 처리.
+
+    고객이 상품에 가입했음을 기록하고, RAG 인덱스가 살아있으면 재빌드를 예약한다.
+    (같은 DB를 공유하므로 신규 계약 데이터가 즉시 조회 가능)
+    """
+    customer_id  = payload.get("customerId", "")
+    product_id   = payload.get("productId", "")
+    contract_id  = payload.get("contractId", "")
+    join_amount  = payload.get("joinAmount", 0)
+
+    logger.info(
+        "[Kafka] ContractCreated 처리 — customer=%s product=%s contract=%s amount=%s",
+        customer_id, product_id, contract_id, join_amount,
+    )
+
+    # RAG 인덱스 재빌드: 신규 상품 데이터 반영
+    if rag_engine is not None:
+        await _build_rag_index()
+        logger.info("[Kafka] RAG 인덱스 재빌드 완료 (ContractCreated 트리거)")
+
 
 async def _kafka_consume_loop() -> None:
-    """카프카 이벤트를 수신해서 로그로 출력하는 백그라운드 루프."""
+    """카프카 이벤트를 수신해 비즈니스 로직을 처리하는 백그라운드 루프.
+
+    처리 이벤트:
+      - ContractCreated (deposit.contract.events): 고객 계약 완료 → RAG 재빌드
+      - 그 외 consultation 이벤트: 구조화된 로그 출력
+    """
     try:
         async for message in consumer:
             event_type = message.get("eventType", "UNKNOWN")
-            payload = message.get("payload", {})
-            logger.info("[Kafka] event=%s payload=%s", event_type, payload)
+            payload    = message.get("payload", {})
+
+            if event_type == "ContractCreated":
+                await _handle_contract_created(payload)
+            else:
+                logger.info("[Kafka] event=%s payload=%s", event_type, payload)
+
     except asyncio.CancelledError:
         pass
     except Exception as exc:
         logger.exception("[Kafka] consumer loop 오류: %s", exc)
+
+
+async def _build_rag_index() -> None:
+    """DB에서 상품 + 약관 데이터를 읽어 RAG 인덱스를 빌드한다."""
+    if rag_engine is None:
+        logger.info("[RAG] OpenAI API 키 없음 → RAG 비활성화")
+        return
+
+    from sqlalchemy import text as sa_text
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        products = [
+            dict(row._mapping)
+            for row in db.execute(sa_text(
+                "SELECT * FROM deposit_banking_products WHERE deposit_product_status = 'SELLING'"
+            ))
+        ]
+        terms = [
+            dict(row._mapping)
+            for row in db.execute(sa_text(
+                "SELECT * FROM deposit_special_terms WHERE status = 'ACTIVE'"
+            ))
+        ]
+        rag_engine.build_from_db(products, terms)
+        logger.info("[RAG] 인덱스 빌드 완료: 상품 %d개, 약관 %d개", len(products), len(terms))
+    except Exception as exc:
+        logger.warning("[RAG] 인덱스 빌드 실패 (DB 미연결 등): %s", exc)
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -62,10 +132,12 @@ async def lifespan(app: FastAPI):
         topics=[
             settings.kafka_topic_chatbot_events,
             settings.kafka_topic_chat_events,
+            settings.kafka_topic_deposit_events,   # deposit-api 계약 이벤트 수신
         ],
         group_id="consultation-service",
     )
     consume_task = asyncio.create_task(_kafka_consume_loop())
+    await _build_rag_index()
     try:
         yield
     finally:
@@ -83,7 +155,7 @@ if static_dir.exists():
 # ── 의존성 ──────────────────────────────────────────────────────────────────
 
 def get_chatbot_service(db: Session = Depends(get_db)) -> ChatbotService:
-    return ChatbotService(db, events, llm, llm_adapter)
+    return ChatbotService(db, events, llm, llm_adapter, rag_engine)
 
 
 def get_chat_service(db: Session = Depends(get_db)) -> ChatService:
