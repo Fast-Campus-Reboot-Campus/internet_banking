@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CartModal from '@/components/products/CartModal'
 import DepositSidebar from '@/components/products/DepositSidebar'
 
@@ -53,7 +53,8 @@ const DEPOSIT_PRODUCTS: Product[] = [
   },
 ]
 
-const SAVINGS_PRODUCTS: Product[] = [
+// 자유적금 (saving_type = FREE)
+const FREE_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-free',
     name: 'AXful 내맘대로적금',
@@ -82,20 +83,24 @@ const SAVINGS_PRODUCTS: Product[] = [
     canApply: true,
   },
   {
-    id: 'axful-soldier',
-    name: 'AXful 장병내일준비적금',
-    channel: '스타뱅킹',
-    desc: '국군장병 미래대비 앞날준비',
-    period: '24개월 기준',
-    rate: '연 5%~10.5%',
-  },
-  {
     id: 'axful-star-savings',
     name: 'AXful 특★한 적금',
     channel: '스타뱅킹',
     desc: '고객 모두의 높은 수익을 위한 특별한 준비',
     period: '1개월 기준',
     rate: '연 2%~6%',
+  },
+]
+
+// 정기적금 (saving_type = REGULAR)
+const REGULAR_SAVINGS_PRODUCTS: Product[] = [
+  {
+    id: 'axful-soldier',
+    name: 'AXful 장병내일준비적금',
+    channel: '스타뱅킹',
+    desc: '국군장병 미래대비 앞날준비',
+    period: '24개월 기준',
+    rate: '연 5%~10.5%',
   },
 ]
 
@@ -186,8 +191,8 @@ const HOUSING_PRODUCTS: Product[] = [
   },
 ]
 
-type Tab = '예금' | '적금' | '입출금자유' | '주택청약'
-const TABS: Tab[] = ['예금', '적금', '입출금자유', '주택청약']
+type Tab = '예금' | '정기적금' | '자유적금' | '입출금자유' | '주택청약'
+const TABS: Tab[] = ['예금', '정기적금', '자유적금', '입출금자유', '주택청약']
 
 const DEPOSIT_PRODUCT_TYPES = ['전체', '정기예금', '지수연동예금', '시장성예금']
 const JOIN_METHODS = ['전체', '인터넷뱅킹', '스타뱅킹', 'AXful Next', '영업점']
@@ -195,6 +200,15 @@ const JOIN_PERIODS = ['전체', '3개월 미만', '3-6개월 미만', '6-12개�
 
 export default function DepositListPage() {
   const [tab, setTab] = useState<Tab>('예금')
+
+  // URL ?tab= 파라미터로 초기 탭 설정 (클라이언트 전용)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const raw = params.get('tab') as Tab | null
+    if (raw && (TABS as readonly string[]).includes(raw)) {
+      setTab(raw)
+    }
+  }, [])
   const [productType, setProductType] = useState('전체')
   const [joinMethod, setJoinMethod] = useState('전체')
   const [joinPeriod, setJoinPeriod] = useState('전체')
@@ -203,13 +217,14 @@ export default function DepositListPage() {
 
   const productsMap: Record<Tab, Product[]> = {
     '예금': DEPOSIT_PRODUCTS,
-    '적금': SAVINGS_PRODUCTS,
+    '정기적금': REGULAR_SAVINGS_PRODUCTS,
+    '자유적금': FREE_SAVINGS_PRODUCTS,
     '입출금자유': CHECKING_PRODUCTS,
     '주택청약': HOUSING_PRODUCTS,
   }
   const products = productsMap[tab]
 
-  const showPeriodFilter = tab === '예금' || tab === '적금'
+  const showPeriodFilter = tab === '예금' || tab === '정기적금' || tab === '자유적금'
   const showProductTypeFilter = tab === '예금'
   const showHousingNote = tab === '주택청약'
 
@@ -369,7 +384,7 @@ export default function DepositListPage() {
                       비교하기
                     </button>
                     {product.canApply && (
-                      <Link href={`/products/deposit/${product.id}`}
+                      <Link href={`/products/deposit/join/${product.id}`}
                         className="bg-kb-yellow px-5 py-1.5 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark">
                         가입하기
                       </Link>

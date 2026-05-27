@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
+import { MOCK_ACCOUNTS, Account, formatNumber } from '@/lib/mock-data'
 import InquirySidebar from '@/components/inquiry/InquirySidebar'
 
 const SIDEBAR_INQUIRY = [
@@ -148,23 +148,29 @@ export default function AccountsPage() {
   const [allFxOpen, setAllFxOpen] = useState(true)
   const [allInsOpen, setAllInsOpen] = useState(true)
   const [allRetireOpen, setAllRetireOpen] = useState(true)
+  const [joinedAccounts, setJoinedAccounts] = useState<Account[]>([])
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user')
       if (stored) setUserName(JSON.parse(stored).name)
     } catch {}
+    try {
+      const raw = localStorage.getItem('joinedAccounts')
+      if (raw) setJoinedAccounts(JSON.parse(raw) as Account[])
+    } catch {}
   }, [])
 
   const now = new Date()
   const datetime = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
 
-  const checkingAccounts  = MOCK_ACCOUNTS.filter(a => a.type === '입출금')
-  const savingsAccounts   = MOCK_ACCOUNTS.filter(a => a.type === '적금')
-  const depositTabAccounts = MOCK_ACCOUNTS.filter(a => ['입출금', '적금', '예금'].includes(a.type))
+  const allAccounts        = [...MOCK_ACCOUNTS, ...joinedAccounts]
+  const checkingAccounts  = allAccounts.filter(a => a.type === '입출금')
+  const savingsAccounts   = allAccounts.filter(a => a.type === '적금')
+  const depositTabAccounts = allAccounts.filter(a => ['입출금', '적금', '예금'].includes(a.type))
   const depositTabBalance  = depositTabAccounts.reduce((s, a) => s + a.balance, 0)
   const depositTabCount    = depositTabAccounts.length
-  const totalBalance      = MOCK_ACCOUNTS.filter(a => ['입출금', '적금', '예금'].includes(a.type)).reduce((s, a) => s + a.balance, 0)
+  const totalBalance      = allAccounts.filter(a => ['입출금', '적금', '예금'].includes(a.type)).reduce((s, a) => s + a.balance, 0)
 
   const bal = (n: number) => balanceVisible ? formatNumber(n) : '●●●●●●●'
 
@@ -463,7 +469,7 @@ export default function AccountsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {MOCK_ACCOUNTS.filter(a => ['입출금', '적금', '예금'].includes(a.type)).map((acc) => (
+                      {allAccounts.filter(a => ['입출금', '적금', '예금'].includes(a.type)).map((acc) => (
                         <tr key={acc.id} className="border-b last:border-b-0 border-kb-border hover:bg-kb-beige-light">
                           <td className="px-4 py-3 text-[13px] text-center border-r border-kb-border">
                             <Link href="/inquiry/transactions" className="text-kb-blue hover:underline">{acc.number}</Link>
