@@ -266,6 +266,9 @@ def execute_chatbot_feature(
     request: ChatbotFeatureExecuteRequest,
     service: ChatbotService = Depends(get_chatbot_service),
 ) -> ChatbotFeatureExecuteResponse:
+    # TODO: IDOR — JWT 미들웨어 도입 후 request.customer_no 가 인증된 사용자 본인인지 검증 필요.
+    # TODO: STAFF 기능 — JWT 미들웨어 도입 후 Depends(require_staff_role) 로 교체.
+    #       현재는 _validate_staff() 가 employees 테이블 DB 조회로 유효성을 1차 확인함.
     result = service.execute_feature(feature_code, request)
     if result.status == "NOT_FOUND":
         raise HTTPException(status_code=404, detail=result.message)
