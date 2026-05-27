@@ -45,11 +45,12 @@ public class LoanReview extends BaseEntity {
     public static final String APPROVER_OVERRIDE_APPROVED = "OVERRIDE_APPROVED";
     public static final String APPROVER_OVERRIDE_REJECTED = "OVERRIDE_REJECTED";
 
-    public static final String STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
-    public static final String STATUS_BIAS_REVIEWING   = "BIAS_REVIEWING";
-    public static final String STATUS_PENDING_APPROVER = "PENDING_APPROVER";
-    public static final String STATUS_COMPLETED        = "COMPLETED";
-    public static final String STATUS_EXPIRED          = "EXPIRED";
+    public static final String STATUS_PENDING_APPROVAL  = "PENDING_APPROVAL";
+    public static final String STATUS_REVIEWER_DECIDED  = "REVIEWER_DECIDED";
+    public static final String STATUS_BIAS_REVIEWING    = "BIAS_REVIEWING";
+    public static final String STATUS_PENDING_APPROVER  = "PENDING_APPROVER";
+    public static final String STATUS_COMPLETED         = "COMPLETED";
+    public static final String STATUS_EXPIRED           = "EXPIRED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -138,8 +139,9 @@ public class LoanReview extends BaseEntity {
     }
 
     /**
-     * 본심사 완료 후 편향 검증 단계로 진입. revStatusCd → BIAS_REVIEWING.
-     * run() / confirm() 완료 시점에 호출. 신청 상태 전이는 여기서 하지 않는다.
+     * REVIEWER_DECIDED 상태에서 편향 검증 단계로 진입. revStatusCd → BIAS_REVIEWING.
+     * markReviewerDecided() 또는 confirm() 호출 직후 이어서 호출한다.
+     * 신청 상태 전이는 여기서 하지 않는다.
      */
     public void markBiasReviewing() {
         this.revStatusCd = STATUS_BIAS_REVIEWING;
@@ -221,13 +223,22 @@ public class LoanReview extends BaseEntity {
     }
 
     /**
-     * 자동 권고(PENDING_APPROVAL) 결과를 사람이 확정. revStatusCd → BIAS_REVIEWING,
+     * 자동 권고(PENDING_APPROVAL) 결과를 사람이 확정. revStatusCd → REVIEWER_DECIDED,
      * reviewerId/reviewedAt 갱신. 신청 상태 전이와 approvedAt 은 승인자 단계로 이동.
+     * 호출 후 markBiasReviewing() 을 이어 호출해 편향 검증 단계로 진입한다.
      */
     public void confirm(Long reviewerId, OffsetDateTime confirmedAt) {
-        this.revStatusCd = STATUS_BIAS_REVIEWING;
+        this.revStatusCd = STATUS_REVIEWER_DECIDED;
         this.reviewerId = reviewerId;
         this.reviewedAt = confirmedAt;
+    }
+
+    /**
+     * 심사원 결정 완료 후 편향 검증 단계로 진입. revStatusCd → REVIEWER_DECIDED.
+     * run() / confirm() 완료 시점에 호출. 신청 상태 전이는 여기서 하지 않는다.
+     */
+    public void markReviewerDecided() {
+        this.revStatusCd = STATUS_REVIEWER_DECIDED;
     }
 
     /**

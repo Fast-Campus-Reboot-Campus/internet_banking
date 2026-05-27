@@ -48,8 +48,9 @@ public class LoanReviewAutoDecideService {
     private static final String REASON_AUTO_RECOMMENDED_REJECTED = "AUTO_RECOMMENDED_REJECTED";
     private static final String REASON_REVIEW_APPROVED = "REVIEW_APPROVED";
     private static final String REASON_REVIEW_REJECTED = "REVIEW_REJECTED";
-    private static final String REASON_REVIEW_CONFIRMED = "REVIEW_CONFIRMED";
-    private static final String REASON_REVIEW_EXPIRED = "AUTO_RECOMMENDATION_EXPIRED";
+    private static final String REASON_REVIEW_CONFIRMED    = "REVIEW_CONFIRMED";
+    private static final String REASON_REVIEW_EXPIRED      = "AUTO_RECOMMENDATION_EXPIRED";
+    private static final String REASON_BIAS_CHECK_TRIGGERED = "BIAS_CHECK_TRIGGERED";
 
     private static final String REJECT_CB  = "CB_REJECT";
     private static final String REJECT_DSR = "DSR_OVER";
@@ -184,16 +185,26 @@ public class LoanReviewAutoDecideService {
         Long actorId = currentActor.currentActorId();
         boolean approved = review.isApproved();
 
+        // confirm() 이 REVIEWER_DECIDED 로 전이 (reviewerId/reviewedAt 갱신 포함)
         review.confirm(req.reviewerId(), now);
 
         checkLogWriter.logConfirm(review.getRevId(), approved, req.reviewerId(), req.confirmRemark());
 
+        // 심사원 확정 이력
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
-                LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_BIAS_REVIEWING,
+                LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_REVIEWER_DECIDED,
                 REASON_REVIEW_CONFIRMED,
                 "reviewerId=" + req.reviewerId(),
                 actorId
+        ));
+
+        // 편향 검증 단계 진입
+        review.markBiasReviewing();
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
+                LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
+                REASON_BIAS_CHECK_TRIGGERED, null, actorId
         ));
 
         enqueueBiasCheck(review, application);

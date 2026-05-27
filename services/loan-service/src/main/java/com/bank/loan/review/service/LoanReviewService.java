@@ -46,11 +46,10 @@ import java.util.Map;
  *   3) 사전조건: PRESCREENED 상태 + CB(APPROVE/REVIEW) + DSR PASS (LOAN_038)
  *   4) APPROVED:
  *        approved_amount/rate/period 자동 산정 (입력값 우선)
- *        신청 → APPROVED, approved_at 기록
  *   5) REJECTED:
  *        reject_reason_cd 기록
- *        신청 → REJECTED
- *   6) status_history 양쪽 (LOAN_REVIEW null→COMPLETED, LOAN_APPLICATION PRESCREENED→다음)
+ *   6) status_history: LOAN_REVIEW null→REVIEWER_DECIDED, 이어서 REVIEWER_DECIDED→BIAS_REVIEWING
+ *      신청 상태 전이(PRESCREENED→APPROVED/REJECTED)는 승인자 확정(approverApprove) 단계로 이동
  */
 @Service
 @RequiredArgsConstructor
@@ -59,8 +58,9 @@ public class LoanReviewService {
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_REVIEW = "LOAN_REVIEW";
     private static final String TARGET_APPLICATION = "LOAN_APPLICATION";
-    private static final String REASON_REVIEW_APPROVED = "REVIEW_APPROVED";
-    private static final String REASON_REVIEW_REJECTED = "REVIEW_REJECTED";
+    private static final String REASON_REVIEW_APPROVED      = "REVIEW_APPROVED";
+    private static final String REASON_REVIEW_REJECTED      = "REVIEW_REJECTED";
+    private static final String REASON_BIAS_CHECK_TRIGGERED = "BIAS_CHECK_TRIGGERED";
 
     private final LoanReviewRepository repository;
     private final LoanApplicationRepository applicationRepository;
@@ -152,7 +152,7 @@ public class LoanReviewService {
         LoanReview saved = repository.save(LoanReview.builder()
                 .applId(applId)
                 .revTypeCd(req.revTypeCd())
-                .revStatusCd(LoanReview.STATUS_BIAS_REVIEWING)
+                .revStatusCd(LoanReview.STATUS_REVIEWER_DECIDED)
                 .revDecisionCd(req.revDecisionCd())
                 .approvedAmount(approvedAmount)
                 .approvedRateBps(approvedRate)
@@ -165,14 +165,23 @@ public class LoanReviewService {
 
         checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req);
 
+        // 심사원 결정 이력
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
-                null, LoanReview.STATUS_BIAS_REVIEWING,
+                null, LoanReview.STATUS_REVIEWER_DECIDED,
                 approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
                 approved
                         ? "approvedAmount=" + approvedAmount + ", rateBps=" + approvedRate
                         : "rejectReasonCd=" + req.rejectReasonCd(),
                 actorId
+        ));
+
+        // 편향 검증 단계 진입
+        saved.markBiasReviewing();
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
+                LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
+                REASON_BIAS_CHECK_TRIGGERED, null, actorId
         ));
 
         enqueueBiasCheck(saved, ceval, dsr, null, product);
