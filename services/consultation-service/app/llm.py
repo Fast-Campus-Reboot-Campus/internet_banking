@@ -178,7 +178,13 @@ class LlmAdapter:
         self.api_key = api_key
         self.model = model
 
-    def answer(self, message: str, context: str = "") -> str:
+    def answer(self, message: str, context: str = "") -> tuple[str, bool]:
+        """LLM 응답을 반환한다.
+
+        Returns:
+            (response_text, is_error) — is_error=True 이면 LLM 호출 실패를 의미하며
+            호출자가 상담사 이관 등 fallback 처리를 수행해야 한다.
+        """
         try:
             from openai import OpenAI
             client = OpenAI(api_key=self.api_key)
@@ -194,9 +200,12 @@ class LlmAdapter:
                 max_tokens=500,
                 temperature=0.3,
             )
-            return response.choices[0].message.content.strip()
+            return response.choices[0].message.content.strip(), False
         except Exception as exc:
-            return f"죄송합니다, 일시적인 오류가 발생했습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요. ({exc})"
+            return (
+                f"죄송합니다, 일시적인 오류가 발생했습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요. ({exc})",
+                True,
+            )
 
     def recommend(
         self,

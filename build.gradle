@@ -79,3 +79,4 @@ configure(subprojects.findAll {
         testRuntimeOnly 'commons-codec:commons-codec'
     }
 }
+}

@@ -3,7 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -30,25 +30,23 @@ from app.schemas import (
     ScenarioSeedResponse,
 )
 from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
-from app.services import ChatbotService, ChatService, _chat_status, _SENDER_LABEL
+from app.services import (
+    CODE_SENDER_AGENT,
+    CODE_SENDER_USER,
+    ChatbotService,
+    ChatService,
+    _chat_status,
+    _SENDER_LABEL,
+)
 
 logger = logging.getLogger(__name__)
 
+# settings, static_dir 은 설정값이므로 모듈 수준에 유지
 settings = get_settings()
-events = KafkaEventPublisher(settings)
-consumer = KafkaEventConsumer(settings)
-llm = LlmHandoffAdapter()
-llm_adapter = LlmAdapter(api_key=settings.openai_api_key, model=settings.openai_model) if settings.openai_api_key else None
 static_dir = Path(__file__).resolve().parents[1] / "static"
 
-# RAG 엔진: OpenAI API 키가 있을 때만 활성화
-rag_engine: ProductRagEngine | None = (
-    ProductRagEngine(OpenAIEmbeddingProvider(settings.openai_api_key))
-    if settings.openai_api_key else None
-)
 
-
-async def _handle_contract_created(payload: dict) -> None:
+async def _handle_contract_created(payload: dict, rag: ProductRagEngine | None) -> None:
     """deposit-api 에서 ContractCreated 이벤트 수신 시 처리.
 
     고객이 상품에 가입했음을 기록하고, RAG 인덱스가 살아있으면 재빌드를 예약한다.
@@ -65,12 +63,15 @@ async def _handle_contract_created(payload: dict) -> None:
     )
 
     # RAG 인덱스 재빌드: 신규 상품 데이터 반영
-    if rag_engine is not None:
-        await _build_rag_index()
+    if rag is not None:
+        await _build_rag_index(rag)
         logger.info("[Kafka] RAG 인덱스 재빌드 완료 (ContractCreated 트리거)")
 
 
-async def _kafka_consume_loop() -> None:
+async def _kafka_consume_loop(
+    consumer: KafkaEventConsumer,
+    rag: ProductRagEngine | None,
+) -> None:
     """카프카 이벤트를 수신해 비즈니스 로직을 처리하는 백그라운드 루프.
 
     처리 이벤트:
@@ -83,7 +84,7 @@ async def _kafka_consume_loop() -> None:
             payload    = message.get("payload", {})
 
             if event_type == "ContractCreated":
-                await _handle_contract_created(payload)
+                await _handle_contract_created(payload, rag)
             else:
                 logger.info("[Kafka] event=%s payload=%s", event_type, payload)
 
@@ -93,12 +94,8 @@ async def _kafka_consume_loop() -> None:
         logger.exception("[Kafka] consumer loop 오류: %s", exc)
 
 
-async def _build_rag_index() -> None:
+async def _build_rag_index(rag: ProductRagEngine) -> None:
     """DB에서 상품 + 약관 데이터를 읽어 RAG 인덱스를 빌드한다."""
-    if rag_engine is None:
-        logger.info("[RAG] OpenAI API 키 없음 → RAG 비활성화")
-        return
-
     from sqlalchemy import text as sa_text
     from app.database import SessionLocal
 
@@ -107,16 +104,40 @@ async def _build_rag_index() -> None:
         products = [
             dict(row._mapping)
             for row in db.execute(sa_text(
-                "SELECT * FROM deposit_banking_products WHERE deposit_product_status = 'SELLING'"
+                """
+                SELECT banking_product_id,
+                       deposit_product_name,
+                       deposit_product_type,
+                       description,
+                       base_interest_rate,
+                       min_join_amount,
+                       max_join_amount,
+                       min_period_month,
+                       max_period_month,
+                       is_early_termination_allowed,
+                       is_tax_benefit_available,
+                       deposit_product_status
+                  FROM deposit_banking_products
+                 WHERE deposit_product_status = 'SELLING'
+                """
             ))
         ]
         terms = [
             dict(row._mapping)
             for row in db.execute(sa_text(
-                "SELECT * FROM deposit_special_terms WHERE status = 'ACTIVE'"
+                """
+                SELECT special_term_id,
+                       special_term_name,
+                       special_term_content,
+                       special_term_summary,
+                       is_required,
+                       status
+                  FROM deposit_special_terms
+                 WHERE status = 'ACTIVE'
+                """
             ))
         ]
-        rag_engine.build_from_db(products, terms)
+        rag.build_from_db(products, terms)
         logger.info("[RAG] 인덱스 빌드 완료: 상품 %d개, 약관 %d개", len(products), len(terms))
     except Exception as exc:
         logger.warning("[RAG] 인덱스 빌드 실패 (DB 미연결 등): %s", exc)
@@ -126,24 +147,48 @@ async def _build_rag_index() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ── 싱글턴 생성 및 app.state 등록 ────────────────────────────────────────
+    _events = KafkaEventPublisher(settings)
+    _consumer = KafkaEventConsumer(settings)
+    _llm = LlmHandoffAdapter()
+    _llm_adapter = (
+        LlmAdapter(api_key=settings.openai_api_key, model=settings.openai_model)
+        if settings.openai_api_key else None
+    )
+    _rag_engine: ProductRagEngine | None = (
+        ProductRagEngine(OpenAIEmbeddingProvider(settings.openai_api_key))
+        if settings.openai_api_key else None
+    )
+
+    app.state.events = _events
+    app.state.consumer = _consumer
+    app.state.llm = _llm
+    app.state.llm_adapter = _llm_adapter
+    app.state.rag_engine = _rag_engine
+
+    # ── 기동 ─────────────────────────────────────────────────────────────────
     Base.metadata.create_all(bind=engine)
-    await events.start()
-    await consumer.start(
+    await _events.start()
+    # chatbot_events / chat_events 는 이 서비스가 직접 발행하는 토픽이므로
+    # 구독 목록에서 제외 — 자기 발행 메시지를 자신이 소비하는 순환 방지
+    await _consumer.start(
         topics=[
-            settings.kafka_topic_chatbot_events,
-            settings.kafka_topic_chat_events,
-            settings.kafka_topic_deposit_events,   # deposit-api 계약 이벤트 수신
+            settings.kafka_topic_deposit_events,   # deposit-api 계약 이벤트만 수신
         ],
         group_id="consultation-service",
     )
-    consume_task = asyncio.create_task(_kafka_consume_loop())
-    await _build_rag_index()
+    consume_task = asyncio.create_task(_kafka_consume_loop(_consumer, _rag_engine))
+    if _rag_engine is not None:
+        await _build_rag_index(_rag_engine)
+    else:
+        logger.info("[RAG] OpenAI API 키 없음 → RAG 비활성화")
+
     try:
         yield
     finally:
         consume_task.cancel()
-        await consumer.stop()
-        await events.stop()
+        await _consumer.stop()
+        await _events.stop()
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
@@ -154,12 +199,19 @@ if static_dir.exists():
 
 # ── 의존성 ──────────────────────────────────────────────────────────────────
 
-def get_chatbot_service(db: Session = Depends(get_db)) -> ChatbotService:
-    return ChatbotService(db, events, llm, llm_adapter, rag_engine)
+def get_chatbot_service(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> ChatbotService:
+    state = request.app.state
+    return ChatbotService(db, state.events, state.llm, state.llm_adapter, state.rag_engine)
 
 
-def get_chat_service(db: Session = Depends(get_db)) -> ChatService:
-    return ChatService(db, events)
+def get_chat_service(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> ChatService:
+    return ChatService(db, request.app.state.events)
 
 
 # ── 공통 ────────────────────────────────────────────────────────────────────
@@ -214,6 +266,9 @@ def execute_chatbot_feature(
     request: ChatbotFeatureExecuteRequest,
     service: ChatbotService = Depends(get_chatbot_service),
 ) -> ChatbotFeatureExecuteResponse:
+    # TODO: IDOR — JWT 미들웨어 도입 후 request.customer_no 가 인증된 사용자 본인인지 검증 필요.
+    # TODO: STAFF 기능 — JWT 미들웨어 도입 후 Depends(require_staff_role) 로 교체.
+    #       현재는 _validate_staff() 가 employees 테이블 DB 조회로 유효성을 1차 확인함.
     result = service.execute_feature(feature_code, request)
     if result.status == "NOT_FOUND":
         raise HTTPException(status_code=404, detail=result.message)
@@ -227,6 +282,10 @@ async def start_chatbot(
     request: ChatbotStartRequest,
     service: ChatbotService = Depends(get_chatbot_service),
 ) -> ChatbotStartResponse:
+    # TODO: JWT 토큰 기반 인증 미들웨어 도입 후
+    #       토큰에서 추출한 customer_no 와 request.customer_no 일치 여부를 검증해야 함.
+    #       현재는 body 의 customer_no 를 그대로 사용하므로 IDOR 취약점 존재.
+    #       ex) Depends(require_customer_matches(request.customer_no))
     try:
         return await service.start(request.customer_no, request.entry_screen, request.app_version)
     except ValueError as exc:
@@ -306,7 +365,7 @@ async def send_chat_message(
     request: ChatSendMessageRequest,
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageHistoryResponse:
-    sender_code = 3 if request.sender_type == "AGENT" else 1
+    sender_code = CODE_SENDER_AGENT if request.sender_type == "AGENT" else CODE_SENDER_USER
     try:
         msg = await service.send_message(chat_consultation_id, request.message, sender_code)
         return ChatMessageHistoryResponse(

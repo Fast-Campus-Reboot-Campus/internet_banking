@@ -140,6 +140,15 @@ def db() -> Session:
             INSERT INTO deposit_transactions VALUES
             (1, 'TX-001', 1, 'TRANSFER', 'COMPLETED', 10000, '2026-05-21')
         """))
+        conn.execute(text("""
+            CREATE TABLE employees (
+                employee_id TEXT PRIMARY KEY,
+                status TEXT
+            )
+        """))
+        conn.execute(text("""
+            INSERT INTO employees VALUES ('EMP001', 'ACTIVE')
+        """))
     session = Session(engine)
     try:
         yield session
@@ -153,8 +162,8 @@ class MockLlmAdapter(LlmAdapter):
     def __init__(self):
         super().__init__(api_key="mock-key", model="gpt-4o-mini")
 
-    def answer(self, message: str, context: str = "") -> str:
-        return f"[LLM 응답] {message}에 대한 AI 답변입니다."
+    def answer(self, message: str, context: str = "") -> tuple[str, bool]:
+        return f"[LLM 응답] {message}에 대한 AI 답변입니다.", False
 
 
 @pytest.fixture()
@@ -250,8 +259,12 @@ def _create_empty_deposit_tables(conn) -> None:
             transaction_status TEXT,
             amount NUMERIC,
             created_at TEXT)""",
+        """CREATE TABLE employees (
+            employee_id TEXT PRIMARY KEY,
+            status TEXT)""",
     ]:
         conn.execute(text(ddl))
+    conn.execute(text("INSERT INTO employees VALUES ('EMP001', 'ACTIVE')"))
 
 
 @pytest.fixture()
