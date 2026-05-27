@@ -271,7 +271,7 @@ export default function LoanMainPage() {
                 ),
               },
               {
-                label: '대출한도변경', href: '#',
+                label: '대출한도변경', href: '/products/loan/manage/limit',
                 icon: (
                   <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12" stroke="currentColor" strokeWidth="1.5">
                     <rect x="5" y="30" width="8" height="13" rx="1"/>
@@ -285,7 +285,7 @@ export default function LoanMainPage() {
                 ),
               },
               {
-                label: '이자/월부금 입금', href: '#',
+                label: '이자/월부금 입금', href: '/products/loan/manage/payment',
                 icon: (
                   <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12" stroke="currentColor" strokeWidth="1.5">
                     <rect x="6" y="10" width="36" height="30" rx="2"/>
@@ -299,7 +299,7 @@ export default function LoanMainPage() {
                 ),
               },
               {
-                label: '대출금상환', href: '#',
+                label: '대출금상환', href: '/products/loan/manage/repay',
                 icon: (
                   <svg viewBox="0 0 48 48" fill="none" className="w-12 h-12" stroke="currentColor" strokeWidth="1.5">
                     <path d="M38 14 A16 16 0 1 0 40 26" strokeLinecap="round"/>
@@ -489,15 +489,15 @@ export default function LoanMainPage() {
           <div className="flex-1 border border-kb-border p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">대출가이드</p>
             <div className="text-[13px] space-y-2">
-              <Link href="#" className="block text-kb-text-body hover:underline">· 가계대출금리</Link>
-              <Link href="#" className="block text-kb-text-body hover:underline">· 대출관련 수수료</Link>
+              <Link href="/products/loan/manage/rate" className="block text-kb-text-body hover:underline">· 가계대출금리</Link>
+              <Link href="/products/loan/manage/rate-detail" className="block text-kb-text-body hover:underline">· 금리산정내역서</Link>
             </div>
           </div>
           <div className="flex-1 border border-kb-border p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">KB부동산</p>
             <div className="text-[13px] space-y-2">
-              <Link href="#" className="block text-kb-text-body hover:underline">· KB부동산 시세 보기</Link>
-              <Link href="#" className="block text-kb-text-body hover:underline">· KB부동산에서 우대금리 받기</Link>
+              <Link href="/products/loan/credit" className="block text-kb-text-body hover:underline">· 신용대출 상품 보기</Link>
+              <Link href="/products/loan/mortgage" className="block text-kb-text-body hover:underline">· 담보대출 상품 보기</Link>
             </div>
           </div>
         </div>
