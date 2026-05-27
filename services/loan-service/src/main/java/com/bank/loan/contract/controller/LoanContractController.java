@@ -15,7 +15,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 @Tag(name = "대출계약", description = "LoanContract - 약정한도 설정 및 조회")
 @RestController
@@ -24,6 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class LoanContractController {
 
     private final LoanContractService service;
+
+    @Operation(summary = "고객 대출 계약 목록 조회", description = "customerId 기준 계약 이력을 최신순으로 반환.")
+    @GetMapping
+    public ApiResponse<Map<String, Object>> list(@RequestParam Long customerId) {
+        List<LoanContractResponse> items = service.list(customerId);
+        return ApiResponse.ok(Map.of("items", items, "totalCount", (long) items.size()));
+    }
 
     @Operation(summary = "약정한도 설정",
             description = "승인된 신청에 대해 최종 약정 한도·금리·기간을 확정한다. 초기 상태 SIGNED.")

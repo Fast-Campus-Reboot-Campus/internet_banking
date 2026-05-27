@@ -53,13 +53,15 @@ export interface LoanContract {
   cntrId: number;
   cntrNo: string;
   applId: number;
+  customerId: number;
   cntrStatusCd: string;
-  approvedAmount: number;
-  approvedRateBps: number;
-  approvedPeriodMo: number;
-  startDt: string;
-  maturityDt: string;
+  contractedAmount: number;
+  totalRateBps: number;
+  contractedPeriodMo: number;
+  cntrStartDate: string;
+  cntrEndDate: string;
   repaymentMethodCd: string;
+  signedAt: string;
 }
 
 export interface RepaymentSchedule {

@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -108,6 +109,14 @@ public class LoanApplicationService {
         ));
 
         return LoanApplicationResponse.of(application);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LoanApplicationResponse> list(Long customerId) {
+        return repository.findByCustomerIdAndDeletedAtIsNullOrderByApplIdDesc(customerId)
+                .stream()
+                .map(LoanApplicationResponse::of)
+                .toList();
     }
 
     private void validateProductSellable(LoanProduct product) {

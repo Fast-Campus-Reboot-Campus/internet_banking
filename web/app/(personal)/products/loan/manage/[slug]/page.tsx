@@ -46,7 +46,7 @@ function ContractSelect({ contracts, selectedId, onChange }: {
           className="border border-kb-border px-3 py-1.5 text-[13px] focus:outline-none min-w-[220px]">
           {contracts.map(c => (
             <option key={c.cntrId} value={c.cntrId}>
-              {c.cntrNo} ({formatAmount(c.approvedAmount)})
+              {c.cntrNo} ({formatAmount(c.contractedAmount)})
             </option>
           ))}
         </select>
@@ -137,15 +137,15 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
             </div>
             <div className="flex gap-4">
               <span className="text-kb-text-muted w-32">승인금리</span>
-              <span className="font-bold text-[#1A56DB]">연 {bpsToRate(contract.approvedRateBps)}%</span>
+              <span className="font-bold text-[#1A56DB]">연 {bpsToRate(contract.totalRateBps)}%</span>
             </div>
             <div className="flex gap-4">
               <span className="text-kb-text-muted w-32">승인금액</span>
-              <span>{formatAmount(contract.approvedAmount)}</span>
+              <span>{formatAmount(contract.contractedAmount)}</span>
             </div>
             <div className="flex gap-4">
               <span className="text-kb-text-muted w-32">만기일</span>
-              <span>{contract.maturityDt?.slice(0, 10) ?? '-'}</span>
+              <span>{contract.cntrEndDate ?? '-'}</span>
             </div>
           </div>
         </div>
@@ -448,7 +448,10 @@ function ExtendForm({ contracts, selectedId, setSelectedId }: {
   async function handleSubmit() {
     if (!selectedId || !contract) return
     setSubmitting(true); setError('')
-    const newDt = new Date(contract.maturityDt)
+    const raw = contract.cntrEndDate ?? ''
+    const newDt = raw.length === 8
+      ? new Date(`${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`)
+      : new Date(raw)
     newDt.setMonth(newDt.getMonth() + parseInt(months, 10))
     try {
       await closureApi.extendMaturity(selectedId, { newMaturityDt: newDt.toISOString().slice(0, 10) })
@@ -473,7 +476,7 @@ function ExtendForm({ contracts, selectedId, setSelectedId }: {
         {contract && (
           <div className="flex items-center px-5 py-3 gap-6">
             <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">현재 만기일</span>
-            <span className="text-[13px]">{contract.maturityDt?.slice(0, 10) ?? '-'}</span>
+            <span className="text-[13px]">{contract.cntrEndDate ?? '-'}</span>
           </div>
         )}
         <div className="flex items-center px-5 py-3 gap-6">

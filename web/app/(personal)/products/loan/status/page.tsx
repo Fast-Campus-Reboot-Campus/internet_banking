@@ -18,11 +18,9 @@ interface Application {
   applId: number
   applNo: string
   applStatusCd: string
-  prodName?: string
   prodId: number
   requestedAmount: number
-  createdAt: string
-  expiryDt?: string
+  appliedAt: string
 }
 
 export default function LoanStatusPage() {
@@ -87,7 +85,7 @@ export default function LoanStatusPage() {
                     return (
                       <tr key={appl.applId} className="hover:bg-kb-beige-light">
                         <td className="border border-kb-border px-4 py-3 text-center">
-                          {appl.createdAt ? appl.createdAt.slice(0, 10) : '-'}
+                          {appl.appliedAt ? appl.appliedAt.slice(0, 10) : '-'}
                         </td>
                         <td className="border border-kb-border px-4 py-3 text-center">
                           <Link href={`/loans/apply/result?applId=${appl.applId}`}

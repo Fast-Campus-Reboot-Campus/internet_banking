@@ -12,12 +12,17 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 @Tag(name = "대출신청", description = "LoanApplication - 대출 신청")
 @RestController
@@ -28,6 +33,13 @@ public class LoanApplicationController {
     private static final int DEVICE_MAX_LEN = 200;
 
     private final LoanApplicationService service;
+
+    @Operation(summary = "고객 대출 신청 목록 조회", description = "customerId 기준 신청 이력을 최신순으로 반환.")
+    @GetMapping
+    public ApiResponse<Map<String, Object>> list(@RequestParam Long customerId) {
+        List<LoanApplicationResponse> items = service.list(customerId);
+        return ApiResponse.ok(Map.of("items", items, "totalCount", (long) items.size()));
+    }
 
     @Operation(summary = "대출 신청",
             description = "본 신청 접수. Idempotency-Key 헤더로 중복 호출 방어. 상태 SUBMITTED.")
