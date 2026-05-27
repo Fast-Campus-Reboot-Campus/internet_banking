@@ -49,9 +49,6 @@ class AuditFairnessAgentTest {
     void setUp() {
         agent = new AuditFairnessAgent(
                 reportRepo, signalRepo, reviewRepo, gateway, opinionRepo, riskRepo, eventPublisher);
-                reportRepo, signalRepo, reviewRepo, gateway, citations, opinionRepo, riskRepo, eventPublisher);
-        when(citations.retrieve(anyLong(), any(), any(), any()))
-                .thenReturn(new PolicyCitationResponse(1L, 0, List.of()));
         when(riskRepo.findByReviewerId(anyLong())).thenReturn(Optional.empty());
         when(riskRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(opinionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -193,9 +190,6 @@ class AuditFairnessAgentTest {
         ReviewAdvisorySignal signal = mockSignal(advrId);
         when(reportRepo.findAllById(any())).thenReturn(List.of(report));
         when(signalRepo.findByAdvrIdOrderByObservedAtAsc(advrId)).thenReturn(List.of(signal));
-        when(reportRepo.findAllById(any())).thenReturn(List.of(report));
-        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(advrId))
-                .thenReturn(List.of(mockSignal(advrId)));
     }
 
     private void setupLoanReview(Long revId, Long reviewerId, String remark) {
