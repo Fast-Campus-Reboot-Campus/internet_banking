@@ -9,6 +9,7 @@ import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.dto.AiReviewAdviceResponse;
 import com.bank.loan.review.dto.BiasOpsNoteRequest;
 import com.bank.loan.review.dto.ExpireBiasReviewingResponse;
+import com.bank.loan.review.dto.ExpirePendingApproverResponse;
 import com.bank.loan.review.repository.AiReviewAdviceRepository;
 import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.support.LoanErrorCode;
@@ -25,8 +26,9 @@ public class LoanReviewOpsService {
 
     private static final String DOMAIN_CD       = "LOAN";
     private static final String TARGET_REVIEW   = "LOAN_REVIEW";
-    private static final String REASON_OPS_NOTE = "OPS_NOTE_ADDED";
-    private static final String REASON_EXPIRED  = "BIAS_REVIEWING_EXPIRED";
+    private static final String REASON_OPS_NOTE              = "OPS_NOTE_ADDED";
+    private static final String REASON_EXPIRED               = "BIAS_REVIEWING_EXPIRED";
+    private static final String REASON_PENDING_APPROVER_EXPIRED = "PENDING_APPROVER_EXPIRED";
 
     private final LoanReviewRepository reviewRepository;
     private final AiReviewAdviceRepository adviceRepository;
@@ -95,5 +97,37 @@ public class LoanReviewOpsService {
         }).sorted().toList();
 
         return new ExpireBiasReviewingResponse(expiredIds.size(), expiredIds, cutoffAt);
+    }
+
+    /**
+     * 일정 기간 이상 PENDING_APPROVER 상태에서 승인자 확정 없이 방치된 건을 일괄 만료.
+     * pendingApproverSince 가 cutoffAt 이전인 건 + NULL(마이그레이션 이전 레거시 건) 모두 처리.
+     * 만료된 건의 신청 상태는 PRESCREENED 유지 — 운영자가 별도 재심사로 처리.
+     */
+    @Transactional
+    public ExpirePendingApproverResponse expirePendingApprover(int olderThanDays) {
+        OffsetDateTime cutoffAt = OffsetDateTime.now().minusDays(olderThanDays);
+        Long actorId = currentActor.currentActorId();
+
+        List<LoanReview> targets = new java.util.ArrayList<>();
+        targets.addAll(reviewRepository.findByRevStatusCdAndPendingApproverSinceBeforeAndDeletedAtIsNull(
+                LoanReview.STATUS_PENDING_APPROVER, cutoffAt));
+        // pendingApproverSince 가 없는 레거시 건도 포함 (V20 이전 데이터)
+        targets.addAll(reviewRepository.findByRevStatusCdAndPendingApproverSinceIsNullAndDeletedAtIsNull(
+                LoanReview.STATUS_PENDING_APPROVER));
+
+        List<Long> expiredIds = targets.stream().map(r -> {
+            r.expirePendingApprover();
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_REVIEW, r.getRevId(),
+                    LoanReview.STATUS_PENDING_APPROVER, LoanReview.STATUS_EXPIRED,
+                    REASON_PENDING_APPROVER_EXPIRED,
+                    "olderThanDays=" + olderThanDays,
+                    actorId
+            ));
+            return r.getRevId();
+        }).sorted().toList();
+
+        return new ExpirePendingApproverResponse(expiredIds.size(), expiredIds, cutoffAt);
     }
 }

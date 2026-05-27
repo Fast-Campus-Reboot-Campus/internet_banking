@@ -4,6 +4,7 @@ import com.bank.common.web.ApiResponse;
 import com.bank.loan.review.dto.AiReviewAdviceResponse;
 import com.bank.loan.review.dto.BiasOpsNoteRequest;
 import com.bank.loan.review.dto.ExpireBiasReviewingResponse;
+import com.bank.loan.review.dto.ExpirePendingApproverResponse;
 import com.bank.loan.review.dto.ExpirePendingReviewsResponse;
 import com.bank.loan.review.service.LoanReviewAutoDecideService;
 import com.bank.loan.review.service.LoanReviewOpsService;
@@ -47,6 +48,16 @@ public class InternalReviewBatchController {
     public ApiResponse<ExpireBiasReviewingResponse> expireBiasReviewing(
             @RequestParam(defaultValue = "14") @Min(0) int olderThanDays) {
         return ApiResponse.ok(opsService.expireBiasReviewing(olderThanDays));
+    }
+
+    @Operation(summary = "승인자 대기 만료 배치",
+            description = "pendingApproverSince 가 olderThanDays 일 이전인 PENDING_APPROVER 본심사를 일괄 EXPIRED 로 전이. "
+                    + "기본값 7일. 만료된 건의 신청 상태는 PRESCREENED 유지 — 별도 재심사 필요. "
+                    + "승인자 무응답으로 인한 심사 영구 블로킹 방지 안전망.")
+    @PostMapping("/expire-pending-approver")
+    public ApiResponse<ExpirePendingApproverResponse> expirePendingApprover(
+            @RequestParam(defaultValue = "7") @Min(0) int olderThanDays) {
+        return ApiResponse.ok(opsService.expirePendingApprover(olderThanDays));
     }
 
     @Operation(summary = "편향 운영 노트 주입",

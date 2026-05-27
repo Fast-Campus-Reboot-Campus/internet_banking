@@ -117,6 +117,9 @@ public class LoanReview extends BaseEntity {
     @Column(name = "bias_overridden_at")
     private OffsetDateTime biasOverriddenAt;
 
+    @Column(name = "pending_approver_since")
+    private OffsetDateTime pendingApproverSince;
+
     public boolean isApproved() {
         return DECISION_APPROVED.equals(revDecisionCd);
     }
@@ -167,9 +170,11 @@ public class LoanReview extends BaseEntity {
     /**
      * 심사원이 편향 리포트를 확인(acknowledge). revStatusCd → PENDING_APPROVER.
      * 호출 전 isBiasBlocked() = false 임을 검증해야 한다.
+     * pendingApproverSince 는 expire-pending-approver 배치의 타임아웃 기준으로 사용된다.
      */
     public void acknowledgeBias() {
         this.revStatusCd = STATUS_PENDING_APPROVER;
+        this.pendingApproverSince = OffsetDateTime.now();
     }
 
     /**
@@ -219,6 +224,13 @@ public class LoanReview extends BaseEntity {
      * BIAS_REVIEWING 상태의 본심사가 기한 내 진행되지 않아 만료.
      */
     public void expireBiasReviewing() {
+        this.revStatusCd = STATUS_EXPIRED;
+    }
+
+    /**
+     * PENDING_APPROVER 상태의 본심사가 기한 내 승인자 확정 없이 만료.
+     */
+    public void expirePendingApprover() {
         this.revStatusCd = STATUS_EXPIRED;
     }
 
