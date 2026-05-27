@@ -23,7 +23,28 @@ export default function TransferResultPage() {
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
     if (!raw) { router.push('/transfer/account'); return }
-    setData(JSON.parse(raw))
+    const transfer = JSON.parse(raw)
+    setData(transfer)
+
+    // 이체 기록을 localStorage 히스토리에 저장
+    try {
+      const prev = JSON.parse(localStorage.getItem('transferHistory') || '[]')
+      const now = new Date()
+      const datetime =
+        `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}\n` +
+        `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
+      prev.unshift({
+        id: String(now.getTime()),
+        datetime,
+        bank: transfer.toBank,
+        account: transfer.toAccount,
+        receiver: transfer.receiverName,
+        amount: transfer.amount,
+        memo: '',
+      })
+      localStorage.setItem('transferHistory', JSON.stringify(prev.slice(0, 50)))
+    } catch {}
+
     sessionStorage.removeItem('pendingTransfer')
   }, [router])
 

@@ -287,6 +287,7 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
       })
       if (res.ok) {
         const data = await res.json()
+        localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         window.location.href = '/personal'
@@ -711,6 +712,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
       })
       if (res.ok) {
         const data = await res.json()
+        localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         window.location.href = '/personal'

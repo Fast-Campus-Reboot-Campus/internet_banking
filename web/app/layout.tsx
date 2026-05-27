@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { Noto_Sans_KR } from 'next/font/google'
+import ChatbotWidget from '@/components/chatbot/ChatbotWidget'
+import FloatingSidebar from '@/components/layout/FloatingSidebar'
 import './globals.css'
 
 const notoSansKR = Noto_Sans_KR({
@@ -18,6 +20,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko" className={notoSansKR.className}>
       <body className="min-h-screen bg-white">
         {children}
+        <FloatingSidebar />
+        <ChatbotWidget />
       </body>
     </html>
   )

@@ -1,5 +1,4 @@
 import Header from '@/components/layout/Header'
-import FloatingSidebar from '@/components/layout/FloatingSidebar'
 import AuthGuard from '@/components/layout/AuthGuard'
 import Link from 'next/link'
 
@@ -70,7 +69,6 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
           </div>
         </div>
       </footer>
-      <FloatingSidebar />
     </div>
   )
 }
