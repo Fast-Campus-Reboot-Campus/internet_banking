@@ -41,10 +41,6 @@ public class ReviewAdvisoryReport extends BaseEntity {
     public static final String STATUS_ACKED      = "ACKED";
     public static final String STATUS_RESOLVED   = "RESOLVED";
     public static final String STATUS_QUARANTINE = "QUARANTINE";
-    public static final String STATUS_OPEN     = "OPEN";
-    public static final String STATUS_VIEWED   = "VIEWED";
-    public static final String STATUS_ACKED    = "ACKED";
-    public static final String STATUS_RESOLVED = "RESOLVED";
 
     public static final String SEVERITY_INFO     = "INFO";
     public static final String SEVERITY_WARN     = "WARN";

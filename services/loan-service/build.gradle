@@ -3,6 +3,8 @@
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-batch'
     testImplementation 'org.springframework.batch:spring-batch-test'
+}
+
 // advisory-service 소스를 같은 JVM에서 컴파일 (com.bank.loan.advisory.* 패키지)
 sourceSets {
     main {

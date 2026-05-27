@@ -7,7 +7,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -26,12 +25,15 @@ import java.util.stream.Collectors;
  * @Component 를 붙이지 않는다 — SecurityConfig 에서 @Bean 으로 등록해
  * Spring Boot 의 자동 서블릿 필터 이중 등록을 방지한다.
  */
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProvider jwtProvider;
+
+    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
+        this.jwtProvider = jwtProvider;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -43,7 +45,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
             String token = authHeader.substring(BEARER_PREFIX.length());
 
-            if (jwtProvider.validate(token)) {
+            try {
+                jwtProvider.validate(token);
                 JwtClaims claims = jwtProvider.parseClaims(token);
 
                 if (claims.tokenType() == TokenType.ACCESS) {
@@ -58,6 +61,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
+            } catch (Exception ignored) {
+                // 유효하지 않은 토큰 — SecurityContext 미설정, 다음 필터로 진행
             }
         }
 
