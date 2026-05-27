@@ -34,6 +34,17 @@ springdoc:
   packages-to-scan: com.bank.aigateway
   default-produces-media-type: application/json
 
+advisory:
+  base-url: ${ADVISORY_BASE_URL:http://advisory-service:8080}
+
+prompt:
+  bias:
+    system-resource: classpath:prompts/bias/system.txt
+    user-resource: classpath:prompts/bias/user.txt
+  compliance:
+    system-resource: classpath:prompts/compliance/system.txt
+    user-resource: classpath:prompts/compliance/user.txt
+
 llm:
   provider: ${LLM_PROVIDER:mock}
   claude:

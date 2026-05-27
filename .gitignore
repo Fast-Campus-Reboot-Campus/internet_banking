@@ -23,6 +23,9 @@ Thumbs.db
 .env
 .env.local
 *.local
+.venv/
+venv/
+env/
 
 # Logs
 *.log
@@ -38,9 +41,6 @@ __pycache__/
 *$py.class
 .pytest_cache/
 *.egg-info/
-.venv/
-venv/
-env/
 
 # Docker volumes (compose local 데이터)
 data/
@@ -48,4 +48,3 @@ data/
 # Claude Code (worktree·세션 메타데이터·로컬 설정)
 .claude/
 CLAUDE.local.md
-

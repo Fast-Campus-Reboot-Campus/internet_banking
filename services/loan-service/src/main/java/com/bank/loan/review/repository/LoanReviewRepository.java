@@ -28,4 +28,7 @@ public interface LoanReviewRepository extends JpaRepository<LoanReview, Long> {
 
     List<LoanReview> findByReviewedAtGreaterThanEqualAndReviewedAtLessThanAndDeletedAtIsNull(
             OffsetDateTime fromInclusive, OffsetDateTime toExclusive);
+
+    List<LoanReview> findByReviewerIdAndReviewedAtGreaterThanEqualAndDeletedAtIsNull(
+            Long reviewerId, OffsetDateTime since);
 }
