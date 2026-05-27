@@ -67,6 +67,14 @@ loan:
     engine:
       type: ${LOAN_ECL_ENGINE_TYPE:mock}
 
+jwt:
+  secret: ${JWT_SECRET:loan-service-local-dev-secret-min-32-chars!!}
+  access-token-validity: 3600000
+  refresh-token-validity: 86400000
+
+internal:
+  token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
+
 management:
   endpoints:
     web:

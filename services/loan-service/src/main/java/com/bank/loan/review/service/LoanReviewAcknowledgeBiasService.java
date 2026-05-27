@@ -79,6 +79,7 @@ public class LoanReviewAcknowledgeBiasService {
     /**
      * 상급자가 BLOCKED 편향 결과를 우회 승인.
      * BIAS_REVIEWING 상태일 때만 허용 — 심사원이 이후 acknowledgeBias() 로 진행 가능.
+     * 4-eye 원칙: 해당 본심사를 수행한 심사원 본인은 우회 승인 불가.
      */
     @Transactional
     public LoanReviewResponse biasOverride(Long revId, BiasOverrideRequest req) {
@@ -87,6 +88,14 @@ public class LoanReviewAcknowledgeBiasService {
 
         if (!review.isBiasReviewing()) {
             throw new BusinessException(LoanErrorCode.LOAN_199);
+        }
+
+        // 4-eye: 심사원 본인이 자신의 편향 우회 승인 금지
+        Long actorId = currentActor.currentActorId();
+        if (review.getReviewerId() != null
+                && !CurrentActorProvider.SYSTEM.equals(actorId)
+                && review.getReviewerId().equals(actorId)) {
+            throw new BusinessException(LoanErrorCode.LOAN_200);
         }
 
         review.biasOverride(req.overrideBy(), req.overrideReason(), OffsetDateTime.now());
