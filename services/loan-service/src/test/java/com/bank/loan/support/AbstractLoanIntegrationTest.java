@@ -1,22 +1,30 @@
 package com.bank.loan.support;
 
+import com.bank.common.security.jwt.JwtProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * 통합 테스트 베이스. 컨테이너(Postgres / Redis) 와 MockMvc / ObjectMapper 를 공유한다.
@@ -28,6 +36,7 @@ import java.nio.file.Paths;
  *
  *  - JPA ddl-auto = create-drop (Spring 컨텍스트 초기화 시점에 스키마 신규 생성)
  *  - 서류 스토리지 = OS 임시 디렉터리
+ *  - MockMvc 기본 요청에 전 역할 JWT 포함 — 테스트용 슈퍼 토큰
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -39,7 +48,7 @@ public abstract class AbstractLoanIntegrationTest {
     static final KafkaContainer KAFKA;
 
     static {
-        POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+        POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16");
         POSTGRES.start();
 
         REDIS = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
@@ -65,8 +74,24 @@ public abstract class AbstractLoanIntegrationTest {
         r.add("loan.document.storage-dir", storage::toString);
     }
 
+    @Autowired private WebApplicationContext wac;
+    @Autowired private JwtProvider jwtProvider;
+
     @Autowired protected MockMvc mockMvc;
     @Autowired protected ObjectMapper om;
+
+    @BeforeAll
+    void initTestAuth() {
+        String token = jwtProvider.generateAccessToken(
+                1L, "test@bank.com",
+                List.of("ROLE_STAFF", "ROLE_OPS", "ROLE_SENIOR_REVIEWER", "ROLE_INTERNAL")
+        );
+        mockMvc = MockMvcBuilders.webAppContextSetup(wac)
+                .apply(SecurityMockMvcConfigurers.springSecurity())
+                .defaultRequest(MockMvcRequestBuilders.get("/")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .build();
+    }
 
     protected JsonNode extractData(MvcResult result) throws Exception {
         return om.readTree(result.getResponse().getContentAsString()).get("data");

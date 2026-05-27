@@ -1,23 +1,36 @@
 server:
   port: ${DEPOSIT_APP_PORT:8082}
+  servlet:
+    context-path: /api
 
 spring:
   application:
     name: deposit-service
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+
   datasource:
     url: jdbc:postgresql://${DEPOSIT_DB_HOST:localhost}:${DEPOSIT_DB_PORT:5433}/${DEPOSIT_DB_NAME:deposit_db}
     username: ${DEPOSIT_DB_USER:deposit}
     password: ${DEPOSIT_DB_PASSWORD:deposit}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: none
+    open-in-view: false
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
         format_sql: true
-    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    out-of-order: false   # V3·V4 갭 명시적 차단 — 순서 역전 마이그레이션 방지
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -39,7 +52,7 @@ management:
       application: ${spring.application.name}
 
 # ---- OpenAPI / Swagger UI ----
-# 접속: http://localhost:${DEPOSIT_APP_PORT}/swagger-ui.html
+# 접속: http://localhost:${DEPOSIT_APP_PORT:8082}/api/swagger-ui.html
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -51,3 +64,9 @@ springdoc:
     try-it-out-enabled: true
   packages-to-scan: com.bank.deposit
   default-produces-media-type: application/json
+
+logging:
+  level:
+    root: INFO
+    com.bank.deposit: DEBUG
+    org.springframework.web: INFO

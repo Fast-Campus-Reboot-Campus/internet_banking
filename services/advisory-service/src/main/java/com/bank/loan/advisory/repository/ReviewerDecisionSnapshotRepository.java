@@ -14,4 +14,7 @@ public interface ReviewerDecisionSnapshotRepository extends JpaRepository<Review
             String snapshotDate, String cohortDimensionCd);
 
     List<ReviewerDecisionSnapshot> findBySnapshotDateOrderByReviewerIdAsc(String snapshotDate);
+
+    List<ReviewerDecisionSnapshot> findByCohortDimensionCdAndCohortValueOrderBySnapshotDateDesc(
+            String cohortDimensionCd, String cohortValue);
 }

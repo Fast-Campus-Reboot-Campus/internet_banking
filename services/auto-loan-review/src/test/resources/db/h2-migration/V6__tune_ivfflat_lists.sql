@@ -1,0 +1,2 @@
+-- V6 (H2 테스트 전용): no-op
+-- IVFFlat 인덱스는 H2 미지원 — 운영 PostgreSQL 전용 마이그레이션.

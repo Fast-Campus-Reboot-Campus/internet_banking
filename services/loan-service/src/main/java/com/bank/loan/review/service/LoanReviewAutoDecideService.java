@@ -14,11 +14,16 @@ import com.bank.loan.ltv.domain.LtvCalculation;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
+import com.bank.loan.notification.channel.KafkaChannelAdapter;
+import com.bank.loan.notification.outbox.NotificationOutboxAppender;
 import com.bank.loan.review.dto.ConfirmReviewRequest;
 import com.bank.loan.review.dto.ExpirePendingReviewsResponse;
 import com.bank.loan.review.dto.LoanReviewResponse;
+import com.bank.loan.review.event.LoanBiasCheckRequestedPayload;
 import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.support.LoanErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +48,9 @@ public class LoanReviewAutoDecideService {
     private static final String REASON_AUTO_RECOMMENDED_REJECTED = "AUTO_RECOMMENDED_REJECTED";
     private static final String REASON_REVIEW_APPROVED = "REVIEW_APPROVED";
     private static final String REASON_REVIEW_REJECTED = "REVIEW_REJECTED";
-    private static final String REASON_REVIEW_CONFIRMED = "REVIEW_CONFIRMED";
-    private static final String REASON_REVIEW_EXPIRED = "AUTO_RECOMMENDATION_EXPIRED";
+    private static final String REASON_REVIEW_CONFIRMED    = "REVIEW_CONFIRMED";
+    private static final String REASON_REVIEW_EXPIRED      = "AUTO_RECOMMENDATION_EXPIRED";
+    private static final String REASON_BIAS_CHECK_TRIGGERED = "BIAS_CHECK_TRIGGERED";
 
     private static final String REJECT_CB  = "CB_REJECT";
     private static final String REJECT_DSR = "DSR_OVER";
@@ -60,6 +66,8 @@ public class LoanReviewAutoDecideService {
     private final LoanReviewCheckLogWriter checkLogWriter;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final NotificationOutboxAppender outboxAppender;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<LoanReviewResponse> listPending() {
@@ -177,18 +185,29 @@ public class LoanReviewAutoDecideService {
         Long actorId = currentActor.currentActorId();
         boolean approved = review.isApproved();
 
+        // confirm() 이 REVIEWER_DECIDED 로 전이 (reviewerId/reviewedAt 갱신 포함)
         review.confirm(req.reviewerId(), now);
 
         checkLogWriter.logConfirm(review.getRevId(), approved, req.reviewerId(), req.confirmRemark());
 
+        // 심사원 확정 이력
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
-                LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_COMPLETED,
+                LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_REVIEWER_DECIDED,
                 REASON_REVIEW_CONFIRMED,
                 "reviewerId=" + req.reviewerId(),
                 actorId
         ));
 
+        // 편향 검증 단계 진입
+        review.markBiasReviewing();
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
+                LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
+                REASON_BIAS_CHECK_TRIGGERED, null, actorId
+        ));
+
+        enqueueBiasCheck(review, application);
         String applBefore = application.currentStatus();
         if (approved) {
             application.markApproved();
@@ -204,6 +223,50 @@ public class LoanReviewAutoDecideService {
         ));
 
         return LoanReviewResponse.of(review);
+    }
+
+    private void enqueueBiasCheck(LoanReview review, LoanApplication application) {
+        Long applId = application.getApplId();
+        CreditEvaluation ceval = creditEvaluationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new IllegalStateException("bias-check: ceval not found applId=" + applId));
+        DsrCalculation dsr = dsrCalculationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new IllegalStateException("bias-check: dsr not found applId=" + applId));
+        LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
+                .orElse(null);
+        try {
+            var payload = new LoanBiasCheckRequestedPayload(
+                    LoanBiasCheckRequestedPayload.EVENT_TYPE_CD,
+                    OffsetDateTime.now(),
+                    review.getRevId(),
+                    applId,
+                    review.getRevTypeCd(),
+                    new LoanBiasCheckRequestedPayload.ReviewerDecision(
+                            review.getRevDecisionCd(),
+                            review.getRejectReasonCd(),
+                            review.getApprovedAmount(),
+                            review.getApprovedRateBps(),
+                            review.getApprovedPeriodMo(),
+                            review.getReviewerId(),
+                            review.getReviewedAt()
+                    ),
+                    new LoanBiasCheckRequestedPayload.ReviewContext(
+                            product != null ? product.getProdCd() : null,
+                            ceval.getCevalDecisionCd(),
+                            ceval.getCevalScore(),
+                            dsr.getDsrRatioBps(),
+                            dsr.getDsrLimitBps(),
+                            null
+                    )
+            );
+            outboxAppender.enqueueInCurrentTx(
+                    LoanBiasCheckRequestedPayload.EVENT_TYPE_CD,
+                    review.getRevId(),
+                    KafkaChannelAdapter.CHANNEL_CD,
+                    objectMapper.writeValueAsString(payload)
+            );
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("bias-check payload 직렬화 실패 revId=" + review.getRevId(), e);
+        }
     }
 
     /**

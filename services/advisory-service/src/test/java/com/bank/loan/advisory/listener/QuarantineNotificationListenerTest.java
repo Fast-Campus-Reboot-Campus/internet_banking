@@ -1,6 +1,8 @@
 package com.bank.loan.advisory.listener;
 
 import com.bank.loan.advisory.event.QuarantineTriggeredEvent;
+import com.bank.loan.advisory.kafka.AdvisoryKafkaOutboxAppender;
+import com.bank.loan.advisory.kafka.AdvisoryKafkaOutboxMessage;
 import com.bank.loan.notification.channel.StubOperatorAlertAdapter;
 import com.bank.loan.notification.outbox.NotificationOutboxAppender;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,11 +20,12 @@ import static org.mockito.Mockito.*;
 class QuarantineNotificationListenerTest {
 
     NotificationOutboxAppender outboxAppender = mock(NotificationOutboxAppender.class);
+    AdvisoryKafkaOutboxAppender kafkaOutboxAppender = mock(AdvisoryKafkaOutboxAppender.class);
     QuarantineNotificationListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new QuarantineNotificationListener(outboxAppender);
+        listener = new QuarantineNotificationListener(outboxAppender, kafkaOutboxAppender);
     }
 
     @Test
@@ -48,6 +51,26 @@ class QuarantineNotificationListenerTest {
     }
 
     @Test
+    void BIAS_SUSPECTED_이벤트_수신_시_Kafka_outbox도_적재() {
+        QuarantineTriggeredEvent event = new QuarantineTriggeredEvent(
+                9001L, 201L, "BIAS_SUSPECTED", "BIAS_DETECTION", List.of(501L, 502L));
+
+        listener.onQuarantineTriggered(event);
+
+        ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
+        verify(kafkaOutboxAppender).enqueue(
+                eq(QuarantineNotificationListener.EVENT_TYPE),
+                eq("9001"),
+                eq(AdvisoryKafkaOutboxMessage.TOPIC_QUARANTINE),
+                eq("9001"),
+                payloadCaptor.capture());
+
+        String payload = payloadCaptor.getValue();
+        assertThat(payload).contains("\"revId\":9001");
+        assertThat(payload).contains("\"conclusionCd\":\"BIAS_SUSPECTED\"");
+    }
+
+    @Test
     void VIOLATION_SUSPECTED_이벤트도_동일하게_적재() {
         QuarantineTriggeredEvent event = new QuarantineTriggeredEvent(
                 9002L, 203L, "VIOLATION_SUSPECTED", "COMPLIANCE_VERIFICATION", List.of(503L));
@@ -59,6 +82,12 @@ class QuarantineNotificationListenerTest {
                 eq(9002L),
                 eq(StubOperatorAlertAdapter.CHANNEL_CD),
                 any());
+        verify(kafkaOutboxAppender).enqueue(
+                eq(QuarantineNotificationListener.EVENT_TYPE),
+                eq("9002"),
+                eq(AdvisoryKafkaOutboxMessage.TOPIC_QUARANTINE),
+                eq("9002"),
+                any());
     }
 
     @Test
@@ -68,10 +97,11 @@ class QuarantineNotificationListenerTest {
 
         assertThatNoException().isThrownBy(() -> listener.onQuarantineTriggered(event));
         verify(outboxAppender).enqueue(any(), any(), any(), any());
+        verify(kafkaOutboxAppender).enqueue(any(), any(), any(), any(), any());
     }
 
     @Test
-    void outbox_적재_실패해도_예외_전파_안함() {
+    void notification_outbox_적재_실패해도_Kafka_outbox_적재_시도() {
         doThrow(new RuntimeException("DB 연결 오류"))
                 .when(outboxAppender).enqueue(any(), any(), any(), any());
 
@@ -79,5 +109,18 @@ class QuarantineNotificationListenerTest {
                 9004L, 201L, "BIAS_SUSPECTED", "BIAS_DETECTION", List.of(505L));
 
         assertThatNoException().isThrownBy(() -> listener.onQuarantineTriggered(event));
+        verify(kafkaOutboxAppender).enqueue(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void kafka_outbox_적재_실패해도_예외_전파_안함() {
+        doThrow(new RuntimeException("Kafka outbox 오류"))
+                .when(kafkaOutboxAppender).enqueue(any(), any(), any(), any(), any());
+
+        QuarantineTriggeredEvent event = new QuarantineTriggeredEvent(
+                9005L, 201L, "BIAS_SUSPECTED", "BIAS_DETECTION", List.of(506L));
+
+        assertThatNoException().isThrownBy(() -> listener.onQuarantineTriggered(event));
+        verify(outboxAppender).enqueue(any(), any(), any(), any());
     }
 }

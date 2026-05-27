@@ -6,7 +6,10 @@ import com.bank.aigateway.audit.dto.SignalSummary;
 import com.bank.aigateway.prompt.bias.BiasDetectionPromptBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,8 +19,12 @@ class BiasDetectionPromptBuilderTest {
     BiasDetectionPromptBuilder builder;
 
     @BeforeEach
-    void setUp() {
-        builder = new BiasDetectionPromptBuilder();
+    void setUp() throws IOException {
+        String system = new ClassPathResource("prompts/bias/system.txt")
+                .getContentAsString(StandardCharsets.UTF_8);
+        String userTemplate = new ClassPathResource("prompts/bias/user.txt")
+                .getContentAsString(StandardCharsets.UTF_8);
+        builder = new BiasDetectionPromptBuilder(system, userTemplate);
     }
 
     @Test

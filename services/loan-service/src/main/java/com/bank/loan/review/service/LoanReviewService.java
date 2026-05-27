@@ -11,10 +11,15 @@ import com.bank.loan.creditevaluation.repository.CreditEvaluationRepository;
 import com.bank.loan.dsr.domain.DsrCalculation;
 import com.bank.loan.dsr.repository.DsrCalculationRepository;
 import com.bank.loan.guarantor.service.GuarantorPolicyValidator;
+import com.bank.loan.notification.channel.KafkaChannelAdapter;
 import com.bank.loan.notification.event.LoanApprovedEvent;
-import com.bank.loan.review.event.LoanReviewCompletedEvent;
+import com.bank.loan.notification.outbox.NotificationOutboxAppender;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
+import com.bank.loan.review.event.LoanBiasCheckRequestedPayload;
+import com.bank.loan.review.event.LoanReviewCompletedEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviewStatsResponse;
@@ -43,11 +48,10 @@ import java.util.Map;
  *   3) 사전조건: PRESCREENED 상태 + CB(APPROVE/REVIEW) + DSR PASS (LOAN_038)
  *   4) APPROVED:
  *        approved_amount/rate/period 자동 산정 (입력값 우선)
- *        신청 → APPROVED, approved_at 기록
  *   5) REJECTED:
  *        reject_reason_cd 기록
- *        신청 → REJECTED
- *   6) status_history 양쪽 (LOAN_REVIEW null→COMPLETED, LOAN_APPLICATION PRESCREENED→다음)
+ *   6) status_history: LOAN_REVIEW null→REVIEWER_DECIDED, 이어서 REVIEWER_DECIDED→BIAS_REVIEWING
+ *      신청 상태 전이(PRESCREENED→APPROVED/REJECTED)는 승인자 확정(approverApprove) 단계로 이동
  */
 @Service
 @RequiredArgsConstructor
@@ -56,8 +60,9 @@ public class LoanReviewService {
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_REVIEW = "LOAN_REVIEW";
     private static final String TARGET_APPLICATION = "LOAN_APPLICATION";
-    private static final String REASON_REVIEW_APPROVED = "REVIEW_APPROVED";
-    private static final String REASON_REVIEW_REJECTED = "REVIEW_REJECTED";
+    private static final String REASON_REVIEW_APPROVED      = "REVIEW_APPROVED";
+    private static final String REASON_REVIEW_REJECTED      = "REVIEW_REJECTED";
+    private static final String REASON_BIAS_CHECK_TRIGGERED = "BIAS_CHECK_TRIGGERED";
 
     private final LoanReviewRepository repository;
     private final LoanApplicationRepository applicationRepository;
@@ -71,6 +76,8 @@ public class LoanReviewService {
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationOutboxAppender outboxAppender;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public LoanReviewResponse run(Long applId, RunReviewRequest req) {
@@ -147,7 +154,7 @@ public class LoanReviewService {
         LoanReview saved = repository.save(LoanReview.builder()
                 .applId(applId)
                 .revTypeCd(req.revTypeCd())
-                .revStatusCd(LoanReview.STATUS_COMPLETED)
+                .revStatusCd(LoanReview.STATUS_REVIEWER_DECIDED)
                 .revDecisionCd(req.revDecisionCd())
                 .approvedAmount(approvedAmount)
                 .approvedRateBps(approvedRate)
@@ -161,9 +168,10 @@ public class LoanReviewService {
 
         checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req);
 
+        // 심사원 결정 이력
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
-                null, LoanReview.STATUS_COMPLETED,
+                null, LoanReview.STATUS_REVIEWER_DECIDED,
                 approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
                 approved
                         ? "approvedAmount=" + approvedAmount + ", rateBps=" + approvedRate
@@ -171,32 +179,58 @@ public class LoanReviewService {
                 actorId
         ));
 
-        String applBefore = application.currentStatus();
-        if (approved) {
-            application.markApproved();
-        } else {
-            application.markRejected();
-        }
+        // 편향 검증 단계 진입
+        saved.markBiasReviewing();
         statusHistoryPublisher.publish(StatusChangeEvent.of(
-                DOMAIN_CD, TARGET_APPLICATION, applId,
-                applBefore, application.currentStatus(),
-                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
-                "revId=" + saved.getRevId(),
-                actorId
+                DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
+                LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
+                REASON_BIAS_CHECK_TRIGGERED, null, actorId
         ));
 
-        if (approved) {
-            eventPublisher.publishEvent(new LoanApprovedEvent(
-                    applId, saved.getRevId(),
-                    application.getCustomerId(), approvedAmount
-            ));
-        }
-
-        eventPublisher.publishEvent(new LoanReviewCompletedEvent(
-                saved.getRevId(), applId, req.reviewerId(), req.revDecisionCd(), req.revTypeCd()
-        ));
+        enqueueBiasCheck(saved, ceval, dsr, null, product);
 
         return LoanReviewResponse.of(saved);
+    }
+
+    private void enqueueBiasCheck(LoanReview review,
+                                   CreditEvaluation ceval,
+                                   DsrCalculation dsr,
+                                   com.bank.loan.ltv.domain.LtvCalculation ltv,
+                                   LoanProduct product) {
+        try {
+            var payload = new LoanBiasCheckRequestedPayload(
+                    LoanBiasCheckRequestedPayload.EVENT_TYPE_CD,
+                    OffsetDateTime.now(),
+                    review.getRevId(),
+                    review.getApplId(),
+                    review.getRevTypeCd(),
+                    new LoanBiasCheckRequestedPayload.ReviewerDecision(
+                            review.getRevDecisionCd(),
+                            review.getRejectReasonCd(),
+                            review.getApprovedAmount(),
+                            review.getApprovedRateBps(),
+                            review.getApprovedPeriodMo(),
+                            review.getReviewerId(),
+                            review.getReviewedAt()
+                    ),
+                    new LoanBiasCheckRequestedPayload.ReviewContext(
+                            product != null ? product.getProdCd() : null,
+                            ceval.getCevalDecisionCd(),
+                            ceval.getCevalScore(),
+                            dsr.getDsrRatioBps(),
+                            dsr.getDsrLimitBps(),
+                            ltv != null ? ltv.getLtvRatioBps() : null
+                    )
+            );
+            outboxAppender.enqueueInCurrentTx(
+                    LoanBiasCheckRequestedPayload.EVENT_TYPE_CD,
+                    review.getRevId(),
+                    KafkaChannelAdapter.CHANNEL_CD,
+                    objectMapper.writeValueAsString(payload)
+            );
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("bias-check payload 직렬화 실패 revId=" + review.getRevId(), e);
+        }
     }
 
     @Transactional(readOnly = true)
