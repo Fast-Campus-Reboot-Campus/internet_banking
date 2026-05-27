@@ -20,10 +20,15 @@ spring:
             redis-rate-limiter.burstCapacity: 20
             key-resolver: "#{@ipKeyResolver}"
       routes:
+        - id: customer-auth
+          uri: http://${CUSTOMER_SERVICE_HOST:localhost}:${CUSTOMER_APP_PORT:8081}
+          predicates:
+            - Path=/api/v1/auth/**
+
         - id: customer-service
           uri: http://${CUSTOMER_SERVICE_HOST:localhost}:${CUSTOMER_APP_PORT:8081}
           predicates:
-            - Path=/api/customers/**
+            - Path=/api/v1/customers/**,/api/customers/**
 
         - id: deposit-service
           uri: http://${DEPOSIT_SERVICE_HOST:localhost}:${DEPOSIT_APP_PORT:8082}
