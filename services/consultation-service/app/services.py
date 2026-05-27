@@ -577,15 +577,20 @@ class ChatbotService:
             return None
 
         total_balance = sum(float(a.get("balance") or 0) for a in accounts)
-        id_list = ",".join(str(a["account_id"]) for a in accounts)
+        account_ids = tuple(a["account_id"] for a in accounts)
 
+        # f-string IN절 대신 expanding bindparam 사용 (SQL injection 방지 + 일관성)
+        # 날짜 필터로 months 파라미터를 실제 쿼리에 반영
         tx_rows = self._rows(
-            f"""
+            """
             SELECT transaction_type, amount
               FROM deposit_transactions
-             WHERE account_id IN ({id_list})
+             WHERE account_id IN :account_ids
                AND transaction_status = 'COMPLETED'
+               AND created_at >= NOW() - (INTERVAL '1 month' * :months)
             """,
+            {"account_ids": account_ids, "months": months},
+            expanding_params=("account_ids",),
         )
 
         if not tx_rows:
@@ -695,9 +700,14 @@ class ChatbotService:
                 return self._data_response("TERMS_RAG", rows, "관련 약관을 찾았습니다.", "검색 가능한 약관 데이터가 없습니다.")
 
         # Fallback: SQL LIKE 검색 (빈 쿼리 시 "%" → 전체 반환)
-        like = f"%{query}%" if query else "%"
+        # % _ 를 이스케이프해 사용자 입력이 와일드카드로 동작하지 않도록 방지
+        if query:
+            escaped = query.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+            like = f"%{escaped}%"
+        else:
+            like = "%"
         rows = self._rows(
-            """
+            r"""
             SELECT special_term_id,
                    special_term_name,
                    special_term_content,
@@ -705,9 +715,9 @@ class ChatbotService:
                    is_required,
                    status
               FROM deposit_special_terms
-             WHERE special_term_name LIKE :query
-                OR special_term_content LIKE :query
-                OR special_term_summary LIKE :query
+             WHERE special_term_name LIKE :query ESCAPE '\'
+                OR special_term_content LIKE :query ESCAPE '\'
+                OR special_term_summary LIKE :query ESCAPE '\'
              ORDER BY special_term_id
              LIMIT 10
             """,
@@ -939,6 +949,8 @@ class ChatbotService:
     def _execute_staff_customer(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no or not request.staff_id:
             return self._staff_auth_required("STAFF_CUSTOMER", "직원 고객 정보 조회에는 고객번호와 직원 권한이 필요합니다.")
+        if not self._validate_staff(request.staff_id):
+            return self._staff_auth_required("STAFF_CUSTOMER", "유효하지 않은 직원 계정입니다.")
         rows = self._account_rows(request.customer_no)
         return self._data_response(
             "STAFF_CUSTOMER", rows, "직원용 고객 정보 조회를 완료했습니다.", "조회된 고객 정보가 없습니다.", requires_staff_auth=True
@@ -947,6 +959,8 @@ class ChatbotService:
     def _execute_staff_account(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no or not request.staff_id:
             return self._staff_auth_required("STAFF_ACCOUNT", "직원 고객 계좌 조회에는 고객번호와 직원 권한이 필요합니다.")
+        if not self._validate_staff(request.staff_id):
+            return self._staff_auth_required("STAFF_ACCOUNT", "유효하지 않은 직원 계정입니다.")
         rows = self._account_rows(request.customer_no)
         return self._data_response(
             "STAFF_ACCOUNT", rows, "직원용 고객 계좌 조회를 완료했습니다.", "조회된 고객 계좌가 없습니다.", requires_staff_auth=True
@@ -955,6 +969,8 @@ class ChatbotService:
     def _execute_staff_transfer_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no or not request.staff_id:
             return self._staff_auth_required("STAFF_TRANSFER_FLOW", "이체 흐름 조회에는 고객번호와 직원 권한이 필요합니다.")
+        if not self._validate_staff(request.staff_id):
+            return self._staff_auth_required("STAFF_TRANSFER_FLOW", "유효하지 않은 직원 계정입니다.")
         rows = self._rows(
             """
             SELECT t.transaction_id,
@@ -980,6 +996,8 @@ class ChatbotService:
     def _execute_staff_consultation_history(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no or not request.staff_id:
             return self._staff_auth_required("STAFF_CONSULTATION_HISTORY", "상담 이력 조회에는 고객번호와 직원 권한이 필요합니다.")
+        if not self._validate_staff(request.staff_id):
+            return self._staff_auth_required("STAFF_CONSULTATION_HISTORY", "유효하지 않은 직원 계정입니다.")
         rows = self._rows(
             """
             SELECT consultation_id,
@@ -1003,6 +1021,8 @@ class ChatbotService:
     def _execute_staff_cash_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no or not request.staff_id:
             return self._staff_auth_required("STAFF_CASH_FLOW", "고객 현금 흐름 조회에는 고객번호와 직원 권한이 필요합니다.")
+        if not self._validate_staff(request.staff_id):
+            return self._staff_auth_required("STAFF_CASH_FLOW", "유효하지 않은 직원 계정입니다.")
         rows = self._rows(
             """
             SELECT t.transaction_id,
@@ -1034,6 +1054,8 @@ class ChatbotService:
     ) -> ChatbotFeatureExecuteResponse:
         if requires_staff_auth and (not request.customer_no or not request.staff_id):
             return self._staff_auth_required(feature_code, "계약 조회에는 고객번호와 직원 권한이 필요합니다.")
+        if requires_staff_auth and request.staff_id and not self._validate_staff(request.staff_id):
+            return self._staff_auth_required(feature_code, "유효하지 않은 직원 계정입니다.")
         if not requires_staff_auth and not request.customer_no:
             return self._auth_required(feature_code, "계약 조회에는 고객번호와 본인 인증이 필요합니다.")
         rows = self._contract_rows(request.customer_no or "")
@@ -1138,6 +1160,18 @@ class ChatbotService:
             message=message,
             requires_staff_auth=True,
         )
+
+    def _validate_staff(self, staff_id: str) -> bool:
+        """staff_id 가 employees 테이블에 실제로 존재하는 유효한 직원인지 확인한다.
+
+        TODO: JWT 토큰 기반 인증 미들웨어로 교체 시 이 메서드를 제거하고
+              엔드포인트 레벨에서 Depends(require_staff_role) 형태로 처리할 것.
+        """
+        rows = self._rows(
+            "SELECT employee_id FROM employees WHERE employee_id = :sid AND status = 'ACTIVE'",
+            {"sid": staff_id},
+        )
+        return len(rows) > 0
 
     def seed_default_scenario(self) -> tuple[int, int]:
         scenario = self._ensure_default_scenario()

@@ -30,7 +30,13 @@ from app.schemas import (
     ScenarioSeedResponse,
 )
 from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
-from app.services import ChatbotService, ChatService, _chat_status, _SENDER_LABEL
+from app.services import (
+    CODE_SENDER_AGENT,
+    ChatbotService,
+    ChatService,
+    _chat_status,
+    _SENDER_LABEL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -128,9 +134,10 @@ async def _build_rag_index() -> None:
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     await events.start()
+    # kafka_topic_chatbot_events 는 이 서비스가 직접 발행하는 토픽이므로
+    # 구독 목록에서 제외 — 자기 발행 메시지를 자신이 소비하는 순환 방지
     await consumer.start(
         topics=[
-            settings.kafka_topic_chatbot_events,
             settings.kafka_topic_chat_events,
             settings.kafka_topic_deposit_events,   # deposit-api 계약 이벤트 수신
         ],
@@ -227,6 +234,10 @@ async def start_chatbot(
     request: ChatbotStartRequest,
     service: ChatbotService = Depends(get_chatbot_service),
 ) -> ChatbotStartResponse:
+    # TODO: JWT 토큰 기반 인증 미들웨어 도입 후
+    #       토큰에서 추출한 customer_no 와 request.customer_no 일치 여부를 검증해야 함.
+    #       현재는 body 의 customer_no 를 그대로 사용하므로 IDOR 취약점 존재.
+    #       ex) Depends(require_customer_matches(request.customer_no))
     try:
         return await service.start(request.customer_no, request.entry_screen, request.app_version)
     except ValueError as exc:
@@ -306,7 +317,7 @@ async def send_chat_message(
     request: ChatSendMessageRequest,
     service: ChatService = Depends(get_chat_service),
 ) -> ChatMessageHistoryResponse:
-    sender_code = 3 if request.sender_type == "AGENT" else 1
+    sender_code = CODE_SENDER_AGENT if request.sender_type == "AGENT" else 1
     try:
         msg = await service.send_message(chat_consultation_id, request.message, sender_code)
         return ChatMessageHistoryResponse(
