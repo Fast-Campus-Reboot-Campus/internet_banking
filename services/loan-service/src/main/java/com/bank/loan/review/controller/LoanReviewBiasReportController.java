@@ -2,7 +2,10 @@ package com.bank.loan.review.controller;
 
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.review.dto.AiReviewAdviceResponse;
+import com.bank.loan.review.dto.BiasOverrideRequest;
 import com.bank.loan.review.dto.BiasReportRequest;
+import com.bank.loan.review.dto.LoanReviewResponse;
+import com.bank.loan.review.service.LoanReviewAcknowledgeBiasService;
 import com.bank.loan.review.service.LoanReviewBiasReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +27,7 @@ import java.util.List;
 public class LoanReviewBiasReportController {
 
     private final LoanReviewBiasReportService biasReportService;
+    private final LoanReviewAcknowledgeBiasService acknowledgeBiasService;
 
     @Operation(summary = "편향 리포트 수신 (internal)",
             description = "편향 에이전트가 분석 결과를 밀어넣는 내부 전용 API. "
@@ -42,5 +46,15 @@ public class LoanReviewBiasReportController {
     @GetMapping("/api/loan-reviews/{revId}/advices")
     public ApiResponse<List<AiReviewAdviceResponse>> listAdvices(@PathVariable Long revId) {
         return ApiResponse.ok(biasReportService.listByRev(revId));
+    }
+
+    @Operation(summary = "편향 BLOCKED 우회 승인 (상급자)",
+            description = "severity=BLOCKED 인 편향 결과를 상급자가 우회 승인. "
+                    + "BIAS_REVIEWING 상태일 때만 허용. 우회 후 심사원이 acknowledge-bias 호출 가능.")
+    @PostMapping("/api/loan-reviews/{revId}/bias-override")
+    public ApiResponse<LoanReviewResponse> biasOverride(
+            @PathVariable Long revId,
+            @Valid @RequestBody BiasOverrideRequest req) {
+        return ApiResponse.ok(acknowledgeBiasService.biasOverride(revId, req));
     }
 }

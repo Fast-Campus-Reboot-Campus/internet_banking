@@ -1,10 +1,12 @@
 package com.bank.loan.review.controller;
 
 import com.bank.common.web.ApiResponse;
+import com.bank.loan.review.dto.AcknowledgeBiasRequest;
 import com.bank.loan.review.dto.ConfirmReviewRequest;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
+import com.bank.loan.review.service.LoanReviewAcknowledgeBiasService;
 import com.bank.loan.review.service.LoanReviewAutoDecideService;
 import com.bank.loan.review.service.LoanReviewReviseService;
 import com.bank.loan.review.service.LoanReviewService;
@@ -31,6 +33,7 @@ public class LoanReviewController {
     private final LoanReviewService service;
     private final LoanReviewReviseService reviseService;
     private final LoanReviewAutoDecideService autoDecideService;
+    private final LoanReviewAcknowledgeBiasService acknowledgeBiasService;
 
     @Operation(summary = "본심사 실행",
             description = "사전조건: 신청 PRESCREENED + CB(APPROVE/REVIEW) + DSR PASS. " +
@@ -81,5 +84,16 @@ public class LoanReviewController {
             @PathVariable Long applId,
             @Valid @RequestBody ConfirmReviewRequest req) {
         return ApiResponse.ok(autoDecideService.confirm(applId, req));
+    }
+
+    @Operation(summary = "편향 리포트 확인(acknowledge)",
+            description = "심사원이 편향 검증 리포트를 확인하고 승인자 단계로 진행. "
+                    + "사전조건: BIAS_REVIEWING 상태 + 리포트 1건 이상 + severity != BLOCKED. "
+                    + "BLOCKED 이면 상급자 bias-override 후 재호출.")
+    @PostMapping("/acknowledge-bias")
+    public ApiResponse<LoanReviewResponse> acknowledgeBias(
+            @PathVariable Long applId,
+            @RequestBody(required = false) AcknowledgeBiasRequest req) {
+        return ApiResponse.ok(acknowledgeBiasService.acknowledgeBias(applId, req));
     }
 }
