@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.IdempotencyKeyMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.IdempotencyKey">
+        INSERT INTO idempotency_key (
+            idempotency_key,
+            client_id,
+            request_hash,
+            idempotency_status,
+            first_response_snap,
+            retry_count,
+            first_received_at,
+            last_received_at,
+            expires_at,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{idempotencyKey},
+            #{clientId},
+            #{requestHash},
+            #{idempotencyStatus},
+            #{firstResponseSnap}::jsonb,
+            #{retryCount},
+            #{firstReceivedAt},
+            #{lastReceivedAt},
+            #{expiresAt},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <select id="selectByKey" resultType="com.bank.payment.domain.IdempotencyKey">
+        SELECT *
+        FROM idempotency_key
+        WHERE idempotency_key = #{idempotencyKey}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE idempotency_key
+        SET idempotency_status    = #{idempotencyStatus},
+            first_response_snap   = #{firstResponseSnap}::jsonb,
+            last_modified_at      = now()
+        WHERE idempotency_key = #{idempotencyKey}
+    </update>
+
+</mapper>

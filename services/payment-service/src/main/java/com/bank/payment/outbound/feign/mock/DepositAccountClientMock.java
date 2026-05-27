@@ -1,0 +1,59 @@
+package com.bank.payment.outbound.feign.mock;
+
+import com.bank.payment.outbound.feign.DepositAccountClient;
+import com.bank.payment.outbound.feign.dto.AccountInquiryData;
+import com.bank.payment.outbound.feign.dto.DepositResponse;
+import com.bank.payment.outbound.feign.dto.HolderInquiryData;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+@Profile("mock")
+@Primary
+@Component
+public class DepositAccountClientMock implements DepositAccountClient {
+
+    // S1 마스터: 이몽룡 12345678901234 / 성춘향 12345678905678
+    private static final String SENDER           = "12345678901234";
+    private static final String RECEIVER         = "12345678905678";
+
+    // F8 계좌: 홍판서 12345678909999 (B-4 입금 실패 트리거용)
+    private static final String F8_FAIL_RECEIVER = "12345678909999";
+
+    // F5 계좌: 변학도 88880000 (txStep4 분개 INSERT 실패 트리거용 — deposit까지 성공, 분개에서만 실패)
+    private static final String F5_FAIL_RECEIVER = "88880000";
+
+    // IN-03 계좌: 사고신고/FROZEN (수신 거절 트리거용)
+    private static final String IN03_FROZEN_RECEIVER = "99987654321";
+
+    @Override
+    public DepositResponse<AccountInquiryData> getAccount(String accountNo) {
+        if (IN03_FROZEN_RECEIVER.equals(accountNo)) {
+            AccountInquiryData data = new AccountInquiryData(
+                    accountNo, "DEMAND", "FROZEN", "DP-2025-001",
+                    "2024-03-15T09:00:00Z", null, "0001", true, 1);
+            return new DepositResponse<>("E2001", "사고신고 계좌", "2026-05-16T14:30:00Z", data);
+        }
+        AccountInquiryData data = new AccountInquiryData(
+                accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
+                "2024-03-15T09:00:00Z", null, "0001", false, 1);
+        return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
+    }
+
+    @Override
+    public DepositResponse<HolderInquiryData> getHolder(String accountNo) {
+        String holder;
+        if (F8_FAIL_RECEIVER.equals(accountNo)) {
+            holder = "홍판서";
+        } else if (F5_FAIL_RECEIVER.equals(accountNo)) {
+            holder = "변학도";
+        } else if (RECEIVER.equals(accountNo)) {
+            holder = "성춘향";
+        } else {
+            holder = "이몽룡";
+        }
+        HolderInquiryData data = new HolderInquiryData(
+                accountNo, holder, "INDIVIDUAL", "CUST-0001", false, 1);
+        return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
+    }
+}

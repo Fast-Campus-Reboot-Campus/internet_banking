@@ -1,1 +1,18 @@
 // loan-service: 의존성/플러그인은 루트 build.gradle 의 subprojects 블록에서 일괄 관리
+
+// advisory-service 소스를 같은 JVM에서 컴파일 (com.bank.loan.advisory.* 패키지)
+sourceSets {
+    main {
+        java {
+            srcDirs += ['../advisory-service/src/main/java']
+        }
+        resources {
+            srcDirs += ['../advisory-service/src/main/resources']
+        }
+    }
+    test {
+        java {
+            srcDirs += ['../advisory-service/src/test/java']
+        }
+    }
+}

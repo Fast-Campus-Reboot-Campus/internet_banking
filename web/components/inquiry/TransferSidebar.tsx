@@ -1,0 +1,137 @@
+'use client'
+
+import Link from 'next/link'
+import { useState } from 'react'
+import { usePathname } from 'next/navigation'
+
+type Child = { label: string; href: string }
+type SidebarItem = { label: string; expandable?: boolean; href?: string; children?: Child[] }
+
+const NAV: SidebarItem[] = [
+  {
+    label: '계좌이체',
+    expandable: true,
+    children: [
+      { label: '계좌이체',                   href: '/transfer/account' },
+      { label: '다른금융 계좌이체',            href: '/transfer/other-bank' },
+      { label: '다계좌이체',                  href: '#' },
+      { label: '잔액 모으기',                 href: '#' },
+      { label: '잔액 모으기 예약',             href: '#' },
+      { label: '잔액 모으기 예약 관리',         href: '#' },
+      { label: '퇴직급여(개인형IRP)이체',       href: '#' },
+      { label: '계좌종합관리 이체',             href: '#' },
+    ],
+  },
+  {
+    label: '이체결과 조회',
+    expandable: true,
+    children: [
+      { label: '계좌이체결과조회',              href: '/transfer/inquiry' },
+      { label: '다른금융계좌 이체결과조회',       href: '#' },
+      { label: '잔액 모으기 예약 결과조회',       href: '#' },
+      { label: '전화승인결과조회',              href: '#' },
+      { label: '계좌종합관리 이체결과와 조회',    href: '#' },
+    ],
+  },
+  {
+    label: '자동이체',
+    expandable: true,
+    children: [
+      { label: '자동이체 등록',       href: '#' },
+      { label: '자동이체 변경/해지',   href: '#' },
+      { label: '자동이체 내역조회',    href: '#' },
+      { label: '자동이체 결과조회',    href: '#' },
+    ],
+  },
+  {
+    label: '에스크로 이체',
+    expandable: true,
+    children: [
+      { label: '에스크로 이체 신청',   href: '#' },
+      { label: '에스크로 내역조회',    href: '#' },
+    ],
+  },
+  {
+    label: '자동이체 서비스',
+    expandable: true,
+    children: [
+      { label: '자동이체 서비스 신청', href: '#' },
+      { label: '자동이체 서비스 조회', href: '#' },
+      { label: '자동이체 서비스 해지', href: '#' },
+    ],
+  },
+]
+
+export default function TransferSidebar() {
+  const pathname = usePathname()
+
+  const defaultOpen = new Set(
+    NAV.filter(item => item.children?.some(c => c.href !== '#' && pathname.startsWith(c.href)))
+       .map(item => item.label)
+  )
+  if (defaultOpen.size === 0) defaultOpen.add('계좌이체')
+
+  const [openSections, setOpenSections] = useState<Set<string>>(defaultOpen)
+
+  function toggle(label: string) {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      next.has(label) ? next.delete(label) : next.add(label)
+      return next
+    })
+  }
+
+  return (
+    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
+      <h2 className="text-base font-bold text-kb-text mb-3 px-1">이체</h2>
+      <nav>
+        {NAV.map((item) => (
+          <div key={item.label}>
+            {item.expandable ? (
+              <>
+                <button
+                  onClick={() => toggle(item.label)}
+                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text"
+                >
+                  <span>{item.label}</span>
+                  <span className="text-[10px] text-kb-text-muted">
+                    {openSections.has(item.label) ? '˄' : '˅'}
+                  </span>
+                </button>
+                {openSections.has(item.label) && item.children && (
+                  <ul className="mb-1">
+                    {item.children.map((child) => {
+                      const active = child.href !== '#' && pathname.startsWith(child.href)
+                      return (
+                        <li key={child.label}>
+                          <Link href={child.href}
+                            className={`block px-3 py-1.5 text-[13px] ${
+                              active
+                                ? 'bg-kb-yellow font-semibold text-kb-text'
+                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                            }`}>
+                            {child.label}
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <Link href={item.href ?? '#'}
+                className="block px-2 py-2 text-[13px] text-kb-text-muted hover:text-kb-text">
+                {item.label}
+              </Link>
+            )}
+          </div>
+        ))}
+      </nav>
+      <hr className="border-kb-border my-3" />
+      <Link href="/cert"
+        className="flex items-center gap-2 mx-2 border border-kb-border px-3 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
+        🔒 인증센터
+      </Link>
+    </aside>
+  )
+}

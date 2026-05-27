@@ -1,1 +1,36 @@
-// payment-service: 의존성/플러그인은 루트 build.gradle 의 subprojects 블록에서 일괄 관리
+// payment-service: 결제계 전용 의존성
+// 공통 의존성(Web, Actuator, Validation, Lombok, PostgreSQL)은 루트 build.gradle 참조
+
+bootJar { enabled = true }
+jar { enabled = false }   // plain JAR 제거 → Dockerfile COPY build/libs/*.jar 단일 매칭
+
+// 루트 subprojects 블록에서 일괄 추가된 의존성 중 결제계 미사용 항목 제거
+// - JPA: MyBatis 사용 (기술스택 정의서 v2.2)
+// - Redis: 결제계 학습 환경 미사용 (기술스택 정의서 v2.2 미명시)
+configurations.configureEach {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-data-jpa'
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-data-redis'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2023.0.3"
+    }
+}
+
+dependencies {
+    // MyBatis (기술스택 정의서 v2.2: MyBatis 3.0.x, KB 결제계 표준)
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4'
+    testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.4'
+
+    // Kafka (3 클러스터: KFTC / BOK / Internal)
+    implementation 'org.springframework.kafka:spring-kafka'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+
+    // Feign (deposit/loan/customer HTTP 클라이언트 — Stage 6에서 구현)
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // Flyway (DB 마이그레이션 — Stage 3에서 V1 마이그레이션 SQL 추가)
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+}

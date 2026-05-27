@@ -69,6 +69,63 @@ services:
       timeout: 5s
       retries: 5
 
+  master-db:
+    image: postgres:16-alpine
+    container_name: ib-master-db
+    environment:
+      POSTGRES_DB: ${MASTER_DB_NAME:-master_db}
+      POSTGRES_USER: ${MASTER_DB_USER:-master}
+      POSTGRES_PASSWORD: ${MASTER_DB_PASSWORD:-master}
+    ports:
+      - "${MASTER_DB_PORT:-5436}:5432"
+    volumes:
+      - master-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MASTER_DB_USER:-master} -d ${MASTER_DB_NAME:-master_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  ai-db:
+    image: pgvector/pgvector:pg16
+    container_name: ib-ai-db
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME:-ai_db}
+      POSTGRES_USER: ${AI_DB_USER:-ai}
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD:-ai}
+    ports:
+      - "${AI_DB_PORT:-5437}:5432"
+    volumes:
+      - ai-db-data:/var/lib/postgresql/data
+      - ./infra/ai-db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-ai} -d ${AI_DB_NAME:-ai_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: ib-kafka
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    environment:
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: ib-redis
@@ -128,11 +185,47 @@ services:
     depends_on:
       - prometheus
 
+  gateway-service:
+    build:
+      context: .
+      dockerfile: services/gateway-service/Dockerfile
+    container_name: ib-gateway
+    ports:
+      - "${GATEWAY_APP_PORT:-8080}:8080"
+    environment:
+      GATEWAY_APP_PORT: 8080
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
+      CUSTOMER_SERVICE_HOST: customer-service
+      CUSTOMER_APP_PORT: ${CUSTOMER_APP_PORT:-8081}
+      DEPOSIT_SERVICE_HOST: deposit-service
+      DEPOSIT_APP_PORT: ${DEPOSIT_APP_PORT:-8082}
+      LOAN_SERVICE_HOST: loan-service
+      LOAN_APP_PORT: ${LOAN_APP_PORT:-8083}
+      PAYMENT_SERVICE_HOST: payment-service
+      PAYMENT_APP_PORT: ${PAYMENT_APP_PORT:-8084}
+      MASTER_SERVICE_HOST: master-service
+      MASTER_APP_PORT: ${MASTER_APP_PORT:-8085}
+      AI_SERVICE_HOST: ai-service
+      AI_APP_PORT: ${AI_APP_PORT:-8086}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   customer-db-data:
   deposit-db-data:
   loan-db-data:
   payment-db-data:
+  master-db-data:
+
+  ai-db-data:
   redis-data:
   kafka-data:
   prometheus-data:
