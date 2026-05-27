@@ -123,4 +123,111 @@ public class ContractService {
     @Transactional
     public Contract changeStatus(Long id, ContractStatus status) {
         Contract contract = findById(id);
-        contract.changeStatus(
+        contract.changeStatus(status, LocalDate.now().format(DATE_FMT));
+        return contract;
+    }
+
+    @Transactional
+    public Contract terminate(Long id, String reason) {
+        Contract contract = findById(id);
+        if (contract.getContractStatus() != ContractStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS, "활성 계약만 해지할 수 있습니다.");
+        }
+        contract.terminate(LocalDate.now().format(DATE_FMT), reason);
+        return contract;
+    }
+
+    @Transactional
+    public Contract mature(Long id) {
+        Contract contract = findById(id);
+        contract.mature(LocalDate.now().format(DATE_FMT));
+        return contract;
+    }
+
+    @Transactional
+    public void updateAutoTransferDay(Long id, Integer autoTransferDay) {
+        Contract contract = findById(id);
+        contract.updateAutoTransferDay(autoTransferDay);
+    }
+
+    public Contract findDepositContract(Long contractId) {
+        Contract contract = findById(contractId);
+        Product product = productRepository.findById(contract.getProductId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "상품을 찾을 수 없습니다."));
+        if (product.getProductType() != ProductType.DEPOSIT) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "수신 계약을 찾을 수 없습니다.");
+        }
+        return contract;
+    }
+
+    @Transactional
+    public Contract updateDepositSettings(Long contractId, Boolean autoTransferEnabled, Integer autoTransferDay) {
+        Contract contract = findById(contractId);
+        contract.updateDepositSettings(autoTransferEnabled, autoTransferDay);
+        return contract;
+    }
+
+    // ContractAppliedRates
+    public List<ContractAppliedRate> findAppliedRates(Long contractId) {
+        findById(contractId);
+        return appliedRateRepository.findByContractId(contractId);
+    }
+
+    @Transactional
+    public ContractAppliedRate saveAppliedRate(Long contractId, Long rateId, BigDecimal appliedRate, Boolean conditionVerifiedYn) {
+        findById(contractId);
+        return appliedRateRepository.save(ContractAppliedRate.builder()
+                .contractId(contractId)
+                .rateId(rateId)
+                .appliedRate(appliedRate)
+                .conditionVerifiedYn(conditionVerifiedYn != null && conditionVerifiedYn)
+                .build());
+    }
+
+    @Transactional
+    public ContractAppliedRate savePreferentialRate(Long contractId, String conditionName, BigDecimal appliedRate, Boolean appliedYn) {
+        findById(contractId);
+        return appliedRateRepository.save(ContractAppliedRate.builder()
+                .contractId(contractId)
+                .appliedRate(appliedRate)
+                .conditionVerifiedYn(appliedYn != null && appliedYn)
+                .build());
+    }
+
+    @Transactional
+    public void deleteAppliedRate(Long appliedRateId) {
+        ContractAppliedRate rate = appliedRateRepository.findById(appliedRateId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "우대금리 적용 내역을 찾을 수 없습니다."));
+        appliedRateRepository.delete(rate);
+    }
+
+    // SpecialTermAgreements
+    public List<ContractSpecialTermAgreement> findAgreements(Long contractId) {
+        findById(contractId);
+        return agreementRepository.findByContractId(contractId);
+    }
+
+    @Transactional
+    public ContractSpecialTermAgreement agree(Long contractId, Long specialTermId, Boolean isAgreed,
+                                              String agreedAt, String ipAddress, String deviceInfo,
+                                              Boolean isElectronicSigned) {
+        findById(contractId);
+        return agreementRepository.save(ContractSpecialTermAgreement.builder()
+                .contractId(contractId)
+                .specialTermId(specialTermId)
+                .isAgreed(isAgreed != null && isAgreed)
+                .agreedAt(agreedAt)
+                .agreementIpAddress(ipAddress)
+                .agreementDeviceInfo(deviceInfo)
+                .isElectronicSigned(isElectronicSigned != null && isElectronicSigned)
+                .build());
+    }
+
+    @Transactional
+    public ContractSpecialTermAgreement withdraw(Long contractId, Long agreementId) {
+        ContractSpecialTermAgreement agreement = agreementRepository.findById(agreementId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "특약 동의를 찾을 수 없습니다."));
+        agreement.withdraw(LocalDate.now().format(DATE_FMT));
+        return agreement;
+    }
+}

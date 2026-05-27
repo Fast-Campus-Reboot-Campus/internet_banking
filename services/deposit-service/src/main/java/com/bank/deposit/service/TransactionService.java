@@ -111,4 +111,138 @@ public class TransactionService {
         source.withdraw(amount, clock);
 
         TransferType resolvedType = transferType != null ? transferType : TransferType.INTERNAL;
-        OffsetDateTime now = OffsetDateTime.now(clock
+        OffsetDateTime now = OffsetDateTime.now(clock);
+
+        Transaction outTx = transactionRepository.save(Transaction.builder()
+                .transactionNumber(generateTxnNumber("TRF"))
+                .accountId(fromAccountId)
+                .transactionType(TransactionType.TRANSFER)
+                .directionType(DirectionType.OUT)
+                .amount(amount)
+                .balanceBefore(before)
+                .balanceAfter(source.getBalance())
+                .availableBalanceAfter(source.getBalance())
+                .transferType(resolvedType)
+                .counterpartyAccountId(toAccountId)
+                .counterpartyAccountNo(toAccountNo)
+                .counterpartyBankCode(counterpartyBankCode)
+                .counterpartyBankName(counterpartyBankName)
+                .counterpartyName(counterpartyName)
+                .channelType(channelType != null ? channelType : TransactionChannel.INTERNET)
+                .transactionAt(now)
+                .postedAt(now)
+                .transferRequestedAt(now)
+                .transferCompletedAt(now)
+                .transactionMemo(transactionMemo)
+                .build());
+
+        // 내부 이체: 수신 계좌가 반드시 존재해야 한다 (없으면 잔액 증발 버그)
+        if (toAccountId != null) {
+            Account target = accountRepository.findById(toAccountId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+
+            // 계좌번호 일치 검증
+            if (toAccountNo != null && !toAccountNo.equals(target.getAccountNumber())) {
+                throw new BusinessException(ErrorCode.INVALID_STATUS,
+                        "계좌번호(" + toAccountNo + ")가 계좌 ID(" + toAccountId + ")와 일치하지 않습니다.");
+            }
+
+            BigDecimal targetBefore = target.getBalance();
+            target.deposit(amount, clock);
+            transactionRepository.save(Transaction.builder()
+                    .transactionNumber(generateTxnNumber("TRF"))
+                    .accountId(toAccountId)
+                    .transactionType(TransactionType.TRANSFER)
+                    .directionType(DirectionType.IN)
+                    .amount(amount)
+                    .balanceBefore(targetBefore)
+                    .balanceAfter(target.getBalance())
+                    .availableBalanceAfter(target.getBalance())
+                    .transferType(resolvedType)
+                    .counterpartyAccountId(fromAccountId)
+                    .channelType(TransactionChannel.SYSTEM)
+                    .transactionAt(now)
+                    .postedAt(now)
+                    .transactionSummary("이체 수신")
+                    .build());
+        }
+        return outTx;
+    }
+
+    @Transactional
+    public Transaction savingsPayment(Long accountId, Long contractId, BigDecimal amount,
+                                      Integer paymentRound, TransactionChannel channelType) {
+        Account account = getActiveAccount(accountId);
+        BigDecimal before = account.getBalance();
+        account.deposit(amount, clock);
+        account.addPaidAmount(amount);
+
+        return transactionRepository.save(Transaction.builder()
+                .transactionNumber(generateTxnNumber("SAV"))
+                .accountId(accountId)
+                .contractId(contractId)
+                .transactionType(TransactionType.SAVINGS_PAYMENT)
+                .directionType(DirectionType.IN)
+                .amount(amount)
+                .balanceBefore(before)
+                .balanceAfter(account.getBalance())
+                .availableBalanceAfter(account.getBalance())
+                .channelType(channelType != null ? channelType : TransactionChannel.SYSTEM)
+                .paymentRound(paymentRound)
+                .transactionAt(OffsetDateTime.now(clock))
+                .postedAt(OffsetDateTime.now(clock))
+                .build());
+    }
+
+    @Transactional
+    public Transaction reversal(Long transactionId, TransactionChannel channelType) {
+        Transaction original = findById(transactionId);
+        if (original.getStatus() == TransactionStatus.CANCELED) {
+            throw new BusinessException(ErrorCode.ALREADY_CANCELED);
+        }
+
+        Account account = getActiveAccount(original.getAccountId());
+        BigDecimal before = account.getBalance();
+        DirectionType reverseDirection = original.getDirectionType() == DirectionType.IN
+                ? DirectionType.OUT : DirectionType.IN;
+
+        if (reverseDirection == DirectionType.OUT) {
+            account.withdraw(original.getAmount(), clock);
+        } else {
+            account.deposit(original.getAmount(), clock);
+        }
+
+        original.cancel();
+
+        return transactionRepository.save(Transaction.builder()
+                .transactionNumber(generateTxnNumber("REV"))
+                .accountId(original.getAccountId())
+                .contractId(original.getContractId())
+                .transactionType(TransactionType.REVERSAL)
+                .directionType(reverseDirection)
+                .amount(original.getAmount())
+                .balanceBefore(before)
+                .balanceAfter(account.getBalance())
+                .availableBalanceAfter(account.getBalance())
+                .channelType(channelType != null ? channelType : TransactionChannel.SYSTEM)
+                .originalTransactionId(transactionId)
+                .transactionAt(OffsetDateTime.now(clock))
+                .postedAt(OffsetDateTime.now(clock))
+                .transactionSummary("거래 취소")
+                .build());
+    }
+
+    private Account getActiveAccount(Long accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+        if (account.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
+        return account;
+    }
+
+    private String generateTxnNumber(String prefix) {
+        return prefix + "-" + LocalDate.now(clock).format(DATE_FMT) + "-"
+                + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+}

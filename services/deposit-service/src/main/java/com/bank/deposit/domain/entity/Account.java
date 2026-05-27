@@ -165,4 +165,21 @@ public class Account extends BaseEntity {
     }
 
     public void addPaidAmount(BigDecimal amount) {
-        this.totalPaidAmount = this.totalPaidAmount.add
+        this.totalPaidAmount = this.totalPaidAmount.add(amount);
+    }
+
+    public void changeStatus(AccountStatus status, String statusChangedAt) {
+        this.accountStatus = status;
+        this.statusChangedAt = statusChangedAt;
+    }
+
+    public void updateAlias(String alias) {
+        this.accountAlias = alias;
+    }
+
+    public void updateLimits(BigDecimal dailyWithdrawLimit, Integer dailyWithdrawCountLimit, BigDecimal atmWithdrawLimit) {
+        this.dailyWithdrawLimit = dailyWithdrawLimit;
+        this.dailyWithdrawCountLimit = dailyWithdrawCountLimit;
+        this.atmWithdrawLimit = atmWithdrawLimit;
+    }
+}
