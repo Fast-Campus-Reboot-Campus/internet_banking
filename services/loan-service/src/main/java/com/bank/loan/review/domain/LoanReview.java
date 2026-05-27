@@ -42,8 +42,10 @@ public class LoanReview extends BaseEntity {
     public static final String DECISION_REJECTED = "REJECTED";
 
     public static final String STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
-    public static final String STATUS_COMPLETED         = "COMPLETED";
-    public static final String STATUS_EXPIRED           = "EXPIRED";
+    public static final String STATUS_BIAS_REVIEWING   = "BIAS_REVIEWING";
+    public static final String STATUS_PENDING_APPROVER = "PENDING_APPROVER";
+    public static final String STATUS_COMPLETED        = "COMPLETED";
+    public static final String STATUS_EXPIRED          = "EXPIRED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -86,12 +88,49 @@ public class LoanReview extends BaseEntity {
     @Column(name = "approved_at")
     private OffsetDateTime approvedAt;
 
+    @Column(name = "approver_id")
+    private Long approverId;
+
+    @Column(name = "approved_decision_cd", length = 50)
+    private String approvedDecisionCd;
+
+    @Column(name = "override_reason_cd", length = 50)
+    private String overrideReasonCd;
+
+    @Column(name = "override_remark", length = 500)
+    private String overrideRemark;
+
+    @Column(name = "bias_severity_cd", length = 20)
+    private String biasSeverityCd;
+
+    @Column(name = "bias_override_by")
+    private Long biasOverrideBy;
+
+    @Column(name = "bias_override_reason", length = 500)
+    private String biasOverrideReason;
+
+    @Column(name = "bias_overridden_at")
+    private OffsetDateTime biasOverriddenAt;
+
     public boolean isApproved() {
         return DECISION_APPROVED.equals(revDecisionCd);
     }
 
     public boolean isPendingApproval() {
         return STATUS_PENDING_APPROVAL.equals(revStatusCd);
+    }
+
+    public boolean isBiasReviewing() {
+        return STATUS_BIAS_REVIEWING.equals(revStatusCd);
+    }
+
+    public boolean isPendingApprover() {
+        return STATUS_PENDING_APPROVER.equals(revStatusCd);
+    }
+
+    public boolean isBiasBlocked() {
+        return AiReviewAdvice.SEVERITY_BLOCKED.equals(biasSeverityCd)
+                && biasOverrideBy == null;
     }
 
     /**
