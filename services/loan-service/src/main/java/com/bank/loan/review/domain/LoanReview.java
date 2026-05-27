@@ -41,6 +41,10 @@ public class LoanReview extends BaseEntity {
     public static final String DECISION_APPROVED = "APPROVED";
     public static final String DECISION_REJECTED = "REJECTED";
 
+    public static final String APPROVER_AS_IS            = "APPROVE_AS_IS";
+    public static final String APPROVER_OVERRIDE_APPROVED = "OVERRIDE_APPROVED";
+    public static final String APPROVER_OVERRIDE_REJECTED = "OVERRIDE_REJECTED";
+
     public static final String STATUS_PENDING_APPROVAL = "PENDING_APPROVAL";
     public static final String STATUS_BIAS_REVIEWING   = "BIAS_REVIEWING";
     public static final String STATUS_PENDING_APPROVER = "PENDING_APPROVER";
@@ -134,16 +138,96 @@ public class LoanReview extends BaseEntity {
     }
 
     /**
-     * 자동 권고(PENDING_APPROVAL) 결과를 사람이 확정. revStatusCd → COMPLETED,
-     * reviewerId/reviewedAt 갱신. APPROVED 권고일 때만 approvedAt 도 같이 채운다.
+     * 본심사 완료 후 편향 검증 단계로 진입. revStatusCd → BIAS_REVIEWING.
+     * run() / confirm() 완료 시점에 호출. 신청 상태 전이는 여기서 하지 않는다.
+     */
+    public void markBiasReviewing() {
+        this.revStatusCd = STATUS_BIAS_REVIEWING;
+    }
+
+    /**
+     * 편향 검증 결과 캐시 갱신. 에이전트가 bias-report 를 적재한 뒤 호출.
+     */
+    public void updateBiasSeverity(String severityCd) {
+        this.biasSeverityCd = severityCd;
+    }
+
+    /**
+     * 상급자 BLOCKED 우회 승인. bias_override_* 기록.
+     * BIAS_REVIEWING 상태 + biasSeverityCd = BLOCKED 일 때만 호출.
+     */
+    public void biasOverride(Long overrideBy, String reason, OffsetDateTime overriddenAt) {
+        this.biasOverrideBy = overrideBy;
+        this.biasOverrideReason = reason;
+        this.biasOverriddenAt = overriddenAt;
+    }
+
+    /**
+     * 심사원이 편향 리포트를 확인(acknowledge). revStatusCd → PENDING_APPROVER.
+     * 호출 전 isBiasBlocked() = false 임을 검증해야 한다.
+     */
+    public void acknowledgeBias() {
+        this.revStatusCd = STATUS_PENDING_APPROVER;
+    }
+
+    /**
+     * 승인자 최종 확정. revStatusCd → COMPLETED.
+     *
+     * approverDecisionCd:
+     *   APPROVE_AS_IS      심사원 결정 그대로 확정
+     *   OVERRIDE_APPROVED  결정을 APPROVED 로 변경 — approvedAmount/rate/period 필수
+     *   OVERRIDE_REJECTED  결정을 REJECTED 로 변경 — rejectReasonCd 필수
+     *
+     * revDecisionCd 는 override 시에만 갱신. approvedAt 은 최종 APPROVED 일 때만 채운다.
+     */
+    public void approverApprove(Long approverId,
+                                String approverDecisionCd,
+                                String overrideReasonCd,
+                                String overrideRemark,
+                                Long overrideAmount,
+                                Integer overrideRateBps,
+                                Integer overridePeriodMo,
+                                String overrideRejectReasonCd,
+                                OffsetDateTime decidedAt) {
+        this.revStatusCd = STATUS_COMPLETED;
+        this.approverId = approverId;
+        this.approvedDecisionCd = approverDecisionCd;
+        this.overrideReasonCd = overrideReasonCd;
+        this.overrideRemark = overrideRemark;
+
+        if (APPROVER_OVERRIDE_APPROVED.equals(approverDecisionCd)) {
+            this.revDecisionCd = DECISION_APPROVED;
+            this.approvedAmount = overrideAmount;
+            this.approvedRateBps = overrideRateBps;
+            this.approvedPeriodMo = overridePeriodMo;
+            this.rejectReasonCd = null;
+        } else if (APPROVER_OVERRIDE_REJECTED.equals(approverDecisionCd)) {
+            this.revDecisionCd = DECISION_REJECTED;
+            this.approvedAmount = null;
+            this.approvedRateBps = null;
+            this.approvedPeriodMo = null;
+            this.rejectReasonCd = overrideRejectReasonCd;
+        }
+        // APPROVE_AS_IS: revDecisionCd 그대로
+
+        this.approvedAt = DECISION_APPROVED.equals(this.revDecisionCd) ? decidedAt : null;
+    }
+
+    /**
+     * BIAS_REVIEWING 상태의 본심사가 기한 내 진행되지 않아 만료.
+     */
+    public void expireBiasReviewing() {
+        this.revStatusCd = STATUS_EXPIRED;
+    }
+
+    /**
+     * 자동 권고(PENDING_APPROVAL) 결과를 사람이 확정. revStatusCd → BIAS_REVIEWING,
+     * reviewerId/reviewedAt 갱신. 신청 상태 전이와 approvedAt 은 승인자 단계로 이동.
      */
     public void confirm(Long reviewerId, OffsetDateTime confirmedAt) {
-        this.revStatusCd = STATUS_COMPLETED;
+        this.revStatusCd = STATUS_BIAS_REVIEWING;
         this.reviewerId = reviewerId;
         this.reviewedAt = confirmedAt;
-        if (DECISION_APPROVED.equals(revDecisionCd) && approvedAt == null) {
-            this.approvedAt = confirmedAt;
-        }
     }
 
     /**
