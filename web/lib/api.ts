@@ -14,11 +14,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// 응답 인터셉터 — 401이면 로그인 페이지로
+// 응답 인터셉터 — 401이면 로그인 페이지로 (로그인 요청 자체는 제외)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isAuthLogin = err.config?.url?.includes('/auth/login')
+    if (err.response?.status === 401 && !isAuthLogin) {
       localStorage.removeItem("accessToken");
       window.location.href = "/login";
     }

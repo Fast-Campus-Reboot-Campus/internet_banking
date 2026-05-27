@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.IdSequenceMapper">
+
+    <select id="selectMaxPaymentInstructionId" resultType="java.lang.String">
+        SELECT MAX(payment_instruction_id) FROM payment_instruction
+    </select>
+
+    <select id="selectMaxLedgerId" resultType="java.lang.String">
+        SELECT MAX(ledger_id) FROM ledger
+    </select>
+
+    <select id="selectMaxJournalNo" resultType="java.lang.String">
+        SELECT MAX(journal_no) FROM ledger
+    </select>
+
+    <select id="selectMaxHistoryId" resultType="java.lang.String">
+        SELECT MAX(history_id) FROM status_history
+    </select>
+
+    <select id="selectMaxMessageId" resultType="java.lang.String">
+        SELECT MAX(message_id) FROM outbox_message
+    </select>
+
+    <select id="selectMaxCallId" resultType="java.lang.String">
+        SELECT MAX(call_id) FROM external_call
+    </select>
+
+    <select id="selectMaxClearingTransactionId" resultType="java.lang.String">
+        SELECT MAX(clearing_transaction_id) FROM kftc_clearing_transaction
+    </select>
+
+    <select id="selectMaxClearingNo" resultType="java.lang.String">
+        SELECT MAX(clearing_no) FROM kftc_clearing_transaction
+    </select>
+
+    <select id="selectMaxSettlementTransactionId" resultType="java.lang.String">
+        SELECT MAX(settlement_transaction_id) FROM bok_settlement_transaction
+    </select>
+
+    <select id="selectMaxBokReferenceNo" resultType="java.lang.String">
+        SELECT MAX(bok_reference_no) FROM bok_settlement_transaction
+    </select>
+
+</mapper>

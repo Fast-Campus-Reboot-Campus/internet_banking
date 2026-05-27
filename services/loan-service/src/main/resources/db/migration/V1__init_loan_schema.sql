@@ -1,25 +1,15 @@
 -- ============================================================
--- LON 여신계 도메인 스키마 초기화 (PostgreSQL 16)
--- 기반 문서: docs/loan_erd.md
---
--- 규칙
---   - 모든 *_cd 컬럼은 CODE_MASTER 의 코드 그룹을 참조하지만,
---     CODE_MASTER 는 master-service 가 소유하므로 본 스키마에서는 FK 미설정.
---   - status_history 는 분산 보관 정책 → 각 도메인 DB 가 자체 보유. 본 파일에 포함.
---   - 공통 감사 컬럼 7종 (등록계): created_at, created_by, updated_at, updated_by,
---     deleted_at, deleted_by, version
---   - 이력/스냅샷 (append-only) 테이블: created_at, created_by 만 보유
---   - 금액: BIGINT(원 단위) · 금리/비율: INT bps 또는 DECIMAL(5,4)
---   - 개인정보: BYTEA *_enc 암호화 + *_masked 마스킹 컬럼 병행
---
--- 적용 가이드
---   - Flyway 기준 V1__init_loan_schema.sql. 적용 후 JPA 는 ddl-auto=validate 권장.
+-- Loan domain schema (PostgreSQL 16)
+-- Notes:
+--   - CODE_MASTER owned by master-service → no FK
+--   - Status history stored per domain DB
+--   - Soft delete only
 -- ============================================================
 
 SET TIME ZONE 'Asia/Seoul';
 
 -- ============================================================
--- 0. 공통 (분산 보관: status_history)
+-- Common
 -- ============================================================
 
 CREATE TABLE status_history (
@@ -474,7 +464,8 @@ CREATE TABLE loan_contract (
     cntr_no                VARCHAR(30)   NOT NULL UNIQUE,
     contract_id            BIGINT,
     appl_id                BIGINT        NOT NULL REFERENCES loan_application(appl_id),
-    rev_id                 BIGINT        NOT NULL REFERENCES loan_review(rev_id),
+    rev_id                 BIGINT        REFERENCES loan_review(rev_id), -- nullable: 본심사 API 도입 전 임시
+
     customer_id            BIGINT        NOT NULL,
     prod_id                BIGINT        NOT NULL REFERENCES loan_product(prod_id),
     contracted_amount      BIGINT        NOT NULL,

@@ -31,8 +31,10 @@ public class LoanApplication extends BaseEntity {
     public static final String STATUS_REVIEWING   = "REVIEWING";
     public static final String STATUS_APPROVED    = "APPROVED";
     public static final String STATUS_REJECTED    = "REJECTED";
+    public static final String STATUS_CONTRACTED  = "CONTRACTED";
     public static final String STATUS_CANCELED    = "CANCELED";
     public static final String STATUS_WITHDRAWN   = "WITHDRAWN";
+    public static final String STATUS_EXPIRED     = "EXPIRED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -96,6 +98,44 @@ public class LoanApplication extends BaseEntity {
 
     public void cancel() {
         this.applStatusCd = STATUS_CANCELED;
+    }
+
+    /** 본심사 통과 후 호출. 추후 본심사 API 가 정식 구현되면 그곳에서 직접 호출. */
+    public void markApproved() {
+        this.applStatusCd = STATUS_APPROVED;
+    }
+
+    public boolean isPrescreenable() {
+        return STATUS_SUBMITTED.equals(applStatusCd);
+    }
+
+    /** 본심사 가능 상태. 가심사 PASS 후(PRESCREENED) 만 본심사 진행. */
+    public boolean isReviewable() {
+        return STATUS_PRESCREENED.equals(applStatusCd);
+    }
+
+    /** 가심사 PASS 시 호출. SUBMITTED → PRESCREENED. */
+    public void markPrescreened() {
+        this.applStatusCd = STATUS_PRESCREENED;
+    }
+
+    /** 가심사 REJECT / 본심사 거절 등 거절 시 호출. */
+    public void markRejected() {
+        this.applStatusCd = STATUS_REJECTED;
+    }
+
+    public boolean isApproved() {
+        return STATUS_APPROVED.equals(this.applStatusCd);
+    }
+
+    /** 약정 체결 시 LoanContractService 가 호출. */
+    public void markContracted() {
+        this.applStatusCd = STATUS_CONTRACTED;
+    }
+
+    /** 승인 후 유효기간 경과 시 일배치가 호출. APPROVED → EXPIRED. */
+    public void markExpired() {
+        this.applStatusCd = STATUS_EXPIRED;
     }
 
     public String currentStatus() {

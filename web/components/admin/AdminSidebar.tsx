@@ -49,6 +49,15 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    section: 'AI 감사', dot: 'bg-red-400',
+    roles: ['ROLE_HQ_AUDIT'],
+    items: [
+      { label: '감사 대시보드', href: '/admin/audit' },
+      { label: '격리 관리',     href: '/admin/audit/quarantine' },
+    ],
+  },
+  {
+
     section: '모니터링', dot: 'bg-kb-yellow',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_RISK'],
     items: [

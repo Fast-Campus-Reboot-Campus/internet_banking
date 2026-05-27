@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import HeroCarousel, { HERO_SLIDES } from './HeroCarousel'
 
@@ -105,12 +105,11 @@ export default function HeroWithQuickMenu() {
         <div className="relative z-10 max-w-kb-container mx-auto px-6">
           <div className="bg-white overflow-hidden flex">
             {QUICK_MENUS.map((menu, idx) => (
-              <>
+              <React.Fragment key={menu.href}>
                 {idx > 0 && (
-                  <div key={`sep-${idx}`} className="self-center h-12 w-px bg-[#E0E0E0] flex-shrink-0" />
+                  <div className="self-center h-12 w-px bg-[#E0E0E0] flex-shrink-0" />
                 )}
                 <Link
-                  key={menu.href}
                   href={menu.href}
                   className="flex-1 flex items-center gap-4 py-[38px] px-6"
                 >
@@ -122,7 +121,7 @@ export default function HeroWithQuickMenu() {
                     </p>
                   </div>
                 </Link>
-              </>
+              </React.Fragment>
             ))}
           </div>
         </div>

@@ -14,6 +14,15 @@ dependencies {
     // OpenAPI 어노테이션을 common 의 @Configuration 에서 참조하므로 compileOnly 로 노출
     compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 
+    // JWT 유틸(JwtProvider) 컴파일용. 런타임 구현체는 각 서비스가 제공
+    compileOnly 'io.jsonwebtoken:jjwt-api:0.12.5'
+
     compileOnly 'org.projectlombok:lombok:1.18.34'
     annotationProcessor 'org.projectlombok:lombok:1.18.34'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.3.5'
+    testImplementation 'org.springframework.boot:spring-boot-starter-web:3.3.5'
+    testImplementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    testRuntimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+    testRuntimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
 }
