@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -25,6 +26,10 @@ public class Account extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long accountId;
+
+    /** 낙관적 락 — 동시 잔액 변경 시 충돌 감지. */
+    @Version
+    private Long version;
 
     @Column(name = "account_number", length = 30, nullable = false, unique = true)
     private String accountNumber;
@@ -72,6 +77,7 @@ public class Account extends BaseEntity {
     @Builder.Default
     private String currency = "KRW";
 
+    /** BCrypt 해시 값 저장. 평문 비밀번호는 저장하지 않는다. */
     @Column(name = "account_password", length = 255, nullable = false)
     private String accountPassword;
 
@@ -128,6 +134,11 @@ public class Account extends BaseEntity {
         this.lastTransactionAt = OffsetDateTime.now();
     }
 
+    public void deposit(BigDecimal amount, Clock clock) {
+        this.balance = this.balance.add(amount);
+        this.lastTransactionAt = OffsetDateTime.now(clock);
+    }
+
     public void withdraw(BigDecimal amount) {
         if (this.balance.compareTo(amount) < 0) {
             throw new com.bank.deposit.exception.BusinessException(
@@ -135,6 +146,15 @@ public class Account extends BaseEntity {
         }
         this.balance = this.balance.subtract(amount);
         this.lastTransactionAt = OffsetDateTime.now();
+    }
+
+    public void withdraw(BigDecimal amount, Clock clock) {
+        if (this.balance.compareTo(amount) < 0) {
+            throw new com.bank.deposit.exception.BusinessException(
+                    com.bank.deposit.exception.ErrorCode.INSUFFICIENT_BALANCE);
+        }
+        this.balance = this.balance.subtract(amount);
+        this.lastTransactionAt = OffsetDateTime.now(clock);
     }
 
     public void addInterest(BigDecimal amount) {
@@ -145,21 +165,4 @@ public class Account extends BaseEntity {
     }
 
     public void addPaidAmount(BigDecimal amount) {
-        this.totalPaidAmount = this.totalPaidAmount.add(amount);
-    }
-
-    public void changeStatus(AccountStatus status, String statusChangedAt) {
-        this.accountStatus = status;
-        this.statusChangedAt = statusChangedAt;
-    }
-
-    public void updateAlias(String alias) {
-        this.accountAlias = alias;
-    }
-
-    public void updateLimits(BigDecimal dailyWithdrawLimit, Integer dailyWithdrawCountLimit, BigDecimal atmWithdrawLimit) {
-        this.dailyWithdrawLimit = dailyWithdrawLimit;
-        this.dailyWithdrawCountLimit = dailyWithdrawCountLimit;
-        this.atmWithdrawLimit = atmWithdrawLimit;
-    }
-}
+        this.totalPaidAmount = this.totalPaidAmount.add

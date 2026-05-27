@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.OutboxMessageMapper">
+
+    <select id="selectPending" resultType="com.bank.payment.domain.OutboxMessage">
+        SELECT *
+        FROM outbox_message
+        WHERE publish_status = 'PENDING'
+          AND available_at &lt;= NOW()
+        ORDER BY available_at ASC, message_id ASC
+        LIMIT 50
+    </select>
+
+    <update id="markSent" parameterType="string">
+        UPDATE outbox_message
+        SET publish_status   = 'SENT',
+            published_at     = NOW(),
+            attempt_count    = attempt_count + 1,
+            last_modified_at = NOW()
+        WHERE message_id = #{messageId}
+    </update>
+
+    <update id="markFailed">
+        <!-- available_at +5분: 의도적 미사용 — selectPending은 PENDING만 조회하므로 FAILED 레코드는 재선택 안 됨.
+             재시도는 F4 보상으로 대체되었으며 재시도 정책 자체는 별도 과제로 관리. -->
+        UPDATE outbox_message
+        SET publish_status   = 'FAILED',
+            last_error       = #{lastError},
+            attempt_count    = attempt_count + 1,
+            available_at     = NOW() + INTERVAL '5 minutes',
+            last_modified_at = NOW()
+        WHERE message_id = #{messageId}
+    </update>
+
+    <insert id="insert" parameterType="com.bank.payment.domain.OutboxMessage">
+        INSERT INTO outbox_message (
+            message_id,
+            payment_instruction_id,
+            event_type,
+            event_schema_version,
+            payload,
+            publish_status,
+            attempt_count,
+            available_at,
+            last_error,
+            published_at,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{messageId},
+            #{paymentInstructionId},
+            #{eventType},
+            #{eventSchemaVersion},
+            #{payload}::jsonb,
+            #{publishStatus},
+            #{attemptCount},
+            #{availableAt},
+            #{lastError},
+            #{publishedAt},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+</mapper>

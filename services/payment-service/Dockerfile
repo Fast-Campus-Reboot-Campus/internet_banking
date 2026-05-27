@@ -1,0 +1,35 @@
+# =============================================================================
+# Stage 1: Builder — Gradle 8.9 + JDK 17 (호스트 Gradle/JDK 불필요)
+# Build context: project root (../../)
+# =============================================================================
+FROM gradle:8.9-jdk17-alpine AS builder
+WORKDIR /workspace
+
+# 의존성 레이어 캐시 (build.gradle 변경 없으면 재사용)
+COPY build.gradle settings.gradle gradle.properties ./
+COPY common/build.gradle common/build.gradle
+COPY services/payment-service/build.gradle services/payment-service/build.gradle
+
+RUN gradle :services:payment-service:dependencies --no-daemon -q 2>/dev/null || true
+
+# 소스 복사 + bootJar 빌드
+COPY common/src common/src
+COPY services/payment-service/src services/payment-service/src
+
+RUN gradle :services:payment-service:bootJar --no-daemon -q
+
+# =============================================================================
+# Stage 2: Runtime — JRE 17 최소 이미지
+# =============================================================================
+FROM eclipse-temurin:17-jre-alpine AS runtime
+WORKDIR /app
+
+COPY --from=builder /workspace/services/payment-service/build/libs/*.jar app.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", \
+  "-XX:MaxRAMPercentage=75", \
+  "-XX:+UseG1GC", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "app.jar"]
