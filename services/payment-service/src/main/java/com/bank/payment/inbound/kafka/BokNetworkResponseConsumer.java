@@ -1,5 +1,6 @@
 package com.bank.payment.inbound.kafka;
 
+import com.bank.payment.config.PaymentMetrics;
 import com.bank.payment.domain.BokSettlementTransaction;
 import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.domain.service.PaymentOrchestrator;
@@ -26,6 +27,7 @@ public class BokNetworkResponseConsumer {
     private final ObjectMapper objectMapper;
     private final PaymentTransactionService txService;
     private final PaymentOrchestrator orchestrator;
+    private final PaymentMetrics metrics;
 
     @KafkaListener(
             topics = "bok.network.response",
@@ -70,11 +72,13 @@ public class BokNetworkResponseConsumer {
                     String settledAt      = payload.path("settledAt").asText();
                     String settlementDate = settledAt.length() >= 8 ? settledAt.substring(0, 8) : null;
                     txService.txSettlementBok(pi, bokReferenceNo, settledAt, settlementDate);
+                    metrics.paymentCompleted(pi.getRequestedAt());
                     log.info("[BOK] SETTLEMENT_COMPLETED 처리완료. piId={} CLEARING→COMPLETED", piId);
                 } else {
                     String rejectMessage = payload.path("rejectMessage").asText();
                     log.error("[BOK-F7] 정산실패 통보 수신 → 자동보상. bokReferenceNo={} responseCode={}",
                             bokReferenceNo, responseCode);
+                    metrics.compensation("F7_BOK");
                     orchestrator.processBokSettlementFailure(bokReferenceNo, responseCode, rejectMessage);
                 }
                 break;
@@ -100,6 +104,8 @@ public class BokNetworkResponseConsumer {
 
                 // 멱등가드는 orchestrator.processBokReject 내부 (FAILED skip / CLEARING|REVERSING 분기)
                 orchestrator.processBokReject(pi, bokReferenceNo, responseCode, rejectMessage, rejectedAt);
+                metrics.paymentFailed();
+                metrics.compensation("F3_BOK");
                 log.info("[BOK] SETTLEMENT_REJECT 처리완료. piId={} CLEARING→REVERSING→FAILED", piId);
                 break;
             }
@@ -110,6 +116,7 @@ public class BokNetworkResponseConsumer {
         log.info("BOK response received: key={} messageType={} partition={} offset={}",
                 record.key(), messageType, record.partition(), record.offset());
 
+        metrics.consumed("bok.network.response");
         // ★ DB COMMIT 후 ack. 예외 시 미호출 → DLQ 라우팅(BokKafkaConfig 3회 재시도)
         ack.acknowledge();
     }

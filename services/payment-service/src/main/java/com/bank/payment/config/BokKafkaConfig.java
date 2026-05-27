@@ -5,6 +5,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +28,9 @@ public class BokKafkaConfig {
 
     @Value("${payment.kafka.bok.consumer-group}")
     private String consumerGroup;
+
+    @Autowired
+    private PaymentMetrics paymentMetrics;
 
     @Bean
     public DefaultKafkaProducerFactory<String, String> bokProducerFactory() {
@@ -67,7 +71,15 @@ public class BokKafkaConfig {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 bokKafkaTemplate(),
                 (r, e) -> new TopicPartition("bok.network.response.dlq", 0)
-        );
+        ) {
+            @Override
+            public void accept(org.apache.kafka.clients.consumer.ConsumerRecord<?, ?> record,
+                               org.apache.kafka.clients.consumer.Consumer<?, ?> consumer,
+                               Exception exception) {
+                paymentMetrics.dlq("bok");
+                super.accept(record, consumer, exception);
+            }
+        };
         factory.setCommonErrorHandler(new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3)));
 
         return factory;

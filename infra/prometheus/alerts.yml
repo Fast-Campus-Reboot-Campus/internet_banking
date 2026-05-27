@@ -106,3 +106,79 @@ groups:
         annotations:
           summary: "DB 커넥션 풀 고갈: {{ $labels.application }}"
           description: "{{ $labels.application }} 대기 중인 커넥션이 {{ $value }}개 입니다."
+
+  - name: kafka-consumer-lag
+    interval: 30s
+    rules:
+      - alert: KafkaConsumerLagHigh
+        expr: |
+          sum(kafka_consumergroup_lag) by (consumergroup, topic) > 500
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka Consumer Lag 증가: {{ $labels.consumergroup }}"
+          description: "{{ $labels.consumergroup }} ({{ $labels.topic }}) lag={{ $value }}"
+
+      - alert: KafkaConsumerLagCritical
+        expr: |
+          sum(kafka_consumergroup_lag) by (consumergroup, topic) > 2000
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kafka Consumer Lag 위험: {{ $labels.consumergroup }}"
+          description: "{{ $labels.consumergroup }} ({{ $labels.topic }}) lag={{ $value }}"
+
+  - name: kafka-payment
+    interval: 30s
+    rules:
+      - alert: OutboxBacklogHigh
+        expr: |
+          payment_outbox_pending{application="payment-service"} > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outbox PENDING 적체"
+          description: "Outbox PENDING {{ $value }}건 — 발행 워커 지연 가능성"
+
+      - alert: OutboxBacklogCritical
+        expr: |
+          payment_outbox_pending{application="payment-service"} > 200
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outbox PENDING 위험 수준"
+          description: "Outbox PENDING {{ $value }}건 — 즉시 확인 필요"
+
+      - alert: KafkaDlqIncrease
+        expr: |
+          increase(payment_kafka_dlq_total{application="payment-service"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DLQ 유입 발생: {{ $labels.cluster }}"
+          description: "{{ $labels.cluster }} DLQ에 {{ $value }}건 유입"
+
+      - alert: CompensationRateHigh
+        expr: |
+          sum(increase(payment_compensation_total{application="payment-service"}[5m])) > 5
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "보상 트랜잭션 급증"
+          description: "5분간 보상 트랜잭션 {{ $value }}건 발생"
+
+      - alert: IncompletePaymentHigh
+        expr: |
+          payment_instruction_incomplete{application="payment-service"} > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "미완료 거래 과다"
+          description: "미완료 상태 거래 {{ $value }}건 — 타임아웃 또는 처리 지연 확인 필요"

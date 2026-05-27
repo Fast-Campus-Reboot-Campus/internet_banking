@@ -5,6 +5,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,6 +30,9 @@ public class KftcKafkaConfig {
 
     @Value("${payment.kafka.kftc.consumer-group}")
     private String consumerGroup;
+
+    @Autowired
+    private PaymentMetrics paymentMetrics;
 
     @Bean
     public DefaultKafkaProducerFactory<String, String> kftcProducerFactory() {
@@ -69,7 +73,15 @@ public class KftcKafkaConfig {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 kftcKafkaTemplate(),
                 (r, e) -> new TopicPartition("kftc.network.response.dlq", 0)
-        );
+        ) {
+            @Override
+            public void accept(org.apache.kafka.clients.consumer.ConsumerRecord<?, ?> record,
+                               org.apache.kafka.clients.consumer.Consumer<?, ?> consumer,
+                               Exception exception) {
+                paymentMetrics.dlq("kftc");
+                super.accept(record, consumer, exception);
+            }
+        };
         factory.setCommonErrorHandler(new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3)));
 
         return factory;

@@ -24,10 +24,12 @@ import com.bank.payment.outbound.feign.dto.LimitInquiryData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
+import com.bank.payment.config.PaymentMetrics;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -52,6 +54,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     private final DepositBalanceClient depositBalanceClient;
     private final IdGenerator idGenerator;
     private final ObjectMapper objectMapper;
+    private final PaymentMetrics metrics;
 
     @Value("${payment.bank-code:A}")
     private String bankCode;
@@ -61,12 +64,14 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             DepositAccountClient depositAccountClient,
             DepositBalanceClient depositBalanceClient,
             IdGenerator idGenerator,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            PaymentMetrics metrics) {
         this.txService = txService;
         this.depositAccountClient = depositAccountClient;
         this.depositBalanceClient = depositBalanceClient;
         this.idGenerator = idGenerator;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     @Override
@@ -84,8 +89,15 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             routingNetworkType = "KFTC";
         }
 
-        // TX-1: PI DRAFT INSERT — 실패 시 예외가 PaymentValidationException이 아니므로 try 밖
-        PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
+        // TX-1: PI DRAFT INSERT — 중복 멱등키는 메트릭 기록 후 DuplicateKeyException 재발생
+        PaymentInstruction pi;
+        try {
+            pi = txService.txStep1(command, isIntraBank, routingNetworkType);
+        } catch (DuplicateKeyException e) {
+            metrics.idempotencyDuplicate();
+            log.warn("[OUT] 중복 멱등키 감지: idempotencyKey={}", command.idempotencyKey());
+            throw e;
+        }
 
         if (isIntraBank) {
             return processIntraBank(pi, command);
