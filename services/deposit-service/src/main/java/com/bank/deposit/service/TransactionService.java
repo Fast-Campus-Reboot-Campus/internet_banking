@@ -12,10 +12,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -26,6 +28,7 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
+    private final Clock clock;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -46,7 +49,7 @@ public class TransactionService {
                                String transactionMemo, String depositorCustomerId, String depositorName) {
         Account account = getActiveAccount(accountId);
         BigDecimal before = account.getBalance();
-        account.deposit(amount);
+        account.deposit(amount, clock);
 
         return transactionRepository.save(Transaction.builder()
                 .transactionNumber(generateTxnNumber("DEP"))
@@ -58,8 +61,8 @@ public class TransactionService {
                 .balanceAfter(account.getBalance())
                 .availableBalanceAfter(account.getBalance())
                 .channelType(channelType != null ? channelType : TransactionChannel.INTERNET)
-                .transactionAt(OffsetDateTime.now())
-                .postedAt(OffsetDateTime.now())
+                .transactionAt(OffsetDateTime.now(clock))
+                .postedAt(OffsetDateTime.now(clock))
                 .transactionMemo(transactionMemo)
                 .depositorCustomerId(depositorCustomerId)
                 .depositorName(depositorName)
@@ -70,7 +73,7 @@ public class TransactionService {
     public Transaction withdraw(Long accountId, BigDecimal amount, TransactionChannel channelType, String transactionMemo) {
         Account account = getActiveAccount(accountId);
         BigDecimal before = account.getBalance();
-        account.withdraw(amount);
+        account.withdraw(amount, clock);
 
         return transactionRepository.save(Transaction.builder()
                 .transactionNumber(generateTxnNumber("WDR"))
@@ -82,12 +85,22 @@ public class TransactionService {
                 .balanceAfter(account.getBalance())
                 .availableBalanceAfter(account.getBalance())
                 .channelType(channelType != null ? channelType : TransactionChannel.INTERNET)
-                .transactionAt(OffsetDateTime.now())
-                .postedAt(OffsetDateTime.now())
+                .transactionAt(OffsetDateTime.now(clock))
+                .postedAt(OffsetDateTime.now(clock))
                 .transactionMemo(transactionMemo)
                 .build());
     }
 
+    /**
+     * 내부/외부 이체.
+     *
+     * <p>수정 사항:
+     * <ul>
+     *   <li>수신 계좌가 없으면 {@link ErrorCode#ACCOUNT_NOT_FOUND} 예외 — 돈 증발 방지</li>
+     *   <li>toAccountNo 가 toAccountId 의 accountNumber 와 일치하는지 검증</li>
+     *   <li>수신 측 transferType 을 요청 값 그대로 반영 (EXTERNAL → EXTERNAL)</li>
+     * </ul>
+     */
     @Transactional
     public Transaction transfer(Long fromAccountId, Long toAccountId, String toAccountNo,
                                 BigDecimal amount, TransferType transferType,
@@ -95,9 +108,11 @@ public class TransactionService {
                                 String counterpartyName, TransactionChannel channelType, String transactionMemo) {
         Account source = getActiveAccount(fromAccountId);
         BigDecimal before = source.getBalance();
-        source.withdraw(amount);
+        source.withdraw(amount, clock);
 
-        OffsetDateTime now = OffsetDateTime.now();
+        TransferType resolvedType = transferType != null ? transferType : TransferType.INTERNAL;
+        OffsetDateTime now = OffsetDateTime.now(clock);
+
         Transaction outTx = transactionRepository.save(Transaction.builder()
                 .transactionNumber(generateTxnNumber("TRF"))
                 .accountId(fromAccountId)
@@ -107,7 +122,7 @@ public class TransactionService {
                 .balanceBefore(before)
                 .balanceAfter(source.getBalance())
                 .availableBalanceAfter(source.getBalance())
-                .transferType(transferType != null ? transferType : TransferType.INTERNAL)
+                .transferType(resolvedType)
                 .counterpartyAccountId(toAccountId)
                 .counterpartyAccountNo(toAccountNo)
                 .counterpartyBankCode(counterpartyBankCode)
@@ -121,27 +136,35 @@ public class TransactionService {
                 .transactionMemo(transactionMemo)
                 .build());
 
+        // 내부 이체: 수신 계좌가 반드시 존재해야 한다 (없으면 잔액 증발 버그)
         if (toAccountId != null) {
-            accountRepository.findById(toAccountId).ifPresent(target -> {
-                BigDecimal targetBefore = target.getBalance();
-                target.deposit(amount);
-                transactionRepository.save(Transaction.builder()
-                        .transactionNumber(generateTxnNumber("TRF"))
-                        .accountId(toAccountId)
-                        .transactionType(TransactionType.TRANSFER)
-                        .directionType(DirectionType.IN)
-                        .amount(amount)
-                        .balanceBefore(targetBefore)
-                        .balanceAfter(target.getBalance())
-                        .availableBalanceAfter(target.getBalance())
-                        .transferType(TransferType.INTERNAL)
-                        .counterpartyAccountId(fromAccountId)
-                        .channelType(TransactionChannel.SYSTEM)
-                        .transactionAt(now)
-                        .postedAt(now)
-                        .transactionSummary("이체 수신")
-                        .build());
-            });
+            Account target = accountRepository.findById(toAccountId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+
+            // 계좌번호 일치 검증
+            if (toAccountNo != null && !toAccountNo.equals(target.getAccountNumber())) {
+                throw new BusinessException(ErrorCode.INVALID_STATUS,
+                        "계좌번호(" + toAccountNo + ")가 계좌 ID(" + toAccountId + ")와 일치하지 않습니다.");
+            }
+
+            BigDecimal targetBefore = target.getBalance();
+            target.deposit(amount, clock);
+            transactionRepository.save(Transaction.builder()
+                    .transactionNumber(generateTxnNumber("TRF"))
+                    .accountId(toAccountId)
+                    .transactionType(TransactionType.TRANSFER)
+                    .directionType(DirectionType.IN)
+                    .amount(amount)
+                    .balanceBefore(targetBefore)
+                    .balanceAfter(target.getBalance())
+                    .availableBalanceAfter(target.getBalance())
+                    .transferType(resolvedType)   // EXTERNAL 이체면 수신측도 EXTERNAL
+                    .counterpartyAccountId(fromAccountId)
+                    .channelType(TransactionChannel.SYSTEM)
+                    .transactionAt(now)
+                    .postedAt(now)
+                    .transactionSummary("이체 수신")
+                    .build());
         }
         return outTx;
     }
@@ -151,7 +174,7 @@ public class TransactionService {
                                       Integer paymentRound, TransactionChannel channelType) {
         Account account = getActiveAccount(accountId);
         BigDecimal before = account.getBalance();
-        account.deposit(amount);
+        account.deposit(amount, clock);
         account.addPaidAmount(amount);
 
         return transactionRepository.save(Transaction.builder()
@@ -166,8 +189,8 @@ public class TransactionService {
                 .availableBalanceAfter(account.getBalance())
                 .channelType(channelType != null ? channelType : TransactionChannel.SYSTEM)
                 .paymentRound(paymentRound)
-                .transactionAt(OffsetDateTime.now())
-                .postedAt(OffsetDateTime.now())
+                .transactionAt(OffsetDateTime.now(clock))
+                .postedAt(OffsetDateTime.now(clock))
                 .build());
     }
 
@@ -184,9 +207,9 @@ public class TransactionService {
                 ? DirectionType.OUT : DirectionType.IN;
 
         if (reverseDirection == DirectionType.OUT) {
-            account.withdraw(original.getAmount());
+            account.withdraw(original.getAmount(), clock);
         } else {
-            account.deposit(original.getAmount());
+            account.deposit(original.getAmount(), clock);
         }
 
         original.cancel();
@@ -203,8 +226,8 @@ public class TransactionService {
                 .availableBalanceAfter(account.getBalance())
                 .channelType(channelType != null ? channelType : TransactionChannel.SYSTEM)
                 .originalTransactionId(transactionId)
-                .transactionAt(OffsetDateTime.now())
-                .postedAt(OffsetDateTime.now())
+                .transactionAt(OffsetDateTime.now(clock))
+                .postedAt(OffsetDateTime.now(clock))
                 .transactionSummary("거래 취소")
                 .build());
     }
@@ -219,6 +242,7 @@ public class TransactionService {
     }
 
     private String generateTxnNumber(String prefix) {
-        return prefix + "-" + LocalDate.now().format(DATE_FMT) + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        return prefix + "-" + LocalDate.now(clock).format(DATE_FMT) + "-"
+                + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 }

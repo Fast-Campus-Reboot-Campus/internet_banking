@@ -6,6 +6,7 @@ import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.exception.ErrorCode;
 import com.bank.deposit.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ public class ContractService {
     private final ProductRepository productRepository;
     private final ContractAppliedRateRepository appliedRateRepository;
     private final ContractSpecialTermAgreementRepository agreementRepository;
+    private final PasswordEncoder passwordEncoder;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -101,6 +103,7 @@ public class ContractService {
                 .autoTransferDay(autoTransferDay)
                 .build());
 
+        // 비밀번호 BCrypt 해시 처리 — 평문 저장 금지
         accountRepository.save(Account.builder()
                 .accountNumber(accountNumber)
                 .customerId(customerId)
@@ -109,7 +112,7 @@ public class ContractService {
                 .savingType(savingType)
                 .openedAt(today)
                 .maturityAt(maturityAt)
-                .accountPassword(accountPassword)
+                .accountPassword(passwordEncoder.encode(accountPassword))
                 .build());
 
         return contract;

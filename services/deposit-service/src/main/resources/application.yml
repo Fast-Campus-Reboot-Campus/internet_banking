@@ -29,11 +29,7 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: false
-
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+    out-of-order: false   # V3·V4 갭 명시적 차단 — 순서 역전 마이그레이션 방지
 
 management:
   endpoints:
@@ -43,8 +39,27 @@ management:
   endpoint:
     health:
       show-details: always
+  metrics:
+    distribution:
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
+
+# ---- OpenAPI / Swagger UI ----
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+  packages-to-scan: com.bank.deposit
+  default-produces-media-type: application/json
 
 logging:
   level:
-    com.bank.deposit: DEBUG
+    root: INFO
     org.springframework.web: INFO

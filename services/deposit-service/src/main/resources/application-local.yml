@@ -1,19 +1,12 @@
+# 로컬 개발 환경 전용 설정 — prod 배포 시 이 파일은 적용되지 않는다.
 spring:
   datasource:
-    url: jdbc:h2:mem:deposit_local;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: jdbc:postgresql://localhost:5433/deposit_db
+    username: deposit
+    password: deposit
 
-  flyway:
-    enabled: false
-
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
-
-server:
-  port: 8082
+logging:
+  level:
+    com.bank.deposit: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
