@@ -131,6 +131,17 @@ function SectionHeader({ dotColor, label, count, balance, open, onToggle, showOr
   )
 }
 
+function normalizeAccountType(account: Account): Account['type'] {
+  if (['입출금', '적금', '예금', '청약'].includes(account.type)) {
+    return account.type
+  }
+
+  if (account.name.includes('청약')) return '청약'
+  if (account.name.includes('적금')) return '적금'
+  if (account.name.includes('통장')) return '입출금'
+  return '예금'
+}
+
 export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState('예금')
   const [balanceVisible, setBalanceVisible] = useState(true)
@@ -157,20 +168,30 @@ export default function AccountsPage() {
     } catch {}
     try {
       const raw = localStorage.getItem('joinedAccounts')
-      if (raw) setJoinedAccounts(JSON.parse(raw) as Account[])
+      if (raw) {
+        const parsed = (JSON.parse(raw) as Account[]).map(account => ({
+          ...account,
+          type: normalizeAccountType(account),
+        }))
+        setJoinedAccounts(parsed)
+        localStorage.setItem('joinedAccounts', JSON.stringify(parsed))
+      }
     } catch {}
   }, [])
 
   const now = new Date()
   const datetime = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
 
-  const allAccounts        = [...MOCK_ACCOUNTS, ...joinedAccounts]
+  const allAccounts        = [...MOCK_ACCOUNTS, ...joinedAccounts].map(account => ({
+    ...account,
+    type: normalizeAccountType(account),
+  }))
   const checkingAccounts  = allAccounts.filter(a => a.type === '입출금')
   const savingsAccounts   = allAccounts.filter(a => a.type === '적금')
-  const depositTabAccounts = allAccounts.filter(a => ['입출금', '적금', '예금'].includes(a.type))
+  const depositTabAccounts = allAccounts.filter(a => ['입출금', '적금', '예금', '청약'].includes(a.type))
   const depositTabBalance  = depositTabAccounts.reduce((s, a) => s + a.balance, 0)
   const depositTabCount    = depositTabAccounts.length
-  const totalBalance      = allAccounts.filter(a => ['입출금', '적금', '예금'].includes(a.type)).reduce((s, a) => s + a.balance, 0)
+  const totalBalance      = depositTabAccounts.reduce((s, a) => s + a.balance, 0)
 
   const bal = (n: number) => balanceVisible ? formatNumber(n) : '●●●●●●●'
 
@@ -469,7 +490,7 @@ export default function AccountsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {allAccounts.filter(a => ['입출금', '적금', '예금'].includes(a.type)).map((acc) => (
+                      {depositTabAccounts.map((acc) => (
                         <tr key={acc.id} className="border-b last:border-b-0 border-kb-border hover:bg-kb-beige-light">
                           <td className="px-4 py-3 text-[13px] text-center border-r border-kb-border">
                             <Link href="/inquiry/transactions" className="text-kb-blue hover:underline">{acc.number}</Link>
