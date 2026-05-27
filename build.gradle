@@ -1,4 +1,4 @@
-아래 내용으로 전체 교체하면 됩니다.
+`implementation 'org.springframework.kafka:spring-kafka'`가 이미 위에 있으니, conflict 부분은 삭제하면 됩니다. 아래 내용으로 전체 교체하세요.
 
 ```gradle
 plugins {
