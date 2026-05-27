@@ -7,7 +7,10 @@ sourceSets {
             srcDirs += ['../advisory-service/src/main/java']
         }
         resources {
-            srcDirs += ['../advisory-service/src/main/resources']
+            srcDirs += [
+                '../advisory-service/src/main/resources',
+                '../advisory-service/src/main/avro'   // Avro 스키마 파일 classpath 포함
+            ]
         }
     }
     test {
@@ -15,4 +18,14 @@ sourceSets {
             srcDirs += ['../advisory-service/src/test/java']
         }
     }
+}
+
+// L3 Avro + Schema Registry 의존성
+repositories {
+    maven { url 'https://packages.confluent.io/maven/' }
+}
+
+dependencies {
+    implementation 'org.apache.avro:avro:1.11.3'
+    implementation 'io.confluent:kafka-avro-serializer:7.6.1'
 }

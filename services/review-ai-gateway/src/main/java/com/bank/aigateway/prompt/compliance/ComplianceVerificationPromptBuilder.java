@@ -2,48 +2,44 @@ package com.bank.aigateway.prompt.compliance;
 
 import com.bank.aigateway.audit.dto.AuditAnalysisRequest;
 import com.bank.aigateway.prompt.PromptRenderer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
 public class ComplianceVerificationPromptBuilder {
 
-    private static final String SYSTEM = """
-            당신은 금융기관의 여신 규정 준수 여부를 검증하는 감사 전문가입니다.
-            DSR/LTV 한도 초과, 예외 처리 남용, 내부 규정 우회 패턴을 탐지합니다.
-            분석 결과는 반드시 아래 JSON 형식으로만 응답하십시오. 다른 텍스트를 포함하지 마십시오.
-            {
-              "conclusion": "VIOLATION_SUSPECTED | COMPLIANT | INSUFFICIENT_DATA",
-              "reasoningSummary": "한국어로 된 200자 이내 감사 의견",
-              "confidenceScore": 0.0 ~ 1.0
-            }
-            """;
+    private final String system;
+    private final String userTemplate;
 
-    private static final String USER_TEMPLATE = """
-            [심사 건 정보]
-            심사 ID: {{revId}}
-            심사관 ID: {{reviewerId}}
+    public ComplianceVerificationPromptBuilder(
+            @Value("${prompt.compliance.system-resource:classpath:prompts/compliance/system.txt}") Resource systemResource,
+            @Value("${prompt.compliance.user-resource:classpath:prompts/compliance/user.txt}") Resource userResource) {
+        try {
+            this.system       = systemResource.getContentAsString(StandardCharsets.UTF_8);
+            this.userTemplate = userResource.getContentAsString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("규정 준수 프롬프트 파일 로드 실패", e);
+        }
+    }
 
-            [탐지된 규정 위반 신호]
-            {{signals}}
-
-            [심사관 의견서]
-            {{reviewOpinion}}
-
-            [여신 규정집 관련 조항]
-            {{ragChunks}}
-
-            위 규정 조항과 심사 내용을 비교하여 규정 우회 또는 위반 여부를 판단하십시오.
-            """;
+    public ComplianceVerificationPromptBuilder(String system, String userTemplate) {
+        this.system       = system;
+        this.userTemplate = userTemplate;
+    }
 
     public String buildSystem() {
-        return SYSTEM;
+        return system;
     }
 
     public String buildUser(AuditAnalysisRequest req) {
-        return PromptRenderer.render(USER_TEMPLATE, Map.of(
+        return PromptRenderer.render(userTemplate, Map.of(
                 "revId",         String.valueOf(req.revId()),
                 "reviewerId",    String.valueOf(req.reviewerId()),
                 "signals",       formatSignals(req),

@@ -83,6 +83,34 @@ springdoc:
 
 # ---- Advisory / AI Gateway ----
 advisory:
+  consumer:
+    # L7 실험: 값 변경 후 재기동만으로 효과 측정 가능
+    fetch-min-bytes: 1            # 실험: 10240으로 올리면 처리량↑ 지연↑
+    fetch-max-wait-ms: 500
+    fetch-max-bytes: 52428800
+    max-partition-fetch-bytes: 1048576
+    max-poll-records: 500         # 실험: 5000으로 올리면 max.poll.interval.ms 초과 위험
+    max-poll-interval-ms: 300000
+    session-timeout-ms: 45000
+    heartbeat-interval-ms: 15000
+    request-timeout-ms: 30000
+    default-api-timeout-ms: 60000
+    experiment-delay-ms: 0        # 실험: 양수 설정 시 처리 지연 시뮬레이션 (rebalance 유발)
+  producer:
+    use-skew-aware-partitioner: false  # L4 실험: true로 바꾸고 재기동 → hot-key 분산 효과 비교
+  kafka:
+    use-avro: false                    # L3 실험: true로 바꾸고 재기동 → Avro 직렬화로 전환
+    schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+    dlq-backoff-interval-ms: 1000
+    dlq-max-attempts: 3
+    # L8 실험: 아래 값 변경 후 재기동으로 전략 비교
+    assignment-strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+    # 실험: Range / RoundRobin 비교
+    #   org.apache.kafka.clients.consumer.RangeAssignor
+    #   org.apache.kafka.clients.consumer.RoundRobinAssignor
+    #   org.apache.kafka.clients.consumer.StickyAssignor
+    group-instance-id: ${ADVISORY_CONSUMER_INSTANCE_ID:}  # 비어있으면 동적 멤버십
+    client-rack: ${ADVISORY_CLIENT_RACK:}                 # 비어있으면 rack awareness 미적용
   ai-gateway:
     base-url: ${AIGATEWAY_BASE_URL:http://localhost:8088}
     timeout-ms: ${AIGATEWAY_TIMEOUT_MS:35000}
