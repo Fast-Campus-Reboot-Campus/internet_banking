@@ -33,13 +33,13 @@ class LoanReviewTransitionTest {
     // ------------------------------------------------------------------ confirm
 
     @Test
-    @DisplayName("confirm — PENDING_APPROVAL → BIAS_REVIEWING, reviewerId 기록, approvedAt 미기록")
+    @DisplayName("confirm — PENDING_APPROVAL → REVIEWER_DECIDED, reviewerId 기록, approvedAt 미기록")
     void confirm_전이() {
         LoanReview review = pendingApprovalApproved();
 
         review.confirm(201L, NOW);
 
-        assertThat(review.getRevStatusCd()).isEqualTo(LoanReview.STATUS_BIAS_REVIEWING);
+        assertThat(review.getRevStatusCd()).isEqualTo(LoanReview.STATUS_REVIEWER_DECIDED);
         assertThat(review.getReviewerId()).isEqualTo(201L);
         assertThat(review.getReviewedAt()).isEqualTo(NOW);
         assertThat(review.getApprovedAt()).isNull();

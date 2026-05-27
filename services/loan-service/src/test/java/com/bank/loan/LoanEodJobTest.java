@@ -384,7 +384,7 @@ class LoanEodJobTest extends AbstractLoanIntegrationTest {
     private void activateProduct(Long prodId) throws Exception {
         mockMvc.perform(patch("/api/loan-products/{prodId}", prodId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""{ "prodStatusCd":"ACTIVE" }"""))
+                        .content("{\"prodStatusCd\":\"ACTIVE\"}"))
                 .andExpect(status().isOk());
     }
 
