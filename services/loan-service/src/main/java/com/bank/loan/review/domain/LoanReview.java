@@ -220,6 +220,10 @@ public class LoanReview extends BaseEntity {
         this.approvedAt = DECISION_APPROVED.equals(this.revDecisionCd) ? decidedAt : null;
     }
 
+    public void markCompleted() {
+        this.revStatusCd = STATUS_COMPLETED;
+    }
+
     /**
      * BIAS_REVIEWING 상태의 본심사가 기한 내 진행되지 않아 만료.
      */

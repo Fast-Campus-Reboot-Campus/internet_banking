@@ -34,6 +34,12 @@ public class LoanApplicationController {
 
     private final LoanApplicationService service;
 
+    @Operation(summary = "대출 신청 단건 조회")
+    @GetMapping("/{applId}")
+    public ApiResponse<LoanApplicationResponse> get(@PathVariable Long applId) {
+        return ApiResponse.ok(service.get(applId));
+    }
+
     @Operation(summary = "고객 대출 신청 목록 조회", description = "customerId 기준 신청 이력을 최신순으로 반환.")
     @GetMapping
     public ApiResponse<Map<String, Object>> list(@RequestParam Long customerId) {

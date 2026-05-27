@@ -25,6 +25,7 @@ import com.bank.loan.support.LoanErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +69,9 @@ public class LoanReviewAutoDecideService {
     private final CurrentActorProvider currentActor;
     private final NotificationOutboxAppender outboxAppender;
     private final ObjectMapper objectMapper;
+
+    @Value("${loan.review.bias-check.enabled:true}")
+    private boolean biasCheckEnabled;
 
     @Transactional(readOnly = true)
     public List<LoanReviewResponse> listPending() {
@@ -199,15 +203,22 @@ public class LoanReviewAutoDecideService {
                 actorId
         ));
 
-        // 편향 검증 단계 진입
-        review.markBiasReviewing();
-        statusHistoryPublisher.publish(StatusChangeEvent.of(
-                DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
-                LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
-                REASON_BIAS_CHECK_TRIGGERED, null, actorId
-        ));
-
-        enqueueBiasCheck(review, application);
+        if (biasCheckEnabled) {
+            review.markBiasReviewing();
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
+                    LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
+                    REASON_BIAS_CHECK_TRIGGERED, null, actorId
+            ));
+            enqueueBiasCheck(review, application);
+        } else {
+            review.markCompleted();
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
+                    LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_COMPLETED,
+                    REASON_REVIEW_CONFIRMED, null, actorId
+            ));
+        }
         String applBefore = application.currentStatus();
         if (approved) {
             application.markApproved();

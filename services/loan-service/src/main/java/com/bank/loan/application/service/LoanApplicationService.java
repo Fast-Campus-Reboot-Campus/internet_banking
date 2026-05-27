@@ -112,6 +112,13 @@ public class LoanApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public LoanApplicationResponse get(Long applId) {
+        return repository.findByApplIdAndDeletedAtIsNull(applId)
+                .map(LoanApplicationResponse::of)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+    }
+
+    @Transactional(readOnly = true)
     public List<LoanApplicationResponse> list(Long customerId) {
         return repository.findByCustomerIdAndDeletedAtIsNullOrderByApplIdDesc(customerId)
                 .stream()
