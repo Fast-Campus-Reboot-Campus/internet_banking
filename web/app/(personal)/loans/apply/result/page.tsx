@@ -2,28 +2,53 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { api } from '@/lib/api'
+import { bpsToRate } from '@/lib/loan-api'
+
+const STATUS_LABEL: Record<string, string> = {
+  SUBMITTED: '접수완료', PRESCREENED: '가심사완료', REVIEWING: '심사중',
+  APPROVED: '승인', REJECTED: '거절', CANCELLED: '취소', EXPIRED: '만료',
+}
 
 function LoanResultContent() {
   const searchParams = useSearchParams()
-  const product = searchParams.get('product') ?? 'AXful 대출'
-  const rate = searchParams.get('rate') ?? '연 5.0%'
-  const amount = parseInt(searchParams.get('amount') ?? '0', 10)
-  const period = parseInt(searchParams.get('period') ?? '12', 10)
+  const applId  = searchParams.get('applId')
+  const amount  = parseInt(searchParams.get('amount') ?? '0', 10)
+  const period  = parseInt(searchParams.get('period') ?? '12', 10)
   const purpose = searchParams.get('purpose') ?? '-'
 
-  const monthlyRate = 0.055 / 12
-  const monthly =
-    amount > 0
-      ? Math.round((amount * monthlyRate * Math.pow(1 + monthlyRate, period)) /
-          (Math.pow(1 + monthlyRate, period) - 1))
-      : 0
+  const [journey, setJourney]   = useState<any>(null)
+  const [loading, setLoading]   = useState(!!applId)
+  const [error,   setError]     = useState('')
 
-  const isApproved = amount <= 30_000_000
+  useEffect(() => {
+    if (!applId) return
+    api.get(`/api/loan-applications/${applId}/journey`)
+      .then(({ data: res }) => setJourney(res.data))
+      .catch(() => setError('신청 정보를 불러오지 못했습니다.'))
+      .finally(() => setLoading(false))
+  }, [applId])
+
+  if (loading) return <div className="py-20 text-center text-kb-text-muted">처리 중...</div>
+  if (error)   return <div className="py-20 text-center text-kb-red">{error}</div>
+
+  const application = journey?.application
+  const statusCd    = application?.applStatusCd ?? ''
+  const isApproved  = statusCd === 'APPROVED'
+  const isRejected  = statusCd === 'REJECTED'
+  const prodId      = application?.prodId
+
+  const displayAmount  = application?.requestedAmount ?? amount
+  const displayPeriod  = application?.requestedPeriodMo ?? period
+  const monthlyRate    = 0.055 / 12
+  const monthly = displayAmount > 0
+    ? Math.round((displayAmount * monthlyRate * Math.pow(1 + monthlyRate, displayPeriod)) /
+        (Math.pow(1 + monthlyRate, displayPeriod) - 1))
+    : 0
 
   return (
     <div className="max-w-kb-container mx-auto px-6 py-4 pb-16">
-      {/* 브레드크럼 */}
       <div className="flex justify-end mb-4 text-[12px] text-kb-text-muted gap-1">
         <span>개인뱅킹</span><span>&gt;</span>
         <span>대출</span><span>&gt;</span>
@@ -34,12 +59,11 @@ function LoanResultContent() {
 
       <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-text">대출 신청 결과</h1>
 
-      {/* 결과 배너 */}
+      {/* 상태 배너 */}
       <div className={`p-8 mb-6 text-center border rounded-xl ${
-        isApproved
-          ? 'border-kb-taupe bg-kb-yellow/10'
-          : 'border-gray-300 bg-gray-50'
-      }`}>
+        isApproved ? 'border-kb-text bg-kb-yellow/10'
+        : isRejected ? 'border-red-300 bg-red-50'
+        : 'border-kb-border bg-kb-beige-light'}`}>
         {isApproved ? (
           <>
             <div className="w-16 h-16 rounded-full bg-kb-yellow flex items-center justify-center mx-auto mb-3">
@@ -48,80 +72,135 @@ function LoanResultContent() {
               </svg>
             </div>
             <p className="text-[20px] font-bold text-kb-text mb-1">대출 승인</p>
-            <p className="text-[14px] text-kb-text-muted">대출 신청이 승인되었습니다. 아래 내용을 확인해 주세요.</p>
+            <p className="text-[14px] text-kb-text-muted">대출 신청이 승인되었습니다.</p>
           </>
-        ) : (
+        ) : isRejected ? (
           <>
-            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
+            <div className="w-16 h-16 rounded-full bg-red-200 flex items-center justify-center mx-auto mb-3">
               <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
                 <path d="M12 12l16 16M28 12L12 28" stroke="#888" strokeWidth="3" strokeLinecap="round" />
               </svg>
             </div>
-            <p className="text-[20px] font-bold text-kb-text mb-1">대출 한도 초과</p>
-            <p className="text-[14px] text-kb-text-muted">신청 금액이 승인 한도를 초과하였습니다. 금액을 조정하여 다시 신청해 주세요.</p>
+            <p className="text-[20px] font-bold text-kb-text mb-1">대출 거절</p>
+            <p className="text-[14px] text-kb-text-muted">심사 결과 대출이 거절되었습니다.</p>
+          </>
+        ) : (
+          <>
+            <div className="w-16 h-16 rounded-full bg-kb-yellow/50 flex items-center justify-center mx-auto mb-3">
+              <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
+                <circle cx="20" cy="20" r="14" stroke="#333" strokeWidth="2.5"/>
+                <path d="M20 13v9l5 3" stroke="#333" strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <p className="text-[20px] font-bold text-kb-text mb-1">
+              {statusCd ? STATUS_LABEL[statusCd] ?? statusCd : '신청 접수완료'}
+            </p>
+            <p className="text-[14px] text-kb-text-muted">신청이 접수되었습니다. 심사 결과를 기다려 주세요.</p>
           </>
         )}
       </div>
 
-      {isApproved && (
-        <>
-          {/* 대출 상세 */}
-          <section className="mb-6">
-            <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">대출 상세 내용</h2>
-            <table className="w-full border-collapse text-[13px]">
-              <tbody>
-                <tr>
-                  <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">대출 상품명</td>
-                  <td className="border border-kb-border px-4 py-3 text-kb-text-body">{product}</td>
-                  <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[120px]">대출 목적</td>
-                  <td className="border border-kb-border px-4 py-3 text-kb-text-body">{purpose}</td>
-                </tr>
-                <tr>
-                  <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">대출 금액</td>
-                  <td className="border border-kb-border px-4 py-3 font-bold text-kb-text text-[15px]">
-                    {amount.toLocaleString('ko-KR')}원
-                  </td>
-                  <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">대출 기간</td>
-                  <td className="border border-kb-border px-4 py-3 text-kb-text-body">{period}개월</td>
-                </tr>
-                <tr>
-                  <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">적용 금리</td>
-                  <td className="border border-kb-border px-4 py-3 text-kb-blue font-bold">{rate}</td>
-                  <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">월 납부액(예상)</td>
-                  <td className="border border-kb-border px-4 py-3 font-bold text-kb-text">
-                    {monthly > 0 ? `${monthly.toLocaleString('ko-KR')}원` : '-'}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
+      {/* 신청 상세 */}
+      <section className="mb-6">
+        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">신청 상세 내용</h2>
+        <table className="w-full border-collapse text-[13px]">
+          <tbody>
+            {applId && (
+              <tr>
+                <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">신청번호</td>
+                <td className="border border-kb-border px-4 py-3 text-kb-text-body">{application?.applNo ?? applId}</td>
+                <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[120px]">진행상태</td>
+                <td className="border border-kb-border px-4 py-3 font-bold text-kb-text">{STATUS_LABEL[statusCd] ?? statusCd}</td>
+              </tr>
+            )}
+            <tr>
+              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">신청 금액</td>
+              <td className="border border-kb-border px-4 py-3 font-bold text-kb-text text-[15px]">{displayAmount.toLocaleString('ko-KR')}원</td>
+              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">대출 기간</td>
+              <td className="border border-kb-border px-4 py-3 text-kb-text-body">{displayPeriod}개월</td>
+            </tr>
+            <tr>
+              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">대출 목적</td>
+              <td className="border border-kb-border px-4 py-3 text-kb-text-body">{purpose}</td>
+              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">월 납부액(예상)</td>
+              <td className="border border-kb-border px-4 py-3 font-bold text-kb-text">{monthly > 0 ? `${monthly.toLocaleString('ko-KR')}원` : '-'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-          {/* 안내 */}
-          <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 space-y-1">
-            <p className="text-[13px] text-kb-text-body leading-relaxed">· 실제 대출 실행은 영업점 방문 또는 전화 확인 후 진행됩니다.</p>
-            <p className="text-[13px] text-kb-text-body leading-relaxed">· 승인 결과는 7일간 유효하며, 이후에는 재신청이 필요합니다.</p>
-            <p className="text-[13px] text-kb-text-body leading-relaxed">· 실제 금리는 심사 결과에 따라 달라질 수 있습니다.</p>
+      {/* 심사 단계별 결과 */}
+      {journey && (journey.prescreening || journey.creditEvaluation || journey.dsr) && (
+        <section className="mb-6">
+          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">심사 진행 현황</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {journey.prescreening && (
+              <div className={`border rounded-xl p-5 ${journey.prescreening.resultCd === 'PASS' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                <p className="text-[12px] text-kb-text-muted font-medium mb-2">1단계 · 가심사</p>
+                <p className={`text-[16px] font-bold mb-2 ${journey.prescreening.resultCd === 'PASS' ? 'text-green-700' : 'text-red-700'}`}>
+                  {journey.prescreening.resultCd === 'PASS' ? '통과' : '미통과'}
+                </p>
+                {journey.prescreening.maxAmount > 0 && (
+                  <p className="text-[12px] text-kb-text-body">한도 {journey.prescreening.maxAmount.toLocaleString('ko-KR')}원</p>
+                )}
+                {journey.prescreening.rateBps > 0 && (
+                  <p className="text-[12px] text-kb-text-body">예상금리 연 {bpsToRate(journey.prescreening.rateBps)}%</p>
+                )}
+              </div>
+            )}
+            {journey.creditEvaluation && (
+              <div className={`border rounded-xl p-5 ${journey.creditEvaluation.resultCd === 'PASS' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                <p className="text-[12px] text-kb-text-muted font-medium mb-2">2단계 · 신용평가</p>
+                <p className={`text-[16px] font-bold mb-2 ${journey.creditEvaluation.resultCd === 'PASS' ? 'text-green-700' : 'text-red-700'}`}>
+                  {journey.creditEvaluation.resultCd === 'PASS' ? '통과' : '미통과'}
+                </p>
+                {journey.creditEvaluation.creditScore > 0 && (
+                  <p className="text-[12px] text-kb-text-body">신용점수 {journey.creditEvaluation.creditScore}점</p>
+                )}
+                {journey.creditEvaluation.rateBps > 0 && (
+                  <p className="text-[12px] text-kb-text-body">적용금리 연 {bpsToRate(journey.creditEvaluation.rateBps)}%</p>
+                )}
+              </div>
+            )}
+            {journey.dsr && (
+              <div className={`border rounded-xl p-5 ${journey.dsr.resultCd === 'PASS' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                <p className="text-[12px] text-kb-text-muted font-medium mb-2">3단계 · DSR 산정</p>
+                <p className={`text-[16px] font-bold mb-2 ${journey.dsr.resultCd === 'PASS' ? 'text-green-700' : 'text-red-700'}`}>
+                  {journey.dsr.resultCd === 'PASS' ? '통과' : '미통과'}
+                </p>
+                {journey.dsr.dsrRatio > 0 && (
+                  <p className="text-[12px] text-kb-text-body">DSR {(journey.dsr.dsrRatio * 100).toFixed(1)}%</p>
+                )}
+              </div>
+            )}
           </div>
-        </>
+        </section>
       )}
 
-      {/* 버튼 */}
-      <div className="flex justify-center gap-3">
-        <Link
-          href="/loans/apply"
-          className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors"
-        >
-          {isApproved ? '다시 신청' : '금액 조정 후 재신청'}
+      <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 space-y-1">
+        <p className="text-[13px] text-kb-text-body leading-relaxed">· 실제 대출 실행은 영업점 방문 또는 전화 확인 후 진행됩니다.</p>
+        <p className="text-[13px] text-kb-text-body leading-relaxed">· 승인 결과는 7일간 유효하며, 이후에는 재신청이 필요합니다.</p>
+      </div>
+
+      <div className="flex justify-center gap-3 flex-wrap">
+        <Link href="/loans/apply"
+          className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+          다시 신청
         </Link>
-        {isApproved && (
-          <button className="px-10 py-3 bg-kb-yellow text-[14px] font-bold text-kb-text hover:brightness-95 transition-all">
-            대출 실행하기
-          </button>
+        {prodId && (
+          <Link href={`/products/loan/credit/${prodId}`}
+            className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+            상품 상세
+          </Link>
         )}
-        <Link
-          href="/dashboard"
-          className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors"
-        >
+        {applId && !isRejected && (
+          <Link href={`/loans/apply/${applId}/documents`}
+            className="px-10 py-3 border border-kb-text text-[14px] font-medium text-kb-text hover:bg-kb-beige-light transition-colors">
+            서류 제출
+          </Link>
+        )}
+        <Link href="/dashboard"
+          className="px-10 py-3 bg-kb-yellow text-[14px] font-bold text-kb-text hover:brightness-95 transition-all">
           홈으로
         </Link>
       </div>
