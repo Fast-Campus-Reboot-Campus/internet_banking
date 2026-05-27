@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import bindparam, text
@@ -136,15 +137,17 @@ class FeatureExecutorBase:
         total_balance = sum(float(a.get("balance") or 0) for a in accounts)
         account_ids = tuple(a["account_id"] for a in accounts)
 
+        # 날짜 컷오프를 Python에서 계산 → SQLite·PostgreSQL 모두 호환
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30 * months)).strftime("%Y-%m-%d")
         tx_rows = self._rows(
             """
             SELECT transaction_type, amount
               FROM deposit_transactions
              WHERE account_id IN :account_ids
                AND transaction_status = 'COMPLETED'
-               AND created_at >= NOW() - (INTERVAL '1 month' * :months)
+               AND created_at >= :cutoff
             """,
-            {"account_ids": account_ids, "months": months},
+            {"account_ids": account_ids, "cutoff": cutoff},
             expanding_params=("account_ids",),
         )
 
