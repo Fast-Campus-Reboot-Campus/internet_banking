@@ -3,6 +3,7 @@ package com.bank.customer.login;
 import com.bank.common.web.ApiResponse;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
+import com.bank.customer.login.dto.RefreshRequest;
 import com.bank.customer.login.service.LoginService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,12 @@ public class LoginController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request) {
-        LoginResponse response = loginService.login(request);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ResponseEntity.ok(ApiResponse.ok(loginService.login(request)));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
+            @Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(loginService.refresh(request)));
     }
 }

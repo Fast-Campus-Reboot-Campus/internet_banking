@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.PaymentInstructionMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.PaymentInstruction">
+        INSERT INTO payment_instruction (
+            payment_instruction_id,
+            idempotency_key,
+            sender_user_id,
+            sender_account_id,
+            auth_token_id,
+            original_payment_id,
+            transaction_no,
+            sender_account_no_snap,
+            sender_account_alias_snap,
+            receiver_bank_code,
+            receiver_account_no,
+            receiver_holder_name_snap,
+            holder_inquiry_at,
+            is_intra_bank,
+            routing_network_type,
+            transfer_amount,
+            fee_amount,
+            receiver_passbook_sender_display,
+            receiver_memo,
+            sender_memo,
+            status,
+            failure_category,
+            channel,
+            requested_at,
+            completed_at,
+            business_date,
+            next_retry_at,
+            next_timeout_at,
+            version,
+            trigger_source,
+            is_scheduled,
+            scheduled_execution_at,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{paymentInstructionId},
+            #{idempotencyKey},
+            #{senderUserId},
+            #{senderAccountId},
+            #{authTokenId},
+            #{originalPaymentId},
+            #{transactionNo},
+            #{senderAccountNoSnap},
+            #{senderAccountAliasSnap},
+            #{receiverBankCode},
+            #{receiverAccountNo},
+            #{receiverHolderNameSnap},
+            #{holderInquiryAt},
+            #{isIntraBank},
+            #{routingNetworkType},
+            #{transferAmount},
+            #{feeAmount},
+            #{receiverPassbookSenderDisplay},
+            #{receiverMemo},
+            #{senderMemo},
+            #{status},
+            #{failureCategory},
+            #{channel},
+            #{requestedAt},
+            #{completedAt},
+            #{businessDate},
+            #{nextRetryAt},
+            #{nextTimeoutAt},
+            #{version},
+            #{triggerSource},
+            #{isScheduled},
+            #{scheduledExecutionAt},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <select id="selectById" resultType="com.bank.payment.domain.PaymentInstruction">
+        SELECT *
+        FROM payment_instruction
+        WHERE payment_instruction_id = #{paymentInstructionId}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE payment_instruction
+        SET status            = #{status},
+            completed_at      = #{completedAt},
+            failure_category  = #{failureCategory},
+            next_retry_at     = NULL,
+            next_timeout_at   = NULL,
+            version           = version + 1,
+            last_modified_at  = now()
+        WHERE payment_instruction_id = #{paymentInstructionId}
+          AND version = #{version}
+    </update>
+
+    <!-- version/status 건드리지 않음. CLEARING 전이 직후 F6 폴링워커용 타임아웃 세팅 전용. -->
+    <update id="updateNextTimeoutAt">
+        UPDATE payment_instruction
+        SET next_timeout_at  = #{nextTimeoutAt},
+            last_modified_at = now()
+        WHERE payment_instruction_id = #{piId}
+    </update>
+
+    <!-- F6 폴링워커: 타임아웃 대상 조회. idx_pi_next_timeout_at 부분인덱스 활용. -->
+    <select id="selectTimedOut" resultType="com.bank.payment.domain.PaymentInstruction">
+        SELECT *
+        FROM payment_instruction
+        WHERE next_timeout_at IS NOT NULL
+          AND next_timeout_at &lt; now()
+          AND status = 'CLEARING'
+        ORDER BY next_timeout_at ASC
+        LIMIT 50
+    </select>
+
+    <!-- version 건드리지 않음. step2 A-2 수신조회 직후 단건 박제용. authorize 낙관락에 영향 없음. -->
+    <update id="updateReceiverHolderSnap">
+        UPDATE payment_instruction
+        SET receiver_holder_name_snap = #{receiverHolderNameSnap},
+            holder_inquiry_at         = #{holderInquiryAt},
+            last_modified_at          = now()
+        WHERE payment_instruction_id = #{paymentInstructionId}
+    </update>
+
+</mapper>

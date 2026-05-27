@@ -17,6 +17,9 @@ import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.review.event.LoanBiasCheckRequestedPayload;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bank.loan.notification.event.LoanApprovedEvent;
+import com.bank.loan.review.event.LoanReviewCompletedEvent;
+import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.dto.LoanReviewResponse;
@@ -153,6 +156,7 @@ public class LoanReviewService {
                 .applId(applId)
                 .revTypeCd(req.revTypeCd())
                 .revStatusCd(LoanReview.STATUS_BIAS_REVIEWING)
+                .revStatusCd(LoanReview.STATUS_COMPLETED)
                 .revDecisionCd(req.revDecisionCd())
                 .approvedAmount(approvedAmount)
                 .approvedRateBps(approvedRate)
@@ -161,6 +165,7 @@ public class LoanReviewService {
                 .revRemark(req.revRemark())
                 .reviewerId(req.reviewerId())
                 .reviewedAt(now)
+                .approvedAt(approvedAt)
                 .build());
 
         checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req);
@@ -168,6 +173,7 @@ public class LoanReviewService {
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
                 null, LoanReview.STATUS_BIAS_REVIEWING,
+                null, LoanReview.STATUS_COMPLETED,
                 approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
                 approved
                         ? "approvedAmount=" + approvedAmount + ", rateBps=" + approvedRate
@@ -219,6 +225,32 @@ public class LoanReviewService {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("bias-check payload 직렬화 실패 revId=" + review.getRevId(), e);
         }
+        String applBefore = application.currentStatus();
+        if (approved) {
+            application.markApproved();
+        } else {
+            application.markRejected();
+        }
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_APPLICATION, applId,
+                applBefore, application.currentStatus(),
+                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                "revId=" + saved.getRevId(),
+                actorId
+        ));
+
+        if (approved) {
+            eventPublisher.publishEvent(new LoanApprovedEvent(
+                    applId, saved.getRevId(),
+                    application.getCustomerId(), approvedAmount
+            ));
+        }
+
+        eventPublisher.publishEvent(new LoanReviewCompletedEvent(
+                saved.getRevId(), applId, req.reviewerId(), req.revDecisionCd(), req.revTypeCd()
+        ));
+
+        return LoanReviewResponse.of(saved);
     }
 
     @Transactional(readOnly = true)

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.BokSettlementTransactionMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.BokSettlementTransaction">
+        INSERT INTO bok_settlement_transaction (
+            settlement_transaction_id,
+            our_payment_instruction_id,
+            direction,
+            counterparty_payment_id,
+            bok_reference_no,
+            sender_bank_clearing_id,
+            receiver_bank_clearing_id,
+            sender_bank_code,
+            sender_account_no_snap,
+            sender_holder_name_snap,
+            receiver_bank_code,
+            receiver_account_no_snap,
+            receiver_holder_name_snap,
+            settlement_amount,
+            currency,
+            settlement_status,
+            reject_code,
+            reject_message,
+            settlement_requested_at,
+            ack_received_at,
+            settled_at,
+            settlement_date,
+            network,
+            last_inquiry_at,
+            inquiry_count,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{settlementTransactionId},
+            #{ourPaymentInstructionId},
+            #{direction},
+            #{counterpartyPaymentId},
+            #{bokReferenceNo},
+            #{senderBankClearingId},
+            #{receiverBankClearingId},
+            #{senderBankCode},
+            #{senderAccountNoSnap},
+            #{senderHolderNameSnap},
+            #{receiverBankCode},
+            #{receiverAccountNoSnap},
+            #{receiverHolderNameSnap},
+            #{settlementAmount},
+            #{currency},
+            #{settlementStatus},
+            #{rejectCode},
+            #{rejectMessage},
+            #{settlementRequestedAt},
+            #{ackReceivedAt},
+            #{settledAt},
+            #{settlementDate},
+            #{network},
+            #{lastInquiryAt},
+            #{inquiryCount},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <select id="selectByBokReferenceNo" resultType="com.bank.payment.domain.BokSettlementTransaction">
+        SELECT *
+        FROM bok_settlement_transaction
+        WHERE bok_reference_no = #{bokReferenceNo}
+    </select>
+
+    <update id="updateSettled">
+        UPDATE bok_settlement_transaction
+        SET settlement_status       = 'SETTLED',
+            settled_at              = #{settledAt},
+            settlement_date         = #{settlementDate},
+            counterparty_payment_id = NULL,
+            last_modified_at        = CURRENT_TIMESTAMP(3)
+        WHERE our_payment_instruction_id = #{piId}
+    </update>
+
+    <update id="updateRejected">
+        UPDATE bok_settlement_transaction
+        SET settlement_status = 'REJECTED',
+            reject_code       = #{rejectCode},
+            reject_message    = #{rejectMessage},
+            last_modified_at  = CURRENT_TIMESTAMP(3)
+        WHERE our_payment_instruction_id = #{piId}
+    </update>
+
+</mapper>

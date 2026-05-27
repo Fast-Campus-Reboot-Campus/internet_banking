@@ -22,15 +22,18 @@
 
 ## 1. 대시보드 구성
 
-대시보드는 3개 섹션으로 구성된다.
+대시보드는 5개 섹션으로 구성된다.
 
 | 섹션 | 패널 | 설명 |
 |------|------|------|
 | HTTP | 요청 수, 에러율, 응답시간 | 외부 요청 흐름 |
 | JVM | Heap, GC, 스레드 | 애플리케이션 런타임 상태 |
 | 시스템 / DB | CPU, 커넥션 풀, 쿼리 지연 | 인프라 수준 상태 |
+| 인증 / 보안 | 로그인 성공/실패, JWT 실패, 회원가입 | 보안 이벤트 추적 |
+| 서버 자원 | Disk 사용량, Network I/O | 호스트 OS 수준 자원 (windows_exporter) |
 
 상단 **서비스** 드롭다운으로 서비스를 전환한다.
+> 인증/보안 · 서버 자원 섹션은 `customer-service` 선택 시에만 의미 있는 데이터가 표시된다.
 
 ### 모니터링 대상 서비스
 
@@ -160,6 +163,62 @@
 
 ---
 
+## 4-1. 인증 / 보안 섹션
+
+> `customer-service` 에 등록된 Micrometer 커스텀 카운터를 시각화한다.
+> 메트릭 소스: `LoginService`, `RegisterService`, `JwtAuthenticationFilter`, `SecurityConfig`
+
+### 로그인 성공 / 실패 (5분)
+- **설명**: 5분 구간 동안 발생한 로그인 결과를 reason 별로 집계.
+
+| 레이블 | 의미 |
+|--------|------|
+| 로그인 성공 | 정상 인증 완료 |
+| 로그인 실패 (전체) | reason 불문 전체 실패 |
+| 계정 잠금 | 실패 임계치 초과로 잠금된 계정 시도 |
+| 비밀번호 오류 | 비밀번호 불일치 |
+
+- **주의**: 비밀번호 오류가 짧은 시간 안에 급증 → 브루트포스 공격 가능성.
+- 계정 잠금이 여러 계정에서 동시에 발생 → 자격증명 스터핑 공격 의심.
+
+### JWT 실패 / 권한 거부 (5분)
+- **JWT 검증 실패**: 만료·위변조·잘못된 형식의 토큰 시도 횟수.
+- **권한 거부 (403)**: 인증은 됐으나 해당 리소스에 접근 권한 없음.
+
+| 등급 | JWT 실패 (5분) | 권한 거부 (5분) |
+|------|--------------|----------------|
+| 정상 | < 10 | < 5 |
+| 주의 | 10–50 | 5–20 |
+| 위험 | > 50 | > 20 |
+
+### 회원가입 현황 (5분)
+- **회원가입 완료**: 성공적으로 가입된 신규 고객 수.
+- **중복 아이디**: 이미 존재하는 loginId로 가입 시도 횟수.
+- 중복 아이디 시도가 매우 높으면: 자동화된 계정 생성 시도(봇) 의심.
+
+---
+
+## 4-2. 서버 자원 섹션 (windows_exporter)
+
+> `localhost:9182` 에서 수집하는 Windows 호스트 메트릭.
+> windows_exporter가 실행 중이지 않으면 이 섹션은 "No data"로 표시된다.
+
+### Disk 사용량 (C:)
+- C: 드라이브의 전체 용량 대비 사용 중인 용량.
+
+| 등급 | 사용률 |
+|------|--------|
+| 정상 | < 70% |
+| 주의 | 70–85% |
+| 위험 | > 85% |
+
+### Network I/O
+- NIC별 수신(RX) / 송신(TX) 처리량 (bytes/s).
+- 평소 대비 수신이 급증하면: 대용량 트래픽 유입 or 데이터 수집 공격.
+- 송신이 급증하면: 데이터 유출 또는 외부 의존성 폭증 가능성 확인.
+
+---
+
 ## 5. 이상 징후 패턴별 확인 순서
 
 ### 응답이 느려졌다는 제보
@@ -241,3 +300,56 @@
 2. **Dashboards → New → Import → Upload JSON file**
 3. `infra/grafana/provisioning/dashboards/internet-banking.json` 업로드
 4. Import 화면에서 Prometheus datasource 선택 후 Import
+
+---
+
+## 8. 알림 규칙
+
+### 8-1. Prometheus 알림 규칙 (`infra/prometheus/alerts.yml`)
+
+Prometheus가 직접 평가하는 레코딩 규칙. `http://localhost:9090/alerts` 에서 상태 확인 가능.
+
+| 그룹 | 알림명 | 조건 | 지연 | 심각도 |
+|------|--------|------|------|--------|
+| service-availability | ServiceDown | `up == 0` | 1m | critical |
+| http-errors | HighErrorRate5xx | 5xx 비율 > 5% | 2m | critical |
+| http-errors | HighErrorRate4xx | 4xx 비율 > 20% | 5m | warning |
+| api-performance | SlowApiResponse | p95 응답시간 > 2초 | 5m | warning |
+| jvm | JvmHeapHigh | Heap 사용률 > 90% | 5m | warning |
+| auth-security | BruteForceLoginDetected | 5분간 로그인 실패 > 20회 | 즉시 | critical |
+| auth-security | HighJwtInvalidRate | 5분간 JWT 실패 > 50회 | 즉시 | warning |
+| database | DbConnectionPoolExhausted | 대기 커넥션 > 5 | 2m | critical |
+
+> **`for: 0m`** 인 규칙(BruteForce, JwtInvalid)은 조건 충족 즉시 FIRING으로 전환된다.
+> 나머지 규칙은 지정 시간 동안 지속될 때만 FIRING으로 전환되어 일시적 스파이크를 무시한다.
+
+### 8-2. Grafana Managed Alerts
+
+Grafana가 자체적으로 Prometheus를 쿼리하여 평가하는 알림 (Prometheus Alertmanager와 별개).
+
+| 알림명 | 조건 | 알림 채널 |
+|--------|------|----------|
+| Service Down | `up < 1` | Slack DM |
+| Brute Force Login Detected | 5분간 로그인 실패 > 20 | Slack DM |
+
+알림 상태 확인: Grafana → **Alerting → Alert rules**
+
+### 8-3. Slack DM 알림
+
+- **Contact point**: `Slack-DM` (Incoming Webhook 사용)
+- **Webhook URL**: Slack 앱 설정에서 확인 (`internet-banking-alerts` 앱)
+- **라우팅**: 모든 알림 → Slack-DM (기본 정책)
+- **반복 주기**: 최초 알림 후 1시간 간격으로 재전송 (FIRING 상태 지속 시)
+- **알림 형식**: `[FIRING] 알림명` 또는 `[RESOLVED] 알림명`
+
+알림 설정 확인: Grafana → **Alerting → Contact points**
+
+> 알림 메시지에 한국어를 사용하면 Slack에서 깨질 수 있다. 영어로 작성 권장.
+
+### 8-4. 알림이 오지 않을 때 체크리스트
+
+1. Prometheus rules 로드 확인: `http://localhost:9090/rules` → alerts.yml 그룹이 보이는지
+2. Prometheus lifecycle 활성화 확인: `curl -X POST http://localhost:9090/-/reload` 응답 확인
+   - 실패하면 Prometheus 재시작 시 `--web.enable-lifecycle` 플래그 필요
+3. Grafana alert rule datasource UID 확인: Alerting → Alert rules → 편집 → datasource 드롭다운에 Prometheus가 선택되어 있는지
+4. Slack Webhook URL 유효성 확인: `curl -X POST <webhook-url> -H "Content-Type: application/json" -d '{"text":"test"}'`

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.bank.payment.domain.mapper.KftcClearingTransactionMapper">
+
+    <insert id="insert" parameterType="com.bank.payment.domain.KftcClearingTransaction">
+        INSERT INTO kftc_clearing_transaction (
+            clearing_transaction_id,
+            our_payment_instruction_id,
+            direction,
+            counterparty_payment_id,
+            clearing_no,
+            sender_bank_clearing_id,
+            receiver_bank_clearing_id,
+            sender_bank_code,
+            sender_account_no_snap,
+            sender_holder_name_snap,
+            receiver_bank_code,
+            receiver_account_no_snap,
+            receiver_holder_name_snap,
+            clearing_amount,
+            currency,
+            clearing_status,
+            reject_code,
+            reject_message,
+            clearing_requested_at,
+            ack_received_at,
+            settled_at,
+            settlement_date,
+            network,
+            last_inquiry_at,
+            inquiry_count,
+            first_registrant_id,
+            last_modifier_id
+        ) VALUES (
+            #{clearingTransactionId},
+            #{ourPaymentInstructionId},
+            #{direction},
+            #{counterpartyPaymentId},
+            #{clearingNo},
+            #{senderBankClearingId},
+            #{receiverBankClearingId},
+            #{senderBankCode},
+            #{senderAccountNoSnap},
+            #{senderHolderNameSnap},
+            #{receiverBankCode},
+            #{receiverAccountNoSnap},
+            #{receiverHolderNameSnap},
+            #{clearingAmount},
+            #{currency},
+            #{clearingStatus},
+            #{rejectCode},
+            #{rejectMessage},
+            #{clearingRequestedAt},
+            #{ackReceivedAt},
+            #{settledAt},
+            #{settlementDate},
+            #{network},
+            #{lastInquiryAt},
+            #{inquiryCount},
+            #{firstRegistrantId},
+            #{lastModifierId}
+        )
+    </insert>
+
+    <select id="selectByClearingNo" resultType="com.bank.payment.domain.KftcClearingTransaction">
+        SELECT *
+        FROM kftc_clearing_transaction
+        WHERE clearing_no = #{clearingNo}
+    </select>
+
+    <update id="updateSettled">
+        UPDATE kftc_clearing_transaction
+        SET clearing_status         = 'SETTLED',
+            settled_at              = #{settledAt},
+            settlement_date         = #{settlementDate},
+            counterparty_payment_id = NULL,
+            last_modified_at        = CURRENT_TIMESTAMP(3)
+        WHERE our_payment_instruction_id = #{piId}
+    </update>
+
+    <update id="updateRejected">
+        UPDATE kftc_clearing_transaction
+        SET clearing_status  = 'REJECTED',
+            reject_code      = #{rejectCode},
+            reject_message   = #{rejectMessage},
+            last_modified_at = CURRENT_TIMESTAMP(3)
+        WHERE our_payment_instruction_id = #{piId}
+    </update>
+
+</mapper>

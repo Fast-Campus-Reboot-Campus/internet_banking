@@ -1,0 +1,108 @@
+groups:
+  - name: service-availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "서비스 다운: {{ $labels.job }}"
+          description: "{{ $labels.job }} ({{ $labels.instance }}) 가 1분 이상 응답하지 않습니다."
+
+  - name: http-errors
+    interval: 30s
+    rules:
+      - alert: HighErrorRate5xx
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (application)
+          /
+          sum(rate(http_server_requests_seconds_count[5m])) by (application)
+          > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx 에러율 급증: {{ $labels.application }}"
+          description: "{{ $labels.application }} 의 5xx 에러율이 {{ $value | humanizePercentage }} 입니다."
+
+      - alert: HighErrorRate4xx
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"4.."}[5m])) by (application)
+          /
+          sum(rate(http_server_requests_seconds_count[5m])) by (application)
+          > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "4xx 에러율 높음: {{ $labels.application }}"
+          description: "{{ $labels.application }} 의 4xx 에러율이 {{ $value | humanizePercentage }} 입니다."
+
+  - name: api-performance
+    interval: 30s
+    rules:
+      - alert: SlowApiResponse
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_server_requests_seconds_bucket[5m])) by (application, le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 응답 지연: {{ $labels.application }}"
+          description: "{{ $labels.application }} p95 응답시간이 {{ $value | humanizeDuration }} 입니다."
+
+  - name: jvm
+    interval: 30s
+    rules:
+      - alert: JvmHeapHigh
+        expr: |
+          sum(jvm_memory_used_bytes{area="heap"}) by (application)
+          /
+          sum(jvm_memory_max_bytes{area="heap"}) by (application)
+          > 0.90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JVM Heap 사용률 높음: {{ $labels.application }}"
+          description: "{{ $labels.application }} Heap 사용률이 {{ $value | humanizePercentage }} 입니다."
+
+  - name: auth-security
+    interval: 30s
+    rules:
+      - alert: BruteForceLoginDetected
+        expr: |
+          sum(increase(customer_login_failure_total{reason="bad_credentials"}[5m])) > 20
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "로그인 실패 급증 (브루트포스 의심)"
+          description: "5분간 로그인 실패가 {{ $value }}회 발생했습니다."
+
+      - alert: HighJwtInvalidRate
+        expr: |
+          sum(increase(customer_jwt_invalid_total[5m])) > 50
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JWT 검증 실패 급증"
+          description: "5분간 JWT 검증 실패가 {{ $value }}회 발생했습니다."
+
+  - name: database
+    interval: 30s
+    rules:
+      - alert: DbConnectionPoolExhausted
+        expr: |
+          hikaricp_connections_pending{application=~".+"} > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "DB 커넥션 풀 고갈: {{ $labels.application }}"
+          description: "{{ $labels.application }} 대기 중인 커넥션이 {{ $value }}개 입니다."

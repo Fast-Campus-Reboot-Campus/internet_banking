@@ -3,6 +3,7 @@ package com.bank.gateway.filter;
 import com.bank.common.security.jwt.JwtClaims;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.security.jwt.TokenType;
+import com.bank.common.web.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -51,11 +52,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         String token = authHeader.substring(BEARER_PREFIX.length());
 
-        if (!jwtProvider.validate(token)) {
+        JwtClaims claims;
+        try {
+            claims = jwtProvider.parseClaims(token);
+        } catch (BusinessException e) {
             return reject(exchange, HttpStatus.UNAUTHORIZED);
         }
-
-        JwtClaims claims = jwtProvider.parseClaims(token);
 
         if (claims.tokenType() != TokenType.ACCESS) {
             return reject(exchange, HttpStatus.UNAUTHORIZED);

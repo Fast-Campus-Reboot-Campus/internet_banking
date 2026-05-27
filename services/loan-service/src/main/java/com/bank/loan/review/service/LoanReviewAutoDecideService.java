@@ -24,6 +24,11 @@ import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.support.LoanErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bank.loan.review.dto.ConfirmReviewRequest;
+import com.bank.loan.review.dto.ExpirePendingReviewsResponse;
+import com.bank.loan.review.dto.LoanReviewResponse;
+import com.bank.loan.review.repository.LoanReviewRepository;
+import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -191,12 +196,26 @@ public class LoanReviewAutoDecideService {
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
                 LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_BIAS_REVIEWING,
+                LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_COMPLETED,
                 REASON_REVIEW_CONFIRMED,
                 "reviewerId=" + req.reviewerId(),
                 actorId
         ));
 
         enqueueBiasCheck(review, application);
+        String applBefore = application.currentStatus();
+        if (approved) {
+            application.markApproved();
+        } else {
+            application.markRejected();
+        }
+        statusHistoryPublisher.publish(StatusChangeEvent.of(
+                DOMAIN_CD, TARGET_APPLICATION, applId,
+                applBefore, application.currentStatus(),
+                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                "confirm, revId=" + review.getRevId(),
+                actorId
+        ));
 
         return LoanReviewResponse.of(review);
     }

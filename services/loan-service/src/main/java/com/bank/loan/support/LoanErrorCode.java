@@ -140,6 +140,7 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_197(HttpStatus.BAD_REQUEST,          "결정 변경(override) 시 사유 코드(overrideReasonCd)가 필요합니다."),
     LOAN_198(HttpStatus.BAD_REQUEST,          "OVERRIDE_APPROVED 시 승인 금액·금리·기간이 필요합니다."),
     LOAN_199(HttpStatus.UNPROCESSABLE_ENTITY, "본심사가 편향 검증(BIAS_REVIEWING) 상태가 아니어서 편향 우회 승인이 불가합니다.");
+    LOAN_191(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 재전송할 수 없습니다. (FAILED/DEAD 필요)");
 
     private final HttpStatus status;
     private final String message;

@@ -23,6 +23,7 @@ public record LoanReviewResponse(
         String overrideReasonCd,
         String biasSeverityCd,
         Long biasOverrideBy
+        OffsetDateTime approvedAt
 ) {
     public static LoanReviewResponse of(LoanReview r) {
         return new LoanReviewResponse(
@@ -33,6 +34,7 @@ public record LoanReviewResponse(
                 r.getReviewerId(), r.getReviewedAt(), r.getApprovedAt(),
                 r.getApproverId(), r.getApprovedDecisionCd(), r.getOverrideReasonCd(),
                 r.getBiasSeverityCd(), r.getBiasOverrideBy()
+                r.getReviewerId(), r.getReviewedAt(), r.getApprovedAt()
         );
     }
 }
