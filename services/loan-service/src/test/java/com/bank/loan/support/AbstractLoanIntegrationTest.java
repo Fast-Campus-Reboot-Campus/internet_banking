@@ -1,6 +1,5 @@
 package com.bank.loan.support;
 
-import com.bank.common.security.jwt.JwtProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
@@ -8,7 +7,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -22,9 +21,6 @@ import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 
 /**
  * 통합 테스트 베이스. 컨테이너(Postgres / Redis) 와 MockMvc / ObjectMapper 를 공유한다.
@@ -70,27 +66,21 @@ public abstract class AbstractLoanIntegrationTest {
 
         r.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
 
-        Path storage = Paths.get(System.getProperty("java.io.tmpdir"), "loan-test-docs");
-        r.add("loan.document.storage-dir", storage::toString);
         r.add("loan.review.bias-check.enabled", () -> "false");
     }
 
     @Autowired private WebApplicationContext wac;
-    @Autowired private JwtProvider jwtProvider;
 
     @Autowired protected MockMvc mockMvc;
     @Autowired protected ObjectMapper om;
 
     @BeforeAll
     void initTestAuth() {
-        String token = jwtProvider.generateAccessToken(
-                1L, "test@bank.com",
-                List.of("ROLE_STAFF", "ROLE_OPS", "ROLE_SENIOR_REVIEWER", "ROLE_INTERNAL")
-        );
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(SecurityMockMvcConfigurers.springSecurity())
                 .defaultRequest(MockMvcRequestBuilders.get("/")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                        .with(SecurityMockMvcRequestPostProcessors.user("test@bank.com")
+                                .roles("STAFF", "OPS", "SENIOR_REVIEWER", "INTERNAL")))
                 .build();
     }
 

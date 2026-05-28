@@ -24,10 +24,16 @@ public class DocAgentClient {
     private final RestClient restClient;
 
     public DocAgentClient(RestClient.Builder builder, DocAgentProperties props) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(props.connectTimeoutMs());
-        factory.setReadTimeout(props.readTimeoutMs());
-        this.restClient = builder.requestFactory(factory).baseUrl(props.baseUrl()).build();
+        RestClient.Builder b;
+        if (props.connectTimeoutMs() > 0 || props.readTimeoutMs() > 0) {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            if (props.connectTimeoutMs() > 0) factory.setConnectTimeout(props.connectTimeoutMs());
+            if (props.readTimeoutMs()    > 0) factory.setReadTimeout(props.readTimeoutMs());
+            b = builder.requestFactory(factory).baseUrl(props.baseUrl());
+        } else {
+            b = builder.baseUrl(props.baseUrl());
+        }
+        this.restClient = b.build();
     }
 
     public SubmissionResult submit(String applicationId, String docCode, String productId,
