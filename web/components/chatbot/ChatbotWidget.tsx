@@ -231,6 +231,7 @@ export default function ChatbotWidget() {
       ...PRODUCT_CHOICES.map((choice) => ({ type: 'product_guide' as const, ...choice })),
       { type: 'recommend' as const, label: TEXT.recommend, message: '\uB0B4 \uD604\uAE08 \uD750\uB984\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC744 \uCD94\uCC9C\uD574\uC918' },
       { type: 'cashflow' as const, label: TEXT.cashflow, message: '\uCD5C\uADFC \uD604\uAE08 \uD750\uB984\uC744 \uC54C\uB824\uC918' },
+      { type: 'consult' as const, label: '\uC0C1\uB2F4\uC6D0 \uC5F0\uACB0', message: '' },
     ],
     [],
   )
@@ -355,6 +356,10 @@ export default function ChatbotWidget() {
 
   async function handleQuickAction(action: (typeof quickActions)[number]) {
     if (loading) return
+    if (action.type === 'consult') {
+      setShowConsult(true)
+      return
+    }
     if (action.type === 'recommend') {
       await handleFeature('CASH_FLOW_RECOMMEND', action.message, true)
       return
@@ -543,14 +548,6 @@ export default function ChatbotWidget() {
             </div>
 
             <div className="border-t border-kb-border bg-white px-4 py-3">
-              <button
-                type="button"
-                onClick={() => setShowConsult(true)}
-                className="mb-3 flex w-full items-center justify-center gap-2 rounded border border-[#2D6A4F] py-2 text-xs font-bold text-[#2D6A4F] hover:bg-[#EAF4EF] transition-colors"
-              >
-                <Phone className="h-3.5 w-3.5" />
-                상담원 연결
-              </button>
               <div className="mb-3 grid grid-cols-3 gap-2">
                 {quickActions.map((action) => (
                   <button
@@ -561,10 +558,13 @@ export default function ChatbotWidget() {
                     className={`flex min-h-9 items-center justify-center gap-1 rounded border px-2 text-xs font-bold transition disabled:opacity-60 ${
                       action.type === 'recommend'
                         ? 'border-[#C09B3A] bg-[#FFF8DA] text-[#7A5200] hover:bg-[#FFEFA7]'
-                        : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
+                        : action.type === 'consult'
+                          ? 'border-[#2D6A4F] bg-white text-[#2D6A4F] hover:bg-[#EAF4EF]'
+                          : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
                     }`}
                   >
                     {action.type === 'recommend' && <Sparkles className="h-3.5 w-3.5" />}
+                    {action.type === 'consult' && <Phone className="h-3.5 w-3.5" />}
                     {action.label}
                   </button>
                 ))}
