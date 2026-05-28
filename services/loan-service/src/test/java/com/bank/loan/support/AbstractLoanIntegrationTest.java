@@ -3,6 +3,7 @@ package com.bank.loan.support;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
@@ -45,6 +46,7 @@ public abstract class AbstractLoanIntegrationTest {
     static final GenericContainer<?> REDIS;
     static final KafkaContainer KAFKA;
     protected static final WireMockServer DOC_AGENT_MOCK;
+    protected static final WireMockServer AUTO_REVIEW_MOCK;
 
     static {
         POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16");
@@ -58,6 +60,13 @@ public abstract class AbstractLoanIntegrationTest {
 
         DOC_AGENT_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         DOC_AGENT_MOCK.start();
+
+        AUTO_REVIEW_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        AUTO_REVIEW_MOCK.start();
+        AUTO_REVIEW_MOCK.stubFor(WireMock.post(WireMock.urlEqualTo("/api/ai/auto-review/evaluate"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"track\":\"TRACK_3\",\"pd\":0.120000,\"rationale\":\"통합테스트 기본 stub\"}")));
     }
 
     @DynamicPropertySource
@@ -74,6 +83,7 @@ public abstract class AbstractLoanIntegrationTest {
 
         r.add("loan.review.bias-check.enabled", () -> "false");
         r.add("doc-agent.base-url", () -> "http://localhost:" + DOC_AGENT_MOCK.port());
+        r.add("auto-review.base-url", () -> "http://localhost:" + AUTO_REVIEW_MOCK.port());
     }
 
     @Autowired private WebApplicationContext wac;
