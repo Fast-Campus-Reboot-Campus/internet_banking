@@ -325,7 +325,7 @@ infra/k8s/
 | C1 | 사용자 | Oracle Cloud VM 생성 (수동) |
 | C2 | 완료 | Oracle bootstrap.sh + README (VM 생성부터 자동 기동까지 가이드) |
 | C3 | 보류 | 도메인 + HTTPS (선택) |
-| D1 | 대기 | k8s 매니페스트 골격 작성 |
+| D1 | 완료 | k8s 매니페스트 골격 + Kustomize base/overlay 구조 + GCP Ingress + README (확장 패턴) |
 | D2 | 보류 | GCP 실제 전환 (나중) |
 
 ---

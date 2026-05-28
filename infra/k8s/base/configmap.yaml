@@ -1,0 +1,30 @@
+# 비밀 아닌 공통 환경변수.
+# 실제 GCP 전환시 Cloud SQL/Memorystore 호스트로 값 교체.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: internet-banking
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+
+  # DB 호스트 (Cloud SQL 사용시 cloudsql-proxy 사이드카 또는 Private IP)
+  CUSTOMER_DB_HOST: "customer-db"
+  DEPOSIT_DB_HOST: "deposit-db"
+  LOAN_DB_HOST: "loan-db"
+  PAYMENT_DB_HOST: "payment-db"
+  MASTER_DB_HOST: "master-db"
+  AI_DB_HOST: "ai-db"
+
+  # 캐시/메시징 (Memorystore/Pub/Sub 전환시 변경)
+  REDIS_HOST: "redis"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+
+  # 게이트웨이가 참조하는 서비스 호스트 (k8s Service DNS)
+  CUSTOMER_SERVICE_HOST: "customer-service"
+  DEPOSIT_SERVICE_HOST: "deposit-service"
+  LOAN_SERVICE_HOST: "loan-service"
+  PAYMENT_SERVICE_HOST: "payment-service"
+  MASTER_SERVICE_HOST: "master-service"
+  AI_SERVICE_HOST: "ai-service"
