@@ -5,7 +5,7 @@
 .DESCRIPTION
     1. Docker 인프라 (deposit-db, redis, kafka) 기동
     2. deposit-service    시작 (새 PowerShell 창, http://localhost:8082/api/)
-    3. consultation-service 시작 (새 PowerShell 창, http://localhost:8090)
+    3. consultation-service 시작 (새 PowerShell 창, http://localhost:8087)
 
 .PARAMETER DockerOnly
     Docker 서비스만 시작하고 앱 서비스는 시작하지 않음
@@ -82,16 +82,16 @@ if ($KafkaEnabled) { $consultArgs += " -KafkaEnabled" }
 
 Start-Process powershell -ArgumentList $consultArgs -WindowStyle Normal
 Write-Host "  -> consultation-service 시작됨"
-Write-Host "     http://localhost:8090"
-Write-Host "     http://localhost:8090/chat  (챗봇 UI)"
+Write-Host "     http://localhost:8087"
+Write-Host "     http://localhost:8087/chat  (챗봇 UI)"
 
 Write-Host ""
 Write-Host "============================================================"
 Write-Host " 모든 서비스 시작 완료 (각 창에서 기동 로그 확인)"
 Write-Host ""
 Write-Host "  deposit-service     : http://localhost:8082/api/"
-Write-Host "  consultation-service: http://localhost:8090"
-Write-Host "  챗봇 UI             : http://localhost:8090/chat"
+Write-Host "  consultation-service: http://localhost:8087"
+Write-Host "  챗봇 UI             : http://localhost:8087/chat"
 Write-Host ""
 Write-Host " 검증: .\scripts\verify-all.ps1"
 Write-Host "============================================================"

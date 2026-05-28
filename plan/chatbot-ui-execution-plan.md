@@ -57,4 +57,4 @@
 
 ## 다음 실행 단계
 
-브라우저에서 `localhost:8090` 직접 호출이 실패해 `web/app/api/consultation/[...path]/route.ts` 프록시를 추가하고, 프론트 API baseURL을 `/api/consultation`으로 변경했다. `CUST001` 기준 상품 추천 응답과 내 현금흐름 응답이 화면에 표시되는 것을 확인했다.
+브라우저에서 `localhost:8087` 직접 호출이 실패해 `web/app/api/consultation/[...path]/route.ts` 프록시를 추가하고, 프론트 API baseURL을 `/api/consultation`으로 변경했다. `CUST001` 기준 상품 추천 응답과 내 현금흐름 응답이 화면에 표시되는 것을 확인했다.
