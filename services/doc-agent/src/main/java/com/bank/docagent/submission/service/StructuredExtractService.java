@@ -58,6 +58,7 @@ public class StructuredExtractService {
             .applicant(ApplicantInfo.builder()
                 .name(field(f, "name", src))
                 .address(field(f, "address", src))
+                .issueDate(field(f, "issue_date", src))
                 .build())
             .build();
     }
@@ -69,6 +70,7 @@ public class StructuredExtractService {
                 .company(field(f, "company", src))
                 .employmentStatus(ExtractedField.of("근로소득자", src))
                 .hireDate(field(f, "hire_date", src))
+                .issueDate(field(f, "issue_date", src))
                 .hasOfficialSeal(boolField(f, "has_official_seal", src))
                 .build())
             .build();

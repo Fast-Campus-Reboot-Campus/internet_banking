@@ -25,6 +25,7 @@ public record StructuredData(
         @JsonProperty("employment_status")ExtractedField<String>  employmentStatus,
         @JsonProperty("company")          ExtractedField<String>  company,
         @JsonProperty("hire_date")        ExtractedField<String>  hireDate,
+        @JsonProperty("issue_date")       ExtractedField<String>  issueDate,
         @JsonProperty("has_official_seal")ExtractedField<Boolean> hasOfficialSeal
     ) {}
 

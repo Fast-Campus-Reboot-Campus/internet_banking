@@ -62,7 +62,7 @@ public class DocumentVerifyService {
         double forgeryScore = preComputedForgeryScore;
 
         // ── 1. 만료·누락 검사 ──────────────────────────────────────────────
-        Map<String, String> issueDateMap = buildIssueDateMap(docType, structuredData);
+        Map<String, String> issueDateMap = buildIssueDateMap(submission.getDocCode(), docType, structuredData);
         missing = expiryCheck.check(productId,
             Set.of(submission.getDocCode()), issueDateMap);
 
@@ -145,9 +145,10 @@ public class DocumentVerifyService {
         }
     }
 
-    private Map<String, String> buildIssueDateMap(DocType docType, StructuredData data) {
-        // L4 추출값에서 발급일 꺼내기 (현재는 EMPLOYMENT_CERT, RESIDENT_REGISTER만 issue_date 있음)
-        // 추후 ExtractedField 확장 시 여기서 매핑
-        return Map.of();
+    private Map<String, String> buildIssueDateMap(String docCode, DocType docType, StructuredData data) {
+        if (data == null || data.applicant() == null) return Map.of();
+        var issueField = data.applicant().issueDate();
+        if (issueField == null || issueField.value() == null) return Map.of();
+        return Map.of(docCode, (String) issueField.value());
     }
 }
