@@ -319,7 +319,7 @@ infra/k8s/
 | A1++ | 완료 | deposit-api Dockerfile 작성 (Python FastAPI, 포트 8090) |
 | A2 | 완료 | docker-compose.prod.yml 작성 (앱 13 + 인프라 9, 메모리 합계 ~13.5GB) |
 | A3 | 완료 | .env.prod.sample 작성 + .gitignore 에 .env.prod 추가 |
-| B1 | 대기 | 재사용 워크플로우 3개 작성 |
+| B1 | 완료 | 재사용 워크플로우 3개 (java-build, docker-publish, deploy-oracle) |
 | B2 | 대기 | 서비스별 워크플로우 10개 작성 |
 | B3 | 대기 | 인프라 배포 워크플로우 작성 |
 | C1 | 사용자 | Oracle Cloud VM 생성 (수동) |

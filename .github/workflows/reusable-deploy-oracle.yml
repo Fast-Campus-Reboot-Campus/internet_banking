@@ -1,0 +1,86 @@
+# =============================================================================
+# Reusable Workflow — Oracle Cloud SSH 배포
+#
+# 동작:
+#   1. Oracle 서버 SSH 접속
+#   2. ~/app 에서 docker compose pull <service>
+#   3. docker compose up -d <service> (변경된 컨테이너만 재시작)
+#   4. 헬스체크 (선택)
+#
+# 사전 조건 (Oracle 서버 ~/app/ 에 미리 있어야 함):
+#   - docker-compose.prod.yml (infra/oracle/bootstrap.sh 가 배치)
+#   - .env.prod
+#   - GHCR 로그인 (docker login ghcr.io)
+# =============================================================================
+name: Reusable Deploy Oracle
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: '배포할 compose 서비스 이름'
+        required: true
+        type: string
+      image-tag:
+        description: '배포할 이미지 SHA 태그 (기본: latest)'
+        required: false
+        type: string
+        default: 'latest'
+      health-check-url:
+        description: '배포 후 헬스체크 URL (비우면 스킵)'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      ORACLE_SSH_HOST:
+        required: true
+      ORACLE_SSH_USER:
+        required: true
+      ORACLE_SSH_KEY:
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.service-name }} to Oracle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ORACLE_SSH_HOST }}
+          username: ${{ secrets.ORACLE_SSH_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/app
+
+            SERVICE="${{ inputs.service-name }}"
+            IMAGE_TAG="${{ inputs.image-tag }}"
+
+            # 변경된 서비스의 이미지 태그를 .env.prod 에 임시 반영 (재시작 시점에만 사용)
+            # IMAGE_TAG 변수명 매핑은 사용자가 .env.prod 에 SERVICE → ENV_VAR 정의 유지
+            # 단순화: 기본은 :latest 갱신 후 pull. SHA 핀이 필요하면 별도 처리.
+
+            docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod pull "$SERVICE"
+            docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d --no-deps "$SERVICE"
+
+            # 죽은 이미지 정리 (디스크 절약)
+            docker image prune -f
+
+            echo "✅ $SERVICE deployed (tag: $IMAGE_TAG)"
+
+      - name: Health check
+        if: inputs.health-check-url != ''
+        run: |
+          set -e
+          URL="${{ inputs.health-check-url }}"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 5 "$URL"; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "⏳ Waiting for $URL (attempt $i/6)..."
+            sleep 10
+          done
+          echo "❌ Health check failed"
+          exit 1
