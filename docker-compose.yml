@@ -182,39 +182,6 @@ services:
     depends_on:
       - prometheus
 
-  gateway-service:
-    build:
-      context: .
-      dockerfile: services/gateway-service/Dockerfile
-    container_name: ib-gateway
-    ports:
-      - "${GATEWAY_APP_PORT:-8080}:8080"
-    environment:
-      GATEWAY_APP_PORT: 8080
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
-      CUSTOMER_SERVICE_HOST: customer-service
-      CUSTOMER_APP_PORT: ${CUSTOMER_APP_PORT:-8081}
-      DEPOSIT_SERVICE_HOST: deposit-service
-      DEPOSIT_APP_PORT: ${DEPOSIT_APP_PORT:-8082}
-      LOAN_SERVICE_HOST: loan-service
-      LOAN_APP_PORT: ${LOAN_APP_PORT:-8083}
-      PAYMENT_SERVICE_HOST: payment-service
-      PAYMENT_APP_PORT: ${PAYMENT_APP_PORT:-8084}
-      MASTER_SERVICE_HOST: master-service
-      MASTER_APP_PORT: ${MASTER_APP_PORT:-8085}
-      AI_SERVICE_HOST: ai-service
-      AI_APP_PORT: ${AI_APP_PORT:-8086}
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
 volumes:
   customer-db-data:
   deposit-db-data:
