@@ -4,7 +4,7 @@ param(
     [string] $DbName = "deposit_db",
     [string] $DbUser = "deposit",
     [string] $DbPassword = "deposit",
-    [int]    $ServerPort = 8090,
+    [int]    $ServerPort = 8087,
     [switch] $KafkaEnabled
 )
 

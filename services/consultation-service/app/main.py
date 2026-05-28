@@ -6,11 +6,20 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import Base, engine, get_db
 from app.kafka import KafkaEventConsumer, KafkaEventPublisher
+from app.metrics import (
+    chatbot_active_sessions,
+    chatbot_handoff_total,
+    chatbot_message_total,
+    chatbot_satisfaction_score,
+    chatbot_session_ended_total,
+    chatbot_session_total,
+)
 from app.llm import LlmAdapter, LlmHandoffAdapter
 from app.schemas import (
     AgentConnectRequest,
@@ -193,6 +202,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 
+Instrumentator(excluded_handlers=["/metrics", "/health"]).instrument(app).expose(app)
+
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -287,7 +298,10 @@ async def start_chatbot(
     #       현재는 body 의 customer_no 를 그대로 사용하므로 IDOR 취약점 존재.
     #       ex) Depends(require_customer_matches(request.customer_no))
     try:
-        return await service.start(request.customer_no, request.entry_screen, request.app_version)
+        response = await service.start(request.customer_no, request.entry_screen, request.app_version)
+        chatbot_session_total.labels(entry_screen=request.entry_screen or "UNKNOWN").inc()
+        chatbot_active_sessions.inc()
+        return response
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -299,11 +313,15 @@ async def send_chatbot_message(
     service: ChatbotService = Depends(get_chatbot_service),
 ) -> ChatbotMessageResponse:
     try:
-        return await service.handle_message(
+        response = await service.handle_message(
             chatbot_consultation_id,
             request.message,
             request.button_value,
         )
+        chatbot_message_total.labels(process_method=response.process_method).inc()
+        if response.agent_transfer_required:
+            chatbot_handoff_total.inc()
+        return response
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -418,6 +436,10 @@ async def end_chat(
 ) -> ChatConsultationResponse:
     try:
         chat = await service.end_chat(chat_consultation_id, request.satisfaction_score)
+        chatbot_active_sessions.dec()
+        chatbot_session_ended_total.inc()
+        if request.satisfaction_score is not None:
+            chatbot_satisfaction_score.observe(request.satisfaction_score)
         return _to_chat_response(chat)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -1,5 +1,6 @@
 package com.bank.payment.outbound.kafka;
 
+import com.bank.payment.config.PaymentMetrics;
 import com.bank.payment.domain.OutboxMessage;
 import com.bank.payment.domain.mapper.OutboxMessageMapper;
 import com.bank.payment.domain.service.PaymentOrchestrator;
@@ -32,6 +33,7 @@ public class OutboxPublisher {
     private final KafkaTemplate<String, String> internalKafkaTemplate;
     private final ObjectMapper objectMapper;
     private final PaymentOrchestrator orchestrator;
+    private final PaymentMetrics metrics;
 
     public OutboxPublisher(
             OutboxMessageMapper outboxMessageMapper,
@@ -40,7 +42,8 @@ public class OutboxPublisher {
             @Qualifier("bokKafkaTemplate") KafkaTemplate<String, String> bokKafkaTemplate,
             @Qualifier("internalKafkaTemplate") KafkaTemplate<String, String> internalKafkaTemplate,
             ObjectMapper objectMapper,
-            PaymentOrchestrator orchestrator) {
+            PaymentOrchestrator orchestrator,
+            PaymentMetrics metrics) {
         this.outboxMessageMapper = outboxMessageMapper;
         this.transactionHelper = transactionHelper;
         this.kftcKafkaTemplate = kftcKafkaTemplate;
@@ -48,6 +51,7 @@ public class OutboxPublisher {
         this.internalKafkaTemplate = internalKafkaTemplate;
         this.objectMapper = objectMapper;
         this.orchestrator = orchestrator;
+        this.metrics = metrics;
     }
 
     @Scheduled(fixedDelay = 1000)
@@ -81,10 +85,12 @@ public class OutboxPublisher {
             String recordKey = resolveRecordKey(topicName, piId, payload, messageId, eventType);
             template.send(topicName, recordKey, payload).get();
             transactionHelper.markSent(messageId);
+            metrics.outboxPublished();
             log.debug("Outbox 발행 완료: messageId={}, topic={}, piId={}", messageId, topicName, piId);
         } catch (ExecutionException e) {
             String lastError = truncate(e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
             log.error("Outbox 발행 실패: messageId={}, topic={}, error={}", messageId, topicName, lastError, e);
+            metrics.outboxFailed();
             if ("KFTC_REQUEST_SENT".equals(eventType)) {
                 triggerF4Compensation(piId, messageId, lastError);
             } else if ("BOK_REQUEST_SENT".equals(eventType)) {
@@ -111,6 +117,7 @@ public class OutboxPublisher {
      */
     private void triggerF4Compensation(String piId, String messageId, String lastError) {
         log.error("[F4] KFTC 송신 실패 → 자동보상 트리거. piId={} err={}", piId, lastError);
+        metrics.compensation("F4_KFTC");
         try {
             orchestrator.processPublishFailure(piId, lastError);
             transactionHelper.markFailed(messageId, lastError);
@@ -126,6 +133,7 @@ public class OutboxPublisher {
      */
     private void triggerBokF4Compensation(String piId, String messageId, String lastError) {
         log.error("[BOK F4] BOK 송신 실패 → 자동보상 트리거. piId={} err={}", piId, lastError);
+        metrics.compensation("F4_BOK");
         try {
             orchestrator.processBokPublishFailure(piId, lastError);
             transactionHelper.markFailed(messageId, lastError);

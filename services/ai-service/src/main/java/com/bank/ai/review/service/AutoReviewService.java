@@ -5,8 +5,10 @@ import com.bank.ai.review.client.dto.InferenceRequest;
 import com.bank.ai.review.client.dto.InferenceResponse;
 import com.bank.ai.review.dto.AutoReviewRequest;
 import com.bank.ai.review.dto.AutoReviewResponse;
+import com.bank.ai.review.observability.ReviewMetrics;
 import com.bank.ai.support.AiErrorCode;
 import com.bank.common.web.BusinessException;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,17 +28,33 @@ import java.util.Map;
 public class AutoReviewService {
 
     private final InferenceClient inferenceClient;
+    private final ReviewMetrics reviewMetrics;
 
     public AutoReviewResponse review(AutoReviewRequest req) {
+        reviewMetrics.recordInputFeatures(req.dsr(), req.creditScoreProxy());
+        reviewMetrics.recordInputQuality(req);
+
         Map<String, Object> features = toFeatureMap(req);
         InferenceRequest payload = new InferenceRequest(List.of(features));
-        InferenceResponse res = inferenceClient.predict(payload);
 
-        if (res == null || res.predictions() == null || res.predictions().isEmpty()) {
+        Timer.Sample sample = reviewMetrics.startTimer();
+        InferenceResponse res;
+        try {
+            res = inferenceClient.predict(payload);
+        } catch (Exception e) {
+            reviewMetrics.stopTimer(sample, null);
+            reviewMetrics.recordInferenceError();
+            throw e;
+        }
+        reviewMetrics.stopTimer(sample, res.modelVersion());
+
+        if (res.predictions() == null || res.predictions().isEmpty()) {
             log.error("inference returned empty predictions");
+            reviewMetrics.recordInferenceError();
             throw new BusinessException(AiErrorCode.INFERENCE_FAILED);
         }
         InferenceResponse.Prediction p = res.predictions().get(0);
+        reviewMetrics.recordDecision(p.decision(), p.score(), res.modelVersion());
         return new AutoReviewResponse(res.modelVersion(), p.decision(), p.score(), p.proba());
     }
 

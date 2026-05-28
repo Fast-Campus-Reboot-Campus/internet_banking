@@ -9,15 +9,15 @@
     deposit-service 기본 URL (기본값: http://localhost:8082/api)
 
 .PARAMETER ConsultUrl
-    consultation-service 기본 URL (기본값: http://localhost:8090)
+    consultation-service 기본 URL (기본값: http://localhost:8087)
 
 .EXAMPLE
     .\scripts\verify-all.ps1
-    .\scripts\verify-all.ps1 -DepositUrl http://localhost:8082/api -ConsultUrl http://localhost:8090
+    .\scripts\verify-all.ps1 -DepositUrl http://localhost:8082/api -ConsultUrl http://localhost:8087
 #>
 param(
     [string] $DepositUrl = "http://localhost:8082/api",
-    [string] $ConsultUrl = "http://localhost:8090"
+    [string] $ConsultUrl = "http://localhost:8087"
 )
 
 $repoRoot = Split-Path -Parent $PSScriptRoot

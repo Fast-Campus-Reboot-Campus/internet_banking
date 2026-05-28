@@ -30,7 +30,8 @@ subprojects {
 configure(subprojects.findAll {
     it.path.startsWith(':services:') &&
     it.path != ':services:api-gateway' &&
-    it.path != ':services:review-ai-gateway'
+    it.path != ':services:review-ai-gateway' &&
+    it.path != ':services:gateway-service'
 }) {
     apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
@@ -78,5 +79,4 @@ configure(subprojects.findAll {
         // commons-compress 1.26+ 가 optional 로 선언하지만 TarArchiveOutputStream 에서 런타임 필요
         testRuntimeOnly 'commons-codec:commons-codec'
     }
-}
 }
