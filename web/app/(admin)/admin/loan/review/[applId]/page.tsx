@@ -26,9 +26,10 @@ export default function LoanReviewDetailPage() {
   const [dsr, setDsr]                   = useState<any>(null)
 
   // review data
-  const [review, setReview]   = useState<any>(null)
-  const [advices, setAdvices] = useState<any[]>([])
-  const [checks, setChecks]   = useState<any[]>([])
+  const [review, setReview]             = useState<any>(null)
+  const [advices, setAdvices]           = useState<any[]>([])
+  const [checks, setChecks]             = useState<any[]>([])
+  const [advisoryReports, setAdvisory]  = useState<any[]>([])
 
   const [loading, setLoading] = useState(true)
   const [busy, setBusy]       = useState(false)
@@ -65,12 +66,14 @@ export default function LoanReviewDetailPage() {
         const rev = revRes.value.data?.data ?? null
         setReview(rev)
         if (rev?.revId) {
-          const [adv, chk] = await Promise.all([
+          const [adv, chk, adr] = await Promise.all([
             adminReviewApi.getAdvices(rev.revId),
             adminReviewApi.getChecks(rev.revId),
+            adminReviewApi.getAdvisoryReports(rev.revId),
           ])
           setAdvices(adv.data?.data ?? [])
           setChecks(chk.data?.data ?? [])
+          setAdvisory(adr.data?.data ?? [])
         }
       }
     } catch {}
@@ -208,6 +211,25 @@ export default function LoanReviewDetailPage() {
                     <KV k="승인금리" v={review.approvedRateBps != null ? `${(review.approvedRateBps / 100).toFixed(2)}%` : '-'} />
                     <KV k="거절사유" v={review.rejectReasonCd ?? '-'} />
                     <KV k="편향 심각도" v={review.biasSeverityCd ?? '-'} />
+                    {review.revAiTrackCd && (
+                      <KV k="AI 트랙" v={
+                        <span className={`text-[11px] px-2 py-0.5 rounded border font-semibold ${
+                          review.revAiTrackCd === 'TRACK_1' ? 'bg-green-100 text-green-700 border-green-300' :
+                          review.revAiTrackCd === 'TRACK_2' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                          'bg-red-100 text-red-700 border-red-300'}`}>
+                          {review.revAiTrackCd}
+                        </span>
+                      } />
+                    )}
+                    {review.revAiPd != null && (
+                      <KV k="AI PD" v={`${(review.revAiPd * 100).toFixed(2)}%`} />
+                    )}
+                    {review.revAiRationale && (
+                      <div className="col-span-4">
+                        <p className="text-[11px] text-gray-400 mb-0.5">AI 근거</p>
+                        <p className="text-[12px] text-gray-700 whitespace-pre-wrap">{review.revAiRationale}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">본심사 미실행</p>
@@ -296,6 +318,11 @@ export default function LoanReviewDetailPage() {
                 {/* 승인자 승인 (PENDING_APPROVER) */}
                 {status === 'PENDING_APPROVER' && (
                   <div className="mt-2 pt-3 border-t border-gray-100">
+                    {advisoryReports.some(r => r.severityCd === 'CRITICAL' && r.advrStatusCd !== 'ACKED' && r.advrStatusCd !== 'RESOLVED') && (
+                      <div className="mb-3 px-3 py-2 bg-red-100 border border-red-400 text-red-800 text-[12px] font-semibold rounded">
+                        ⚠ CRITICAL 미해소 Advisory 리포트가 있습니다 — 승인 전 검토 필요
+                      </div>
+                    )}
                     <p className="text-[12px] text-gray-500 mb-2">4-eye 원칙: 심사자와 다른 ID를 입력하세요.</p>
                     <div className="flex flex-wrap gap-3 items-end">
                       <label className="text-[12px] text-gray-600">
@@ -373,6 +400,32 @@ export default function LoanReviewDetailPage() {
                           a.severityCd === 'MEDIUM' ? 'bg-orange-200 text-orange-800' :
                           'bg-gray-200 text-gray-700'}`}>{a.severityCd}</span>
                         <span className="text-blue-900">{a.adviceContent ?? a.content ?? JSON.stringify(a)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {/* Review Advisory 리포트 (advisory-service) */}
+              {advisoryReports.length > 0 && (
+                <Section title={`Review Advisory 리포트 (${advisoryReports.length}건)`}>
+                  <div className="space-y-2">
+                    {advisoryReports.map((r: any, i: number) => (
+                      <div key={i} className={`text-[12px] border rounded px-3 py-2 ${
+                        r.severityCd === 'CRITICAL' ? 'bg-red-50 border-red-300' :
+                        r.severityCd === 'HIGH'     ? 'bg-orange-50 border-orange-300' :
+                        r.severityCd === 'MEDIUM'   ? 'bg-yellow-50 border-yellow-200' :
+                        'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                            r.severityCd === 'CRITICAL' ? 'bg-red-200 text-red-800' :
+                            r.severityCd === 'HIGH'     ? 'bg-orange-200 text-orange-800' :
+                            r.severityCd === 'MEDIUM'   ? 'bg-yellow-200 text-yellow-800' :
+                            'bg-gray-200 text-gray-700'}`}>{r.severityCd}</span>
+                          <span className="font-semibold text-gray-800">{r.advrTitle}</span>
+                          <span className="ml-auto text-[10px] text-gray-400">{r.advrStatusCd}</span>
+                        </div>
+                        {r.advrSummary && <p className="text-gray-600">{r.advrSummary}</p>}
                       </div>
                     ))}
                   </div>

@@ -393,6 +393,9 @@ export const adminReviewApi = {
 
   biasOverride: (revId: number, body: { overrideBy: number; overrideReason: string }) =>
     api.post<any>(`/api/loan-reviews/${revId}/bias-override`, body),
+
+  getAdvisoryReports: (revId: number) =>
+    api.get<any>(`/api/loan-reviews/${revId}/advisory-reports`),
 };
 
 // ─── 어드민 - 담보·서류·우대금리 ─────────────────────────────
