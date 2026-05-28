@@ -215,6 +215,106 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── doc-agent 전용 (profile: doc) ─────────────────────────────────────────
+  doc-agent-db:
+    profiles: ["doc"]
+    image: postgres:16-alpine
+    container_name: ib-doc-agent-db
+    environment:
+      POSTGRES_DB: ${DOC_AGENT_DB_NAME:-doc_agent_db}
+      POSTGRES_USER: ${DOC_AGENT_DB_USER:-docagent}
+      POSTGRES_PASSWORD: ${DOC_AGENT_DB_PASSWORD:-docagent}
+    ports:
+      - "${DOC_AGENT_DB_PORT:-5438}:5432"
+    volumes:
+      - doc-agent-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DOC_AGENT_DB_USER:-docagent} -d ${DOC_AGENT_DB_NAME:-doc_agent_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    profiles: ["doc"]
+    image: minio/minio:latest
+    container_name: ib-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vault:
+    profiles: ["doc"]
+    image: hashicorp/vault:1.15
+    container_name: ib-vault
+    command: server -dev -dev-root-token-id=root
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "${VAULT_PORT:-8200}:8200"
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8200/v1/sys/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  doc-agent:
+    profiles: ["doc"]
+    build:
+      context: .
+      dockerfile: services/doc-agent/Dockerfile
+    container_name: ib-doc-agent
+    ports:
+      - "${DOC_AGENT_APP_PORT:-8087}:8087"
+    environment:
+      DOC_AGENT_APP_PORT: 8087
+      DOC_AGENT_DB_HOST: doc-agent-db
+      DOC_AGENT_DB_PORT: 5432
+      DOC_AGENT_DB_NAME: ${DOC_AGENT_DB_NAME:-doc_agent_db}
+      DOC_AGENT_DB_USER: ${DOC_AGENT_DB_USER:-docagent}
+      DOC_AGENT_DB_PASSWORD: ${DOC_AGENT_DB_PASSWORD:-docagent}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-minioadmin}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-minioadmin}
+      VAULT_ENABLED: "true"
+      VAULT_HOST: vault
+      VAULT_PORT: 8200
+      VAULT_TOKEN: root
+      INFERENCE_SERVER_URL: http://inference-server:8090
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      DRIVER_LICENSE_API_KEY: ${DRIVER_LICENSE_API_KEY:-}
+      DRIVER_LICENSE_API_ENABLED: ${DRIVER_LICENSE_API_ENABLED:-false}
+    depends_on:
+      doc-agent-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   customer-db-data:
   deposit-db-data:
@@ -225,3 +325,5 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+  doc-agent-db-data:
+  minio-data:
