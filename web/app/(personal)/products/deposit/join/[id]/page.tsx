@@ -38,10 +38,6 @@ const REGULAR_SAVINGS_IDS = new Set([
   'axful-soldier',
 ])
 
-const HOUSING_IDS = new Set([
-  'housing-savings', 'youth-housing',
-])
-
 // 적금별 가입기간 범위
 const SAVINGS_PERIOD_RANGE: Record<string, { min: number; max: number; label: string }> = {
   'axful-free':         { min: 6,  max: 36, label: '6~36개월, 월단위' },
@@ -129,7 +125,6 @@ export default function DepositJoinPage() {
   const id = typeof params.id === 'string' ? params.id : 'axful-regular'
   const productName = PRODUCT_NAMES[id] ?? 'AXful 정기예금'
   const isSavings = SAVINGS_IDS.has(id)
-  const isHousing = HOUSING_IDS.has(id)
   const isFreeStyleSavings = FREE_SAVINGS_IDS.has(id)   // 자유적금: 납입 자유
   const isRegularSavings   = REGULAR_SAVINGS_IDS.has(id) // 정기적금: 월 고정 납입
   const periodRange = isSavings ? (SAVINGS_PERIOD_RANGE[id] ?? { min: 1, max: 36, label: '1~36개월, 월단위' }) : { min: 1, max: 36, label: '1~36개월, 월단위' }
@@ -188,12 +183,13 @@ export default function DepositJoinPage() {
       alert(`가입기간을 올바르게 입력해주세요. (${periodRange.label})`)
       return
     }
-    const a = parseInt(amount.replace(/,/g, ''))
-    if (isSavings || isHousing) {
-      if (!a || a < 10000) { alert('납입금액은 최소 1만원 이상이어야 합니다.'); return }
-    } else if (!a || a < 1000000) {
-      alert('가입금액은 최소 100만원 이상이어야 합니다.')
-      return
+    if (!isFreeStyleSavings) {
+      const a = parseInt(amount.replace(/,/g, ''))
+      if (isRegularSavings) {
+        if (!a || a < 10000) { alert('월 납입금액은 최소 1만원 이상이어야 합니다.'); return }
+      } else {
+        if (!a || a < 1000000) { alert('가입금액은 최소 100만원 이상이어야 합니다.'); return }
+      }
     }
     setStep(3)
   }
@@ -209,7 +205,7 @@ export default function DepositJoinPage() {
       const newAcc = {
         id: String(now.getTime()),
         number: `531089-04-${rand6}`,
-        type: isHousing ? '청약' : isSavings ? '적금' : '예금',
+        type: isSavings ? '적금' : '예금',
         name: productName,
         balance: parseInt(amount.replace(/,/g, '')) || 0,
         availableBalance: 0,
@@ -632,7 +628,7 @@ export default function DepositJoinPage() {
                 </button>
                 <button onClick={handleFinalConfirm}
                   className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark">
-                  가입완료
+                  확인
                 </button>
               </div>
             </div>
