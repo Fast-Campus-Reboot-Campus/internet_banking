@@ -3,6 +3,7 @@ package com.bank.loan.execution.service;
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
+import com.bank.common.security.crypto.CryptoService;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.contract.domain.LoanContract;
@@ -67,6 +68,7 @@ public class LoanExecutionService {
     private final NotificationOutboxAppender outboxAppender;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final CryptoService cryptoService;
 
     @Transactional
     public LoanExecutionResponse drawdown(Long cntrId, DrawdownRequest req, String idempotencyKey) {
@@ -127,6 +129,7 @@ public class LoanExecutionService {
                 .execStatusCd(LoanExecution.STATUS_DONE)
                 .disbursementBankCd(req.disbursementBankCd())
                 .disbursementAccountMasked(req.maskedAccount())
+                .disbursementAccountEnc(cryptoService.encrypt(req.disbursementAccountNo()))
                 .executedAt(now)
                 .valueDate(req.valueDate())
                 .feeAmount(req.feeAmount() == null ? 0L : req.feeAmount())

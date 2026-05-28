@@ -4,6 +4,7 @@ import com.bank.loan.autodebit.dto.AutoDebitRunResponse;
 import com.bank.loan.calendar.service.BusinessDayService;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
+import com.bank.common.security.crypto.CryptoService;
 import com.bank.loan.payment.client.PaymentServiceClient;
 import com.bank.loan.payment.client.PaymentServiceProperties;
 import com.bank.loan.payment.client.dto.PaymentRequest;
@@ -21,7 +22,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,6 +67,7 @@ public class AutoDebitBatchService {
     private final RepaymentService repaymentService;
     private final PaymentServiceClient paymentServiceClient;
     private final PaymentServiceProperties paymentProps;
+    private final CryptoService cryptoService;
     private final BusinessDayService businessDayService;
 
     public AutoDebitRunResponse run(String baseDate) {
@@ -148,7 +149,7 @@ public class AutoDebitBatchService {
     private PaymentRequest buildPaymentRequest(RepaymentSchedule schedule,
                                                RepaymentAccount account,
                                                LoanContract contract) {
-        String senderAccountNo = new String(account.getAccountNoEnc(), StandardCharsets.UTF_8);
+        String senderAccountNo = cryptoService.decrypt(account.getAccountNoEnc());
         PaymentServiceProperties.Collection coll = paymentProps.collection();
         return new PaymentRequest(
                 senderAccountNo,
