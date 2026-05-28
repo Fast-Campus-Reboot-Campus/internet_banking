@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import {
-  loanContractApi, repaymentApi, rateApi, closureApi, loanMiscApi,
+  loanContractApi, repaymentApi, rateApi, closureApi, loanMiscApi, guaranteeInsuranceApi,
   getCustomerId, bpsToRate, formatAmount,
   type LoanContract, type RepaymentSchedule, type Notification,
 } from '@/lib/loan-api'
@@ -684,6 +684,272 @@ function DelinquencyView({ contracts, selectedId, setSelectedId }: {
   )
 }
 
+// ─── 상환 취소(역분개) ────────────────────────────────────────
+
+function ReversalForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [txList, setTxList] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [reversing, setReversing] = useState<number | null>(null)
+  const [remark, setRemark] = useState('')
+  const [done, setDone] = useState<number | null>(null)
+
+  async function handleSearch() {
+    if (!selectedId) return
+    setLoading(true); setError('')
+    try {
+      const { data: res } = await repaymentApi.list(selectedId)
+      const items: any[] = res.data?.items ?? []
+      setTxList(items.filter(t => t.rtxStatusCd === 'SUCCESS' && t.rtxTypeCd === 'SCHEDULED'))
+    } catch { setError('거래 목록을 불러오지 못했습니다.') }
+    finally { setLoading(false) }
+  }
+
+  async function handleReverse(rtxId: number) {
+    if (!selectedId) return
+    setError('')
+    try {
+      await repaymentApi.reverse(selectedId, rtxId, { reversalReasonCd: 'MISTAKE', reversalRemark: remark || undefined })
+      setReversing(null); setRemark(''); setDone(rtxId)
+      await handleSearch()
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '역분개 처리 중 오류가 발생했습니다.')
+    }
+  }
+
+  const RTX_TYPE: Record<string, string> = { SCHEDULED: '회차상환', EARLY: '중도상환', PARTIAL: '부분상환' }
+
+  return (
+    <div>
+      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+        <p>· SCHEDULED(회차) 상환 거래만 역분개 가능합니다. 중도상환 역분개는 지원하지 않습니다.</p>
+        <p>· 역분개 시 해당 회차 상태가 PAID → DUE 로 되돌아갑니다.</p>
+      </div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+      </div>
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSearch} disabled={!selectedId || loading}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {loading ? '조회 중...' : '조회'}
+        </button>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      {done && <p className="text-[13px] text-green-600 mt-4 text-center">역분개 처리 완료 (rtxId: {done})</p>}
+      {txList.length > 0 && (
+        <div className="mt-6 border border-kb-border">
+          <table className="w-full text-[13px]">
+            <thead><tr className="bg-kb-beige-light">
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">거래ID</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">유형</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">금액</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">납입일</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">처리</th>
+            </tr></thead>
+            <tbody className="divide-y divide-kb-border">
+              {txList.map((t: any) => (
+                <tr key={t.rtxId} className="hover:bg-kb-beige-light">
+                  <td className="px-4 py-3 text-center text-kb-text-muted">{t.rtxId}</td>
+                  <td className="px-4 py-3 text-center">{RTX_TYPE[t.rtxTypeCd] ?? t.rtxTypeCd}</td>
+                  <td className="px-4 py-3 text-right font-bold">{t.totalAmount?.toLocaleString('ko-KR')}원</td>
+                  <td className="px-4 py-3 text-center text-kb-text-muted">{t.paidAt?.slice(0, 10) ?? '-'}</td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => { setReversing(t.rtxId); setRemark('') }}
+                      className="px-3 py-1 text-[11px] border border-red-400 text-red-600 hover:bg-red-50">
+                      취소
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {txList.length === 0 && !loading && !error && (
+        <p className="text-[13px] text-kb-text-muted mt-6 text-center">조회 버튼을 눌러 상환 거래를 확인하세요.</p>
+      )}
+
+      {reversing !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-[400px] p-8">
+            <p className="text-[18px] font-bold text-kb-text mb-2">상환 취소(역분개)</p>
+            <p className="text-[13px] text-kb-text-body mb-4">거래 rtxId: <strong>{reversing}</strong></p>
+            <textarea value={remark} onChange={e => setRemark(e.target.value)}
+              rows={3} placeholder="취소 사유 (선택)"
+              className="w-full border border-kb-border px-3 py-2 text-[13px] focus:outline-none mb-4 resize-none" />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setReversing(null)}
+                className="px-6 py-2 border border-kb-border text-[13px] text-kb-text hover:bg-kb-beige-light">
+                닫기
+              </button>
+              <button onClick={() => handleReverse(reversing)}
+                className="px-6 py-2 bg-red-500 text-[13px] font-bold text-white hover:bg-red-600">
+                취소 확정
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── 보증보험 ─────────────────────────────────────────────────
+
+const GINS_AGENCY = [
+  { code: 'SGI', label: 'SGI서울보증' },
+  { code: 'HUG', label: 'HUG주택도시보증공사' },
+  { code: 'HF',  label: 'HF한국주택금융공사' },
+]
+
+function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [agency, setAgency] = useState('SGI')
+  const [guaranteeAmt, setGuaranteeAmt] = useState('')
+  const [ratioBps, setRatioBps] = useState('10000')
+  const [premium, setPremium] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [issued, setIssued] = useState<any>(null)
+  const [canceling, setCanceling] = useState(false)
+
+  async function handleIssue() {
+    if (!selectedId || !guaranteeAmt) return
+    setSubmitting(true); setError('')
+    try {
+      const { data: res } = await guaranteeInsuranceApi.issue(selectedId, {
+        ginsAgencyCd:     agency,
+        guaranteeAmount:  parseInt(guaranteeAmt.replace(/,/g, '')),
+        guaranteeRatioBps: parseInt(ratioBps),
+        premiumAmount:    premium ? parseInt(premium.replace(/,/g, '')) : 0,
+      })
+      setIssued(res.data)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '보증보험 발급 중 오류가 발생했습니다.')
+    } finally { setSubmitting(false) }
+  }
+
+  async function handleCancel() {
+    if (!selectedId || !issued) return
+    setCanceling(true); setError('')
+    try {
+      const { data: res } = await guaranteeInsuranceApi.cancel(selectedId, issued.ginsId, { cancelReasonCd: 'USER_REQUEST' })
+      setIssued(res.data)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '보증보험 취소 중 오류가 발생했습니다.')
+    } finally { setCanceling(false) }
+  }
+
+  const GINS_STATUS: Record<string, { text: string; cls: string }> = {
+    ISSUED:   { text: '발급완료', cls: 'text-green-700 bg-green-50 border-green-400' },
+    CANCELED: { text: '취소됨',   cls: 'text-gray-500 bg-gray-50 border-gray-300' },
+    EXPIRED:  { text: '만료됨',   cls: 'text-orange-600 bg-orange-50 border-orange-400' },
+  }
+
+  return (
+    <div>
+      <div className="border border-[#b3cce8] bg-[#f0f6ff] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+        <p>· 외부 보증기관(SGI/HUG/HF) stub — 발급 요청 즉시 ISSUED 처리됩니다.</p>
+        <p>· 계약 상태가 SIGNED 또는 ACTIVE인 경우 발급 가능하며, 활성 보증보험이 1건 초과될 수 없습니다.</p>
+      </div>
+
+      {issued ? (
+        <div className="border border-kb-border rounded-xl overflow-hidden">
+          <div className="bg-kb-beige-light px-5 py-3 flex justify-between items-center border-b border-kb-border">
+            <span className="text-[13px] font-bold text-kb-text">증권번호: {issued.ginsPolicyNo}</span>
+            <span className={`text-[11px] px-2 py-0.5 rounded border ${GINS_STATUS[issued.ginsStatusCd]?.cls ?? 'border-kb-border text-kb-text-muted'}`}>
+              {GINS_STATUS[issued.ginsStatusCd]?.text ?? issued.ginsStatusCd}
+            </span>
+          </div>
+          <div className="px-5 py-4 grid grid-cols-2 gap-x-8 gap-y-2 text-[13px] text-kb-text-body">
+            {[
+              ['보증기관', GINS_AGENCY.find(a => a.code === issued.ginsAgencyCd)?.label ?? issued.ginsAgencyCd],
+              ['보증금액', `${issued.guaranteeAmount?.toLocaleString('ko-KR')}원`],
+              ['보증비율', `${(issued.guaranteeRatioBps / 100).toFixed(0)}%`],
+              ['보험료',   `${issued.premiumAmount?.toLocaleString('ko-KR')}원`],
+              ['유효시작', issued.ginsStartDate ?? '-'],
+              ['유효종료', issued.ginsEndDate ?? '-'],
+              ['발급일시', issued.issuedAt?.slice(0, 16).replace('T', ' ') ?? '-'],
+            ].map(([label, val]) => (
+              <div key={label}><span className="font-medium text-kb-text">{label}</span>: {val}</div>
+            ))}
+          </div>
+          {issued.ginsStatusCd === 'ISSUED' && (
+            <div className="px-5 py-3 border-t border-kb-border">
+              <button onClick={handleCancel} disabled={canceling}
+                className="px-5 py-1.5 border border-red-400 text-[12px] text-red-600 hover:bg-red-50 disabled:opacity-50">
+                {canceling ? '처리 중...' : '보증보험 취소'}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="border border-kb-border divide-y divide-kb-border mb-5">
+            <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증기관 <span className="text-kb-red">*</span></span>
+              <div className="flex gap-2">
+                {GINS_AGENCY.map(a => (
+                  <button key={a.code} onClick={() => setAgency(a.code)}
+                    className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
+                      agency === a.code ? 'bg-kb-yellow border-kb-text font-bold text-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                    {a.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증금액 <span className="text-kb-red">*</span></span>
+              <div className="flex items-center gap-2">
+                <input type="text"
+                  value={guaranteeAmt ? parseInt(guaranteeAmt.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
+                  onChange={e => setGuaranteeAmt(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="0" className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                <span className="text-[13px]">원</span>
+              </div>
+            </div>
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증비율</span>
+              <select value={ratioBps} onChange={e => setRatioBps(e.target.value)}
+                className="border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+                <option value="10000">100%</option>
+                <option value="8000">80%</option>
+                <option value="5000">50%</option>
+              </select>
+            </div>
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보험료</span>
+              <div className="flex items-center gap-2">
+                <input type="text"
+                  value={premium ? parseInt(premium.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
+                  onChange={e => setPremium(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="0" className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                <span className="text-[13px]">원</span>
+              </div>
+            </div>
+          </div>
+          {error && <p className="text-[13px] text-kb-red mb-4">{error}</p>}
+          <div className="flex justify-center">
+            <button onClick={handleIssue} disabled={!selectedId || !guaranteeAmt || submitting}
+              className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+              {submitting ? '발급 중...' : '보증보험 발급'}
+            </button>
+          </div>
+        </>
+      )}
+      {error && issued && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
+    </div>
+  )
+}
+
 // ─── UI-only 슬러그 (API pending) ─────────────────────────────
 
 function WithdrawForm({ contracts, selectedId, setSelectedId }: {
@@ -792,6 +1058,8 @@ const PAGE_META: Record<string, SlugMeta> = {
   notify:         { title: '개인대출 통지서비스',                 breadcrumb: '통지서비스' },
   'payment-method':{ title: '개인대출 할부금(이자) 납입방법 변경', breadcrumb: '납입방법 변경' },
   delinquency:     { title: '연체정보조회',                       breadcrumb: '연체정보조회' },
+  reversal:        { title: '상환 취소(역분개)',                   breadcrumb: '상환 취소' },
+  'guarantee-insurance': { title: '보증보험 발급/조회',            breadcrumb: '보증보험' },
 }
 
 function PageContent({ slug, contracts, selectedId, setSelectedId }: {
@@ -808,6 +1076,8 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
     case 'notify':  return <NotifyForm />
     case 'payment-method': return <PaymentMethodForm {...props} />
     case 'delinquency': return <DelinquencyView {...props} />
+    case 'reversal':    return <ReversalForm {...props} />
+    case 'guarantee-insurance': return <GuaranteeInsuranceForm {...props} />
     case 'closed':
       return <SimpleQueryForm {...props}
         apiCall={cntrId => closureApi.getClosure(cntrId)}

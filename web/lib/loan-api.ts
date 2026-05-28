@@ -216,8 +216,11 @@ export const repaymentApi = {
   fullPrepay: (cntrId: number, body: object) =>
     api.post<any>(`/api/loan-contracts/${cntrId}/prepayments`, body),
 
-  reverse: (cntrId: number, rtxId: number) =>
-    api.post<any>(`/api/loan-contracts/${cntrId}/repayments/${rtxId}/reversal`, {}),
+  list: (cntrId: number) =>
+    api.get<any>(`/api/loan-contracts/${cntrId}/repayments`),
+
+  reverse: (cntrId: number, rtxId: number, body?: { reversalReasonCd?: string; reversalRemark?: string }) =>
+    api.post<any>(`/api/loan-contracts/${cntrId}/repayments/${rtxId}/reversal`, body ?? {}),
 };
 
 // ─── 금리/이자 ────────────────────────────────────────────────
@@ -277,9 +280,19 @@ export const loanMiscApi = {
 
   getDelinquency: (cntrId: number) =>
     api.get<any>(`/api/loan-contracts/${cntrId}/delinquency`),
+};
 
-  getGuaranteeInsurance: (cntrId: number) =>
-    api.get<any>(`/api/loan-contracts/${cntrId}/guarantee-insurance`),
+// ─── 보증보험 ─────────────────────────────────────────────────
+
+export const guaranteeInsuranceApi = {
+  issue: (cntrId: number, body: object) =>
+    api.post<any>(`/api/loan-contracts/${cntrId}/guarantee-insurance`, body),
+
+  get: (cntrId: number, ginsId: number) =>
+    api.get<any>(`/api/loan-contracts/${cntrId}/guarantee-insurance/${ginsId}`),
+
+  cancel: (cntrId: number, ginsId: number, body?: { cancelReasonCd?: string }) =>
+    api.post<any>(`/api/loan-contracts/${cntrId}/guarantee-insurance/${ginsId}/cancel`, body ?? {}),
 };
 
 // ─── 신용점수 미리보기 ────────────────────────────────────────
