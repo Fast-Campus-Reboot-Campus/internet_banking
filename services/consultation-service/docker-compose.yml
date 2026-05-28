@@ -77,7 +77,7 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "8090:8090"
+      - "8087:8087"
     environment:
       CONSULTATION_DATABASE_URL:                   postgresql+psycopg://deposit:deposit@postgres:5432/deposit_db
       CONSULTATION_KAFKA_ENABLED:                  "true"
@@ -86,7 +86,7 @@ services:
       CONSULTATION_KAFKA_TOPIC_CHAT_EVENTS:        consultation.chat.events
       CONSULTATION_LLM_CONFIDENCE_THRESHOLD:       "70"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8090/health')\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8087/health')\""]
       interval: 10s
       timeout: 5s
       retries: 5

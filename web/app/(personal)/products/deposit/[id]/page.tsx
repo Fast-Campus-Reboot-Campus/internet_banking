@@ -595,7 +595,7 @@ export default function DepositDetailPage() {
               <section className="mb-5">
                 <p className="font-bold text-kb-text mb-2 text-[14px]">예금자보호여부</p>
                 <p className="font-semibold mb-1">예금보험공사 보호금융상품 1인당 최고 1억원</p>
-                <p>이 예금은 예금자보호법에 따라 원금과 소정의 이자를 합하여 1인당 <span className="font-semibold">&ldquo;1억원까지&rdquo;</span>(본 은행의 여타 보호상품과 합산) 보호됩니다.</p>
+                <p>이 예금은 예금자보호법에 따라 원금과 소정의 이자를 합하여 1인당 <span className="font-semibold">"1억원까지"</span>(본 은행의 여타 보호상품과 합산) 보호됩니다.</p>
               </section>
 
               {/* 준법감시인 */}

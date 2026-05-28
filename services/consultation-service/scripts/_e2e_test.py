@@ -9,7 +9,7 @@ import httpx
 if hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
-BASE = "http://localhost:8090"
+BASE = "http://localhost:8087"
 
 def check(label, resp, expected_status=200):
     if resp.status_code != expected_status:

@@ -42,7 +42,7 @@ export default function DepositNewHistoryPage() {
           {/* 안내 */}
           <div className="border border-kb-border bg-[#FAFAFA] px-4 py-3 mb-5 text-[12px] text-kb-text-body space-y-1">
             <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>예금 신규결과/내역입니다.</span></p>
-            <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>AX풀뱅크 계좌형자주 가입현황은 &lsquo;재청·저주신규조회&rsquo; 화면에서 확인가능합니다.</span></p>
+            <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>AX풀뱅크 계좌형자주 가입현황은 '재청·저주신규조회' 화면에서 확인가능합니다.</span></p>
           </div>
 
           {/* 테이블 */}
