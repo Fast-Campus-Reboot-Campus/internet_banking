@@ -19,6 +19,7 @@ interface MyPageData {
   customerGradeCode: string
   customerStatusCode: string
   joinedAt: string
+  lastLoginAt: string | null
 }
 
 function maskId(loginId: string) {
@@ -86,8 +87,8 @@ export default function MyKBPage() {
     )
   }
 
-  const joinedAt = new Date(data.joinedAt)
-  const joinedStr = `${joinedAt.getFullYear()}.${String(joinedAt.getMonth() + 1).padStart(2, '0')}.${String(joinedAt.getDate()).padStart(2, '0')} ${String(joinedAt.getHours()).padStart(2, '0')}:${String(joinedAt.getMinutes()).padStart(2, '0')}`
+  const lastLoginDate = data.lastLoginAt ? new Date(data.lastLoginAt) : new Date(data.joinedAt)
+  const joinedStr = `${lastLoginDate.getFullYear()}.${String(lastLoginDate.getMonth() + 1).padStart(2, '0')}.${String(lastLoginDate.getDate()).padStart(2, '0')} ${String(lastLoginDate.getHours()).padStart(2, '0')}:${String(lastLoginDate.getMinutes()).padStart(2, '0')}`
 
   return (
     <div className="max-w-kb-container mx-auto px-6 py-10 pb-16">
