@@ -233,6 +233,12 @@ function LoanResultContent() {
           </Link>
         )}
         {applId && !isRejected && (
+          <Link href={`/loans/apply/${applId}/collateral`}
+            className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+            담보 등록
+          </Link>
+        )}
+        {applId && !isRejected && (
           <Link href={`/loans/apply/${applId}/documents`}
             className="px-10 py-3 border border-kb-text text-[14px] font-medium text-kb-text hover:bg-kb-beige-light transition-colors">
             서류 제출

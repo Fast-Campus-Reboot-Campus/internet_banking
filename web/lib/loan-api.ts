@@ -153,11 +153,20 @@ export const loanApplicationApi = {
 // ─── 담보 ─────────────────────────────────────────────────────
 
 export const collateralApi = {
+  list: (applId: number) =>
+    api.get<any>(`/api/loan-applications/${applId}/collaterals`),
+
   create: (applId: number, body: object) =>
     api.post<any>(`/api/loan-applications/${applId}/collaterals`, body),
 
-  calculateLtv: (colId: number, body: object) =>
-    api.post<any>(`/api/collaterals/${colId}/ltv-calculation`, body),
+  evaluate: (colId: number, body: object) =>
+    api.post<any>(`/api/collaterals/${colId}/evaluations`, body),
+
+  calculateLtv: (colId: number, body?: object) =>
+    api.post<any>(`/api/collaterals/${colId}/ltv-calculation`, body ?? {}),
+
+  getLtv: (colId: number) =>
+    api.get<any>(`/api/collaterals/${colId}/ltv-calculation`),
 };
 
 // ─── 약정 ─────────────────────────────────────────────────────
