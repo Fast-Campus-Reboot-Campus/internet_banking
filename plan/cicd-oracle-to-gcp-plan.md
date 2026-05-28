@@ -323,7 +323,7 @@ infra/k8s/
 | B2 | 완료 | 서비스별 워크플로우 12개 (Java 10 + Python 2 + data-tools publish 전용) + 기존 템플릿 제거 |
 | B3 | 완료 | 인프라 배포 워크플로우 (compose/prometheus/grafana sync + reload) |
 | C1 | 사용자 | Oracle Cloud VM 생성 (수동) |
-| C2 | 대기 | Oracle bootstrap.sh 작성 |
+| C2 | 완료 | Oracle bootstrap.sh + README (VM 생성부터 자동 기동까지 가이드) |
 | C3 | 보류 | 도메인 + HTTPS (선택) |
 | D1 | 대기 | k8s 매니페스트 골격 작성 |
 | D2 | 보류 | GCP 실제 전환 (나중) |
