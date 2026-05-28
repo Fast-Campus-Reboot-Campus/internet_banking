@@ -322,6 +322,74 @@ export function formatAmount(amt: number): string {
   return `${amt.toLocaleString("ko-KR")}원`;
 }
 
+// ─── 어드민 - 본심사 ──────────────────────────────────────────
+
+export const adminReviewApi = {
+  listPending: () =>
+    api.get<any>('/api/loan-reviews/pending'),
+
+  listPendingApprover: () =>
+    api.get<any>('/api/loan-reviews/pending-approver'),
+
+  stats: (from: string, to: string) =>
+    api.get<any>('/api/loan-reviews/stats', { params: { from, to } }),
+
+  get: (applId: number) =>
+    api.get<any>(`/api/loan-applications/${applId}/review`),
+
+  run: (applId: number, body: object) =>
+    api.post<any>(`/api/loan-applications/${applId}/review`, body),
+
+  autoDecide: (applId: number) =>
+    api.post<any>(`/api/loan-applications/${applId}/review/auto-decide`, {}),
+
+  confirm: (applId: number, body: { reviewerId: number; confirmRemark?: string }) =>
+    api.post<any>(`/api/loan-applications/${applId}/review/confirm`, body),
+
+  acknowledgeBias: (applId: number, body?: { acknowledgeRemark?: string }) =>
+    api.post<any>(`/api/loan-applications/${applId}/review/acknowledge-bias`, body ?? {}),
+
+  approverApprove: (applId: number, body: object) =>
+    api.post<any>(`/api/loan-applications/${applId}/review/approver-approve`, body),
+
+  revise: (applId: number, body: object) =>
+    api.patch<any>(`/api/loan-applications/${applId}/review`, body),
+
+  getAdvices: (revId: number) =>
+    api.get<any>(`/api/loan-reviews/${revId}/advices`),
+
+  getChecks: (revId: number) =>
+    api.get<any>(`/api/loan-reviews/${revId}/checks`),
+
+  addCheck: (revId: number, body: object) =>
+    api.post<any>(`/api/loan-reviews/${revId}/checks`, body),
+
+  biasOverride: (revId: number, body: { overrideBy: number; overrideReason: string }) =>
+    api.post<any>(`/api/loan-reviews/${revId}/bias-override`, body),
+};
+
+// ─── 어드민 - 담보·서류·우대금리 ─────────────────────────────
+
+export const adminLoanApi = {
+  updateCollateral: (colId: number, body: object) =>
+    api.patch<any>(`/api/collaterals/${colId}`, body),
+
+  releaseCollateral: (colId: number, body: object) =>
+    api.post<any>(`/api/collaterals/${colId}/release`, body),
+
+  deleteDocument: (docId: number) =>
+    api.delete<any>(`/api/loan-documents/${docId}`),
+
+  downloadDocumentUrl: (docId: number) =>
+    `/api/loan-documents/${docId}/download`,
+
+  getPreferentialPolicies: (prodId: number) =>
+    api.get<any>(`/api/loan-products/${prodId}/preferential-rate-policies`),
+
+  addPreferentialPolicy: (prodId: number, body: object) =>
+    api.post<any>(`/api/loan-products/${prodId}/preferential-rate-policies`, body),
+};
+
 export function getCustomerId(): number | null {
   if (typeof window === "undefined") return null;
   const val = localStorage.getItem("customerId");
