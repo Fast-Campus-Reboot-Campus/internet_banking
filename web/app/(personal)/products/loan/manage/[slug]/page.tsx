@@ -568,7 +568,7 @@ function PaymentMethodForm({ contracts, selectedId, setSelectedId }: {
     if (!selectedId || !accountNo) return
     setSubmitting(true); setError('')
     try {
-      await loanContractApi.updateRepaymentAccount(selectedId, { accountNo })
+      await loanContractApi.registerRepaymentAccount(selectedId, { accountNo })
       setDone(true)
     } catch (err: any) {
       setError(err.response?.data?.message ?? '변경 처리 중 오류가 발생했습니다.')

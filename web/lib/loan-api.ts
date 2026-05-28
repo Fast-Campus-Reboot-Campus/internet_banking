@@ -97,6 +97,15 @@ export const loanProductApi = {
 
   preferentialRates: (prodId: number) =>
     api.get<any>(`/api/loan-products/${prodId}/preferential-rate-policies`),
+
+  create: (body: object) =>
+    api.post<any>("/api/loan-products", body),
+
+  update: (prodId: number, body: object) =>
+    api.patch<any>(`/api/loan-products/${prodId}`, body),
+
+  discontinue: (prodId: number, body?: object) =>
+    api.post<any>(`/api/loan-products/${prodId}/discontinue`, body ?? {}),
 };
 
 // ─── 신청 ─────────────────────────────────────────────────────
@@ -406,6 +415,58 @@ export const adminLoanApi = {
 
   addPreferentialPolicy: (prodId: number, body: object) =>
     api.post<any>(`/api/loan-products/${prodId}/preferential-rate-policies`, body),
+};
+
+// ─── 영업일 캘린더 ────────────────────────────────────────────
+
+export const businessCalendarApi = {
+  list: (params?: { year?: number; page?: number; size?: number }) =>
+    api.get<any>("/api/business-calendars", { params }),
+
+  get: (calId: number) =>
+    api.get<any>(`/api/business-calendars/${calId}`),
+
+  create: (body: object) =>
+    api.post<any>("/api/business-calendars", body),
+
+  update: (calId: number, body: object) =>
+    api.patch<any>(`/api/business-calendars/${calId}`, body),
+
+  delete: (calId: number) =>
+    api.delete<any>(`/api/business-calendars/${calId}`),
+};
+
+// ─── 신용정보 보고서 ──────────────────────────────────────────
+
+export const creditInfoReportApi = {
+  list: (params?: { page?: number; size?: number }) =>
+    api.get<any>("/api/credit-info-reports", { params }),
+
+  retry: (reportId: number) =>
+    api.post<any>(`/api/credit-info-reports/${reportId}/retry`, {}),
+
+  ack: (reportId: number, body?: object) =>
+    api.post<any>(`/api/credit-info-reports/${reportId}/ack`, body ?? {}),
+};
+
+// ─── 알림 발송함 ──────────────────────────────────────────────
+
+export const notificationOutboxApi = {
+  get: (outboxId: number) =>
+    api.get<any>(`/api/notification-outbox/${outboxId}`),
+
+  list: (params?: { page?: number; size?: number }) =>
+    api.get<any>("/api/notification-outbox", { params }),
+
+  retry: (outboxId: number) =>
+    api.post<any>(`/api/notification-outbox/${outboxId}/retry`, {}),
+};
+
+// ─── 본인인증 ─────────────────────────────────────────────────
+
+export const identityVerificationApi = {
+  get: (idvId: number) =>
+    api.get<any>(`/api/identity-verifications/${idvId}`),
 };
 
 export function getCustomerId(): number | null {
