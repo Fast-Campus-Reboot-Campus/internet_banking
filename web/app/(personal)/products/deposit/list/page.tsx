@@ -111,6 +111,7 @@ const CHECKING_PRODUCTS: Product[] = [
     channel: '영업점',
     desc: '쇼핑용 아껴 쏙머니가 쏙~',
     isNew: true,
+    canApply: true,
   },
   {
     id: 'election',
@@ -138,6 +139,7 @@ const CHECKING_PRODUCTS: Product[] = [
     name: '모니모 AXful 매일이자 통장',
     channel: '영업점',
     desc: '하루만 넣어도 이자가 쌓이는',
+    canApply: true,
   },
   {
     id: 'axful-moim',
