@@ -11,9 +11,11 @@ import org.slf4j.LoggerFactory;
 import com.bank.loan.document.domain.LoanDocument;
 import com.bank.loan.document.docagent.DocAgentClient;
 import com.bank.loan.document.docagent.SubmissionResult;
+import com.bank.loan.document.domain.LoanDocumentSubmission;
 import com.bank.loan.document.dto.LoanDocumentListResponse;
 import com.bank.loan.document.dto.LoanDocumentResponse;
 import com.bank.loan.document.repository.LoanDocumentRepository;
+import com.bank.loan.document.repository.LoanDocumentSubmissionRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class LoanDocumentService {
     private static final String REASON_HOLD            = "DOCUMENT_HOLD";
 
     private final LoanDocumentRepository repository;
+    private final LoanDocumentSubmissionRepository submissionRepository;
     private final LoanApplicationRepository applicationRepository;
     private final DocAgentClient docAgentClient;
     private final CurrentActorProvider currentActor;
@@ -97,6 +100,20 @@ public class LoanDocumentService {
                 file);
 
         saved.applyVerifyResult(result.verifyStatus(), result.submissionId());
+
+        Double rawScore = result.documentVerification() != null
+                ? result.documentVerification().confidenceScore() : null;
+        submissionRepository.save(LoanDocumentSubmission.builder()
+                .submissionId(result.submissionId())
+                .docId(saved.getDocId())
+                .applicationId(application.getApplNo())
+                .docCode(docTypeCd)
+                .verifyStatus(result.verifyStatus())
+                .confidenceScore(rawScore != null
+                        ? java.math.BigDecimal.valueOf(rawScore) : null)
+                .occurredAt(OffsetDateTime.now())
+                .createdAt(OffsetDateTime.now())
+                .build());
 
         String reason = switch (result.verifyStatus()) {
             case SubmissionResult.VERIFY_AUTO_PASS      -> REASON_VERIFIED;
