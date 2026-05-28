@@ -1,0 +1,611 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "챗봇 상담 서비스 모니터링 대시보드 — 세션·메시지·LLM·Kafka 지표",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "활성 세션 수",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "chatbot_active_sessions",
+          "legendFormat": "활성 세션",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 100},
+              {"color": "red", "value": 200}
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "세션 시작 (건/분)",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_session_total[1m])) * 60",
+          "legendFormat": "세션/분",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "상담사 이관율",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_handoff_total[5m])) / (sum(rate(chatbot_message_total[5m])) + 0.001) * 100",
+          "legendFormat": "이관율 %",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 20},
+              {"color": "red", "value": 30}
+            ]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "평균 만족도",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(chatbot_satisfaction_score_sum) / (sum(chatbot_satisfaction_score_count) + 0.001)",
+          "legendFormat": "평균 만족도",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 3},
+              {"color": "green", "value": 4}
+            ]
+          },
+          "unit": "short",
+          "decimals": 1,
+          "max": 5,
+          "min": 1
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "메시지 처리 방식별 추이",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 0, "y": 4, "w": 14, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_message_total[1m])) by (process_method)",
+          "legendFormat": "{{process_method}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "메시지 처리 방식 분포 (1h)",
+      "type": "piechart",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 14, "y": 4, "w": 10, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(increase(chatbot_message_total[1h])) by (process_method)",
+          "legendFormat": "{{process_method}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "pieType": "pie",
+        "tooltip": {"mode": "single"},
+        "legend": {"displayMode": "table", "placement": "right"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "LLM 응답 시간 P50 / P95",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 0, "y": 12, "w": 14, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "histogram_quantile(0.5, sum(rate(chatbot_llm_duration_seconds_bucket[5m])) by (method, le))",
+          "legendFormat": "P50 {{method}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "histogram_quantile(0.95, sum(rate(chatbot_llm_duration_seconds_bucket[5m])) by (method, le))",
+          "legendFormat": "P95 {{method}}",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "s",
+          "custom": {"lineWidth": 2, "fillOpacity": 5}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byRegexp", "options": "P95.*"},
+            "properties": [
+              {"id": "custom.lineWidth", "value": 2},
+              {"id": "custom.lineStyle", "value": {"fill": "dash"}}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "title": "LLM 오류율",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 14, "y": 12, "w": 5, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_llm_error_total[5m])) / (sum(rate(chatbot_llm_duration_seconds_count[5m])) + 0.001) * 100",
+          "legendFormat": "LLM 오류율",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "red", "value": 10}
+            ]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "LLM 오류 발생 추이",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 19, "y": 12, "w": 5, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_llm_error_total[1m])) by (method)",
+          "legendFormat": "{{method}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "fixed", "fixedColor": "red"},
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 20}
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Kafka 이벤트 발행률 (topic / status)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_kafka_publish_total[1m])) by (topic, status)",
+          "legendFormat": "{{topic}} / {{status}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Kafka 이벤트 소비율 (event_type / status)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_kafka_consume_total[1m])) by (event_type, status)",
+          "legendFormat": "{{event_type}} / {{status}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "HTTP 요청률 (endpoint별)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 0, "y": 28, "w": 8, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"consultation-service\"}[1m])) by (handler)",
+          "legendFormat": "{{handler}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "HTTP 응답 시간 P95 (endpoint별)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 8, "y": 28, "w": 8, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"consultation-service\"}[5m])) by (handler, le))",
+          "legendFormat": "P95 {{handler}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "s",
+          "custom": {"lineWidth": 2, "fillOpacity": 5}
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "HTTP 5xx 오류율",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 16, "y": 28, "w": 8, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"consultation-service\", status_code=~\"5..\"}[1m])) by (handler)",
+          "legendFormat": "5xx {{handler}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "fixed", "fixedColor": "red"},
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 20}
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "세션 종료 추이",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 0, "y": 36, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_session_ended_total[1m])) * 60",
+          "legendFormat": "종료 세션/분",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_session_total[1m])) * 60",
+          "legendFormat": "시작 세션/분",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short",
+          "custom": {"lineWidth": 1, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "만족도 점수 분포 (1h 누적)",
+      "type": "bargauge",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 12, "y": 36, "w": 12, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(increase(chatbot_satisfaction_score_bucket{le!=\"+Inf\"}[1h])) by (le)",
+          "legendFormat": "≤ {{le}}점",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "minVizWidth": 0,
+        "minVizHeight": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "continuous-GrYlRd"},
+          "unit": "short",
+          "min": 0
+        }
+      }
+    }
+  ],
+    {
+      "id": 17,
+      "title": "LLM 토큰 사용량 추이 (입력 / 출력)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 0, "y": 44, "w": 14, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_llm_prompt_tokens_sum[1m])) by (method)",
+          "legendFormat": "입력 {{method}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_llm_completion_tokens_sum[1m])) by (method)",
+          "legendFormat": "출력 {{method}}",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "table", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short",
+          "custom": {"lineWidth": 1, "fillOpacity": 10}
+        }
+      }
+    },
+    {
+      "id": 18,
+      "title": "LLM 평균 토큰 / 호출",
+      "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 14, "y": 44, "w": 5, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_llm_prompt_tokens_sum[5m])) / sum(rate(chatbot_llm_prompt_tokens_count[5m]))",
+          "legendFormat": "평균 입력 토큰",
+          "refId": "A"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "sum(rate(chatbot_llm_completion_tokens_sum[5m])) / sum(rate(chatbot_llm_completion_tokens_count[5m]))",
+          "legendFormat": "평균 출력 토큰",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "vertical"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": 19,
+      "title": "Fallback 응답 추이 (LLM 없이 이관 안내)",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "gridPos": {"x": 19, "y": 44, "w": 5, "h": 8},
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "expr": "rate(chatbot_fallback_total[1m])",
+          "legendFormat": "fallback",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {"mode": "single"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "fixed", "fixedColor": "orange"},
+          "unit": "reqps",
+          "custom": {"lineWidth": 1, "fillOpacity": 20}
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["chatbot", "consultation", "kafka", "llm"],
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "챗봇 상담 모니터링",
+  "uid": "chatbot-monitoring",
+  "version": 1
+}
