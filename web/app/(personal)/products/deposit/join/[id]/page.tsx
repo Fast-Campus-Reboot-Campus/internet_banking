@@ -169,6 +169,7 @@ export default function DepositJoinPage() {
   /* ─── Step 3 state ─── */
   const [confirmPw, setConfirmPw] = useState('')
   const [mouseInput, setMouseInput] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const STEP_LABELS = ['약관동의', '정보입력', '정보확인']
 
@@ -199,7 +200,9 @@ export default function DepositJoinPage() {
   }
 
   function handleFinalConfirm() {
+    if (submitting) return
     if (!confirmPw && !mouseInput) { alert('계좌 비밀번호를 입력해주세요.'); return }
+    setSubmitting(true)
 
     // 신규 계좌 localStorage 저장
     try {
@@ -630,9 +633,9 @@ export default function DepositJoinPage() {
                   className="border border-kb-border px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
                   이전
                 </button>
-                <button onClick={handleFinalConfirm}
-                  className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark">
-                  가입완료
+                <button onClick={handleFinalConfirm} disabled={submitting}
+                  className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark disabled:opacity-50 disabled:cursor-not-allowed">
+                  {submitting ? '처리 중...' : '가입완료'}
                 </button>
               </div>
             </div>
