@@ -73,9 +73,8 @@ public class OcrMaskingService {
     }
 
     private String mask(String text) {
-        String result = SSN.matcher(text).replaceAll("$1-$2".substring(0, 8) + "******");
-        // SSN: 앞 7자리 보존, 뒤 6자리 마스킹
-        result = SSN.matcher(text).replaceAll(m ->
+        // SSN: 앞 7자리 보존(생년월일 6자리 + 성별 1자리), 뒤 6자리 마스킹
+        String result = SSN.matcher(text).replaceAll(m ->
             m.group(1) + "-" + m.group(2).charAt(0) + "******");
         result = PHONE.matcher(result).replaceAll(m ->
             m.group(1) + "-****-" + m.group(3));
