@@ -11,6 +11,20 @@ const STATUS_LABEL: Record<string, string> = {
   APPROVED: '승인', REJECTED: '거절', CANCELLED: '취소', EXPIRED: '만료',
 }
 
+const AI_TRACK_LABEL: Record<string, string> = {
+  TRACK_1: '빠른 심사', TRACK_2: '표준 심사', TRACK_3: '정밀 심사',
+  FAST: '빠른 심사', STANDARD: '표준 심사', MANUAL: '수동 심사',
+}
+
+const REJECT_REASON_LABEL: Record<string, string> = {
+  CREDIT_SCORE: '신용점수 기준 미충족',
+  HIGH_DSR: '부채상환비율(DSR) 초과',
+  INCOME_VERIFICATION: '소득 확인 불가',
+  COLLATERAL_INSUFFICIENT: '담보 가치 부족',
+  POLICY_REJECT: '내부 심사 기준 미충족',
+  OTHER: '기타 심사 기준 미충족',
+}
+
 function LoanResultContent() {
   const searchParams = useSearchParams()
   const applId  = searchParams.get('applId')
@@ -20,6 +34,7 @@ function LoanResultContent() {
 
   const [journey,  setJourney]  = useState<any>(null)
   const [history,  setHistory]  = useState<any[]>([])
+  const [review,   setReview]   = useState<any>(null)
   const [loading,  setLoading]  = useState(!!applId)
   const [error,    setError]    = useState('')
 
@@ -31,6 +46,9 @@ function LoanResultContent() {
       .finally(() => setLoading(false))
     loanMiscApi.getStatusHistory('LOAN_APPLICATION', parseInt(applId, 10))
       .then(({ data: res }) => setHistory(res.data?.items ?? []))
+      .catch(() => {})
+    api.get(`/api/loan-applications/${applId}/review`)
+      .then(({ data: res }) => setReview(res.data))
       .catch(() => {})
   }, [applId])
 
@@ -103,6 +121,30 @@ function LoanResultContent() {
           </>
         )}
       </div>
+
+      {/* AI 평가 트랙 배지 */}
+      {review?.revAiTrackCd && (
+        <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-[13px]">
+          <span className="text-gray-500">AI 평가 트랙</span>
+          <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+            review.revAiTrackCd === 'TRACK_1' || review.revAiTrackCd === 'FAST'
+              ? 'bg-green-100 text-green-700 border-green-300'
+              : review.revAiTrackCd === 'TRACK_2' || review.revAiTrackCd === 'STANDARD'
+              ? 'bg-blue-100 text-blue-700 border-blue-300'
+              : 'bg-orange-100 text-orange-700 border-orange-300'
+          }`}>
+            {AI_TRACK_LABEL[review.revAiTrackCd] ?? review.revAiTrackCd}
+          </span>
+        </div>
+      )}
+
+      {/* 거절 사유 안내 */}
+      {isRejected && review?.rejectReasonCd && (
+        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+          <span className="font-semibold">거절 사유: </span>
+          {REJECT_REASON_LABEL[review.rejectReasonCd] ?? '심사 기준 미충족'}
+        </div>
+      )}
 
       {/* 신청 상세 */}
       <section className="mb-6">
