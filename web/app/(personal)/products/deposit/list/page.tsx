@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import CartModal from '@/components/products/CartModal'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import { fetchDepositProducts, getDepositSlugByProductId, toDepositProductCard } from '@/lib/deposit-api'
 
 type Product = {
   id: string
@@ -236,6 +237,7 @@ const JOIN_PERIODS = ['전체', '3개월 미만', '3-6개월 미만', '6-12개�
 
 export default function DepositListPage() {
   const [tab, setTab] = useState<Tab>('예금')
+  const [apiProductsMap, setApiProductsMap] = useState<Partial<Record<Tab, Product[]>>>({})
 
   // URL ?tab= 파라미터로 초기 탭 설정 (클라이언트 전용)
   useEffect(() => {
@@ -243,6 +245,51 @@ export default function DepositListPage() {
     const raw = params.get('tab') as Tab | null
     if (raw && (TABS as readonly string[]).includes(raw)) {
       setTab(raw)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadProducts() {
+      try {
+        const products = await fetchDepositProducts({ productStatus: 'SELLING' })
+        if (cancelled) return
+
+        const next: Partial<Record<Tab, Product[]>> = {
+          '예금': [],
+          '정기적금': [],
+          '자유적금': [],
+          '입출금자유': [],
+          '주택청약': [],
+        }
+
+        products.forEach(product => {
+          const card = toDepositProductCard(product)
+          const slug = getDepositSlugByProductId(product.productId)
+          if (product.productType === 'SUBSCRIPTION') {
+            next['주택청약']?.push(card)
+          } else if (product.productType === 'SAVINGS') {
+            if (['axful-soldier', 'axful-work', 'axful-dream', 'axful-together'].includes(slug)) {
+              next['정기적금']?.push(card)
+            } else {
+              next['자유적금']?.push(card)
+            }
+          } else if (product.productName.includes('통장')) {
+            next['입출금자유']?.push(card)
+          } else {
+            next['예금']?.push(card)
+          }
+        })
+
+        setApiProductsMap(next)
+      } catch {
+        setApiProductsMap({})
+      }
+    }
+
+    loadProducts()
+    return () => {
+      cancelled = true
     }
   }, [])
   const [productType, setProductType] = useState('전체')
@@ -258,7 +305,8 @@ export default function DepositListPage() {
     '입출금자유': CHECKING_PRODUCTS,
     '주택청약': HOUSING_PRODUCTS,
   }
-  const products = productsMap[tab]
+  const products = (apiProductsMap[tab]?.length ? apiProductsMap[tab] : productsMap[tab])
+    .filter(product => !searchName.trim() || product.name.includes(searchName.trim()))
 
   const showPeriodFilter = tab === '예금' || tab === '정기적금' || tab === '자유적금'
   const showProductTypeFilter = tab === '예금'

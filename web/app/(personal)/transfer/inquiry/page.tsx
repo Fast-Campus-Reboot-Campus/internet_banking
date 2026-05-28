@@ -2,21 +2,17 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, fetchTransactions, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회', '리브마니보내기 결과조회']
 
 type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string }
 
-const MOCK_RESULTS: ResultRow[] = [
-  { id: 'mock-1', datetime: '2026.05.25\n01:39:33', bank: '신한', account: '302-7823-4501-02', receiver: '김수현', amount: 500000, memo: '' },
-  { id: 'mock-2', datetime: '2026.05.21\n14:32:16', bank: '하나', account: '178-910034-82657', receiver: '박지우', amount: 300000, memo: '' },
-]
-
 export default function TransferInquiryPage() {
   const [activeTab, setActiveTab] = useState('즉시이체 결과조회')
-  const [fromAccount, setFromAccount] = useState(MOCK_ACCOUNTS[0].number)
+  const [fromAccount, setFromAccount] = useState('')
   const [startDate, setStartDate] = useState('20260519')
   const [endDate, setEndDate] = useState('20260525')
   const [counterAccount, setCounterAccount] = useState('')
@@ -24,18 +20,41 @@ export default function TransferInquiryPage() {
   const [searched, setSearched] = useState(false)
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set())
   const [localResults, setLocalResults] = useState<ResultRow[]>([])
+  const [accounts, setAccounts] = useState<{ id: string; number: string; name: string }[]>([])
+  const [apiResults, setApiResults] = useState<ResultRow[]>([])
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('transferHistory')
-      if (raw) setLocalResults(JSON.parse(raw))
-    } catch {}
+    async function load() {
+      try {
+        const raw = localStorage.getItem('transferHistory')
+        if (raw) setLocalResults(JSON.parse(raw))
+      } catch {}
+      try {
+        const accs = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+        const mapped = accs.map(a => ({ id: a.id, number: a.number, name: a.name }))
+        setAccounts(mapped)
+        if (mapped.length > 0) setFromAccount(mapped[0].number)
+      } catch {}
+      try {
+        const txs = await fetchTransactions({ customerId: getCurrentDepositCustomerId() })
+        const rows: ResultRow[] = txs
+          .filter(t => t.transactionType === 'TRANSFER' && t.directionType === 'OUT')
+          .map(t => ({
+            id: String(t.transactionId),
+            datetime: t.transactionAt?.replace('T', '\n').slice(0, 19) || '',
+            bank: t.counterpartyBankName || 'AXful',
+            account: t.counterpartyAccountNo || '-',
+            receiver: t.counterpartyName || t.transactionSummary || '-',
+            amount: Number(t.amount),
+            memo: t.transactionMemo || '',
+          }))
+        setApiResults(rows)
+      } catch {}
+    }
+    load()
   }, [])
 
-  // 실제 이체 기록이 있으면 우선 표시, 없으면 mock 데이터
-  const displayResults: ResultRow[] = localResults.length > 0
-    ? localResults
-    : MOCK_RESULTS
+  const displayResults: ResultRow[] = apiResults.length > 0 ? apiResults : localResults.length > 0 ? localResults : []
 
   function toggleRow(id: string) {
     setCheckedRows(prev => {
@@ -125,7 +144,7 @@ export default function TransferInquiryPage() {
                       onChange={e => setFromAccount(e.target.value)}
                       className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px] outline-none bg-white"
                     >
-                      {MOCK_ACCOUNTS.map(a => (
+                      {accounts.map(a => (
                         <option key={a.id} value={a.number}>{a.number}</option>
                       ))}
                     </select>

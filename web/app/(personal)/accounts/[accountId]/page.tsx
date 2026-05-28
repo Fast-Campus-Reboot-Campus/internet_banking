@@ -1,22 +1,55 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { use } from 'react'
-import { MOCK_ACCOUNTS, MOCK_TRANSACTIONS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, fetchTransactions, DepositViewAccount, DepositTransaction } from '@/lib/deposit-api'
 
 const DATE_PRESETS = ['1개월', '3개월', '6개월', '1년', '직접입력']
 const TX_TYPE_OPTS = ['전체', '입금', '출금']
 
 export default function AccountDetailPage({ params }: { params: Promise<{ accountId: string }> }) {
   const { accountId } = use(params)
-  const account = MOCK_ACCOUNTS.find(a => a.id === accountId)
-  const transactions = MOCK_TRANSACTIONS.filter(tx => tx.accountId === accountId)
-
+  const [account, setAccount] = useState<DepositViewAccount | null>(null)
+  const [transactions, setTransactions] = useState<DepositTransaction[]>([])
+  const [loading, setLoading] = useState(true)
   const [datePreset, setDatePreset] = useState('1개월')
   const [txType, setTxType] = useState('전체')
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [keyword, setKeyword] = useState('')
+
+  useEffect(() => {
+    const numericId = accountId.startsWith('deposit-') ? Number(accountId.replace('deposit-', '')) : NaN
+    async function loadData() {
+      try {
+        const customerId = getCurrentDepositCustomerId()
+        const accs = await fetchDepositAccountViewModels(customerId)
+        const found = accs.find(a => a.id === accountId)
+        setAccount(found ?? null)
+      } catch {
+        setAccount(null)
+      }
+      if (!isNaN(numericId)) {
+        try {
+          const txs = await fetchTransactions({ accountId: numericId })
+          setTransactions(txs)
+        } catch {
+          setTransactions([])
+        }
+      }
+      setLoading(false)
+    }
+    loadData()
+  }, [accountId])
+
+  if (loading) {
+    return (
+      <div className="max-w-kb-container mx-auto px-6 py-16 text-center text-kb-text-muted">
+        loading...
+      </div>
+    )
+  }
 
   if (!account) {
     return (
@@ -30,9 +63,9 @@ export default function AccountDetailPage({ params }: { params: Promise<{ accoun
   }
 
   const filteredTx = transactions.filter(tx => {
-    if (txType === '입금' && tx.amount <= 0) return false
-    if (txType === '출금' && tx.amount >= 0) return false
-    if (keyword && !tx.description.includes(keyword)) return false
+    if (txType === '입금' && tx.directionType !== 'IN') return false
+    if (txType === '출금' && tx.directionType !== 'OUT') return false
+    if (keyword && !(tx.transactionSummary || tx.transactionType || '').includes(keyword)) return false
     return true
   })
 
@@ -166,13 +199,13 @@ export default function AccountDetailPage({ params }: { params: Promise<{ accoun
           <span>
             입금합계{' '}
             <span className="font-medium text-kb-blue">
-              {formatNumber(filteredTx.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0))}원
+              {formatNumber(filteredTx.filter(t => t.directionType === 'IN').reduce((s, t) => s + Number(t.amount), 0))}원
             </span>
           </span>
           <span>
             출금합계{' '}
             <span className="font-medium text-kb-red">
-              {formatNumber(Math.abs(filteredTx.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)))}원
+              {formatNumber(filteredTx.filter(t => t.directionType === 'OUT').reduce((s, t) => s + Number(t.amount), 0))}원
             </span>
           </span>
         </div>
@@ -198,28 +231,31 @@ export default function AccountDetailPage({ params }: { params: Promise<{ accoun
               </td>
             </tr>
           ) : (
-            filteredTx.map(tx => (
-              <tr key={tx.id} className="hover:bg-kb-beige-light transition-colors">
-                <td className="border border-kb-border px-4 py-2.5 text-kb-text-muted whitespace-nowrap">{tx.datetime}</td>
-                <td className="border border-kb-border px-4 py-2.5 text-kb-text-body">
-                  <p>{tx.description}</p>
-                  {tx.sender && <p className="text-[11px] text-kb-text-muted">{tx.sender}</p>}
-                  {tx.memo && <p className="text-[11px] text-kb-blue">[{tx.memo}]</p>}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-right text-kb-red font-medium">
-                  {tx.amount < 0 ? formatNumber(Math.abs(tx.amount)) : '-'}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-right text-kb-blue font-medium">
-                  {tx.amount > 0 ? formatNumber(tx.amount) : '-'}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-right text-kb-text">
-                  {formatNumber(tx.balance)}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-center text-kb-text-muted">
-                  {tx.branch ?? '-'}
-                </td>
-              </tr>
-            ))
+            filteredTx.map(tx => {
+              const isIn = tx.directionType === 'IN'
+              const amt = Number(tx.amount)
+              return (
+                <tr key={tx.transactionId} className="hover:bg-kb-beige-light transition-colors">
+                  <td className="border border-kb-border px-4 py-2.5 text-kb-text-muted whitespace-nowrap">{tx.transactionAt}</td>
+                  <td className="border border-kb-border px-4 py-2.5 text-kb-text-body">
+                    <p>{tx.transactionSummary || tx.transactionType}</p>
+                    {tx.transactionMemo && <p className="text-[11px] text-kb-blue">[{tx.transactionMemo}]</p>}
+                  </td>
+                  <td className="border border-kb-border px-4 py-2.5 text-right text-kb-red font-medium">
+                    {!isIn ? formatNumber(amt) : '-'}
+                  </td>
+                  <td className="border border-kb-border px-4 py-2.5 text-right text-kb-blue font-medium">
+                    {isIn ? formatNumber(amt) : '-'}
+                  </td>
+                  <td className="border border-kb-border px-4 py-2.5 text-right text-kb-text">
+                    -
+                  </td>
+                  <td className="border border-kb-border px-4 py-2.5 text-center text-kb-text-muted">
+                    -
+                  </td>
+                </tr>
+              )
+            })
           )}
         </tbody>
       </table>

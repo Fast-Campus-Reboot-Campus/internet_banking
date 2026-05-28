@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 type PendingTransfer = {
@@ -19,6 +20,13 @@ type PendingTransfer = {
 export default function TransferResultPage() {
   const router = useRouter()
   const [data, setData] = useState<PendingTransfer | null>(null)
+  const [accounts, setAccounts] = useState<{ number: string; balance: number }[]>([])
+
+  useEffect(() => {
+    fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+      .then(accs => setAccounts(accs.map(a => ({ number: a.number, balance: Number(a.balance) }))))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
@@ -50,8 +58,8 @@ export default function TransferResultPage() {
 
   if (!data) return null
 
-  const fromAcc = MOCK_ACCOUNTS.find(a => a.number === data.fromNumber)
-  const remainingBalance = (fromAcc?.balance ?? 0) - data.amount
+  const fromAcc = accounts.find(a => a.number === data?.fromNumber)
+  const remainingBalance = (fromAcc?.balance ?? 0) - (data?.amount ?? 0)
 
   return (
     <div className="max-w-kb-container mx-auto px-6">

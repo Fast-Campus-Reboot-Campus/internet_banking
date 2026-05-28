@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { MOCK_ACCOUNTS, Account, formatNumber } from '@/lib/mock-data'
+import { Account, formatNumber } from '@/lib/mock-data'
 import InquirySidebar from '@/components/inquiry/InquirySidebar'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 
 const ACCOUNT_TABS = ['예금', '펀드', '신탁/ISA', '대출', '외화/골드', '보험/공제', '퇴직연금', '전체계좌']
 
@@ -113,6 +114,7 @@ export default function AccountsPage() {
       const stored = localStorage.getItem('user')
       if (stored) setUserName(JSON.parse(stored).name)
     } catch {}
+    let fallbackAccounts: Account[] = []
     try {
       const raw = localStorage.getItem('joinedAccounts')
       if (raw) {
@@ -120,7 +122,7 @@ export default function AccountsPage() {
           ...account,
           type: normalizeAccountType(account),
         }))
-        setJoinedAccounts(parsed)
+        fallbackAccounts = parsed
         localStorage.setItem('joinedAccounts', JSON.stringify(parsed))
       }
     } catch {}
@@ -128,12 +130,29 @@ export default function AccountsPage() {
       const raw = localStorage.getItem('accountOverrides')
       if (raw) setAccountOverrides(JSON.parse(raw))
     } catch {}
+
+    let cancelled = false
+    async function loadDepositAccounts() {
+      try {
+        const apiAccounts = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+        if (!cancelled) {
+          setJoinedAccounts(apiAccounts.length > 0 ? apiAccounts : fallbackAccounts)
+        }
+      } catch {
+        if (!cancelled) setJoinedAccounts(fallbackAccounts)
+      }
+    }
+
+    loadDepositAccounts()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const now = new Date()
   const datetime = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
 
-  const allAccounts        = [...MOCK_ACCOUNTS, ...joinedAccounts].map(account => ({
+  const allAccounts        = [...joinedAccounts].map(account => ({
     ...account,
     type: normalizeAccountType(account),
     balance: account.balance + (accountOverrides[account.id] || 0),

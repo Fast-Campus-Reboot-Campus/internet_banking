@@ -3,7 +3,13 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
-import { Account, MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import {
+  DepositViewAccount,
+  fetchDepositAccountViewModels,
+  getCurrentDepositCustomerId,
+  terminateDepositContract,
+} from '@/lib/deposit-api'
 
 const STEPS = ['1. 계좌조회/선택', '2. 해지계좌확인/정보입력', '3', '4', '+']
 
@@ -11,8 +17,8 @@ type Step = 1 | 2 | 3
 
 export default function DepositTerminatePage() {
   const [step, setStep] = useState<Step>(1)
-  const [selected, setSelected] = useState<Account | null>(null)
-  const [joinedAccounts, setJoinedAccounts] = useState<Account[]>([])
+  const [selected, setSelected] = useState<DepositViewAccount | null>(null)
+  const [joinedAccounts, setJoinedAccounts] = useState<DepositViewAccount[]>([])
   const [password, setPassword] = useState('')
   const [mouseInput, setMouseInput] = useState(false)
   const [depositNo, setDepositNo] = useState('')
@@ -20,27 +26,46 @@ export default function DepositTerminatePage() {
   const [depositOpen, setDepositOpen] = useState(true)
 
   useEffect(() => {
+    let fallbackAccounts: DepositViewAccount[] = []
     try {
       const raw = localStorage.getItem('joinedAccounts')
-      if (raw) setJoinedAccounts(JSON.parse(raw))
+      if (raw) fallbackAccounts = JSON.parse(raw)
     } catch {}
+
+    let cancelled = false
+    async function loadAccounts() {
+      try {
+        const apiAccounts = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+        if (!cancelled) setJoinedAccounts(apiAccounts.length > 0 ? apiAccounts : fallbackAccounts)
+      } catch {
+        if (!cancelled) setJoinedAccounts(fallbackAccounts)
+      }
+    }
+
+    loadAccounts()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const allAccounts = [...MOCK_ACCOUNTS, ...joinedAccounts]
+  const allAccounts: DepositViewAccount[] = joinedAccounts
   const installmentAccounts = allAccounts.filter(a => a.type === '적금' || a.type === '청약')
   const pureDepositAccounts = allAccounts.filter(a => a.type === '예금')
   const checkingAccounts    = allAccounts.filter(a => a.type === '입출금')
 
-  function handleSelect(acc: Account) {
+  function handleSelect(acc: DepositViewAccount) {
     setSelected(acc)
     setStep(2)
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!password && !mouseInput) { alert('해지계좌 비밀번호를 입력해주세요.'); return }
     if (!depositNo) { alert('입금계좌를 선택해주세요.'); return }
     if (selected) {
       try {
+        if (selected.contractId) {
+          await terminateDepositContract(selected.contractId)
+        }
         const terminatedBalance = selected.balance
         let updated = joinedAccounts.filter(a => a.id !== selected.id)
 
@@ -70,7 +95,7 @@ export default function DepositTerminatePage() {
       ? 'px-4 py-1.5 text-[12px] font-bold text-white'
       : 'px-4 py-1.5 text-[12px] text-kb-text-body border border-kb-border bg-white hover:bg-kb-beige-light'
 
-  function AccountRow({ acc }: { acc: Account }) {
+  function AccountRow({ acc }: { acc: DepositViewAccount }) {
     return (
       <tr className="border-t border-kb-border">
         <td className="px-4 py-3 text-kb-text-body">

@@ -6,6 +6,44 @@
 
 ---
 
+## 프론트엔드 연동 변경 사항
+
+### CorsConfig 추가
+
+Next.js 프론트엔드(`localhost:3001`)에서 deposit-service를 직접 호출할 수 있도록 CORS를 허용했습니다.
+
+```java
+// src/main/java/com/bank/deposit/config/CorsConfig.java
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+    }
+}
+```
+
+### ProductStatus.CLOSED 추가
+
+DB에 `CLOSED` 상태의 상품이 존재하나 Java Enum에 정의되지 않아 발생하던 `IllegalArgumentException`을 해결했습니다.
+
+```java
+// Before
+public enum ProductStatus { SELLING, SUSPENDED, EXPIRED }
+
+// After
+public enum ProductStatus { SELLING, SUSPENDED, EXPIRED, CLOSED }
+```
+
+### ContractService — 해지 시 계좌 상태 동기화
+
+계약 해지(`terminate`) 처리 시 연결된 계좌 상태도 `CLOSED`로 변경되도록 수정했습니다.  
+이전에는 계약만 `TERMINATED`로 변경되고 계좌는 `ACTIVE`로 남아 불일치가 발생했습니다.
+
+---
+
 ## 2026-05-28 수정 파일 상세
 
 이번 변경은 정기적금 자동이체와 수동 납입 연체 대응을 백엔드에 추가하고, 고객 화면에서 예금·적금·입출금 상품 가입, 해지, 잔액 반영 흐름을 보완한 작업입니다.

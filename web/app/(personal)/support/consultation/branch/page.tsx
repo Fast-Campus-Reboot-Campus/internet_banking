@@ -51,15 +51,12 @@ const TIMES = [
 ]
 
 export default function BranchConsultationPage() {
-  const [userName, setUserName] = useState('고객')
+  const [, setUserName] = useState('고객')
   const [pageTab, setPageTab] = useState<'apply' | 'history'>('apply')
   const [branch, setBranch] = useState('')
   const [contentType, setContentType] = useState('선택')
-  const [contentDetail, setContentDetail] = useState('선택')
   const [month, setMonth] = useState('선택')
-  const [day, setDay] = useState('선택')
   const [time, setTime] = useState('선택')
-  const [timeDetail, setTimeDetail] = useState('선택')
   const [reserveType, setReserveType] = useState<'auto' | 'manual'>('auto')
   const [staffSelect, setStaffSelect] = useState('선택')
   const [memo, setMemo] = useState('')

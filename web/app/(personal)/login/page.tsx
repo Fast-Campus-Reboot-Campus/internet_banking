@@ -450,8 +450,9 @@ function IdLoginTab() {
       } catch {}
 
       window.location.href = '/personal'
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? '로그인에 실패했습니다.')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }

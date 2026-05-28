@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import bindparam, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
+from app.features.maturity_agent import MaturityManagementAgent
 from app.kafka import KafkaEventPublisher
 from app.llm import FeatureAnswerFormatter, IntentClassifier, LlmAdapter, LlmHandoffAdapter
 from app.rag import ProductRagEngine
@@ -581,10 +582,11 @@ class ChatbotService:
 
         tx_rows = self._rows(
             f"""
-            SELECT transaction_type, amount
+            SELECT direction_type, amount
               FROM deposit_transactions
              WHERE account_id IN ({id_list})
-               AND transaction_status = 'COMPLETED'
+               AND status = 'SUCCESS'
+               AND transaction_at >= NOW() - INTERVAL '3 months'
             """,
         )
 
@@ -596,11 +598,8 @@ class ChatbotService:
                 "has_data":         False,
             }
 
-        inflow  = sum(float(r["amount"] or 0) for r in tx_rows if r["transaction_type"] == "DEPOSIT")
-        outflow = sum(
-            float(r["amount"] or 0) for r in tx_rows
-            if r["transaction_type"] in ("WITHDRAWAL", "TRANSFER")
-        )
+        inflow  = sum(float(r["amount"] or 0) for r in tx_rows if r.get("direction_type") == "IN")
+        outflow = sum(float(r["amount"] or 0) for r in tx_rows if r.get("direction_type") == "OUT")
         return {
             "total_balance":    total_balance,
             "monthly_surplus":  (inflow - outflow) / months,
@@ -776,7 +775,7 @@ class ChatbotService:
                    a.account_number,
                    t.transaction_type,
                    t.amount,
-                   t.transaction_status,
+                   t.status AS transaction_status,
                    t.created_at
               FROM deposit_transactions t
               JOIN deposit_accounts a ON a.account_id = t.account_id
@@ -823,19 +822,22 @@ class ChatbotService:
         # ── 2. 판매 중인 수신 상품 목록 (LLM 컨텍스트용) ──────────────────────
         products = self._rows(
             """
-            SELECT banking_product_id AS product_id,
-                   deposit_product_name,
-                   deposit_product_type,
-                   base_interest_rate,
-                   min_join_amount,
-                   max_join_amount,
-                   min_period_month,
-                   max_period_month,
-                   is_early_termination_allowed,
-                   is_tax_benefit_available
-              FROM deposit_banking_products
-             WHERE deposit_product_status = 'SELLING'
-             ORDER BY base_interest_rate DESC
+            SELECT p.banking_product_id AS product_id,
+                   p.deposit_product_name,
+                   p.deposit_product_type,
+                   p.base_interest_rate,
+                   p.min_join_amount,
+                   p.max_join_amount,
+                   p.min_period_month,
+                   p.max_period_month,
+                   p.is_early_termination_allowed,
+                   p.is_tax_benefit_available
+              FROM deposit_banking_products p
+              JOIN banking_deposit_product_target_groups tg
+                ON tg.banking_product_id = p.banking_product_id
+             WHERE p.deposit_product_status = 'SELLING'
+               AND tg.target_group_id = 1
+             ORDER BY p.base_interest_rate DESC
              LIMIT 10
             """
         )
@@ -863,19 +865,184 @@ class ChatbotService:
             # LLM 미연결 → 룰 기반 fallback
             recommendation = self._rule_based_recommend(cf, products)
 
-        return ChatbotFeatureExecuteResponse(
-            feature_code="CASH_FLOW_RECOMMEND",
-            status="OK",
-            message=recommendation,
-            data=[{
+        # ── 4. 순위별 상품 rows 구성 ─────────────────────────────────────────
+        top3 = self._rank_products(cf, products)
+        data = [
+            {
+                "row_type":         "cash_flow_summary",
                 "total_balance":    cf["total_balance"],
                 "monthly_surplus":  cf["monthly_surplus"],
                 "monthly_tx_count": cf["monthly_tx_count"],
                 "has_data":         cf["has_data"],
-                "product_count":    len(products),
-            }],
+                "product_count":    len(top3),
+            },
+            *[
+                {
+                    "row_type":          "recommended_product",
+                    "rank":              i + 1,
+                    "product_id":        p.get("product_id"),
+                    "product_name":      p.get("deposit_product_name") or p.get("product_name"),
+                    "product_type":      p.get("deposit_product_type") or p.get("product_type"),
+                    "base_interest_rate": p.get("base_interest_rate"),
+                    "min_join_amount":   p.get("min_join_amount"),
+                    "max_join_amount":   p.get("max_join_amount"),
+                    "min_period_month":  p.get("min_period_month"),
+                    "max_period_month":  p.get("max_period_month"),
+                    "reason":            p.get("_reason", ""),
+                }
+                for i, p in enumerate(top3)
+            ],
+        ]
+
+        return ChatbotFeatureExecuteResponse(
+            feature_code="CASH_FLOW_RECOMMEND",
+            status="OK",
+            message=recommendation,
+            data=data,
             requires_auth=True,
         )
+
+    def _rank_products(self, cf: dict[str, Any], products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """현금흐름 기반 1~3위 상품 선정 (100점 체계).
+
+        재정 적합도(40) + 예상 수익(30) + 유동성 매칭(20) + 혜택(10)
+        """
+        total_balance   = float(cf.get("total_balance", 0))
+        monthly_surplus = float(cf.get("monthly_surplus", 0))
+        monthly_tx      = float(cf.get("monthly_tx_count", 0))
+
+        is_spender    = monthly_surplus <= 0
+        is_accumulate = not is_spender and total_balance < monthly_surplus * 12
+        is_wealthy    = not is_spender and total_balance >= monthly_surplus * 12
+
+        candidates: list[dict[str, Any]] = []
+
+        for p in products:
+            ptype     = p.get("deposit_product_type") or p.get("product_type", "")
+            min_join  = float(p.get("min_join_amount") or 0)
+            min_month = int(p.get("min_period_month") or 1)
+            rate      = float(p.get("base_interest_rate") or 0)
+            is_early  = bool(p.get("is_early_termination_allowed"))
+            is_tax    = bool(p.get("is_tax_benefit_available"))
+
+            # ── 1. 가입 불가 및 유형 부적합 제외 ──────────────────────────
+            if ptype == "DEPOSIT":
+                if min_join > 0 and total_balance < min_join:
+                    continue
+                if is_spender and total_balance == 0:
+                    continue
+            elif ptype in ("SAVINGS", "SUBSCRIPTION"):
+                if monthly_surplus <= 0:
+                    continue
+                if min_join > 0 and monthly_surplus < min_join * 2:
+                    continue
+
+            # ── 2. 재정 적합도 (0~1) → 40점 ──────────────────────────────
+            if ptype == "DEPOSIT":
+                denom = min_join if min_join > 0 else total_balance
+                fit = min(total_balance / max(denom, 1), 5) / 5
+            else:
+                denom = min_join * 2 if min_join > 0 else monthly_surplus
+                fit = min(monthly_surplus / max(denom, 1), 5) / 5
+
+            # 고객 유형 매칭 보너스
+            if ptype == "DEPOSIT" and (is_wealthy or is_spender):
+                fit = min(fit * 1.3, 1.0)
+            elif ptype in ("SAVINGS", "SUBSCRIPTION") and is_accumulate:
+                fit = min(fit * 1.3, 1.0)
+
+            # ── 3. 예상 수익 (원화) → 정규화 후 30점 ─────────────────────
+            invest  = max(min_join, 1)
+            period  = max(min_month, 1)
+            if ptype == "DEPOSIT":
+                expected_interest = invest * rate / 100 * (period / 12)
+            else:
+                # 적금: 월 최소납입액 기준, 평균 잔액(납입액×기간/2) × 금리
+                expected_interest = invest * period * rate / 100 / 2
+
+            # ── 4. 유동성 매칭 (0~1) → 20점 ──────────────────────────────
+            if monthly_tx >= 10:
+                if min_month <= 12:
+                    liquidity = 1.0
+                elif min_month <= 24:
+                    liquidity = 0.5
+                else:
+                    liquidity = 0.1
+                if is_early:
+                    liquidity = min(liquidity + 0.2, 1.0)
+            elif monthly_tx <= 5:
+                liquidity = 1.0 if min_month >= 24 else 0.7
+            else:
+                liquidity = 0.7
+
+            # ── 5. 혜택 (0~1) → 10점 ─────────────────────────────────────
+            benefit = (0.7 if is_tax else 0.0) + (0.3 if is_early else 0.0)
+
+            candidates.append({
+                "product":            p,
+                "fit":                fit,
+                "expected_interest":  expected_interest,
+                "liquidity":          liquidity,
+                "benefit":            benefit,
+            })
+
+        if not candidates:
+            return []
+
+        # 예상 수익 정규화
+        max_interest = max(c["expected_interest"] for c in candidates) or 1
+        for c in candidates:
+            c["return_score"] = c["expected_interest"] / max_interest
+
+        # 최종 점수
+        for c in candidates:
+            c["total"] = (
+                c["fit"]          * 40 +
+                c["return_score"] * 30 +
+                c["liquidity"]    * 20 +
+                c["benefit"]      * 10
+            )
+
+        candidates.sort(key=lambda x: (-x["total"], -(float(x["product"].get("base_interest_rate") or 0))))
+
+        result = []
+        for c in candidates[:3]:
+            p = dict(c["product"])
+            p["_reason"] = self._make_reason(p, cf, c)
+            result.append(p)
+        return result
+
+    def _make_reason(self, p: dict[str, Any], cf: dict[str, Any], score_info: dict[str, Any]) -> str:
+        ptype           = p.get("deposit_product_type") or p.get("product_type", "")
+        rate            = float(p.get("base_interest_rate") or 0)
+        min_join        = float(p.get("min_join_amount") or 0)
+        min_month       = int(p.get("min_period_month") or 12)
+        monthly_surplus = float(cf.get("monthly_surplus", 0))
+        total_balance   = float(cf.get("total_balance", 0))
+        expected        = score_info.get("expected_interest", 0)
+
+        if ptype == "DEPOSIT":
+            invest      = max(min_join, 0)
+            usage_pct   = int(invest / total_balance * 100) if total_balance > 0 else 0
+            return (
+                f"잔액 {total_balance:,.0f}원 중 {invest:,.0f}원({usage_pct}%) 예치 → "
+                f"{min_month}개월 이자 약 {expected:,.0f}원 예상"
+            )
+        if ptype == "SAVINGS":
+            payment     = max(min_join, 0)
+            usage_pct   = int(payment / monthly_surplus * 100) if monthly_surplus > 0 else 0
+            remainder   = monthly_surplus - payment
+            return (
+                f"월 {payment:,.0f}원 납입(잉여자금의 {usage_pct}%), "
+                f"납입 후 {remainder:,.0f}원 여유 → {min_month}개월 이자 약 {expected:,.0f}원 예상"
+            )
+        if ptype == "SUBSCRIPTION":
+            payment = max(min_join, 0)
+            return (
+                f"월 {payment:,.0f}원 납입 → {min_month}개월 이자 약 {expected:,.0f}원, "
+                f"주택청약 목적 상품"
+            )
+        return f"금리 {rate}%"
 
     def _rule_based_recommend(
         self, cf: dict[str, Any], products: list[dict[str, Any]]
@@ -962,7 +1129,7 @@ class ChatbotService:
                    a.account_number,
                    a.customer_id AS customer_no,
                    t.transaction_type,
-                   t.transaction_status,
+                   t.status AS transaction_status,
                    t.amount,
                    t.created_at
               FROM deposit_transactions t
@@ -1010,7 +1177,7 @@ class ChatbotService:
                    a.customer_id AS customer_no,
                    t.transaction_type,
                    t.amount,
-                   t.transaction_status,
+                   t.status AS transaction_status,
                    t.created_at
               FROM deposit_transactions t
               JOIN deposit_accounts a ON a.account_id = t.account_id

@@ -16,7 +16,8 @@ Spring Boot 기반 수신 서비스와 FastAPI 기반 챗봇·상담 서비스�
 | 서비스 | 언어 / 프레임워크 | 포트 | 역할 |
 |---|---|---|---|
 | `services/deposit-service` | Java 17 / Spring Boot 3.x | 8082 | 예금상품, 계약, 계좌, 거래, 상품 추천 |
-| `services/consultation-service` | Python 3.11 / FastAPI | 8001 | 챗봇, 상담사 채팅, 기능 실행 |
+| `services/consultation-service` | Python 3.11 / FastAPI | 8090 | 챗봇, 현금흐름 분석, 상품 추천, 상담사 채팅 |
+| `web` | Next.js 14 / TypeScript | 3001 | 인터넷뱅킹 프론트엔드 (AX풀뱅크) |
 | `common` | Java | — | 서비스 공통 모듈 |
 | `infra` | Docker Compose | — | PostgreSQL 16, Redis 7, Prometheus, Grafana |
 
@@ -50,15 +51,30 @@ internet_banking/
 │   │   ├── repository/             # JPA Repository
 │   │   ├── dto/                    # 요청/응답 DTO
 │   │   └── exception/              # 예외 처리 (GlobalExceptionHandler)
-│   └── consultation-service/       # Python FastAPI — 챗봇·상담
+│   └── consultation-service/       # Python FastAPI — 챗봇·상담·추천
 │       ├── app/
-│       │   ├── main.py             # FastAPI 앱, 라우터
-│       │   ├── services.py         # ChatbotService, ChatService
+│       │   ├── main.py             # FastAPI 앱, 라우터, CORS
+│       │   ├── services.py         # ChatbotService (추천 포함), ChatService
+│       │   ├── features/           # 기능별 Feature 모듈
 │       │   ├── models.py           # SQLAlchemy 모델
 │       │   ├── schemas.py          # Pydantic 스키마
 │       │   ├── database.py         # DB 연결
 │       │   └── kafka.py            # Kafka 이벤트 발행
 │       └── tests/                  # pytest 테스트 (325개)
+├── web/                            # Next.js 14 프론트엔드
+│   ├── app/
+│   │   ├── (personal)/             # 개인뱅킹 라우트 그룹
+│   │   └── (admin)/                # 어드민 라우트 그룹
+│   ├── components/
+│   │   └── chatbot/ChatbotWidget.tsx  # 챗봇 위젯 (consultation-service 연동)
+│   └── lib/
+│       ├── deposit-api.ts          # deposit-service 클라이언트
+│       ├── consultation-api.ts     # consultation-service 클라이언트
+│       ├── loan-api.ts             # loan-service 클라이언트
+│       ├── advisory-api.ts         # advisory-service 클라이언트
+│       ├── master-api.ts           # master-service 클라이언트
+│       ├── payment-api.ts          # payment-service 클라이언트
+│       └── ai-api.ts               # ai-service 클라이언트
 ├── infra/                          # Docker Compose 인프라
 └── docs/                           # 문서
 ```
@@ -311,9 +327,10 @@ python -m pytest tests/ -q
 
 ### 사전 조건
 
-- Java 17
+- Java 17+
 - Docker Desktop (PostgreSQL, Redis)
-- Python 3.11
+- Python 3.11+
+- Node.js 18+
 
 ### 인프라 실행
 
@@ -324,7 +341,13 @@ docker compose -f infra/docker-compose.yml up -d
 ### deposit-service 실행
 
 ```powershell
-.\gradlew :services:deposit-service:bootRun
+# PostgreSQL(5432) 연결, Flyway 검증 비활성화(로컬 스키마 불일치 방지)
+$env:DEPOSIT_DB_PORT = "5432"
+$env:DEPOSIT_DB_PASSWORD = "deposit"
+cd services/deposit-service
+java -jar build/libs/deposit-service-0.0.1-SNAPSHOT.jar `
+  --spring.profiles.active=postgres-local `
+  --spring.flyway.validate-on-migrate=false
 ```
 
 기본 포트: `8082`  
@@ -335,13 +358,42 @@ Actuator 헬스: `http://localhost:8082/actuator/health`
 
 ```powershell
 cd services/consultation-service
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8090
 ```
 
-기본 포트: `8001`  
-Swagger UI: `http://localhost:8001/docs`  
-헬스 체크: `http://localhost:8001/health`
+또는 스크립트 사용:
+
+```powershell
+.\scripts\start.ps1
+```
+
+기본 포트: `8090`  
+Swagger UI: `http://localhost:8090/docs`  
+헬스 체크: `http://localhost:8090/health`
+
+### 프론트엔드 실행
+
+```powershell
+cd web
+npm install
+npm run dev
+```
+
+기본 포트: `3001`  
+접속: `http://localhost:3001`
+
+> `.env.local` 파일이 없으면 아래 내용으로 생성:
+>
+> ```env
+> NEXT_PUBLIC_API_URL=http://localhost:8080
+> NEXT_PUBLIC_DEPOSIT_API_URL=http://localhost:8082/api
+> NEXT_PUBLIC_CONSULTATION_API_URL=http://localhost:8090
+> NEXT_PUBLIC_LOAN_API_URL=http://localhost:8083
+> NEXT_PUBLIC_ADVISORY_API_URL=http://localhost:8084
+> NEXT_PUBLIC_MASTER_API_URL=http://localhost:8085
+> NEXT_PUBLIC_AI_API_URL=http://localhost:8086
+> NEXT_PUBLIC_PAYMENT_API_URL=http://localhost:8087
+> ```
 
 ---
 

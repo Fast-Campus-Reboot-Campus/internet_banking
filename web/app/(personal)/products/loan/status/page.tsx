@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 
 export default function LoanStatusPage() {

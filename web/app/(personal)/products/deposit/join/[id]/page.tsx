@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import { createDepositContract, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 
 const PRODUCT_NAMES: Record<string, string> = {
   // 예금
@@ -263,33 +264,58 @@ export default function DepositJoinPage() {
     setStep(3)
   }
 
-  function handleFinalConfirm() {
+  function saveFallbackAccount() {
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`
+    const rand6 = String(Math.floor(100000 + Math.random() * 900000))
+    const newAcc = {
+      id: String(now.getTime()),
+      number: `531089-04-${rand6}`,
+      type: isHousing ? '청약' : isSavings ? '적금' : isChecking ? '입출금' : '예금',
+      name: productName,
+      balance: parseInt(amount.replace(/,/g, '')) || 0,
+      availableBalance: 0,
+      createdAt: dateStr,
+      maturityDate: maturityDate !== '-' ? maturityDate : undefined,
+      monthlyAmount: isRegularSavings ? (parseInt(amount.replace(/,/g, '')) || 0) : undefined,
+    }
+    const prev = JSON.parse(localStorage.getItem('joinedAccounts') || '[]')
+    prev.unshift(newAcc)
+    localStorage.setItem('joinedAccounts', JSON.stringify(prev))
+  }
+
+  async function handleFinalConfirm() {
     if (submitting) return
     if (!confirmPw && !mouseInput) { alert('계좌 비밀번호를 입력해주세요.'); return }
     setSubmitting(true)
 
-    // 신규 계좌 localStorage 저장
     try {
-      const now = new Date()
-      const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`
-      const rand6 = String(Math.floor(100000 + Math.random() * 900000))
-      const newAcc = {
-        id: String(now.getTime()),
-        number: `531089-04-${rand6}`,
-        type: isHousing ? '청약' : isSavings ? '적금' : isChecking ? '입출금' : '예금',
-        name: productName,
-        balance: parseInt(amount.replace(/,/g, '')) || 0,
-        availableBalance: 0,
-        createdAt: dateStr,
-        maturityDate: maturityDate !== '-' ? maturityDate : undefined,
-        monthlyAmount: isRegularSavings ? (parseInt(amount.replace(/,/g, '')) || 0) : undefined,
+      const customerId = getCurrentDepositCustomerId()
+      await createDepositContract(customerId, {
+        slug: id,
+        productName,
+        amount: parseInt(amount.replace(/,/g, '')) || 0,
+        periodMonth: parseInt(period) || 1,
+        accountPassword: confirmPw || '0000',
+        isSavings,
+        isHousing,
+        isChecking,
+        isRegularSavings,
+        autoTransferEnabled: autoTransfer === 'yes',
+        autoTransferDay: transferDay ? parseInt(transferDay) : undefined,
+        taxExempt,
+      })
+      localStorage.removeItem('joinedAccounts')
+      router.push('/inquiry/accounts')
+    } catch {
+      try {
+        saveFallbackAccount()
+        router.push('/inquiry/accounts')
+      } catch {
+        alert('가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+        setSubmitting(false)
       }
-      const prev = JSON.parse(localStorage.getItem('joinedAccounts') || '[]')
-      prev.unshift(newAcc)
-      localStorage.setItem('joinedAccounts', JSON.stringify(prev))
-    } catch {}
-
-    router.push('/inquiry/accounts')
+    }
   }
 
   const months = parseInt(period) || 0

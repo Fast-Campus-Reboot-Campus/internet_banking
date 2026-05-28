@@ -136,7 +136,10 @@ public class ContractService {
         if (contract.getContractStatus() != ContractStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.INVALID_STATUS, "활성 계약만 해지할 수 있습니다.");
         }
-        contract.terminate(LocalDate.now(clock), reason);
+        LocalDate today = LocalDate.now(clock);
+        contract.terminate(today, reason);
+        accountRepository.findByContractId(id)
+                .ifPresent(account -> account.changeStatus(AccountStatus.CLOSED, today));
         return contract;
     }
 

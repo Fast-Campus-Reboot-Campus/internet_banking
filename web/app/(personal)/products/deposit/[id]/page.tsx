@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import CartModal from '@/components/products/CartModal'
 import ConsultModal from '@/components/layout/ConsultModal'
 import RateModal from '@/components/products/RateModal'
+import { fetchDepositProduct, getDepositProductIdBySlug } from '@/lib/deposit-api'
 
 const DEPOSIT_SIDEBAR = [
   { label: '예금 상품/가입', href: '/products/deposit', active: true },
@@ -272,7 +273,9 @@ function SpecRow({ label, children }: { label: string; children: React.ReactNode
 export default function DepositDetailPage() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : 'axful-regular'
-  const product = PRODUCTS[id] ?? PRODUCTS['axful-regular']
+  const fallbackProduct = PRODUCTS[id] ?? PRODUCTS['axful-regular']
+  const [apiProduct, setApiProduct] = useState<ProductInfo | null>(null)
+  const product = apiProduct ?? fallbackProduct
   const [activeTab, setActiveTab] = useState('상품안내')
   const [showCart, setShowCart] = useState(false)
   const [showConsult, setShowConsult] = useState(false)
@@ -289,6 +292,50 @@ export default function DepositDetailPage() {
   const FREE_SAVINGS_IDS  = new Set(['axful-free', 'axful-dollar', 'axful-green', 'axful-star-savings'])
   const isSavings         = SAVINGS_IDS.has(id)
   const isFreeStyleSavings = FREE_SAVINGS_IDS.has(id)
+
+  useEffect(() => {
+    const productId = getDepositProductIdBySlug(id)
+    if (!productId) return
+
+    let cancelled = false
+    async function loadProduct() {
+      try {
+        const data = await fetchDepositProduct(productId)
+        if (cancelled) return
+
+        const minMonth = data.minPeriodMonth
+        const maxMonth = data.maxPeriodMonth
+        const period =
+          minMonth && maxMonth
+            ? minMonth === maxMonth
+              ? `${minMonth}개월`
+              : `${minMonth}~${maxMonth}개월`
+            : fallbackProduct.period
+        const minAmount = data.minJoinAmount
+          ? `${Number(data.minJoinAmount).toLocaleString('ko-KR')}원 이상`
+          : fallbackProduct.minAmount
+        const rate = data.baseInterestRate
+          ? `연 ${Number(data.baseInterestRate).toLocaleString('ko-KR')}%`
+          : fallbackProduct.rate
+
+        setApiProduct({
+          ...fallbackProduct,
+          name: data.productName,
+          label: `${data.description || fallbackProduct.label} / ${fallbackProduct.channel}`,
+          period,
+          minAmount,
+          rate,
+        })
+      } catch {
+        // API가 내려가 있으면 기존 정적 상품 정보로 계속 표시합니다.
+      }
+    }
+
+    loadProduct()
+    return () => {
+      cancelled = true
+    }
+  }, [fallbackProduct, id])
 
   function handleCalc() {
     const a = parseFloat(calcAmount.replace(/,/g, ''))
@@ -723,7 +770,7 @@ export default function DepositDetailPage() {
               <section className="mb-5">
                 <p className="font-bold text-kb-text mb-2 text-[14px]">예금자보호여부</p>
                 <p className="font-semibold mb-1">예금보험공사 보호금융상품 1인당 최고 1억원</p>
-                <p>이 예금은 예금자보호법에 따라 원금과 소정의 이자를 합하여 1인당 <span className="font-semibold">"1억원까지"</span>(본 은행의 여타 보호상품과 합산) 보호됩니다.</p>
+                <p>이 예금은 예금자보호법에 따라 원금과 소정의 이자를 합하여 1인당 <span className="font-semibold">&quot;1억원까지&quot;</span>(본 은행의 여타 보호상품과 합산) 보호됩니다.</p>
               </section>
 
               {/* 준법감시인 */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { sendChatMessage, getChatMessages, endChat as endChatApi } from '@/lib/consultation-api'
 
 type Message = {
   id: number
@@ -20,33 +21,50 @@ export default function LiveChatPage() {
   const [input, setInput] = useState('')
   const [msgId, setMsgId] = useState(1)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const [chatConsultationId, setChatConsultationId] = useState<number | null>(null)
+  const [polling, setPolling] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMessages([
-        {
-          id: 0,
-          from: 'system',
-          text: '상담원과 연결되었습니다.',
-          time: getTime(),
-        },
-        {
-          id: 1,
-          from: 'agent',
-          text: '안녕하세요. AX뱅크 상담원 김민지입니다. 무엇을 도와드릴까요?',
-          time: getTime(),
-        },
-      ])
-      setMsgId(2)
+    const stored = sessionStorage.getItem('chatConsultationId')
+    if (stored) {
+      const id = Number(stored)
+      setChatConsultationId(id)
+      setMessages([{ id: 0, from: 'system', text: '상담원과 연결되었습니다.', time: getTime() }])
+      setMsgId(1)
       setPhase('chatting')
-    }, 2500)
-
-    return () => clearTimeout(timer)
+      setPolling(true)
+    } else {
+      const timer = setTimeout(() => {
+        setMessages([
+          { id: 0, from: 'system', text: '상담원과 연결되었습니다.', time: getTime() },
+          { id: 1, from: 'agent', text: '안녕하세요. AX뱅크 상담원 김민지입니다. 무엇을 도와드릴까요?', time: getTime() },
+        ])
+        setMsgId(2)
+        setPhase('chatting')
+      }, 2500)
+      return () => clearTimeout(timer)
+    }
   }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (!polling || !chatConsultationId) return
+    const interval = setInterval(async () => {
+      try {
+        const msgs = await getChatMessages(chatConsultationId)
+        setMessages(msgs.map((m) => ({
+          id: m.message_id,
+          from: m.sender_type === 'AGENT' ? 'agent' : m.sender_type === 'USER' ? 'user' : 'system',
+          text: m.message,
+          time: m.sent_at ? new Date(m.sent_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : getTime(),
+        })))
+      } catch {}
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [polling, chatConsultationId])
 
   function sendMessage() {
     const text = input.trim()
@@ -57,30 +75,36 @@ export default function LiveChatPage() {
     setInput('')
     setMsgId(prev => prev + 1)
 
-    setTimeout(() => {
-      const replies: Record<string, string> = {
-        default: '말씀하신 내용을 확인하겠습니다. 잠시만 기다려 주세요.',
-        금리: '금리는 상품별 금리 안내 페이지에서 확인하실 수 있습니다. 추가로 궁금한 사항이 있으시면 말씀해 주세요.',
-        이체: '이체 관련 문의이신가요? 이체 한도, 수수료, 오류 중 어떤 내용인지 알려주시면 안내해 드리겠습니다.',
-        가입: '가입하시려는 상품명을 알려주시면 절차를 안내해 드리겠습니다.',
-        예금: '예금 상품 문의를 도와드리겠습니다. 목돈 예치 기간과 금액을 알려주시면 적합한 상품을 추천해 드릴게요.',
-        적금: '적금 상품 문의를 도와드리겠습니다. 매월 납입 가능 금액과 목표 기간을 알려주세요.',
-        청약: '청약 상품 문의를 도와드리겠습니다. 가입 조건과 납입 방식 안내가 필요하신가요?',
-      }
-      const key = Object.keys(replies).find(k => k !== 'default' && text.includes(k)) ?? 'default'
-      const agentMsg: Message = {
-        id: msgId + 1,
-        from: 'agent',
-        text: replies[key],
-        time: getTime(),
-      }
-
-      setMessages(prev => [...prev, agentMsg])
-      setMsgId(prev => prev + 2)
-    }, 1200)
+    if (chatConsultationId) {
+      sendChatMessage(chatConsultationId, text, 'USER').catch(() => {})
+    } else {
+      setTimeout(() => {
+        const replies: Record<string, string> = {
+          default: '말씀하신 내용을 확인하겠습니다. 잠시만 기다려 주세요.',
+          금리: '금리는 상품별 금리 안내 페이지에서 확인하실 수 있습니다. 추가로 궁금한 사항이 있으시면 말씀해 주세요.',
+          이체: '이체 관련 문의이신가요? 이체 한도, 수수료, 오류 중 어떤 내용인지 알려주시면 안내해 드리겠습니다.',
+          가입: '가입하시려는 상품명을 알려주시면 절차를 안내해 드리겠습니다.',
+          예금: '예금 상품 문의를 도와드리겠습니다. 목돈 예치 기간과 금액을 알려주시면 적합한 상품을 추천해 드릴게요.',
+          적금: '적금 상품 문의를 도와드리겠습니다. 매월 납입 가능 금액과 목표 기간을 알려주세요.',
+          청약: '청약 상품 문의를 도와드리겠습니다. 가입 조건과 납입 방식 안내가 필요하신가요?',
+        }
+        const key = Object.keys(replies).find(k => k !== 'default' && text.includes(k)) ?? 'default'
+        const agentMsg: Message = {
+          id: msgId + 1,
+          from: 'agent',
+          text: replies[key],
+          time: getTime(),
+        }
+        setMessages(prev => [...prev, agentMsg])
+        setMsgId(prev => prev + 2)
+      }, 1200)
+    }
   }
 
   function endChat() {
+    if (chatConsultationId) {
+      endChatApi(chatConsultationId).catch(() => {})
+    }
     setMessages(prev => [
       ...prev,
       {

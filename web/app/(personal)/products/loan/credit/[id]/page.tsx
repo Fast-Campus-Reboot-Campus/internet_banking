@@ -350,7 +350,7 @@ export default function LoanCreditDetailPage() {
                         <td className="py-4 text-kb-text-body leading-relaxed">
                           ① 연체이자율: 최고 연 15% (차주별 대출이자율 + 연체가산이자율)<br />
                           단, 대출이자율이 최고 연체이자율 이상인 경우 대출이자율 + 연 2.0%p<br />
-                          ☞ "연체가산이자율"은 연 3.0%를 적용합니다.
+                          ☞ &quot;연체가산이자율&quot;은 연 3.0%를 적용합니다.
                         </td>
                       </tr>
                       <tr>
@@ -432,7 +432,7 @@ export default function LoanCreditDetailPage() {
                         <td className="py-4 pr-6 font-bold text-kb-text w-40 align-top">만기경과 후 기한의 이익 상실에 대한 안내</td>
                         <td className="py-4 text-kb-text-body leading-relaxed">
                           * 만기일 경과 후 대출금액을 전액 상환하지 않거나 기한 연장하지 않는 경우, 은행여신거래기본약관에 따라 기한의 이익이 상실되어 대출잔액에 대한 지연배상금이 부과됩니다.<br />
-                          * 연체가 계속되는 경우, 연체기간에 따라 「신용정보의 이용 및 보호에 관한 법률」과 「일반신용정보관리규약」에 따라 "연체정보 등"으로 등록되어 금융 불이익을 받을 수 있음.
+                          * 연체가 계속되는 경우, 연체기간에 따라 「신용정보의 이용 및 보호에 관한 법률」과 「일반신용정보관리규약」에 따라 &quot;연체정보 등&quot;으로 등록되어 금융 불이익을 받을 수 있음.
                         </td>
                       </tr>
                       <tr>
