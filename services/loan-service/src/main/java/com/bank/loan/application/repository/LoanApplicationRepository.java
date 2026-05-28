@@ -16,6 +16,8 @@ public interface LoanApplicationRepository extends JpaRepository<LoanApplication
 
     Optional<LoanApplication> findByApplIdAndDeletedAtIsNull(Long applId);
 
+    Optional<LoanApplication> findByApplNoAndDeletedAtIsNull(String applNo);
+
     List<LoanApplication> findByCustomerIdAndDeletedAtIsNullOrderByApplIdDesc(Long customerId);
 
     /**
