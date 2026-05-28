@@ -158,6 +158,16 @@ class FeatureAnswerFormatter:
         return "\n".join(lines)
 
 
+import time
+
+from app.metrics import (
+    chatbot_fallback_total,
+    chatbot_llm_completion_tokens,
+    chatbot_llm_duration_seconds,
+    chatbot_llm_error_total,
+    chatbot_llm_prompt_tokens,
+)
+
 # ──────────────────────────────────────────────────────────────────────────────
 # LLM 응답 (OpenAI)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -185,6 +195,8 @@ class LlmAdapter:
             (response_text, is_error) — is_error=True 이면 LLM 호출 실패를 의미하며
             호출자가 상담사 이관 등 fallback 처리를 수행해야 한다.
         """
+        start = time.perf_counter()
+        is_error = False
         try:
             from openai import OpenAI
             client = OpenAI(api_key=self.api_key)
@@ -200,12 +212,20 @@ class LlmAdapter:
                 max_tokens=500,
                 temperature=0.3,
             )
+            if response.usage:
+                chatbot_llm_prompt_tokens.labels(method="answer").observe(response.usage.prompt_tokens)
+                chatbot_llm_completion_tokens.labels(method="answer").observe(response.usage.completion_tokens)
             return response.choices[0].message.content.strip(), False
         except Exception as exc:
+            is_error = True
             return (
                 f"죄송합니다, 일시적인 오류가 발생했습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요. ({exc})",
                 True,
             )
+        finally:
+            chatbot_llm_duration_seconds.labels(method="answer").observe(time.perf_counter() - start)
+            if is_error:
+                chatbot_llm_error_total.labels(method="answer").inc()
 
     def recommend(
         self,
@@ -222,6 +242,8 @@ class LlmAdapter:
             user_query  : 고객 질문 텍스트
             history_ctx : _build_history_context() 반환값 (없으면 빈 문자열)
         """
+        start = time.perf_counter()
+        is_error = False
         try:
             from openai import OpenAI
             client = OpenAI(api_key=self.api_key)
@@ -284,19 +306,28 @@ class LlmAdapter:
                 max_tokens=600,
                 temperature=0.3,
             )
+            if response.usage:
+                chatbot_llm_prompt_tokens.labels(method="recommend").observe(response.usage.prompt_tokens)
+                chatbot_llm_completion_tokens.labels(method="recommend").observe(response.usage.completion_tokens)
             return response.choices[0].message.content.strip()
 
         except ImportError:
+            is_error = True
             return (
                 "죄송합니다, AI 추천 서비스를 사용하려면 openai 패키지가 필요합니다. "
                 "상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
             )
         except Exception:
+            is_error = True
             # 구체적인 에러 메시지를 외부에 노출하지 않는다
             return (
                 "죄송합니다, 상품 추천 중 일시적인 오류가 발생했습니다. "
                 "잠시 후 다시 시도하거나 '상담사 연결'을 선택해 주세요."
             )
+        finally:
+            chatbot_llm_duration_seconds.labels(method="recommend").observe(time.perf_counter() - start)
+            if is_error:
+                chatbot_llm_error_total.labels(method="recommend").inc()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -307,6 +338,7 @@ class LlmHandoffAdapter:
     process_method_code = "BP002"
 
     def answer(self, message: str) -> str:
+        chatbot_fallback_total.inc()
         return (
             "시나리오로 즉시 처리하기 어려운 문의입니다. "
             "LLM 응답 검증 레이어가 연결되기 전까지는 상담사 연결을 권장합니다."

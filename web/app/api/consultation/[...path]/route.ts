@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const CONSULTATION_API_URL = process.env.CONSULTATION_API_URL || 'http://localhost:8090'
+const CONSULTATION_API_URL = process.env.CONSULTATION_API_URL || 'http://localhost:8087'
 
 type RouteContext = {
   params: {
