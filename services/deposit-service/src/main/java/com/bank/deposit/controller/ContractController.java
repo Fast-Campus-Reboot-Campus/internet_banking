@@ -5,6 +5,7 @@ import com.bank.deposit.domain.enums.ContractStatus;
 import com.bank.deposit.dto.request.*;
 import com.bank.deposit.dto.request.PreferentialRateRequest;
 import org.springframework.web.bind.annotation.RequestBody;
+import com.bank.deposit.security.AuthenticatedCustomerValidator;
 import com.bank.deposit.service.ContractService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +20,15 @@ import java.util.List;
 public class ContractController {
 
     private final ContractService contractService;
+    private final AuthenticatedCustomerValidator customerValidator;
 
     // ── 계약 ───────────────────────────────────────────────────────────────────
 
     @PostMapping("/contracts")
-    public ResponseEntity<Contract> create(@Valid @RequestBody ContractCreateRequest req) {
+    public ResponseEntity<Contract> create(
+            @RequestHeader(value = AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, required = false) String authenticatedCustomerId,
+            @Valid @RequestBody ContractCreateRequest req) {
+        customerValidator.validate(authenticatedCustomerId, req.customerId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(contractService.createContract(
                         req.customerId(), req.productId(), req.joinAmount(),
@@ -31,13 +36,16 @@ public class ContractController {
                         req.contractInterestRate(), req.totalPreferentialRate(),
                         req.taxBenefitType(), req.isAutoRenewal(),
                         req.autoTransferEnabled(), req.autoTransferDay(),
+                        req.sourceAccountId(),
                         req.branchId(), req.managerId(), req.savingType(), req.accountPassword()));
     }
 
     @GetMapping("/contracts")
     public List<Contract> list(
+            @RequestHeader(value = AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, required = false) String authenticatedCustomerId,
             @RequestParam(required = false) String customerId,
             @RequestParam(required = false) ContractStatus contractStatus) {
+        customerValidator.validate(authenticatedCustomerId, customerId);
         return contractService.findAll(customerId, contractStatus);
     }
 

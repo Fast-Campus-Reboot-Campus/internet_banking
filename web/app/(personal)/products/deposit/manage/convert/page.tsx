@@ -1,18 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, type DepositViewAccount } from '@/lib/deposit-api'
 
 const STEPS = ['1. 보유계좌조회', '2', '3', '4', '5', '6']
-
-const MOCK_ACCOUNTS = [
-  { no: '531089-04-274618', name: 'AX풀뱅크ONE통장-보통예금', balance: '1,000,000' },
-]
 
 export default function DepositConvertPage() {
   const [step, setStep] = useState(1)
   const [converting, setConverting] = useState<string | null>(null)
+  const [accounts, setAccounts] = useState<DepositViewAccount[]>([])
+
+  useEffect(() => {
+    fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+      .then(data => setAccounts(data))
+      .catch(() => setAccounts([]))
+  }, [])
 
   function handleConvert(no: string) {
     setConverting(no)
@@ -71,14 +75,16 @@ export default function DepositConvertPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {MOCK_ACCOUNTS.map(acc => (
-                    <tr key={acc.no}>
-                      <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{acc.no}</td>
+                  {accounts.length === 0 ? (
+                    <tr><td colSpan={4} className="border border-kb-border px-4 py-6 text-center text-kb-text-muted text-[13px]">보유 계좌가 없습니다.</td></tr>
+                  ) : accounts.map(acc => (
+                    <tr key={acc.id}>
+                      <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{acc.number}</td>
                       <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{acc.name}</td>
-                      <td className="border border-kb-border px-4 py-3 text-right text-kb-text-body pr-6">{acc.balance}</td>
+                      <td className="border border-kb-border px-4 py-3 text-right text-kb-text-body pr-6">{Number(acc.balance).toLocaleString('ko-KR')}</td>
                       <td className="border border-kb-border px-4 py-3 text-center">
                         <button
-                          onClick={() => handleConvert(acc.no)}
+                          onClick={() => handleConvert(acc.number)}
                           className="border border-[#5BC9A8] px-5 py-1.5 text-[12px] font-bold hover:bg-[#5BC9A8] hover:text-white transition-colors"
                           style={{ color: '#5BC9A8' }}>
                           전환

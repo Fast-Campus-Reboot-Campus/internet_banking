@@ -31,24 +31,61 @@
 
 ---
 
+## 백엔드 서비스 연동
+
+프론트엔드는 다음 백엔드 서비스와 실제 API로 연결되어 있습니다.
+
+| lib 파일 | 연결 서비스 | 기본 포트 | 연결된 페이지 |
+|---|---|---|---|
+| `deposit-api.ts` | deposit-service | 8082 | 개인홈, 대시보드, 계좌조회, 거래내역, 이체, 예금 상품 전체, 신규내역, 해지, 전환, 챗봇 |
+| `consultation-api.ts` | consultation-service | 8090 | 챗봇 위젯(현금흐름·상품추천·상담사 연결), 실시간 상담 채팅 |
+| `loan-api.ts` | loan-service | 8083 | (서비스 실행 시 연동 가능) |
+| `advisory-api.ts` | advisory-service | 8084 | 어드민 감사 리포트 |
+| `master-api.ts` | master-service | 8085 | 공통 코드 관리 |
+| `payment-api.ts` | payment-service | 8087 | 결제 처리 |
+| `ai-api.ts` | ai-service | 8086 | RAG 검색·문서 관리 |
+
+`.env.local` 설정 (프로젝트 루트에 생성):
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_DEPOSIT_API_URL=http://localhost:8082/api
+NEXT_PUBLIC_CONSULTATION_API_URL=http://localhost:8090
+NEXT_PUBLIC_LOAN_API_URL=http://localhost:8083
+NEXT_PUBLIC_ADVISORY_API_URL=http://localhost:8084
+NEXT_PUBLIC_MASTER_API_URL=http://localhost:8085
+NEXT_PUBLIC_AI_API_URL=http://localhost:8086
+NEXT_PUBLIC_PAYMENT_API_URL=http://localhost:8087
+```
+
+---
+
 ## 시작하기
 
 ```bash
 # 의존성 설치
 npm install
 
-# 개발 서버 실행 (기본 포트 3000)
+# 개발 서버 실행 (포트 3001)
 npm run dev
 
 # 빌드
 npm run build
 ```
 
-개발 서버 실행 후 [http://localhost:3000](http://localhost:3000) 접속.
+개발 서버 실행 후 [http://localhost:3001](http://localhost:3001) 접속.
 
-### 테스트 계정 (로컬 모의)
+> **deposit-service(8082)와 consultation-service(8090)가 먼저 실행 중이어야** 계좌·거래·챗봇 기능이 동작합니다.
 
-로그인 페이지(`/login`)에서 아무 아이디/비밀번호나 입력하면 `localStorage`에 모의 JWT가 저장되고 개인홈으로 이동합니다.
+### 테스트 계정
+
+로그인 페이지(`/login`)에서 아래 계정으로 로그인:
+
+| 아이디 | 비밀번호 | 고객번호 |
+|--------|----------|----------|
+| (customer-service 계정) | — | `CUST001` |
+
+> 로그인 후 `localStorage`에 `customerId: CUST001`이 저장되어야 deposit-service 계좌 조회가 됩니다.
 
 ---
 

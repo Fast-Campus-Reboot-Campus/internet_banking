@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_WINNERS, MOCK_EVENTS, WinnerRecord, WinnerStatus } from '@/lib/admin-mock-data'
+import { MOCK_WINNERS, MOCK_EVENTS, WinnerStatus } from '@/lib/admin-mock-data'
 
 const STATUS_COLOR: Record<WinnerStatus, string> = {
   '발송완료':   'bg-green-100 text-green-700',

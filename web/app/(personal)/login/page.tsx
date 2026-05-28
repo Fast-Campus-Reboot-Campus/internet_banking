@@ -287,6 +287,7 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
       })
       if (res.ok) {
         const data = await res.json()
+        localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         window.location.href = '/personal'
@@ -449,8 +450,9 @@ function IdLoginTab() {
       } catch {}
 
       window.location.href = '/personal'
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? '로그인에 실패했습니다.')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -711,6 +713,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
       })
       if (res.ok) {
         const data = await res.json()
+        localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         window.location.href = '/personal'

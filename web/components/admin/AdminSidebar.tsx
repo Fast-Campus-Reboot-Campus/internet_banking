@@ -57,7 +57,6 @@ const NAV: NavSection[] = [
     ],
   },
   {
-
     section: '모니터링', dot: 'bg-kb-yellow',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_RISK'],
     items: [

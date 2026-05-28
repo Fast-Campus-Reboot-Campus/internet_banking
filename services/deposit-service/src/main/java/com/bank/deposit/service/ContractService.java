@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -27,6 +28,7 @@ public class ContractService {
     private final ContractAppliedRateRepository appliedRateRepository;
     private final ContractSpecialTermAgreementRepository agreementRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Clock clock;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -52,6 +54,7 @@ public class ContractService {
                                    BigDecimal contractInterestRate, BigDecimal totalPreferentialRate,
                                    TaxBenefitType taxBenefitType, Boolean isAutoRenewal,
                                    Boolean autoTransferEnabled, Integer autoTransferDay,
+                                   Long sourceAccountId,
                                    Long branchId, Long managerId, SavingType savingType,
                                    String accountPassword) {
         Product product = productRepository.findById(productId)
@@ -60,7 +63,6 @@ public class ContractService {
         if (product.getProductStatus() != ProductStatus.SELLING) {
             throw new BusinessException(ErrorCode.PRODUCT_NOT_SELLING);
         }
-
         if (product.getMinJoinAmount() != null
                 && joinAmount.compareTo(product.getMinJoinAmount()) < 0) {
             throw new BusinessException(ErrorCode.INVALID_STATUS,
@@ -71,7 +73,6 @@ public class ContractService {
             throw new BusinessException(ErrorCode.INVALID_STATUS,
                     "가입금액이 최대 가입금액을 초과합니다. (최대: " + product.getMaxJoinAmount().toPlainString() + "원)");
         }
-
         if (accountPassword == null || accountPassword.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_STATUS, "계좌 비밀번호는 필수입니다.");
         }
@@ -80,10 +81,11 @@ public class ContractService {
         BigDecimal prefRate = totalPreferentialRate != null ? totalPreferentialRate : BigDecimal.ZERO;
         BigDecimal finalRate = baseRate.add(prefRate);
 
-        String today = LocalDate.now().format(DATE_FMT);
-        String maturityAt = LocalDate.now().plusMonths(contractPeriodMonth).format(DATE_FMT);
+        LocalDate todayDate = LocalDate.now(clock);
+        LocalDate maturityDate = todayDate.plusMonths(contractPeriodMonth);
+        String today = todayDate.format(DATE_FMT);
         String contractNumber = "CTR-" + today + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        String accountNumber = "ACC-" + today + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String accountNumber = generateAccountNumber();
 
         Contract contract = contractRepository.save(Contract.builder()
                 .contractNumber(contractNumber)
@@ -95,14 +97,15 @@ public class ContractService {
                 .finalInterestRate(finalRate)
                 .taxBenefitType(taxBenefitType != null ? taxBenefitType : TaxBenefitType.GENERAL)
                 .contractPeriodMonth(contractPeriodMonth)
-                .startedAt(today)
-                .maturityAt(maturityAt)
+                .startedAt(todayDate)
+                .maturityAt(maturityDate)
                 .joinChannel(joinChannel != null ? joinChannel : JoinChannel.WEB)
                 .branchId(branchId)
                 .managerId(managerId)
                 .isAutoRenewal(isAutoRenewal != null && isAutoRenewal)
                 .autoTransferEnabled(autoTransferEnabled != null && autoTransferEnabled)
                 .autoTransferDay(autoTransferDay)
+                .sourceAccountId(sourceAccountId)
                 .build());
 
         // 비밀번호 BCrypt 해시 처리 — 평문 저장 금지
@@ -112,8 +115,8 @@ public class ContractService {
                 .contractId(contract.getContractId())
                 .accountType(product.getProductType())
                 .savingType(savingType)
-                .openedAt(today)
-                .maturityAt(maturityAt)
+                .openedAt(todayDate)
+                .maturityAt(maturityDate)
                 .accountPassword(passwordEncoder.encode(accountPassword))
                 .build());
 
@@ -123,4 +126,137 @@ public class ContractService {
     @Transactional
     public Contract changeStatus(Long id, ContractStatus status) {
         Contract contract = findById(id);
-        contract.changeStatus(
+        contract.changeStatus(status, LocalDate.now(clock));
+        return contract;
+    }
+
+    @Transactional
+    public Contract terminate(Long id, String reason) {
+        Contract contract = findById(id);
+        if (contract.getContractStatus() != ContractStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS, "활성 계약만 해지할 수 있습니다.");
+        }
+        LocalDate today = LocalDate.now(clock);
+        contract.terminate(today, reason);
+        accountRepository.findByContractId(id)
+                .ifPresent(account -> account.changeStatus(AccountStatus.CLOSED, today));
+        return contract;
+    }
+
+    @Transactional
+    public Contract mature(Long id) {
+        Contract contract = findById(id);
+        contract.mature(LocalDate.now(clock));
+        return contract;
+    }
+
+    @Transactional
+    public void updateAutoTransferDay(Long id, Integer autoTransferDay) {
+        Contract contract = findById(id);
+        contract.updateAutoTransferDay(autoTransferDay);
+    }
+
+    public Contract findDepositContract(Long contractId) {
+        Contract contract = findById(contractId);
+        Product product = productRepository.findById(contract.getProductId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "상품을 찾을 수 없습니다."));
+        if (product.getProductType() != ProductType.DEPOSIT) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "수신 계약을 찾을 수 없습니다.");
+        }
+        return contract;
+    }
+
+    @Transactional
+    public Contract updateDepositSettings(Long contractId, Boolean autoTransferEnabled, Integer autoTransferDay) {
+        Contract contract = findById(contractId);
+        contract.updateDepositSettings(autoTransferEnabled, autoTransferDay);
+        return contract;
+    }
+
+    // ContractAppliedRates
+    public List<ContractAppliedRate> findAppliedRates(Long contractId) {
+        findById(contractId);
+        return appliedRateRepository.findByContractId(contractId);
+    }
+
+    @Transactional
+    public ContractAppliedRate saveAppliedRate(Long contractId, Long rateId, BigDecimal appliedRate, Boolean conditionVerifiedYn) {
+        findById(contractId);
+        return appliedRateRepository.save(ContractAppliedRate.builder()
+                .contractId(contractId)
+                .rateId(rateId)
+                .appliedRate(appliedRate)
+                .conditionVerifiedYn(conditionVerifiedYn != null && conditionVerifiedYn)
+                .build());
+    }
+
+    @Transactional
+    public ContractAppliedRate savePreferentialRate(Long contractId, String conditionName, BigDecimal appliedRate, Boolean appliedYn) {
+        findById(contractId);
+        return appliedRateRepository.save(ContractAppliedRate.builder()
+                .contractId(contractId)
+                .appliedRate(appliedRate)
+                .conditionVerifiedYn(appliedYn != null && appliedYn)
+                .build());
+    }
+
+    @Transactional
+    public void deleteAppliedRate(Long appliedRateId) {
+        ContractAppliedRate rate = appliedRateRepository.findById(appliedRateId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "우대금리 적용 내역을 찾을 수 없습니다."));
+        appliedRateRepository.delete(rate);
+    }
+
+    // SpecialTermAgreements
+    public List<ContractSpecialTermAgreement> findAgreements(Long contractId) {
+        findById(contractId);
+        return agreementRepository.findByContractId(contractId);
+    }
+
+    @Transactional
+    public ContractSpecialTermAgreement agree(Long contractId, Long specialTermId, Boolean isAgreed,
+                                              String agreedAt, String ipAddress, String deviceInfo,
+                                              Boolean isElectronicSigned) {
+        findById(contractId);
+        return agreementRepository.save(ContractSpecialTermAgreement.builder()
+                .contractId(contractId)
+                .specialTermId(specialTermId)
+                .isAgreed(isAgreed != null && isAgreed)
+                .agreedAt(agreedAt)
+                .agreementIpAddress(ipAddress)
+                .agreementDeviceInfo(deviceInfo)
+                .isElectronicSigned(isElectronicSigned != null && isElectronicSigned)
+                .build());
+    }
+
+    @Transactional
+    public ContractSpecialTermAgreement withdraw(Long contractId, Long agreementId) {
+        ContractSpecialTermAgreement agreement = agreementRepository.findById(agreementId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "특약 동의를 찾을 수 없습니다."));
+        agreement.withdraw(LocalDate.now(clock).format(DATE_FMT));
+        return agreement;
+    }
+
+    private String generateAccountNumber() {
+        long sequence = accountRepository.nextAccountNumberSequenceValue();
+        String body = String.format("%012d", sequence);
+        return "001-" + body + calculateCheckDigit(body);
+    }
+
+    private int calculateCheckDigit(String body) {
+        int sum = 0;
+        boolean doubleDigit = true;
+        for (int i = body.length() - 1; i >= 0; i--) {
+            int digit = body.charAt(i) - '0';
+            if (doubleDigit) {
+                digit *= 2;
+                if (digit > 9) {
+                    digit -= 9;
+                }
+            }
+            sum += digit;
+            doubleDigit = !doubleDigit;
+        }
+        return (10 - (sum % 10)) % 10;
+    }
+}

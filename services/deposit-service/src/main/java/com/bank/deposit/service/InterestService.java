@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -30,6 +31,7 @@ public class InterestService {
     private final AccountRepository accountRepository;
     private final ContractRepository contractRepository;
     private final TransactionRepository transactionRepository;
+    private final Clock clock;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -60,9 +62,9 @@ public class InterestService {
                 .subtract(localIncomeTaxAmount != null ? localIncomeTaxAmount : BigDecimal.ZERO);
 
         BigDecimal interestAmount = interestAfterTax;
-        account.addInterest(interestAmount);
+        account.addInterest(interestAmount, clock);
 
-        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(clock);
         InterestHistory history = interestHistoryRepository.save(InterestHistory.builder()
                 .contractId(contractId)
                 .accountId(accountId)
@@ -83,7 +85,7 @@ public class InterestService {
 
         BigDecimal before = account.getBalance().subtract(interestAmount);
         transactionRepository.save(Transaction.builder()
-                .transactionNumber("INT-" + LocalDate.now().format(DATE_FMT) + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .transactionNumber("INT-" + LocalDate.now(clock).format(DATE_FMT) + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .accountId(accountId)
                 .contractId(contractId)
                 .transactionType(TransactionType.INTEREST)

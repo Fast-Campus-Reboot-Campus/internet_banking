@@ -1,40 +1,78 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
+import { useState, useEffect } from 'react'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, fetchTransactions, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회', '리브마니보내기 결과조회']
 
-const MOCK_RESULTS = [
-  { id: '1', datetime: '2026.05.25\n01:39:33', bank: '신한', account: '302-7823-4501-02', receiver: '김수현', amount: 50, memo: '' },
-  { id: '2', datetime: '2026.05.21\n14:32:16', bank: '하나', account: '178-910034-82657', receiver: '박지우', amount: 50, memo: '' },
-]
+type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string }
 
 export default function TransferInquiryPage() {
   const [activeTab, setActiveTab] = useState('즉시이체 결과조회')
-  const [fromAccount, setFromAccount] = useState(MOCK_ACCOUNTS[0].number)
+  const [fromAccount, setFromAccount] = useState('')
   const [startDate, setStartDate] = useState('20260519')
   const [endDate, setEndDate] = useState('20260525')
   const [counterAccount, setCounterAccount] = useState('')
   const [useCounter, setUseCounter] = useState(false)
   const [searched, setSearched] = useState(false)
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set())
+  const [localResults, setLocalResults] = useState<ResultRow[]>([])
+  const [accounts, setAccounts] = useState<{ id: string; number: string; name: string }[]>([])
+  const [apiResults, setApiResults] = useState<ResultRow[]>([])
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const raw = localStorage.getItem('transferHistory')
+        if (raw) setLocalResults(JSON.parse(raw))
+      } catch {}
+      try {
+        const accs = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+        const mapped = accs.map(a => ({ id: a.id, number: a.number, name: a.name }))
+        setAccounts(mapped)
+        if (mapped.length > 0) setFromAccount(mapped[0].number)
+      } catch {}
+      try {
+        const txs = await fetchTransactions({ customerId: getCurrentDepositCustomerId() })
+        const rows: ResultRow[] = txs
+          .filter(t => t.transactionType === 'TRANSFER' && t.directionType === 'OUT')
+          .map(t => ({
+            id: String(t.transactionId),
+            datetime: t.transactionAt?.replace('T', '\n').slice(0, 19) || '',
+            bank: t.counterpartyBankName || 'AXful',
+            account: t.counterpartyAccountNo || '-',
+            receiver: t.counterpartyName || t.transactionSummary || '-',
+            amount: Number(t.amount),
+            memo: t.transactionMemo || '',
+          }))
+        setApiResults(rows)
+      } catch {}
+    }
+    load()
+  }, [])
+
+  const displayResults: ResultRow[] = apiResults.length > 0 ? apiResults : localResults.length > 0 ? localResults : []
 
   function toggleRow(id: string) {
     setCheckedRows(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
       return next
     })
   }
 
   function toggleAll(checked: boolean) {
-    setCheckedRows(checked ? new Set(MOCK_RESULTS.map(r => r.id)) : new Set())
+    setCheckedRows(checked ? new Set(displayResults.map(r => r.id)) : new Set())
   }
 
-  const allChecked = checkedRows.size === MOCK_RESULTS.length
+  const allChecked = checkedRows.size === displayResults.length
 
   const displayFrom = startDate.length === 8
     ? `${startDate.slice(0,4)}.${startDate.slice(4,6)}.${startDate.slice(6,8)}`
@@ -106,7 +144,7 @@ export default function TransferInquiryPage() {
                       onChange={e => setFromAccount(e.target.value)}
                       className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px] outline-none bg-white"
                     >
-                      {MOCK_ACCOUNTS.map(a => (
+                      {accounts.map(a => (
                         <option key={a.id} value={a.number}>{a.number}</option>
                       ))}
                     </select>
@@ -230,7 +268,13 @@ export default function TransferInquiryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_RESULTS.map(row => (
+                    {displayResults.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="border border-kb-border px-3 py-8 text-center text-[13px] text-kb-text-muted">
+                          조회된 이체 내역이 없습니다.
+                        </td>
+                      </tr>
+                    ) : displayResults.map(row => (
                       <tr key={row.id} className="hover:bg-kb-beige-light">
                         <td className="border border-kb-border px-2 py-3 text-center">
                           <input type="checkbox" checked={checkedRows.has(row.id)} onChange={() => toggleRow(row.id)} className="w-4 h-4" />
@@ -257,7 +301,7 @@ export default function TransferInquiryPage() {
                     </button>
                   ))}
                   <span className="ml-2 text-[12px] text-kb-text-muted">
-                    현재 1-{MOCK_RESULTS.length}건 / {MOCK_RESULTS.length}건
+                    현재 1-{displayResults.length}건 / {displayResults.length}건
                   </span>
                 </div>
               </div>

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_EVENTS, EventRecord, EventStatus } from '@/lib/admin-mock-data'
+import { MOCK_EVENTS, EventStatus } from '@/lib/admin-mock-data'
 
 const STATUS_COLOR: Record<EventStatus, string> = {
   '진행중':   'bg-green-100 text-green-700',

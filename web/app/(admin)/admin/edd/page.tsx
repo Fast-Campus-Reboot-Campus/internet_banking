@@ -1,16 +1,12 @@
 'use client'
 import { useState } from 'react'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_EDD, EDDRecord, EDDType, EDDStatus } from '@/lib/admin-mock-data'
+import { MOCK_EDD, EDDRecord, EDDType } from '@/lib/admin-mock-data'
 
 const EDD_COLOR: Record<EDDType, string> = {
   '고위험 국가': 'bg-red-100 text-red-700',
   'PEP':        'bg-orange-100 text-orange-700',
   '고액거래':   'bg-yellow-100 text-yellow-700',
-}
-const STATUS_COLOR: Record<EDDStatus, string> = {
-  '심사':     'bg-yellow-100 text-yellow-700',
-  '서류요청': 'bg-gray-100 text-gray-600',
 }
 
 export default function EDDPage() {

@@ -6,6 +6,7 @@ import com.bank.deposit.domain.enums.ProductType;
 import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.exception.ErrorCode;
 import com.bank.deposit.repository.AccountRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -13,8 +14,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,11 +34,19 @@ import static org.mockito.BDDMockito.then;
 @DisplayName("AccountService")
 class AccountServiceTest {
 
-    @InjectMocks
     private AccountService accountService;
 
     @Mock
     private AccountRepository accountRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void setUp() {
+        Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        accountService = new AccountService(accountRepository, passwordEncoder, clock);
+    }
 
     @Nested
     @DisplayName("고객별 계좌 목록 조회")
@@ -102,7 +115,7 @@ class AccountServiceTest {
                     .contractId(1L)
                     .accountType(ProductType.DEPOSIT)
                     .accountPassword("1234")
-                    .openedAt("20260101")
+                    .openedAt(java.time.LocalDate.of(2026, 1, 1))
                     .accountStatus(AccountStatus.CLOSED)
                     .build();
             given(accountRepository.findById(1L)).willReturn(Optional.of(closed));
@@ -121,7 +134,8 @@ class AccountServiceTest {
         @DisplayName("계약에 계좌가 없으면 새 계좌를 생성한다")
         void create() {
             given(accountRepository.findByContractId(1L)).willReturn(Optional.empty());
-            given(accountRepository.existsByAccountNumber(anyString())).willReturn(false);
+            given(accountRepository.nextAccountNumberSequenceValue()).willReturn(100000000001L);
+            given(passwordEncoder.encode("1234")).willReturn("$2a$10$abcdefghijklmnopqrstuu9QwmFAnNd0x5QyZ9LhQOW7bpcE6Pj2a");
             given(accountRepository.save(any(Account.class)))
                     .willAnswer(inv -> inv.getArgument(0));
 
@@ -130,7 +144,7 @@ class AccountServiceTest {
 
             assertThat(result.getCustomerId()).isEqualTo("CUST-001");
             assertThat(result.getContractId()).isEqualTo(1L);
-            assertThat(result.getAccountNumber()).startsWith("ACC-");
+            assertThat(result.getAccountNumber()).startsWith("001-");
         }
 
         @Test
@@ -198,7 +212,7 @@ class AccountServiceTest {
                 .contractId(1L)
                 .accountType(ProductType.DEPOSIT)
                 .accountPassword("1234")
-                .openedAt("20260101")
+                .openedAt(java.time.LocalDate.of(2026, 1, 1))
                 .build();
     }
 }
