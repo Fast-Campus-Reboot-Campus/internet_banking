@@ -75,14 +75,18 @@ export default function AdminDocumentsPage() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    {['docId', '문서 유형', '파일명', '상태', '업로드일시', ''].map(h => (
+                    {['docId', '문서 유형', '파일명', '상태', '검증결과', '검증일시', '업로드일시', ''].map(h => (
                       <th key={h} className="px-4 py-3 text-left font-semibold text-gray-600">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {docs.map((d: any) => (
-                    <tr key={d.docId} className="hover:bg-gray-50">
+                    <tr key={d.docId} className={`${
+                      d.verifyResultCd === 'HOLD' || d.verifyResultCd === 'FRAUD'
+                        ? 'bg-red-50 hover:bg-red-100'
+                        : 'hover:bg-gray-50'
+                    }`}>
                       <td className="px-4 py-3 text-gray-400 text-xs">{d.docId}</td>
                       <td className="px-4 py-3 text-gray-600">{DOC_TYPES[d.docTypeCd] ?? d.docTypeCd}</td>
                       <td className="px-4 py-3 text-gray-800 font-mono text-xs">{d.fileName ?? d.fileUrl ?? '-'}</td>
@@ -94,11 +98,29 @@ export default function AdminDocumentsPage() {
                           {d.docStatusCd}
                         </span>
                       </td>
+                      <td className="px-4 py-3">
+                        {d.verifyResultCd ? (
+                          <span className={`text-[11px] px-2 py-0.5 rounded border ${
+                            d.verifyResultCd === 'AUTO_PASS'      ? 'bg-green-100 text-green-700 border-green-300' :
+                            d.verifyResultCd === 'NEEDS_RESUBMIT' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                            d.verifyResultCd === 'HOLD'           ? 'bg-red-100 text-red-700 border-red-300' :
+                            d.verifyResultCd === 'FRAUD'          ? 'bg-red-200 text-red-900 border-red-400 font-bold' :
+                            'bg-gray-100 text-gray-600 border-gray-300'}`}>
+                            {d.verifyResultCd}
+                          </span>
+                        ) : <span className="text-gray-300 text-xs">-</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">
+                        {d.verifiedAt?.slice(0, 16).replace('T', ' ') ?? '-'}
+                      </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">
                         {d.uploadedAt?.slice(0, 16).replace('T', ' ') ?? d.createdAt?.slice(0, 16).replace('T', ' ') ?? '-'}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
+                          {(d.verifyResultCd === 'HOLD' || d.verifyResultCd === 'FRAUD') && (
+                            <span className="text-[10px] text-red-700 font-semibold">사기 의심</span>
+                          )}
                           <a href={adminLoanApi.downloadDocumentUrl(d.docId)} target="_blank" rel="noreferrer"
                             className="px-2 py-1 text-[11px] border border-gray-300 rounded hover:bg-gray-50 text-gray-600">
                             다운로드
