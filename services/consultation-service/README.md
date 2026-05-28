@@ -130,7 +130,7 @@
 | `GET` | `/chat/consultations/{id}/messages` | 채팅 메시지 이력 |
 | `POST` | `/chat/consultations/{id}/end` | 상담 종료 |
 
-> Swagger UI: `http://localhost:8090/docs`
+> Swagger UI: `http://localhost:8087/docs`
 
 ---
 
@@ -169,7 +169,7 @@ pip install -r requirements.txt
 ### 서비스 시작
 
 ```bash
-uvicorn app.main:app --reload --port 8090
+uvicorn app.main:app --reload --port 8087
 ```
 
 또는 스크립트 사용:
@@ -183,7 +183,7 @@ uvicorn app.main:app --reload --port 8090
 서비스 시작 후 한 번 실행:
 
 ```bash
-curl -X POST http://localhost:8090/chatbot/scenarios/default
+curl -X POST http://localhost:8087/chatbot/scenarios/default
 ```
 
 ---

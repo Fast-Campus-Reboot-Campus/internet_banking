@@ -361,4 +361,5 @@ Grafana가 자체적으로 Prometheus를 쿼리하여 평가하는 알림 (Prome
 | 문서 | 내용 |
 |------|------|
 | [KAFKA_PAYMENT_GUIDE.md](KAFKA_PAYMENT_GUIDE.md) | Kafka Payment 대시보드 — Consumer Lag, Outbox, 보상 트랜잭션, DLQ 해석 |
+| [CHATBOT_GUIDE.md](CHATBOT_GUIDE.md) | 챗봇 상담 모니터링 — 세션 현황, LLM 성능, Kafka 이벤트, 만족도 |
 | [INFRA_VERSIONS.md](INFRA_VERSIONS.md) | 모니터링 인프라 버전 및 설정 파일 위치 |

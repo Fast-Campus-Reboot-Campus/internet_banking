@@ -1,6 +1,6 @@
 # 모니터링 인프라 버전 관리
 
-> Last updated: 2026-05-27
+> Last updated: 2026-05-28
 > 로컬 설치 기준. Docker 사용 시 docker-compose.yml 참고.
 
 ---
@@ -11,6 +11,26 @@
 |---|---|---|---|
 | Prometheus | 3.12.0-rc.0 | `C:\bank_project\prometheus-3.12.0-rc.0.windows-amd64` | 9090 |
 | Grafana | 13.0.1 | Windows MSI 설치 | 3000 |
+
+### 애플리케이션 서비스 포트 (로컬 직접 실행)
+
+| 서비스 | 포트 | 비고 |
+|--------|------|------|
+| gateway-service | 8080 | Spring Boot |
+| customer-service | 8081 | Spring Boot |
+| deposit-service | 8082 | Spring Boot |
+| loan-service | 8083 | Spring Boot |
+| payment-service | 8084 | Spring Boot (로컬 IDE, application-local.yml) |
+| master-service | 8085 | Spring Boot |
+| ai-service / auto-loan-review | 8086 | Spring Boot |
+| consultation-service | **8087** | Python FastAPI |
+| review-ai-gateway / advisory-service | 8088 | Spring Boot |
+| inference-server (ai-service) | 8090 | Python (별도 기동) |
+| Kafka UI (payment docker) | 8090 | Docker, `${KAFKA_UI_PORT:-8090}` |
+
+> 포트 변수 전체 목록: 루트 `.env.sample` 참고
+
+---
 
 ### Kafka 모니터링 컴포넌트 (Docker)
 
@@ -37,6 +57,7 @@
 | Grafana dashboard | `infra/grafana/provisioning/dashboards/dashboard.yml` |
 | Grafana dashboard JSON (서비스 현황) | `infra/grafana/provisioning/dashboards/internet-banking.json` |
 | Grafana dashboard JSON (Kafka Payment) | `infra/grafana/provisioning/dashboards/kafka-payment.json` |
+| Grafana dashboard JSON (챗봇 상담) | `infra/grafana/provisioning/dashboards/chatbot.json` |
 
 ---
 

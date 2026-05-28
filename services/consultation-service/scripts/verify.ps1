@@ -1,5 +1,5 @@
 param(
-    [string] $BaseUrl      = "http://localhost:8090",
+    [string] $BaseUrl      = "http://localhost:8087",
     [int]    $RetryCount   = 15,
     [int]    $RetryInterval = 3
 )
