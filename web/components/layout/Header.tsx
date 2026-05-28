@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import { api } from '@/lib/api'
 
 // ============================================================
 // GNB 메뉴 데이터
