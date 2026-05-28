@@ -385,7 +385,7 @@ function RateCutForm({ contracts, selectedId, setSelectedId }: {
     setSubmitting(true); setError('')
     try {
       const contract = contracts.find(c => c.cntrId === selectedId)
-      const targetBps = contract ? Math.max(0, contract.approvedRateBps - 50) : 0
+      const targetBps = contract ? Math.max(0, contract.totalRateBps - 50) : 0
       await rateApi.requestRateChange(selectedId, { requestedRateBps: targetBps, reasonCd: reason || 'CREDIT_IMPROVED' })
       setDone(true)
     } catch (err: any) {
@@ -605,6 +605,85 @@ function PaymentMethodForm({ contracts, selectedId, setSelectedId }: {
   )
 }
 
+// ─── 연체정보 조회 ────────────────────────────────────────────
+
+function DelinquencyView({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [dlq, setDlq] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSearch() {
+    if (!selectedId) return
+    setLoading(true); setError('')
+    try {
+      const { data: res } = await loanMiscApi.getDelinquency(selectedId)
+      setDlq(res.data)
+    } catch (err: any) {
+      const msg = err.response?.data?.message ?? ''
+      if (err.response?.status === 404 || msg.includes('LOAN_100')) {
+        setDlq(null)
+        setError('현재 활성 연체 내역이 없습니다.')
+      } else {
+        setError('연체 정보를 불러오지 못했습니다.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const DLQ_STATUS: Record<string, string> = {
+    ACTIVE: '연체중', RESOLVED: '해소완료', WRITTEN_OFF: '대손처리',
+  }
+  const DLQ_STAGE: Record<string, string> = {
+    EARLY: '초기(1~30일)', MID: '중기(31~90일)', LATE: '장기(91일+)',
+  }
+
+  return (
+    <div>
+      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+        <p>· 연체가 발생한 경우 연체 현황을 조회할 수 있습니다.</p>
+        <p>· 연체 해소를 위해 즉시 납입해 주시기 바랍니다.</p>
+      </div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+      </div>
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSearch} disabled={!selectedId || loading}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {loading ? '조회 중...' : '조회'}
+        </button>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      {dlq && (
+        <div className="mt-6 border border-kb-border">
+          <div className="bg-red-50 px-5 py-3 border-b border-kb-border">
+            <p className="text-[13px] font-bold text-red-700">연체 정보</p>
+          </div>
+          <div className="divide-y divide-kb-border text-[13px]">
+            {[
+              ['연체 상태',     DLQ_STATUS[dlq.dlqStatusCd] ?? dlq.dlqStatusCd],
+              ['연체 단계',     DLQ_STAGE[dlq.dlqStageCd] ?? dlq.dlqStageCd ?? '-'],
+              ['연체 시작일',   dlq.dlqStartDate ?? '-'],
+              ['연체 경과일',   dlq.dlqDays != null ? `${dlq.dlqDays}일` : '-'],
+              ['연체 원금',     dlq.dlqPrincipalAmt != null ? `${dlq.dlqPrincipalAmt.toLocaleString('ko-KR')}원` : '-'],
+              ['연체 이자',     dlq.dlqInterestAmt != null ? `${dlq.dlqInterestAmt.toLocaleString('ko-KR')}원` : '-'],
+              ['연체 합계',     dlq.dlqTotalAmt != null ? `${dlq.dlqTotalAmt.toLocaleString('ko-KR')}원` : '-'],
+              ['연체 금리',     dlq.overdueRateBps != null ? `연 ${bpsToRate(dlq.overdueRateBps)}%` : '-'],
+            ].map(([label, val]) => (
+              <div key={label} className="flex">
+                <div className="w-36 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{label}</div>
+                <div className={`px-5 py-3 ${label === '연체 합계' ? 'font-bold text-red-600' : 'text-kb-text-body'}`}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── UI-only 슬러그 (API pending) ─────────────────────────────
 
 function WithdrawForm({ contracts, selectedId, setSelectedId }: {
@@ -712,6 +791,7 @@ const PAGE_META: Record<string, SlugMeta> = {
   'auto-interest':{ title: '통장자동대출 이자납입내역 조회',       breadcrumb: '이자납입내역' },
   notify:         { title: '개인대출 통지서비스',                 breadcrumb: '통지서비스' },
   'payment-method':{ title: '개인대출 할부금(이자) 납입방법 변경', breadcrumb: '납입방법 변경' },
+  delinquency:     { title: '연체정보조회',                       breadcrumb: '연체정보조회' },
 }
 
 function PageContent({ slug, contracts, selectedId, setSelectedId }: {
@@ -727,6 +807,7 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
     case 'rate-cut': return <RateCutForm {...props} />
     case 'notify':  return <NotifyForm />
     case 'payment-method': return <PaymentMethodForm {...props} />
+    case 'delinquency': return <DelinquencyView {...props} />
     case 'closed':
       return <SimpleQueryForm {...props}
         apiCall={cntrId => closureApi.getClosure(cntrId)}
@@ -740,26 +821,73 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
       return <SimpleQueryForm {...props}
         apiCall={cntrId => loanMiscApi.getCertificate(cntrId, 'RATE_DETAIL')}
         renderResult={data => (
-          <div className="border border-kb-border p-4 text-[13px]">
-            <pre className="text-[12px] text-kb-text-muted whitespace-pre-wrap">{JSON.stringify(data, null, 2)}</pre>
+          <div className="border border-kb-border">
+            <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+              <p className="text-[13px] font-bold text-kb-text">금리산정내역서</p>
+            </div>
+            <div className="divide-y divide-kb-border text-[13px]">
+              {data && Object.entries(data).map(([k, v]) => (
+                <div key={k} className="flex">
+                  <div className="w-40 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{k}</div>
+                  <div className="px-5 py-3 text-kb-text-body">{String(v)}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )} />
     case 'debt-relief':
       return <SimpleQueryForm {...props}
         apiCall={cntrId => loanMiscApi.getCreditInfoReport(cntrId)}
         renderResult={data => (
-          <div className="border border-kb-border p-4 text-[13px]">
-            <pre className="text-[12px] text-kb-text-muted whitespace-pre-wrap">{JSON.stringify(data, null, 2)}</pre>
+          <div className="border border-kb-border">
+            <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+              <p className="text-[13px] font-bold text-kb-text">신용정보 결과</p>
+            </div>
+            <div className="divide-y divide-kb-border text-[13px]">
+              {data && Object.entries(data).map(([k, v]) => (
+                <div key={k} className="flex">
+                  <div className="w-40 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{k}</div>
+                  <div className="px-5 py-3 text-kb-text-body">{String(v)}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )} />
     case 'auto-interest':
       return <SimpleQueryForm {...props}
         apiCall={cntrId => rateApi.getInterestAccruals(cntrId)}
-        renderResult={data => (
-          <div className="border border-kb-border p-4 text-[13px]">
-            <p>이자 납입 내역: {JSON.stringify(data)}</p>
-          </div>
-        )} />
+        renderResult={data => {
+          const items: any[] = data?.items ?? (Array.isArray(data) ? data : [])
+          return (
+            <div className="border border-kb-border">
+              <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+                <p className="text-[13px] font-bold text-kb-text">이자 발생 내역 ({items.length}건)</p>
+              </div>
+              {items.length === 0 ? (
+                <p className="px-5 py-6 text-[13px] text-kb-text-muted">내역이 없습니다.</p>
+              ) : (
+                <table className="w-full text-[13px]">
+                  <thead><tr className="bg-[#FAFAFA]">
+                    <th className="px-4 py-2 text-left font-medium border-b border-kb-border">발생일</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">원금 잔액</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">이자</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">금리</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-kb-border">
+                    {items.map((item: any, i: number) => (
+                      <tr key={i} className="hover:bg-kb-beige-light">
+                        <td className="px-4 py-2">{item.accrualDate?.slice(0, 10) ?? '-'}</td>
+                        <td className="px-4 py-2 text-right">{item.principalBalance != null ? `${item.principalBalance.toLocaleString('ko-KR')}원` : '-'}</td>
+                        <td className="px-4 py-2 text-right font-medium">{item.interestAmt != null ? `${item.interestAmt.toLocaleString('ko-KR')}원` : '-'}</td>
+                        <td className="px-4 py-2 text-right">{item.dailyRateBps != null ? `${bpsToRate(item.dailyRateBps * 365)}%` : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )
+        }} />
     case 'limit':
       return (
         <div className="max-w-lg border border-kb-border">

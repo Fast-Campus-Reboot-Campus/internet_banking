@@ -233,8 +233,11 @@ export const loanMiscApi = {
   getBusinessCalendar: (params: { yearMonth: string }) =>
     api.get<any>("/api/business-calendar", { params }),
 
-  getStatusHistory: (applId: number) =>
-    api.get<any>(`/api/status-history`, { params: { applId } }),
+  getStatusHistory: (targetTable: string, targetId: number) =>
+    api.get<any>(`/api/status-history`, { params: { targetTable, targetId } }),
+
+  getDelinquencySnapshots: (cntrId: number) =>
+    api.get<any>(`/api/loan-contracts/${cntrId}/delinquency/snapshots`),
 
   getNotifications: (customerId: number) =>
     api.get<any>("/api/notifications", { params: { customerId } }),
@@ -255,6 +258,21 @@ export const loanMiscApi = {
 
   getGuaranteeInsurance: (cntrId: number) =>
     api.get<any>(`/api/loan-contracts/${cntrId}/guarantee-insurance`),
+};
+
+// ─── 신용점수 미리보기 ────────────────────────────────────────
+
+export const creditScorePreviewApi = {
+  preview: (body: {
+    customerId: number;
+    loanTypeCd: string;
+    requestedAmount: number;
+    requestedPeriodMo: number;
+    loanPurposeCd?: string;
+    employmentTypeCd?: string;
+    estimatedIncomeAmt?: number;
+    consentYn: string;
+  }) => api.post<any>('/api/credit-score/preview', body),
 };
 
 // ─── 헬퍼 ────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { use, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
-import { loanApplicationApi } from '@/lib/loan-api'
+import { loanApplicationApi, loanContractApi } from '@/lib/loan-api'
 
 // ─── 사후 서류 제출 ─────────────────────────────────────────
 
@@ -149,18 +149,22 @@ function ConsentForm({ title, consentTypeCd, fields, applId }: {
 // ─── 전자서명 ────────────────────────────────────────────────
 
 function ESignForm({ applId }: { applId: number | null }) {
+  const [step, setStep] = useState<'sign' | 'account' | 'done'>('sign')
+  const [journey, setJourney] = useState<any>(null)
+  const [cntrNo, setCntrNo] = useState('')
+  const [accountNo, setAccountNo] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
   const [error, setError] = useState('')
   const [certType, setCertType] = useState('금융인증서')
 
-  async function handleSubmit() {
+  async function handleSign() {
     if (!applId) { setError('신청번호를 확인할 수 없습니다.'); return }
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true); setError('')
     try {
       await loanApplicationApi.submitConsent(applId, { consentTypeCd: 'ESIGN', agreedYn: 'Y' })
-      setDone(true)
+      const { data: res } = await loanApplicationApi.journey(applId)
+      setJourney(res.data)
+      setStep('account')
     } catch (err: any) {
       setError(err.response?.data?.message ?? '전자서명 처리 중 오류가 발생했습니다.')
     } finally {
@@ -168,20 +172,99 @@ function ESignForm({ applId }: { applId: number | null }) {
     }
   }
 
-  if (done) return (
+  async function handleExecute() {
+    if (!journey || !accountNo) return
+    setSubmitting(true); setError('')
+    const appl = journey.application
+    const rateBps = journey.creditEvaluation?.rateBps ?? journey.prescreening?.rateBps ?? 500
+    try {
+      const { data: contractRes } = await loanContractApi.create(appl.applId, {
+        contractedAmount: appl.requestedAmount,
+        contractedPeriodMo: appl.requestedPeriodMo,
+        baseRateBps: rateBps,
+        spreadBps: 0,
+        rateTypeCd: 'FIXED',
+        repaymentMethodCd: appl.repaymentMethodCd ?? 'INSTALLMENT',
+      })
+      const newCntrId = contractRes.data?.cntrId
+      setCntrNo(contractRes.data?.cntrNo ?? '')
+      await loanContractApi.execute(newCntrId, {
+        executedAmount: appl.requestedAmount,
+        disbursementAccountNo: accountNo,
+      })
+      setStep('done')
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '대출 실행 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (step === 'done') return (
     <div className="py-12 text-center">
-      <p className="text-[16px] font-bold text-green-600 mb-2">전자서명 완료</p>
-      <p className="text-[13px] text-kb-text-muted mb-4">약정이 체결되었습니다.</p>
+      <div className="w-16 h-16 rounded-full bg-kb-yellow flex items-center justify-center mx-auto mb-3">
+        <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
+          <path d="M8 20l8 8 16-16" stroke="#333" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <p className="text-[16px] font-bold text-kb-text mb-1">대출 실행 완료</p>
+      {cntrNo && <p className="text-[13px] text-kb-text-muted mb-1">계약번호: {cntrNo}</p>}
+      <p className="text-[13px] text-kb-text-muted mb-4">지정 계좌로 대출금이 지급됩니다.</p>
+      <Link href="/products/loan/manage/payment" className="text-[13px] text-[#1A56DB] hover:underline mr-4">상환 스케줄 확인</Link>
       <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
+
+  if (step === 'account') {
+    const appl = journey?.application
+    return (
+      <div className="max-w-lg">
+        <div className="bg-[#FFF9E6] border border-[#C09B3A] p-4 mb-5 text-[13px] text-kb-text-body">
+          <p className="font-bold mb-1">전자서명 완료 — 대출 실행 정보를 입력해 주세요.</p>
+          <p>지정 계좌로 대출금이 즉시 지급됩니다.</p>
+        </div>
+        <div className="border border-kb-border divide-y divide-kb-border">
+          {appl && (
+            <>
+              <div className="flex items-center px-5 py-3 gap-6">
+                <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">실행 금액</span>
+                <span className="text-[13px] font-bold">{appl.requestedAmount.toLocaleString('ko-KR')}원</span>
+              </div>
+              <div className="flex items-center px-5 py-3 gap-6">
+                <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">대출 기간</span>
+                <span className="text-[13px]">{appl.requestedPeriodMo}개월</span>
+              </div>
+            </>
+          )}
+          <div className="flex items-center px-5 py-3 gap-6">
+            <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">입금 계좌번호 <span className="text-kb-red">*</span></span>
+            <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
+              placeholder="계좌번호 입력 (예: 123-456-789012)"
+              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+          </div>
+        </div>
+        {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
+        <div className="flex justify-center mt-5 gap-3">
+          <button onClick={() => { setStep('sign'); setError('') }}
+            className="px-8 py-2.5 text-[13px] border border-kb-border text-kb-text hover:bg-kb-beige-light">
+            이전
+          </button>
+          <button onClick={handleExecute} disabled={submitting || !accountNo}
+            className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
+            style={{ backgroundColor: '#3D3D3D' }}>
+            {submitting ? '처리 중...' : '대출 실행'}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-lg">
       {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
       <div className="bg-[#FFF9E6] border border-[#C09B3A] p-4 mb-5 text-[13px] text-kb-text-body">
         <p className="font-bold mb-1">전자서명 안내</p>
-        <p>약정 체결을 위한 전자서명을 진행합니다. 공동인증서 또는 금융인증서가 필요합니다.</p>
+        <p>약정 체결을 위한 전자서명 후 지정 계좌로 대출금이 지급됩니다.</p>
       </div>
       <div className="border border-kb-border p-5 space-y-4">
         <div className="flex items-center gap-4">
@@ -199,7 +282,7 @@ function ESignForm({ applId }: { applId: number | null }) {
       </div>
       {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
       <div className="flex justify-center mt-5">
-        <button onClick={handleSubmit} disabled={submitting || !applId}
+        <button onClick={handleSign} disabled={submitting || !applId}
           className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
           style={{ backgroundColor: '#3D3D3D' }}>
           {submitting ? '처리 중...' : '전자서명 진행'}

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { api } from '@/lib/api'
-import { bpsToRate } from '@/lib/loan-api'
+import { bpsToRate, loanMiscApi } from '@/lib/loan-api'
 
 const STATUS_LABEL: Record<string, string> = {
   SUBMITTED: '접수완료', PRESCREENED: '가심사완료', REVIEWING: '심사중',
@@ -18,9 +18,10 @@ function LoanResultContent() {
   const period  = parseInt(searchParams.get('period') ?? '12', 10)
   const purpose = searchParams.get('purpose') ?? '-'
 
-  const [journey, setJourney]   = useState<any>(null)
-  const [loading, setLoading]   = useState(!!applId)
-  const [error,   setError]     = useState('')
+  const [journey,  setJourney]  = useState<any>(null)
+  const [history,  setHistory]  = useState<any[]>([])
+  const [loading,  setLoading]  = useState(!!applId)
+  const [error,    setError]    = useState('')
 
   useEffect(() => {
     if (!applId) return
@@ -28,6 +29,9 @@ function LoanResultContent() {
       .then(({ data: res }) => setJourney(res.data))
       .catch(() => setError('신청 정보를 불러오지 못했습니다.'))
       .finally(() => setLoading(false))
+    loanMiscApi.getStatusHistory('LOAN_APPLICATION', parseInt(applId, 10))
+      .then(({ data: res }) => setHistory(res.data?.items ?? []))
+      .catch(() => {})
   }, [applId])
 
   if (loading) return <div className="py-20 text-center text-kb-text-muted">처리 중...</div>
@@ -174,6 +178,41 @@ function LoanResultContent() {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* 상태 변경 이력 */}
+      {history.length > 0 && (
+        <section className="mb-6">
+          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">신청 상태 변경 이력</h2>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="bg-kb-beige-light">
+                <th className="border border-kb-border px-4 py-3 text-center font-semibold">변경 일시</th>
+                <th className="border border-kb-border px-4 py-3 text-center font-semibold">이전 상태</th>
+                <th className="border border-kb-border px-4 py-3 text-center font-semibold">변경 상태</th>
+                <th className="border border-kb-border px-4 py-3 text-center font-semibold">사유</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((h: any, i: number) => (
+                <tr key={i} className="hover:bg-kb-beige-light">
+                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-muted">
+                    {h.changedAt ? h.changedAt.slice(0, 19).replace('T', ' ') : '-'}
+                  </td>
+                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-muted">
+                    {h.beforeStatusCd ?? '-'}
+                  </td>
+                  <td className="border border-kb-border px-4 py-3 text-center font-bold text-kb-text">
+                    {h.afterStatusCd ?? '-'}
+                  </td>
+                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-muted">
+                    {h.changeReasonCd ?? '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
