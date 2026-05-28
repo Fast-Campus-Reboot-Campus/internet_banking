@@ -47,6 +47,7 @@ public abstract class AbstractLoanIntegrationTest {
     static final KafkaContainer KAFKA;
     protected static final WireMockServer DOC_AGENT_MOCK;
     protected static final WireMockServer AUTO_REVIEW_MOCK;
+    protected static final WireMockServer ADVISORY_MOCK;
 
     static {
         POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16");
@@ -67,6 +68,13 @@ public abstract class AbstractLoanIntegrationTest {
                 .willReturn(WireMock.aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"track\":\"TRACK_3\",\"pd\":0.120000,\"rationale\":\"통합테스트 기본 stub\"}")));
+
+        ADVISORY_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        ADVISORY_MOCK.start();
+        ADVISORY_MOCK.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/advisory/reports"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("[]")));
     }
 
     @DynamicPropertySource
@@ -84,6 +92,7 @@ public abstract class AbstractLoanIntegrationTest {
         r.add("loan.review.bias-check.enabled", () -> "false");
         r.add("doc-agent.base-url", () -> "http://localhost:" + DOC_AGENT_MOCK.port());
         r.add("auto-review.base-url", () -> "http://localhost:" + AUTO_REVIEW_MOCK.port());
+        r.add("advisory.service.base-url", () -> "http://localhost:" + ADVISORY_MOCK.port());
     }
 
     @Autowired private WebApplicationContext wac;
