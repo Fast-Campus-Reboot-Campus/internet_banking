@@ -19,7 +19,7 @@ public class MyPageController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<MyPageResponse>> getMyPage(
-            @RequestHeader("X-User-Id") Long customerId) {
+            @RequestHeader("X-Customer-Id") Long customerId) {
         MyPageResponse response = myPageService.getMyPage(customerId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }

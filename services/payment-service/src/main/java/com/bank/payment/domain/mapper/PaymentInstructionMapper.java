@@ -26,4 +26,6 @@ public interface PaymentInstructionMapper {
                              @Param("nextTimeoutAt") LocalDateTime nextTimeoutAt);
 
     List<PaymentInstruction> selectTimedOut();
+
+    int countIncomplete();
 }

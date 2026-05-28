@@ -353,3 +353,12 @@ Grafana가 자체적으로 Prometheus를 쿼리하여 평가하는 알림 (Prome
    - 실패하면 Prometheus 재시작 시 `--web.enable-lifecycle` 플래그 필요
 3. Grafana alert rule datasource UID 확인: Alerting → Alert rules → 편집 → datasource 드롭다운에 Prometheus가 선택되어 있는지
 4. Slack Webhook URL 유효성 확인: `curl -X POST <webhook-url> -H "Content-Type: application/json" -d '{"text":"test"}'`
+
+---
+
+## 9. 관련 가이드
+
+| 문서 | 내용 |
+|------|------|
+| [KAFKA_PAYMENT_GUIDE.md](KAFKA_PAYMENT_GUIDE.md) | Kafka Payment 대시보드 — Consumer Lag, Outbox, 보상 트랜잭션, DLQ 해석 |
+| [INFRA_VERSIONS.md](INFRA_VERSIONS.md) | 모니터링 인프라 버전 및 설정 파일 위치 |

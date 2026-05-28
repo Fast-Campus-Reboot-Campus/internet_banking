@@ -388,10 +388,16 @@ public class PaymentTransactionService {
         paymentInstructionMapper.updateNextTimeoutAt(piId, now.plusMinutes(kftcClearingTimeoutMinutes));
 
         // 10. Outbox (KFTC_REQUEST_SENT, PENDING) — 워커가 kftc.network.request로 비동기 발행
+        // clearingNo를 먼저 생성해 payload에 포함 (Mock/KFTC 응답 측에서 clearingNo로 참조)
+        String clearingTxId = idGenerator.nextClearingTransactionId();
+        String clearingNo   = idGenerator.nextClearingNo();
+        String clearingRequestedAt = now.format(CLEARING_AT_FMT);  // yyyyMMddHHmmss
+
         String payload;
         try {
             payload = objectMapper.writeValueAsString(Map.of(
                     "paymentInstructionId", piId,
+                    "clearingNo", clearingNo,
                     "transactionNo", pi.getTransactionNo(),
                     "senderAccountId", command.senderAccountId(),
                     "receiverBankCode", command.receiverBankCode(),
@@ -408,9 +414,7 @@ public class PaymentTransactionService {
                 "v1", payload, now));
 
         // 11. kftc_clearing_transaction REQUESTED INSERT (PI와 같은 TX, 1:1 박제)
-        String clearingTxId = idGenerator.nextClearingTransactionId();
-        String clearingNo   = idGenerator.nextClearingNo();
-        String clearingRequestedAt = now.format(CLEARING_AT_FMT);  // yyyyMMddHHmmss
+        // (clearingTxId / clearingNo / clearingRequestedAt 는 위 step 10에서 생성)
 
         KftcClearingTransaction clearingTx = KftcClearingTransaction.requestedOut(
                 clearingTxId,
