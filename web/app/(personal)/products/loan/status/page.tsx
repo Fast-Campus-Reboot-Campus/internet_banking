@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import { loanApplicationApi, getCustomerId } from '@/lib/loan-api'
 
+const CANCELABLE = ['SUBMITTED', 'PRESCREENED', 'REVIEWING']
+
 const STATUS_LABEL: Record<string, string> = {
   SUBMITTED: '접수완료', PRESCREENED: '가심사완료', REVIEWING: '심사중',
   APPROVED: '승인', REJECTED: '거절', CANCELLED: '취소', EXPIRED: '만료',
@@ -27,18 +29,34 @@ export default function LoanStatusPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [canceling, setCanceling] = useState<number | null>(null)
+  const [cancelMsg, setCancelMsg] = useState('')
 
-  useEffect(() => {
+  async function load() {
     const customerId = getCustomerId()
-    if (!customerId) {
-      setLoading(false)
-      return
-    }
+    if (!customerId) { setLoading(false); return }
     loanApplicationApi.list({ customerId, size: 20 })
       .then(({ data: res }) => setApplications(res.data?.items ?? []))
       .catch(() => setError('진행현황을 불러오지 못했습니다.'))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function handleCancel(applId: number) {
+    if (!confirm('신청을 취소하시겠습니까?')) return
+    setCanceling(applId)
+    try {
+      await loanApplicationApi.cancel(applId, { cancelReasonCd: 'CUSTOMER_REQUEST' })
+      setCancelMsg('신청이 취소되었습니다.')
+      await load()
+    } catch (e: any) {
+      setCancelMsg(e?.response?.data?.message ?? '취소 처리 중 오류가 발생했습니다.')
+    } finally {
+      setCanceling(null)
+      setTimeout(() => setCancelMsg(''), 3000)
+    }
+  }
 
   return (
     <div className="max-w-kb-container mx-auto px-6">
@@ -56,6 +74,7 @@ export default function LoanStatusPage() {
 
           <h1 className="text-[20px] font-bold text-kb-text mb-6">진행현황조회/실행/예약</h1>
 
+          {cancelMsg && <p className="mb-4 text-[13px] text-green-600 font-medium">{cancelMsg}</p>}
           {loading && <p className="py-12 text-center text-[13px] text-kb-text-muted">불러오는 중...</p>}
           {error && <p className="py-12 text-center text-[13px] text-kb-red">{error}</p>}
 
@@ -117,6 +136,13 @@ export default function LoanStatusPage() {
                               className="px-3 py-1 text-[11px] border border-kb-border text-kb-text hover:bg-kb-beige-light">
                               배우자동의
                             </Link>
+                            {CANCELABLE.includes(statusCd) && (
+                              <button onClick={() => handleCancel(appl.applId)}
+                                disabled={canceling === appl.applId}
+                                className="px-3 py-1 text-[11px] border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                                {canceling === appl.applId ? '취소중...' : '신청취소'}
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
