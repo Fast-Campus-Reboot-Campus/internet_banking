@@ -173,7 +173,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                           <span className="text-[11px] font-bold px-2 py-0.5 bg-[#1A56DB] text-white">
                             인터넷뱅킹
                           </span>
-                          <Link href={`/products/loan/credit/${product.prodId}`}
+                          <Link href={`${activeHref}/${product.prodId}`}
                             className="text-[16px] font-bold text-kb-text hover:underline">
                             {product.prodName}
                           </Link>
@@ -189,7 +189,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <Link href={`/products/loan/credit/${product.prodId}`}
+                        <Link href={`${activeHref}/${product.prodId}`}
                           className="px-5 py-2 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark transition-colors whitespace-nowrap">
                           상세보기
                         </Link>
