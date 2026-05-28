@@ -47,7 +47,7 @@ export default function DepositTerminatePage() {
         <span>개인뱅킹</span><span>›</span>
         <span>금융상품</span><span>›</span>
         <span>예금</span><span>›</span>
-        <Link href="/products/deposit/inquiry/terminate" className="hover:underline">예금해지</Link>
+        <Link href="/products/deposit/inquiry/terminate" className="hover:underline">예금/적금 해지</Link>
         <span>›</span>
         <Link href="#" className="text-kb-blue hover:underline">도움말</Link>
       </div>
@@ -57,7 +57,7 @@ export default function DepositTerminatePage() {
 
         <main className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-5">
-            <h1 className="text-[20px] font-bold text-kb-text">예금해지</h1>
+            <h1 className="text-[20px] font-bold text-kb-text">예금/적금 해지</h1>
             <div className="flex gap-1">
               {STEPS.map((s, i) => (
                 <button key={s} className={stepBtnCls(i)}
@@ -110,9 +110,17 @@ export default function DepositTerminatePage() {
                           <td className="px-4 py-3 text-kb-text-body">{acc.name}</td>
                           <td className="px-4 py-3 text-right text-kb-text-body font-medium">{acc.amount}원</td>
                           <td className="px-4 py-3 text-right">
-                            <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
-                              해지상세조회
-                            </button>
+                            <div className="flex gap-1 justify-end">
+                              <button
+                                onClick={() => handleTerminate(acc)}
+                                className="px-3 py-1.5 text-[12px] font-bold text-white hover:opacity-90"
+                                style={{ backgroundColor: '#5BC9A8' }}>
+                                해지
+                              </button>
+                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
+                                해지상세조회
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
