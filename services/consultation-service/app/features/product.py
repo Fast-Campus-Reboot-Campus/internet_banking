@@ -17,51 +17,148 @@ class ProductFeatureExecutor(FeatureExecutorBase):
     # ── PRODUCT_GUIDE ─────────────────────────────────────────────────────────
 
     def execute_product_guide(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
-        """상품 추천.
+        """예금·적금·청약 상품 목록 안내.
 
-        우선순위:
-          1. RAG + 현금흐름: customer_no 있고 RAG 준비됨 → 현금흐름 쿼리로 RAG 검색
-          2. RAG 단독: customer_no 없고 RAG 준비됨 → query 텍스트로 RAG 검색
-          3. Fallback: RAG 없음 → DB 전체 상품 목록
+        항상 DB에서 직접 조회 — 상품명·금리·가입기간·가입대상을 포함해 반환한다.
+        query 에 예금/적금/청약/입출금 키워드가 있으면 해당 유형만 필터링한다.
         """
-        # ── 경로 1: RAG + 현금흐름 기반 개인화 추천 ───────────────────────────
-        if self._rag and self._rag.is_ready() and request.customer_no:
-            cf = self._analyze_customer_cash_flow(request.customer_no)
-            if cf and cf["has_data"]:
-                query = ProductRagEngine.build_cashflow_query(cf)
-                rag_results = self._rag.search(query, top_k=5, doc_type="product")
-                rows = self._enrich_rag_results(rag_results, cf)
-                msg = "고객님의 거래 패턴과 상품 내용을 분석해 맞춤 상품을 추천해 드립니다."
-                return self._data_response("PRODUCT_GUIDE", rows, msg, "등록된 수신 상품 데이터가 없습니다.")
+        query_text = (request.query or "").lower()
 
-        # ── 경로 2: RAG 단독 (쿼리 텍스트 기반) ──────────────────────────────
-        if self._rag and self._rag.is_ready():
-            query = request.query or "수신 상품 추천"
-            rag_results = self._rag.search(query, top_k=5, doc_type="product")
-            rows = self._enrich_rag_results(rag_results, cf=None)
-            msg = "질문과 관련된 상품을 찾았습니다."
-            return self._data_response("PRODUCT_GUIDE", rows, msg, "등록된 수신 상품 데이터가 없습니다.")
+        has_예금  = any(k in query_text for k in ("예금", "정기예금"))
+        has_적금  = "적금" in query_text
+        has_청약  = "청약" in query_text
+        has_통장  = any(k in query_text for k in ("입출금", "통장"))
 
-        # ── 경로 3: RAG 없음 → DB 전체 목록 ──────────────────────────────────
+        type_filter:    str | None = None
+        subtype_filter: str | None = None
+        exclude_demand: bool = True   # 기본: 입출금자유 제외
+
+        if has_통장 and not has_예금 and not has_적금 and not has_청약:
+            type_filter, subtype_filter, exclude_demand = "DEPOSIT", "DEMAND", False
+        elif has_예금 and not has_적금 and not has_청약:
+            type_filter, subtype_filter, exclude_demand = "DEPOSIT", "TERM", False
+        elif has_적금 and not has_예금 and not has_청약:
+            type_filter, exclude_demand = "SAVINGS", False
+        elif has_청약 and not has_예금 and not has_적금:
+            type_filter, exclude_demand = "SUBSCRIPTION", False
+
+        # 값이 내부 상수에서만 나오므로 f-string 직접 임베드 (SQL 인젝션 위험 없음)
+        extra_where = ""
+        if type_filter:
+            extra_where += f" AND p.deposit_product_type = '{type_filter}'"
+        if subtype_filter:
+            extra_where += f" AND bdp.deposit_type = '{subtype_filter}'"
+        elif exclude_demand:
+            extra_where += " AND bdp.deposit_type IS DISTINCT FROM 'DEMAND'"
+
         rows = self._rows(
-            """
-            SELECT banking_product_id AS product_id,
-                   deposit_product_name AS product_name,
-                   deposit_product_type AS product_type,
-                   description,
-                   base_interest_rate,
-                   min_join_amount,
-                   max_join_amount,
-                   min_period_month,
-                   max_period_month,
-                   deposit_product_status AS product_status
-              FROM deposit_banking_products
-             WHERE deposit_product_status = 'SELLING'
-             ORDER BY banking_product_id
+            f"""
+            SELECT p.banking_product_id        AS product_id,
+                   p.deposit_product_name      AS product_name,
+                   p.deposit_product_type      AS product_type,
+                   p.description               AS product_desc,
+                   p.base_interest_rate,
+                   p.min_period_month,
+                   p.max_period_month,
+                   p.min_join_amount,
+                   p.max_join_amount,
+                   p.is_early_termination_allowed,
+                   p.is_tax_benefit_available,
+                   p.is_auto_renewal_available,
+                   COALESCE(
+                       STRING_AGG(
+                           DISTINCT tg.target_group_name || ' (' || tg.description || ')',
+                           ', '
+                       ),
+                       '개인고객 (나이 제한 없음)'
+                   ) AS target_groups
+              FROM deposit_banking_products p
+              LEFT JOIN banking_deposit_products bdp
+                     ON bdp.banking_product_id = p.banking_product_id
+              LEFT JOIN banking_deposit_product_target_groups btg
+                     ON btg.banking_product_id = p.banking_product_id
+              LEFT JOIN deposit_target_groups tg
+                     ON tg.target_group_id = btg.target_group_id
+             WHERE p.deposit_product_status = 'SELLING'
+                   {extra_where}
+             GROUP BY p.banking_product_id, p.deposit_product_name, p.deposit_product_type,
+                      p.description, p.base_interest_rate, p.min_period_month, p.max_period_month,
+                      p.min_join_amount, p.max_join_amount, p.is_early_termination_allowed,
+                      p.is_tax_benefit_available, p.is_auto_renewal_available
+             ORDER BY p.deposit_product_type, p.base_interest_rate DESC NULLS LAST
              LIMIT 20
-            """
+            """,
         )
-        return self._data_response("PRODUCT_GUIDE", rows, "상품 안내 조회를 완료했습니다.", "등록된 수신 상품 데이터가 없습니다.")
+
+        _LABEL = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}
+        label = _LABEL.get(type_filter or "", "수신 상품")
+        ok_msg = f"{label} 상품 목록을 조회했습니다." if type_filter else "수신 상품 목록을 조회했습니다."
+        return self._data_response("PRODUCT_GUIDE", rows, ok_msg, "등록된 수신 상품 데이터가 없습니다.")
+
+    # ── PRODUCT_DETAIL ────────────────────────────────────────────────────────
+
+    def execute_product_detail(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        """상품 상세 안내.
+
+        사용자가 특정 상품에 대해 물어봤을 때 가입 기간, 금액, 금리, 특징 등 모든 정보를 제공함.
+        """
+        query = (request.query or "").strip()
+
+        # RAG 검색 시도 (의미 기반으로 가장 유사한 상품 1건 추출)
+        if self._rag and self._rag.is_ready() and query:
+            rag_results = self._rag.search(query, top_k=1, doc_type="product")
+            if rag_results:
+                # 검색된 상품 ID로 전체 정보 재조회 (상세 필드 보강)
+                p_id = rag_results[0].get("banking_product_id")
+                rows = self._rows(
+                    """
+                    SELECT banking_product_id AS product_id,
+                           deposit_product_name AS product_name,
+                           deposit_product_type AS product_type,
+                           description,
+                           base_interest_rate,
+                           min_join_amount,
+                           max_join_amount,
+                           min_period_month,
+                           max_period_month,
+                           is_early_termination_allowed,
+                           is_tax_benefit_available
+                      FROM deposit_banking_products
+                     WHERE banking_product_id = :p_id
+                    """,
+                    {"p_id": p_id}
+                )
+                if rows:
+                    return self._data_response("PRODUCT_DETAIL", rows, f"'{rows[0]['product_name']}' 상품의 상세 정보입니다.")
+
+        # Fallback: 상품명 LIKE 검색
+        if query:
+            escaped = query.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+            like = f"%{escaped}%"
+            rows = self._rows(
+                r"""
+                SELECT banking_product_id AS product_id,
+                       deposit_product_name AS product_name,
+                       deposit_product_type AS product_type,
+                       description,
+                       base_interest_rate,
+                       min_join_amount,
+                       max_join_amount,
+                       min_period_month,
+                       max_period_month,
+                       is_early_termination_allowed,
+                       is_tax_benefit_available
+                  FROM deposit_banking_products
+                 WHERE deposit_product_name LIKE :query ESCAPE '\'
+                   AND deposit_product_status = 'SELLING'
+                 LIMIT 3
+                """,
+                {"query": like}
+            )
+            if rows:
+                return self._data_response("PRODUCT_DETAIL", rows, "검색된 상품의 상세 정보입니다.")
+
+        return self._data_response("PRODUCT_DETAIL", [], "해당 상품을 찾을 수 없습니다.", "상세 정보를 조회할 수 있는 상품이 없습니다.")
 
     # ── RATE_GUIDE ────────────────────────────────────────────────────────────
 
