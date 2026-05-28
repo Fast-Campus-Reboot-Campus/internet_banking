@@ -49,6 +49,9 @@ public class OcrMaskingService {
             .map(OcrRegion::text)
             .reduce("", (a, b) -> a + "\n" + b);
 
+        // SSN 원본 힌트 추출 (마스킹 전 — 체크섬 검증용, 외부 노출 금지)
+        String rawSsnHint = extractFirstSsn(fullText);
+
         // PII 마스킹
         String maskedText = mask(fullText);
 
@@ -60,7 +63,13 @@ public class OcrMaskingService {
         submission.updateKeys(submission.getRawObjectKey(), maskedKey);
         log.info("L3 OCR+Masking 완료: submissionId={} regions={}", submissionId, regions.size());
 
-        return new OcrResult(regions, fullText, maskedText);
+        return new OcrResult(regions, fullText, maskedText, rawSsnHint);
+    }
+
+    /** SSN 패턴 첫 번째 매칭 반환 (체크섬 검증 전용 — 로그·저장 금지). */
+    private String extractFirstSsn(String text) {
+        var m = SSN.matcher(text);
+        return m.find() ? m.group(0) : null;
     }
 
     private String mask(String text) {
@@ -75,5 +84,5 @@ public class OcrMaskingService {
         return result;
     }
 
-    public record OcrResult(List<OcrRegion> regions, String rawText, String maskedText) {}
+    public record OcrResult(List<OcrRegion> regions, String rawText, String maskedText, String rawSsnHint) {}
 }

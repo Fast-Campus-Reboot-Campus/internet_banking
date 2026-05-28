@@ -43,16 +43,18 @@ public class DocumentVerifyService {
                                     DocType docType,
                                     StructuredData structuredData,
                                     String productId) {
-        return verify(submission, docType, structuredData, productId, 0.0, List.of());
+        return verify(submission, docType, structuredData, productId, null, 0.0, List.of());
     }
 
     /**
      * D-4: 위변조 사이드카 점수를 외부에서 주입받아 합산.
+     * @param rawSsnHint L3 OCR 원본에서 추출한 SSN (null이면 체크섬 SKIP). 외부 노출 금지.
      */
     public VerificationBlock verify(DocumentSubmission submission,
                                     DocType docType,
                                     StructuredData structuredData,
                                     String productId,
+                                    String rawSsnHint,
                                     double preComputedForgeryScore,
                                     List<ForgerySignal> preComputedSignals) {
         List<ForgerySignal> signals  = new ArrayList<>(preComputedSignals);
@@ -70,7 +72,7 @@ public class DocumentVerifyService {
             String maskedSsn = applicant.maskedSsn() != null
                 ? (String) applicant.maskedSsn().value() : null;
 
-            boolean ssnValid = checksumService.validateSsn(maskedSsn, null);
+            boolean ssnValid = checksumService.validateSsn(maskedSsn, rawSsnHint);
             if (!ssnValid) {
                 forgeryScore += 0.5;
                 signals.add(new ForgerySignal("SEMANTIC", "SSN_CHECKSUM_FAIL", 0.5, "주민번호 검증식 불일치"));

@@ -88,6 +88,7 @@ public class SubmissionPipelineService {
         // L5: 룰 검증 + 진위확인 + 위변조 점수 합산
         VerificationBlock verification = verifyService.verify(
             submission, docType, structuredData, productId,
+            ocrResult.rawSsnHint(),
             forgeryResult.aggregateScore(), forgeryResult.signals());
 
         VerifyStatus finalStatus = verification.status();
