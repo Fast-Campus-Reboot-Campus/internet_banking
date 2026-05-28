@@ -320,8 +320,8 @@ infra/k8s/
 | A2 | 완료 | docker-compose.prod.yml 작성 (앱 13 + 인프라 9, 메모리 합계 ~13.5GB) |
 | A3 | 완료 | .env.prod.sample 작성 + .gitignore 에 .env.prod 추가 |
 | B1 | 완료 | 재사용 워크플로우 3개 (java-build, docker-publish, deploy-oracle) |
-| B2 | 대기 | 서비스별 워크플로우 10개 작성 |
-| B3 | 대기 | 인프라 배포 워크플로우 작성 |
+| B2 | 완료 | 서비스별 워크플로우 12개 (Java 10 + Python 2 + data-tools publish 전용) + 기존 템플릿 제거 |
+| B3 | 완료 | 인프라 배포 워크플로우 (compose/prometheus/grafana sync + reload) |
 | C1 | 사용자 | Oracle Cloud VM 생성 (수동) |
 | C2 | 대기 | Oracle bootstrap.sh 작성 |
 | C3 | 보류 | 도메인 + HTTPS (선택) |

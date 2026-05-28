@@ -1,0 +1,40 @@
+name: Deploy auto-loan-review
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/auto-loan-review/**'
+      - 'common/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/deploy-auto-loan-review.yml'
+      - '.github/workflows/reusable-*.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/auto-loan-review/**'
+      - 'common/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-java-build.yml
+    with:
+      service-name: auto-loan-review
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: auto-loan-review
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: publish
+    uses: ./.github/workflows/reusable-deploy-oracle.yml
+    with:
+      service-name: auto-loan-review
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+    secrets: inherit
