@@ -126,11 +126,26 @@ export const loanApplicationApi = {
   verifyIdentity: (applId: number, body: { idvMethodCd: string; idvTargetCd: string; mobileNo: string }) =>
     api.post<any>(`/api/loan-applications/${applId}/identity-verifications`, body),
 
+  get: (applId: number) =>
+    api.get<any>(`/api/loan-applications/${applId}`),
+
+  cancel: (applId: number, body?: { cancelReasonCd?: string }) =>
+    api.post<any>(`/api/loan-applications/${applId}/cancel`, body ?? {}),
+
+  runPrescreening: (applId: number, body?: { prescResultCd?: string; estimatedLimit?: number }) =>
+    api.post<any>(`/api/loan-applications/${applId}/prescreening`, body ?? {}),
+
   getPrescreening: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/prescreening`),
 
+  runCreditEvaluation: (applId: number) =>
+    api.post<any>(`/api/loan-applications/${applId}/credit-evaluation`, {}),
+
   getCreditEvaluation: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/credit-evaluation`),
+
+  runDsr: (applId: number, body?: { newAnnualRepayAmt?: number }) =>
+    api.post<any>(`/api/loan-applications/${applId}/dsr-calculation`, body ?? {}),
 
   getDsr: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/dsr-calculation`),
@@ -200,8 +215,8 @@ export const loanContractApi = {
   getRepaymentSchedules: (cntrId: number) =>
     api.get<any>(`/api/loan-contracts/${cntrId}/repayment-schedules`),
 
-  updateRepaymentAccount: (cntrId: number, body: { accountNo: string }) =>
-    api.patch<any>(`/api/loan-contracts/${cntrId}/repayment-account`, body),
+  registerRepaymentAccount: (cntrId: number, body: { accountNo: string }) =>
+    api.post<any>(`/api/loan-contracts/${cntrId}/repayment-account`, body),
 };
 
 // ─── 상환 ─────────────────────────────────────────────────────
@@ -240,7 +255,10 @@ export const rateApi = {
 
 export const closureApi = {
   extendMaturity: (cntrId: number, body: { newMaturityDt: string }) =>
-    api.post<any>(`/api/loan-contracts/${cntrId}/maturity`, body),
+    api.post<any>(`/api/loan-contracts/${cntrId}/maturity/extend`, body),
+
+  getMaturity: (cntrId: number) =>
+    api.get<any>(`/api/loan-contracts/${cntrId}/maturity`),
 
   close: (cntrId: number, body: { closureReasonCd: string }) =>
     api.post<any>(`/api/loan-contracts/${cntrId}/closure`, body),
