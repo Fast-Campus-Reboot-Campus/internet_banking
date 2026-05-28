@@ -21,11 +21,13 @@ public class DocumentSubmissionController {
     @Operation(summary = "서류 제출 및 OCR 추출")
     @PostMapping(value = "/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ExtractionResult> submit(
-        @RequestParam("applicationId") String applicationId,
-        @RequestParam("docCode")       String docCode,
-        @RequestPart("file")           MultipartFile file
+        @RequestParam("applicationId")          String applicationId,
+        @RequestParam("docCode")                String docCode,
+        @RequestParam(value = "productId",
+                      defaultValue = "P001")    String productId,
+        @RequestPart("file")                    MultipartFile file
     ) throws Exception {
-        ExtractionResult result = pipelineService.process(applicationId, docCode, file);
+        ExtractionResult result = pipelineService.process(applicationId, docCode, productId, file);
         return ResponseEntity.ok(result);
     }
 }
