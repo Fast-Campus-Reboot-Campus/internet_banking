@@ -142,7 +142,10 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_199(HttpStatus.UNPROCESSABLE_ENTITY, "본심사가 편향 검증(BIAS_REVIEWING) 상태가 아니어서 편향 우회 승인이 불가합니다."),
 
     // 4-eye 원칙 위반 (200)
-    LOAN_200(HttpStatus.FORBIDDEN, "심사원 본인이 자신의 편향을 우회 승인할 수 없습니다. 다른 상급자가 승인해야 합니다.");
+    LOAN_200(HttpStatus.FORBIDDEN, "심사원 본인이 자신의 편향을 우회 승인할 수 없습니다. 다른 상급자가 승인해야 합니다."),
+
+    // Advisory (201)
+    LOAN_201(HttpStatus.UNPROCESSABLE_ENTITY, "CRITICAL Advisory 리포트를 먼저 확인(ACK)해야 합니다.");
 
     private final HttpStatus status;
     private final String message;

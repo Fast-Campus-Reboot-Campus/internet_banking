@@ -65,6 +65,13 @@ loan:
     engine:
       type: ${LOAN_ECL_ENGINE_TYPE:mock}
 
+auto-review:
+  enabled: ${AUTO_REVIEW_ENABLED:true}
+  base-url: ${AUTO_REVIEW_BASE_URL:http://auto-loan-review:8086}
+  internal-token: ${AUTO_REVIEW_INTERNAL_TOKEN:local-internal-token}
+  connect-timeout-ms: ${AUTO_REVIEW_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${AUTO_REVIEW_READ_TIMEOUT_MS:30000}
+
 doc-agent:
   base-url: ${DOC_AGENT_BASE_URL:http://doc-agent:8080}
 
@@ -103,6 +110,10 @@ springdoc:
 
 # ---- Advisory / AI Gateway ----
 advisory:
+  service:
+    base-url: ${ADVISORY_BASE_URL:http://advisory-service:8085}
+    timeout-ms: ${ADVISORY_TIMEOUT_MS:5000}
+    connect-timeout-ms: ${ADVISORY_CONNECT_TIMEOUT_MS:3000}
   consumer:
     # L7 실험: 값 변경 후 재기동만으로 효과 측정 가능
     fetch-min-bytes: 1            # 실험: 10240으로 올리면 처리량↑ 지연↑

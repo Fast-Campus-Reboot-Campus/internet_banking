@@ -214,6 +214,14 @@ public class LoanReviewService {
             ));
         }
 
+        eventPublisher.publishEvent(new LoanReviewCompletedEvent(
+                saved.getRevId(),
+                saved.getApplId(),
+                saved.getReviewerId(),
+                saved.getRevDecisionCd(),
+                saved.getRevTypeCd()
+        ));
+
         return LoanReviewResponse.of(saved);
     }
 
