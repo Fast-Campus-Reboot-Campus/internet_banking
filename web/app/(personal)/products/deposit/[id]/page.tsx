@@ -64,81 +64,6 @@ const PRODUCTS: Record<string, ProductInfo> = {
     rate: '연 3.5%~6.0%',
     rateDate: '2026.05.25',
   },
-  // ── 적금 ──────────────────────────────────────────────────────────────────
-  'axful-free': {
-    name: 'AXful 내맘대로적금',
-    label: '누구나 쉽게 자유롭게 DIY / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
-    period: '6~36개월',
-    minAmount: '월 1만원 이상',
-    rate: '연 2.95%~3.55%',
-    rateDate: '2026.05.25',
-  },
-  'axful-dollar': {
-    name: 'AXful 달러자적금',
-    label: '달러 가치상승 응원하는 두배이율 / 스타뱅킹',
-    channel: '스타뱅킹',
-    period: '6개월',
-    minAmount: '월 1만원 이상',
-    rate: '연 1%~7.2%',
-    rateDate: '2026.05.25',
-  },
-  'axful-green': {
-    name: 'AXful 맑은하늘적금',
-    label: '맑은하늘 인증코드 금리도 Up / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
-    period: '6~36개월',
-    minAmount: '월 1만원 이상',
-    rate: '연 2.85%~3.85%',
-    rateDate: '2026.05.25',
-  },
-  'axful-soldier': {
-    name: 'AXful 장병내일준비적금',
-    label: '국군장병 미래대비 앞날준비 / 스타뱅킹',
-    channel: '스타뱅킹',
-    period: '24개월',
-    minAmount: '월 1만원 이상',
-    rate: '연 5%~10.5%',
-    rateDate: '2026.05.25',
-  },
-  'axful-star-savings': {
-    name: 'AXful 특★한 적금',
-    label: '고객 모두의 높은 수익을 위한 특별한 준비 / 스타뱅킹',
-    channel: '스타뱅킹',
-    period: '1~12개월',
-    minAmount: '월 1만원 이상',
-    rate: '연 2%~6%',
-    rateDate: '2026.05.25',
-  },
-  // ── 입출금자유 ────────────────────────────────────────────────────────────
-  'axful-youth-account': {
-    name: 'AXful 청년우대통장',
-    label: '만 19~34세 청년을 위한 우대금리 제공 / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
-    period: '기간 제한 없음',
-    minAmount: '제한 없음',
-    rate: '연 0.1%~2.0%',
-    rateDate: '2026.05.25',
-  },
-  // ── 주택청약 ──────────────────────────────────────────────────────────────
-  'housing-savings': {
-    name: '주택청약종합저축',
-    label: '내 집 마련의 꿈을 응원합니다 / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
-    period: '24개월 기준',
-    minAmount: '월 2만원 이상',
-    rate: '연 3.1%',
-    rateDate: '2026.05.25',
-  },
-  'youth-housing': {
-    name: '청년 주택드림 청약통장',
-    label: '청년의 내 집 마련을 응원합니다 / 스타뱅킹',
-    channel: '스타뱅킹',
-    period: '24개월 기준',
-    minAmount: '월 2만원 이상',
-    rate: '연 3.1%~4.5%',
-    rateDate: '2026.05.25',
-  },
 }
 
 type RateRow = { period: string; base: string; customer: string }
@@ -167,40 +92,6 @@ const PRODUCT_RATES: Record<string, RateRow[]> = {
   'axful-youth': [
     { period: '60개월 (기본)',            base: '3.50', customer: '4.50' },
     { period: '60개월 (소득요건 충족)',   base: '3.50', customer: '6.00' },
-  ],
-  'axful-free': [
-    { period: '6개월 이상 ~ 12개월미만', base: '2.20', customer: '2.95' },
-    { period: '12개월 이상 ~ 24개월미만',base: '2.50', customer: '3.25' },
-    { period: '24개월 이상 ~ 36개월미만',base: '2.70', customer: '3.45' },
-    { period: '36개월',                  base: '2.80', customer: '3.55' },
-  ],
-  'axful-dollar': [
-    { period: '6개월',                   base: '1.00', customer: '7.20' },
-  ],
-  'axful-green': [
-    { period: '6개월 이상 ~ 12개월미만', base: '2.10', customer: '2.85' },
-    { period: '12개월 이상 ~ 24개월미만',base: '2.50', customer: '3.25' },
-    { period: '24개월 이상 ~ 36개월미만',base: '2.80', customer: '3.55' },
-    { period: '36개월',                  base: '3.10', customer: '3.85' },
-  ],
-  'axful-soldier': [
-    { period: '24개월',                  base: '5.00', customer: '10.50' },
-  ],
-  'axful-star-savings': [
-    { period: '1개월',                   base: '2.00', customer: '3.50' },
-    { period: '3개월',                   base: '2.50', customer: '4.50' },
-    { period: '6개월',                   base: '3.00', customer: '5.50' },
-    { period: '12개월',                  base: '3.50', customer: '6.00' },
-  ],
-  'axful-youth-account': [
-    { period: '기본',                    base: '0.10', customer: '2.00' },
-  ],
-  'housing-savings': [
-    { period: '24개월 기준',             base: '2.80', customer: '3.10' },
-  ],
-  'youth-housing': [
-    { period: '24개월 기준 (기본)',       base: '3.10', customer: '3.50' },
-    { period: '24개월 기준 (요건 충족)',  base: '3.10', customer: '4.50' },
   ],
 }
 
@@ -279,36 +170,19 @@ export default function DepositDetailPage() {
   const [showRate, setShowRate] = useState(false)
   const [calcAmount, setCalcAmount] = useState('')
   const [calcMonths, setCalcMonths] = useState('')
-  const [calcRate, setCalcRate] = useState(product.rate.match(/[\d.]+/)?.[0] ?? '')
+  const [calcRate, setCalcRate] = useState('')
   const [calcResult, setCalcResult] = useState<string | null>(null)
   const isAxfulRegular = id === 'axful-regular'
-  const rates = PRODUCT_RATES[id] ?? []
-
-  // 적금 상품 ID 목록
-  const SAVINGS_IDS       = new Set(['axful-free', 'axful-dollar', 'axful-green', 'axful-soldier', 'axful-star-savings'])
-  const FREE_SAVINGS_IDS  = new Set(['axful-free', 'axful-dollar', 'axful-green', 'axful-star-savings'])
-  const isSavings         = SAVINGS_IDS.has(id)
-  const isFreeStyleSavings = FREE_SAVINGS_IDS.has(id)
+  const rates = PRODUCT_RATES[id] ?? PRODUCT_RATES['axful-regular']
 
   function handleCalc() {
     const a = parseFloat(calcAmount.replace(/,/g, ''))
     const m = parseFloat(calcMonths)
     const r = parseFloat(calcRate)
-    if (!a || !m || !r) { alert('금액, 기간, 금리를 모두 입력해주세요.'); return }
-
-    if (isSavings) {
-      // 적금: 단리 적립식 — 월 저축금액 × 연이율/12 × n(n+1)/2
-      const monthlyRate = r / 100 / 12
-      const interest = Math.floor(a * monthlyRate * m * (m + 1) / 2)
-      const principal = a * m
-      const total = principal + interest
-      setCalcResult(`만기 수령액: ${total.toLocaleString()}원 (원금 ${principal.toLocaleString()}원 + 이자 ${interest.toLocaleString()}원)`)
-    } else {
-      // 예금: 단리 거치식
-      const interest = Math.floor(a * (r / 100) * (m / 12))
-      const total = a + interest
-      setCalcResult(`만기 수령액: ${total.toLocaleString()}원 (이자 ${interest.toLocaleString()}원)`)
-    }
+    if (!a || !m || !r) { alert('예치금액, 기간, 금리를 모두 입력해주세요.'); return }
+    const interest = Math.floor(a * (r / 100) * (m / 12))
+    const total = a + interest
+    setCalcResult(`만기 수령액: ${total.toLocaleString()}원 (이자 ${interest.toLocaleString()}원)`)
   }
 
   return (
@@ -425,28 +299,26 @@ export default function DepositDetailPage() {
             </p>
           </div>
 
-          {/* 예금/적금 계산기 */}
+          {/* 예금 계산기 */}
           <div className="border border-kb-border px-5 py-4 mb-1">
-            <p className="text-[13px] font-bold text-kb-text mb-3">{isSavings ? '적금 계산기' : '예금 계산기'}</p>
+            <p className="text-[13px] font-bold text-kb-text mb-3">예금 계산기</p>
             {/* 시나리오 레이블 */}
             <div className="border border-kb-border px-4 py-2.5 mb-3 flex items-center gap-2 bg-white" style={{ width: '100%' }}>
               <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 flex-shrink-0 text-[#5BC9A8]" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M3 10a7 7 0 0112.04-4.87"/><polyline points="19,2 15,5.5 18.5,9"/><path d="M17 10a7 7 0 01-12.04 4.87"/><polyline points="1,18 5,14.5 1.5,11"/>
               </svg>
-              <span className="text-[13px] text-kb-text-body">
-                {isFreeStyleSavings ? '자유롭게 납입할 때 (월 평균 납입 기준)' : isSavings ? '매월 일정금액을 저축할 때' : '열심히 모은 목돈을 예치할 때'}
-              </span>
+              <span className="text-[13px] text-kb-text-body">열심히 모은 목돈을 예치할 때</span>
             </div>
             {/* 입력 행 */}
             <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="text"
-                placeholder={isFreeStyleSavings ? '월 평균 납입액' : isSavings ? '월 저축금액' : '예치금액'}
+                placeholder="예치금액"
                 value={calcAmount}
                 onChange={e => setCalcAmount(e.target.value)}
                 className="border border-kb-border px-3 py-1.5 text-[13px] w-28 outline-none"
               />
-              <span className="text-[13px] text-kb-text-body">{isSavings ? '원씩' : '원을'}</span>
+              <span className="text-[13px] text-kb-text-body">원을</span>
               <input
                 type="text"
                 placeholder="기간"
@@ -462,7 +334,7 @@ export default function DepositDetailPage() {
                 onChange={e => setCalcRate(e.target.value)}
                 className="border border-kb-border px-3 py-1.5 text-[13px] w-16 outline-none"
               />
-              <span className="text-[13px] text-kb-text-body">%의 {isSavings ? '적금' : '예금'}상품에 저축하면?</span>
+              <span className="text-[13px] text-kb-text-body">%의 예금상품에 저축하면?</span>
               <button
                 onClick={handleCalc}
                 className="bg-[#5C5C5C] text-white px-5 py-1.5 text-[13px] hover:opacity-90 transition-opacity ml-auto"

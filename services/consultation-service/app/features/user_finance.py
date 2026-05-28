@@ -70,8 +70,8 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
                    a.account_number,
                    t.transaction_type,
                    t.amount,
-                   t.status AS transaction_status,
-                   t.transaction_at AS created_at
+                   t.transaction_status,
+                   t.created_at
               FROM deposit_transactions t
               JOIN deposit_accounts a ON a.account_id = t.account_id
              WHERE a.customer_id = :customer_no
@@ -136,10 +136,7 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
             """
         )
 
-        # ── 3. 상위 3개 상품 선정 ─────────────────────────────────────────────
-        top3 = self._pick_top3(cf, products)
-
-        # ── 4. LLM 추천 메시지 ────────────────────────────────────────────────
+        # ── 3. LLM 추천 ───────────────────────────────────────────────────────
         if self._llm_adapter:
             history_ctx = (
                 self._build_history_context(request.chatbot_consultation_id)
@@ -161,76 +158,21 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
         else:
             recommendation = self._rule_based_recommend(cf, products)
 
-        # ── 5. data: 현금흐름 요약 + 1위/2위/3위 추천 상품 ───────────────────
-        ranked_rows = [
-            {
-                "row_type":           "recommended_product",
-                "rank":               i + 1,
-                "product_name":       p.get("deposit_product_name") or p.get("product_name", ""),
-                "product_type":       p.get("deposit_product_type") or p.get("product_type", ""),
-                "base_interest_rate": p.get("base_interest_rate", ""),
-                "min_join_amount":    p.get("min_join_amount"),
-                "max_join_amount":    p.get("max_join_amount"),
-                "min_period_month":   p.get("min_period_month"),
-                "max_period_month":   p.get("max_period_month"),
-                "recommend_reason":   self._recommend_reason(cf, p),
-                "match_score":        90 - i * 10,
-            }
-            for i, p in enumerate(top3)
-        ]
-
         return ChatbotFeatureExecuteResponse(
             feature_code="CASH_FLOW_RECOMMEND",
             status="OK",
             message=recommendation,
-            data=[
-                {
-                    "row_type":         "cash_flow_summary",
-                    "total_balance":    cf["total_balance"],
-                    "monthly_surplus":  cf["monthly_surplus"],
-                    "monthly_tx_count": cf["monthly_tx_count"],
-                    "has_data":         cf["has_data"],
-                    "product_count":    len(products),
-                },
-                *ranked_rows,
-            ],
+            data=[{
+                "total_balance":    cf["total_balance"],
+                "monthly_surplus":  cf["monthly_surplus"],
+                "monthly_tx_count": cf["monthly_tx_count"],
+                "has_data":         cf["has_data"],
+                "product_count":    len(products),
+            }],
             requires_auth=True,
         )
 
     # ── 내부 헬퍼 ─────────────────────────────────────────────────────────────
-
-    def _pick_top3(self, cf: dict, products: list[dict]) -> list[dict]:
-        """현금흐름 지표에 맞는 상위 3개 상품을 선정한다."""
-        total_balance   = float(cf.get("total_balance", 0))
-        monthly_surplus = float(cf.get("monthly_surplus", 0))
-
-        def score(p: dict) -> float:
-            ptype = p.get("deposit_product_type", "")
-            s = float(p.get("base_interest_rate") or 0) * 10  # 금리 기본 점수
-            if total_balance >= 10_000_000 and ptype == "DEPOSIT":
-                s += 30
-            if monthly_surplus >= 500_000 and ptype in ("SAVINGS", "SUBSCRIPTION"):
-                s += 25
-            if monthly_surplus > 0 and ptype == "SAVINGS":
-                s += 10
-            return s
-
-        return sorted(products, key=score, reverse=True)[:3]
-
-    def _recommend_reason(self, cf: dict, p: dict) -> str:
-        """상품별 추천 이유 한 줄 생성."""
-        total_balance   = float(cf.get("total_balance", 0))
-        monthly_surplus = float(cf.get("monthly_surplus", 0))
-        ptype = p.get("deposit_product_type", "")
-        rate  = p.get("base_interest_rate", "")
-
-        if ptype == "DEPOSIT" and total_balance >= 10_000_000:
-            return f"목돈 운용에 적합, 기본금리 {rate}%"
-        if ptype in ("SAVINGS", "SUBSCRIPTION") and monthly_surplus >= 500_000:
-            return f"월 잉여자금 활용 적합, 기본금리 {rate}%"
-        if ptype == "SAVINGS":
-            return f"소액 적립에 적합, 기본금리 {rate}%"
-        return f"기본금리 {rate}%"
 
     def _rule_based_recommend(
         self, cf: dict[str, Any], products: list[dict[str, Any]]

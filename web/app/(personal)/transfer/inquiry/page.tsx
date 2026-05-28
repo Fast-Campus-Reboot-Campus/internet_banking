@@ -1,17 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회', '리브마니보내기 결과조회']
 
-type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string }
-
-const MOCK_RESULTS: ResultRow[] = [
-  { id: 'mock-1', datetime: '2026.05.25\n01:39:33', bank: '신한', account: '302-7823-4501-02', receiver: '김수현', amount: 500000, memo: '' },
-  { id: 'mock-2', datetime: '2026.05.21\n14:32:16', bank: '하나', account: '178-910034-82657', receiver: '박지우', amount: 300000, memo: '' },
+const MOCK_RESULTS = [
+  { id: '1', datetime: '2026.05.25\n01:39:33', bank: '신한', account: '302-7823-4501-02', receiver: '김수현', amount: 50, memo: '' },
+  { id: '2', datetime: '2026.05.21\n14:32:16', bank: '하나', account: '178-910034-82657', receiver: '박지우', amount: 50, memo: '' },
 ]
 
 export default function TransferInquiryPage() {
@@ -23,37 +21,20 @@ export default function TransferInquiryPage() {
   const [useCounter, setUseCounter] = useState(false)
   const [searched, setSearched] = useState(false)
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set())
-  const [localResults, setLocalResults] = useState<ResultRow[]>([])
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('transferHistory')
-      if (raw) setLocalResults(JSON.parse(raw))
-    } catch {}
-  }, [])
-
-  // 실제 이체 기록이 있으면 우선 표시, 없으면 mock 데이터
-  const displayResults: ResultRow[] = localResults.length > 0
-    ? localResults
-    : MOCK_RESULTS
 
   function toggleRow(id: string) {
     setCheckedRows(prev => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
   }
 
   function toggleAll(checked: boolean) {
-    setCheckedRows(checked ? new Set(displayResults.map(r => r.id)) : new Set())
+    setCheckedRows(checked ? new Set(MOCK_RESULTS.map(r => r.id)) : new Set())
   }
 
-  const allChecked = checkedRows.size === displayResults.length
+  const allChecked = checkedRows.size === MOCK_RESULTS.length
 
   const displayFrom = startDate.length === 8
     ? `${startDate.slice(0,4)}.${startDate.slice(4,6)}.${startDate.slice(6,8)}`
@@ -249,13 +230,7 @@ export default function TransferInquiryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayResults.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="border border-kb-border px-3 py-8 text-center text-[13px] text-kb-text-muted">
-                          조회된 이체 내역이 없습니다.
-                        </td>
-                      </tr>
-                    ) : displayResults.map(row => (
+                    {MOCK_RESULTS.map(row => (
                       <tr key={row.id} className="hover:bg-kb-beige-light">
                         <td className="border border-kb-border px-2 py-3 text-center">
                           <input type="checkbox" checked={checkedRows.has(row.id)} onChange={() => toggleRow(row.id)} className="w-4 h-4" />
@@ -282,7 +257,7 @@ export default function TransferInquiryPage() {
                     </button>
                   ))}
                   <span className="ml-2 text-[12px] text-kb-text-muted">
-                    현재 1-{displayResults.length}건 / {displayResults.length}건
+                    현재 1-{MOCK_RESULTS.length}건 / {MOCK_RESULTS.length}건
                   </span>
                 </div>
               </div>
