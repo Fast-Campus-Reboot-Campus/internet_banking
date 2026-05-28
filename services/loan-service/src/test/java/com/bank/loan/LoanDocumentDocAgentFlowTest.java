@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import com.github.tomakehurst.wiremock.client.WireMock;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -75,7 +76,7 @@ class LoanDocumentDocAgentFlowTest extends AbstractLoanIntegrationTest {
     @Test @Order(10)
     void AUTO_PASS_응답시_서류_VERIFIED_전이_및_submission_insert() throws Exception {
         String submissionId = "sub-auto-" + uniq();
-        DOC_AGENT_MOCK.stubFor(post(urlEqualTo("/api/documents/submit"))
+        DOC_AGENT_MOCK.stubFor(WireMock.post(urlEqualTo("/api/documents/submit"))
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
@@ -114,7 +115,7 @@ class LoanDocumentDocAgentFlowTest extends AbstractLoanIntegrationTest {
     @Test @Order(20)
     void NEEDS_RESUBMIT_응답시_서류_REJECTED_전이() throws Exception {
         String submissionId = "sub-needs-" + uniq();
-        DOC_AGENT_MOCK.stubFor(post(urlEqualTo("/api/documents/submit"))
+        DOC_AGENT_MOCK.stubFor(WireMock.post(urlEqualTo("/api/documents/submit"))
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
@@ -139,7 +140,7 @@ class LoanDocumentDocAgentFlowTest extends AbstractLoanIntegrationTest {
     @Test @Order(30)
     void doc_agent_routed_NEEDS_RESUBMIT_이벤트로_서류_REJECTED_전이() throws Exception {
         String submissionId = "sub-hold-" + uniq();
-        DOC_AGENT_MOCK.stubFor(post(urlEqualTo("/api/documents/submit"))
+        DOC_AGENT_MOCK.stubFor(WireMock.post(urlEqualTo("/api/documents/submit"))
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
@@ -231,7 +232,7 @@ class LoanDocumentDocAgentFlowTest extends AbstractLoanIntegrationTest {
     private void activateProduct(Long pid) throws Exception {
         mockMvc.perform(patch("/api/loan-products/{prodId}", pid)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""{"prodStatusCd":"ACTIVE"}"""))
+                        .content("{\"prodStatusCd\":\"ACTIVE\"}"))
                 .andExpect(status().isOk());
     }
 
