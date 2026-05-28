@@ -2,6 +2,8 @@ package com.bank.loan.support;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,7 @@ public abstract class AbstractLoanIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES;
     static final GenericContainer<?> REDIS;
     static final KafkaContainer KAFKA;
+    protected static final WireMockServer DOC_AGENT_MOCK;
 
     static {
         POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16");
@@ -52,6 +55,9 @@ public abstract class AbstractLoanIntegrationTest {
 
         KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"));
         KAFKA.start();
+
+        DOC_AGENT_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        DOC_AGENT_MOCK.start();
     }
 
     @DynamicPropertySource
@@ -67,6 +73,7 @@ public abstract class AbstractLoanIntegrationTest {
         r.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
 
         r.add("loan.review.bias-check.enabled", () -> "false");
+        r.add("doc-agent.base-url", () -> "http://localhost:" + DOC_AGENT_MOCK.port());
     }
 
     @Autowired private WebApplicationContext wac;
