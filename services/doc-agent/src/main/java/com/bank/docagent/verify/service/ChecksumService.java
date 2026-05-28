@@ -45,9 +45,9 @@ public class ChecksumService {
         if (raw == null) return true;
         String digits = raw.replaceAll("[^0-9]", "");
         if (digits.length() != 10) return false;
-        int[] w = {1, 3, 7, 1, 3, 7, 1, 3, 5};
+        int[] w = {1, 3, 7, 1, 3, 7, 1, 3};
         int sum = 0;
-        for (int i = 0; i < 9; i++) sum += (digits.charAt(i) - '0') * w[i];
+        for (int i = 0; i < 8; i++) sum += (digits.charAt(i) - '0') * w[i];
         sum += (int) Math.floor((digits.charAt(8) - '0') * 5 / 10.0);
         int check = (10 - (sum % 10)) % 10;
         return check == (digits.charAt(9) - '0');
