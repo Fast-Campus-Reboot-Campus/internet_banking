@@ -72,6 +72,13 @@ auto-review:
   connect-timeout-ms: ${AUTO_REVIEW_CONNECT_TIMEOUT_MS:5000}
   read-timeout-ms: ${AUTO_REVIEW_READ_TIMEOUT_MS:30000}
 
+payment:
+  url: ${PAYMENT_SERVICE_URL:http://localhost:8080}
+  collection:
+    bank-code: ${PAYMENT_COLLECTION_BANK_CODE:088}
+    account-no: ${PAYMENT_COLLECTION_ACCOUNT_NO:00000000000}
+    holder-name: ${PAYMENT_COLLECTION_HOLDER_NAME:한국은행}
+
 doc-agent:
   base-url: ${DOC_AGENT_BASE_URL:http://doc-agent:8080}
 

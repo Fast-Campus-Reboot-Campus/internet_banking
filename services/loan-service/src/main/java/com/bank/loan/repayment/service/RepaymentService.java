@@ -77,6 +77,15 @@ public class RepaymentService {
 
     @Transactional
     public RepaymentTransactionResponse repayInstallment(Long cntrId, RepayInstallmentRequest req, String idempotencyKey) {
+        return repayInstallment(cntrId, req, idempotencyKey, null);
+    }
+
+    /**
+     * paymentStatus=FAILED: payment-service 출금 실패. schedule 상태 유지, FAILED tx 저장.
+     * paymentStatus=null or COMPLETED: 기존 성공 경로.
+     */
+    @Transactional
+    public RepaymentTransactionResponse repayInstallment(Long cntrId, RepayInstallmentRequest req, String idempotencyKey, String paymentStatus) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             var existing = txRepository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
@@ -92,6 +101,28 @@ public class RepaymentService {
                         cntrId, req.installmentNo(), RepaymentSchedule.VERSION_INITIAL)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_090,
                         "cntrId=" + cntrId + ", installmentNo=" + req.installmentNo()));
+
+        if (RepaymentTransaction.STATUS_FAILED.equals(paymentStatus)) {
+            RepaymentTransaction failed = txRepository.save(RepaymentTransaction.builder()
+                    .cntrId(cntrId)
+                    .rschId(schedule.getRschId())
+                    .rtxTypeCd(RepaymentTransaction.TYPE_SCHEDULED)
+                    .totalAmount(0L)
+                    .principalAmount(0L)
+                    .interestAmount(0L)
+                    .overdueInterestAmount(0L)
+                    .feeAmount(0L)
+                    .currencyCd(contract.getCurrencyCd())
+                    .channelCd(req.channelCd() == null ? DEFAULT_CHANNEL : req.channelCd())
+                    .rtxStatusCd(RepaymentTransaction.STATUS_FAILED)
+                    .paidAt(OffsetDateTime.now())
+                    .valueDate(req.valueDate())
+                    .balanceAfter(null)
+                    .idempotencyKey(idempotencyKey)
+                    .reversalYn(RepaymentTransaction.YN_N)
+                    .build());
+            return RepaymentTransactionResponse.of(failed);
+        }
 
         // SUPERSEDED 등 DUE/OVERDUE 가 아닌 상태는 즉시 차단
         if (!schedule.isPayable()) {
