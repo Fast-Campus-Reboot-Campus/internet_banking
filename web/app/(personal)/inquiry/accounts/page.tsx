@@ -390,6 +390,10 @@ export default function AccountsPage() {
                               <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">해지예상조회</button>
                               <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">입금</button>
                               <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">계좌관리</button>
+                              <Link href="/products/deposit/inquiry/terminate"
+                                className="col-span-2 border border-[#E05555] px-3 py-1.5 text-[12px] text-[#E05555] hover:bg-red-50 text-center">
+                                해지
+                              </Link>
                             </div>
                           </div>
                         </div>

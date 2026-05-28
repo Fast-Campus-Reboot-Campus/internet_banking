@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Bot, MessageCircle, Phone, Send, Sparkles, X } from 'lucide-react'
+import { Bot, CreditCard, MessageCircle, Phone, Send, Sparkles, X } from 'lucide-react'
 import {
   ChatbotButton,
   ChatbotFeatureExecuteResponse,
@@ -18,6 +18,7 @@ import {
   startChatbotConsultation,
 } from '@/lib/consultation-api'
 import ConsultModal from '@/components/layout/ConsultModal'
+import { Account, MOCK_ACCOUNTS } from '@/lib/mock-data'
 
 type ChatMessage = {
   id: string
@@ -25,6 +26,8 @@ type ChatMessage = {
   text: string
   buttons?: ChatbotButton[]
   data?: Record<string, unknown>[]
+  accounts?: Account[]
+  terminateInfo?: { target: Account; deposits: Account[] }
 }
 
 type ExpandedRow = {
@@ -212,6 +215,8 @@ export default function ChatbotWidget() {
   const [customerNo, setCustomerNo] = useState(DEFAULT_CUSTOMER_NO)
   const [chatbotConsultationId, setChatbotConsultationId] = useState<number | null>(null)
   const [expandedRow, setExpandedRow] = useState<ExpandedRow | null>(null)
+  const [terminateSelections, setTerminateSelections] = useState<Record<string, string>>({})
+  const [terminateDone, setTerminateDone] = useState<Set<string>>(new Set())
   const [dataPages, setDataPages] = useState<Record<string, number>>({})
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
@@ -232,6 +237,7 @@ export default function ChatbotWidget() {
       { type: 'recommend' as const, label: TEXT.recommend, message: '\uB0B4 \uD604\uAE08 \uD750\uB984\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC744 \uCD94\uCC9C\uD574\uC918' },
       { type: 'cashflow' as const, label: TEXT.cashflow, message: '\uCD5C\uADFC \uD604\uAE08 \uD750\uB984\uC744 \uC54C\uB824\uC918' },
       { type: 'consult' as const, label: '\uC0C1\uB2F4\uC6D0 \uC5F0\uACB0', message: '' },
+      { type: 'my_accounts' as const, label: '\uB0B4 \uC0C1\uD488', message: '' },
     ],
     [],
   )
@@ -354,10 +360,78 @@ export default function ChatbotWidget() {
     }
   }
 
+  function handleMyAccounts() {
+    let joined: Account[] = []
+    try {
+      const raw = localStorage.getItem('joinedAccounts')
+      if (raw) joined = JSON.parse(raw) as Account[]
+    } catch {}
+    const allAccounts = [...MOCK_ACCOUNTS, ...joined]
+    const deposits = allAccounts.filter(a => a.type === '입출금')
+    pushMessages([
+      { id: messageId('user'), role: 'user', text: '내 상품 조회' },
+      {
+        id: messageId('my_accounts'),
+        role: 'bot',
+        text: `보유 계좌 ${allAccounts.length}개입니다. 해지할 상품을 선택하세요.`,
+        accounts: allAccounts,
+      },
+    ])
+  }
+
+  function handleTerminateRequest(msgId: string, target: Account) {
+    let joined: Account[] = []
+    try {
+      const raw = localStorage.getItem('joinedAccounts')
+      if (raw) joined = JSON.parse(raw) as Account[]
+    } catch {}
+    const deposits = [...MOCK_ACCOUNTS, ...joined].filter(a => a.type === '입출금')
+    pushMessages([
+      { id: messageId('user'), role: 'user', text: `${target.name} 해지 요청` },
+      {
+        id: messageId('terminate_confirm'),
+        role: 'bot',
+        text: `${target.name} (${target.number}) 계좌를 해지하시겠습니까?\n해지금액 ${target.balance.toLocaleString('ko-KR')}원이 입금될 계좌를 선택해주세요.`,
+        terminateInfo: { target, deposits },
+      },
+    ])
+  }
+
+  function handleTerminateConfirm(msgId: string, target: Account) {
+    const depositId = terminateSelections[msgId]
+    let joined: Account[] = []
+    try {
+      const raw = localStorage.getItem('joinedAccounts')
+      if (raw) joined = JSON.parse(raw) as Account[]
+    } catch {}
+    const allAccounts = [...MOCK_ACCOUNTS, ...joined]
+    const depositAccount = allAccounts.find(a => a.id === depositId)
+    if (!depositId || !depositAccount) {
+      alert('입금 계좌를 선택해주세요.')
+      return
+    }
+    setTerminateDone(prev => new Set([...prev, msgId]))
+    try {
+      const updated = joined.filter(a => a.id !== target.id)
+      localStorage.setItem('joinedAccounts', JSON.stringify(updated))
+    } catch {}
+    pushMessages([
+      {
+        id: messageId('terminate_done'),
+        role: 'bot',
+        text: `${target.name} 해지가 완료되었습니다.\n${target.balance.toLocaleString('ko-KR')}원이 ${depositAccount.name} (${depositAccount.number})으로 입금됩니다.`,
+      },
+    ])
+  }
+
   async function handleQuickAction(action: (typeof quickActions)[number]) {
     if (loading) return
     if (action.type === 'consult') {
       setShowConsult(true)
+      return
+    }
+    if (action.type === 'my_accounts') {
+      handleMyAccounts()
       return
     }
     if (action.type === 'recommend') {
@@ -523,6 +597,74 @@ export default function ChatbotWidget() {
                       )
                     })()}
 
+                    {message.accounts && message.accounts.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {message.accounts.map((account) => (
+                          <div key={account.id} className="rounded border border-kb-border bg-white p-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-kb-text truncate">{account.name}</p>
+                                <p className="text-[11px] text-kb-text-muted">{account.number}</p>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="text-[10px] border border-kb-border px-1 text-kb-text-muted">{account.type}</span>
+                                  <span className="text-[11px] text-kb-text">{account.balance.toLocaleString('ko-KR')}원</span>
+                                </div>
+                              </div>
+                              {account.type !== '입출금' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTerminateRequest(message.id, account)}
+                                  className="flex-shrink-0 text-[11px] border border-[#E05555] px-2 py-1 text-[#E05555] hover:bg-red-50 rounded"
+                                >
+                                  해지
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {message.terminateInfo && (() => {
+                      const { target, deposits } = message.terminateInfo
+                      const done = terminateDone.has(message.id)
+                      return (
+                        <div className="mt-3 space-y-2">
+                          {!done && (
+                            <>
+                              <select
+                                value={terminateSelections[message.id] ?? ''}
+                                onChange={e => setTerminateSelections(prev => ({ ...prev, [message.id]: e.target.value }))}
+                                className="w-full rounded border border-kb-border px-2 py-1.5 text-xs outline-none bg-white"
+                              >
+                                <option value="">입금 계좌 선택</option>
+                                {deposits.map(d => (
+                                  <option key={d.id} value={d.id}>{d.name} ({d.number})</option>
+                                ))}
+                              </select>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTerminateConfirm(message.id, target)}
+                                  className="flex-1 rounded border border-[#E05555] bg-[#E05555] py-1.5 text-xs font-bold text-white hover:opacity-90"
+                                >
+                                  해지하기
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setTerminateDone(prev => new Set([...prev, message.id]))}
+                                  className="flex-1 rounded border border-kb-border py-1.5 text-xs text-kb-text-muted hover:bg-kb-beige-light"
+                                >
+                                  취소
+                                </button>
+                              </div>
+                            </>
+                          )}
+                          {done && <p className="text-xs text-kb-text-muted">처리가 완료되었습니다.</p>}
+                        </div>
+                      )
+                    })()}
+
                     {message.buttons && message.buttons.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {message.buttons.map((button) => (
@@ -560,11 +702,14 @@ export default function ChatbotWidget() {
                         ? 'border-[#C09B3A] bg-[#FFF8DA] text-[#7A5200] hover:bg-[#FFEFA7]'
                         : action.type === 'consult'
                           ? 'border-[#2D6A4F] bg-white text-[#2D6A4F] hover:bg-[#EAF4EF]'
-                          : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
+                          : action.type === 'my_accounts'
+                            ? 'border-kb-border bg-white text-kb-text hover:bg-kb-beige-light'
+                            : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
                     }`}
                   >
                     {action.type === 'recommend' && <Sparkles className="h-3.5 w-3.5" />}
                     {action.type === 'consult' && <Phone className="h-3.5 w-3.5" />}
+                    {action.type === 'my_accounts' && <CreditCard className="h-3.5 w-3.5" />}
                     {action.label}
                   </button>
                 ))}
