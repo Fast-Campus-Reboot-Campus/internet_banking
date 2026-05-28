@@ -7,11 +7,9 @@ import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.document.domain.LoanDocument;
-import com.bank.loan.document.dto.LoanDocumentDownload;
 import com.bank.loan.document.dto.LoanDocumentListResponse;
 import com.bank.loan.document.dto.LoanDocumentResponse;
 import com.bank.loan.document.repository.LoanDocumentRepository;
-import com.bank.loan.document.storage.DocumentStorage;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,7 +30,6 @@ public class LoanDocumentService {
 
     private final LoanDocumentRepository repository;
     private final LoanApplicationRepository applicationRepository;
-    private final DocumentStorage storage;
     private final CurrentActorProvider currentActor;
     private final StatusHistoryPublisher statusHistoryPublisher;
 
@@ -55,20 +52,7 @@ public class LoanDocumentService {
     }
 
     @Transactional(readOnly = true)
-    public LoanDocumentDownload download(Long docId) {
-        LoanDocument doc = repository.findByDocIdAndDeletedAtIsNull(docId)
-                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_041));
-        return new LoanDocumentDownload(
-                storage.load(doc.getDocUrl()),
-                doc.getFileSizeBytes() == null ? -1L : doc.getFileSizeBytes(),
-                doc.getMimeType(),
-                doc.getDocName()
-        );
-    }
-
-    @Transactional(readOnly = true)
     public LoanDocumentListResponse list(Long applId) {
-        // 신청 활성 검증 — 미존재 신청 ID 로 빈 배열 반환 방지
         applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
 
@@ -84,18 +68,14 @@ public class LoanDocumentService {
         LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
 
-        DocumentStorage.StoredFile stored = storage.store(application.getApplId(), file);
-
         LoanDocument saved = repository.save(LoanDocument.builder()
                 .applId(application.getApplId())
                 .docTypeCd(docTypeCd)
                 .docStatusCd(LoanDocument.STATUS_UPLOADED)
                 .docSourceCd(docSourceCd == null ? LoanDocument.SOURCE_MOBILE : docSourceCd)
-                .docName(stored.originalName())
-                .docUrl(stored.url())
-                .docHash(stored.hash())
-                .mimeType(stored.mimeType())
-                .fileSizeBytes(stored.sizeBytes())
+                .docName(file.getOriginalFilename())
+                .mimeType(file.getContentType())
+                .fileSizeBytes(file.getSize())
                 .submittedAt(OffsetDateTime.now())
                 .build());
 
