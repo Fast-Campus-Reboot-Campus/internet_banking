@@ -71,6 +71,9 @@ public class LoanPrescreening extends BaseEntity {
     @Column(name = "presc_engine_version", length = 50)
     private String prescEngineVersion;
 
+    @Column(name = "ai_track_cd", length = 20)
+    private String aiTrackCd;
+
     public boolean isPass() {
         return RESULT_PASS.equals(prescResultCd);
     }
