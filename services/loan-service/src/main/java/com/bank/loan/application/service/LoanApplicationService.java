@@ -41,7 +41,8 @@ public class LoanApplicationService {
     public LoanApplicationResponse create(CreateLoanApplicationRequest req,
                                           String idempotencyKey,
                                           String clientIp,
-                                          String device) {
+                                          String device,
+                                          Long requestingCustomerId) {
         // 멱등성: 동일 키로 이전에 처리된 신청이 있으면 그대로 반환
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             var existing = repository.findByIdempotencyKey(idempotencyKey);
@@ -53,10 +54,13 @@ public class LoanApplicationService {
         validateProductSellable(product);
         validateRequestedRanges(req, product);
 
+        // JWT principal 의 customerId 를 사용한다 — 요청 바디의 customerId 는 무시
+        Long effectiveCustomerId = requestingCustomerId != null ? requestingCustomerId : req.customerId();
+
         OffsetDateTime now = OffsetDateTime.now();
         LoanApplication saved = repository.save(LoanApplication.builder()
                 .applNo(applNoGenerator.generate(now))
-                .customerId(req.customerId())
+                .customerId(effectiveCustomerId)
                 .prodId(product.getProdId())
                 .channelCd(req.channelCd())
                 .requestedAmount(req.requestedAmount())
@@ -89,9 +93,16 @@ public class LoanApplicationService {
     }
 
     @Transactional
-    public LoanApplicationResponse cancel(Long applId, CancelLoanApplicationRequest req) {
+    public LoanApplicationResponse cancel(Long applId, CancelLoanApplicationRequest req,
+                                          Long requestingCustomerId) {
         LoanApplication application = repository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+
+        // 소유권 검증: requestingCustomerId 가 null 이면 관리자 요청으로 스킵
+        if (requestingCustomerId != null
+                && !requestingCustomerId.equals(application.getCustomerId())) {
+            throw new BusinessException(LoanErrorCode.LOAN_012);
+        }
 
         if (!application.isCancellable()) {
             throw new BusinessException(LoanErrorCode.LOAN_013);
@@ -112,10 +123,17 @@ public class LoanApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public LoanApplicationResponse get(Long applId) {
-        return repository.findByApplIdAndDeletedAtIsNull(applId)
-                .map(LoanApplicationResponse::of)
+    public LoanApplicationResponse get(Long applId, Long requestingCustomerId) {
+        LoanApplication application = repository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+
+        // 소유권 검증: requestingCustomerId 가 null 이면 관리자 요청으로 스킵
+        if (requestingCustomerId != null
+                && !requestingCustomerId.equals(application.getCustomerId())) {
+            throw new BusinessException(LoanErrorCode.LOAN_012);
+        }
+
+        return LoanApplicationResponse.of(application);
     }
 
     @Transactional(readOnly = true)

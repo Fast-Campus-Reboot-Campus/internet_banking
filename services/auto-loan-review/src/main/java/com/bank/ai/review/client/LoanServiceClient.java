@@ -18,8 +18,12 @@ import org.springframework.web.client.RestClient;
 public class LoanServiceClient {
 
     private final RestClient restClient;
+    private final String internalToken;
 
-    public LoanServiceClient(@Value("${ai.loan-service.base-url:http://localhost:8081}") String baseUrl) {
+    public LoanServiceClient(
+            @Value("${ai.loan-service.base-url:http://localhost:8083}") String baseUrl,
+            @Value("${ai.loan-service.internal-token:local-internal-token}") String internalToken) {
+        this.internalToken = internalToken;
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
@@ -44,6 +48,7 @@ public class LoanServiceClient {
                 revId, req.severityCd());
         restClient.post()
                 .uri("/api/internal/loan-reviews/{revId}/bias-report", revId)
+                .header("X-Internal-Token", internalToken)
                 .body(req)
                 .retrieve()
                 .toBodilessEntity();

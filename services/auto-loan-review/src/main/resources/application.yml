@@ -78,6 +78,11 @@ ai:
     enabled: ${AI_AUDIT_ENABLED:true}
     include-raw-llm-response: ${AI_AUDIT_RAW_LLM:false}   # LLM 원문 저장 여부 (PII 위험 ↑)
 
+  # ---- loan-service 콜백 클라이언트 ----
+  loan-service:
+    base-url: ${LOAN_SERVICE_BASE_URL:http://localhost:8083}
+    internal-token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
+
   inference:
     base-url: ${AI_INFERENCE_BASE_URL:http://localhost:8090}
 
