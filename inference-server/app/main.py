@@ -202,6 +202,9 @@ _bundle: ModelBundle | None = None
 _pd_bundle: ModelBundle | None = None
 app = FastAPI(title="auto-review inference", version="1.0.0")
 
+from app.ocr_router import router as ocr_router  # noqa: E402
+app.include_router(ocr_router)
+
 _PD_DEFAULT_THRESHOLD = 0.12
 
 
