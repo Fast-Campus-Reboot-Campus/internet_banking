@@ -1,7 +1,11 @@
 package com.bank.docagent.review.service;
 
+import com.bank.docagent.kafka.SubmissionEventProducer;
+import com.bank.docagent.kafka.event.FraudAuditEvent;
+import com.bank.docagent.retention.RetentionService;
 import com.bank.docagent.submission.domain.DocumentSubmission;
 import com.bank.docagent.submission.domain.DocumentSubmission.HumanReviewStatus;
+import com.bank.docagent.submission.domain.DocumentSubmission.VerifyStatus;
 import com.bank.docagent.submission.repository.DocumentSubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +17,7 @@ import java.util.UUID;
 /**
  * 심사원 HOLD 검토 서비스.
  * 자동 UNLOCK 경로 없음 — 반드시 사람이 호출하는 엔드포인트를 통해서만 결정.
+ * 결정 후: 보존 기간 재계산 + CONFIRMED_FORGERY 시 감사팀 이관 이벤트 발행.
  */
 @Slf4j
 @Service
@@ -20,6 +25,8 @@ import java.util.UUID;
 public class HumanReviewService {
 
     private final DocumentSubmissionRepository submissionRepository;
+    private final RetentionService             retentionService;
+    private final SubmissionEventProducer      eventProducer;
 
     @Transactional
     public DocumentSubmission decide(UUID submissionId, HumanReviewStatus decision,
@@ -36,6 +43,22 @@ public class HumanReviewService {
         }
 
         submission.applyHumanDecision(decision, reviewerId);
+
+        // 결정 후 보존 기간 재계산 (LOCKED=10년, CLEARED=5년)
+        retentionService.applyRetention(submission, submission.getVerifyStatus());
+
+        // CONFIRMED_FORGERY → 감사팀 이관 이벤트 발행
+        if (decision == HumanReviewStatus.CONFIRMED_FORGERY) {
+            FraudAuditEvent auditEvent = FraudAuditEvent.of(
+                submission.getSubmissionId(),
+                submission.getApplicationId(),
+                submission.getDocCode(),
+                reviewerId,
+                submission.getRetentionUntil()
+            );
+            eventProducer.publishFraudAudit(auditEvent);
+            log.info("감사팀 이관 이벤트 발행: submissionId={}", submissionId);
+        }
 
         log.info("심사원 결정 완료: submissionId={} decision={} reviewerId={}",
             submissionId, decision, reviewerId);

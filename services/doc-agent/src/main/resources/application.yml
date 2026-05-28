@@ -95,3 +95,4 @@ doc-agent:
       extracted: doc-agent.extracted
       verified: doc-agent.verified
       routed: doc-agent.routed
+      fraud-audit: doc-agent.fraud.audit

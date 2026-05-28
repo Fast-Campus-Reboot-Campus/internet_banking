@@ -89,6 +89,23 @@ public class DocumentSubmission {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void updateRetentionUntil(LocalDate until) {
+        this.retentionUntil = until;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void enableLegalHold() {
+        this.legalHold = true;
+        this.retentionUntil = null;   // 무기한
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void disableLegalHold(LocalDate newRetentionUntil) {
+        this.legalHold = false;
+        this.retentionUntil = newRetentionUntil;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public enum VerifyStatus {
         PENDING, AUTO_PASS, NEEDS_RESUBMIT, HOLD, LOCKED, CLEARED
     }
