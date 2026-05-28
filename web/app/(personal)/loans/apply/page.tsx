@@ -85,7 +85,7 @@ export default function LoanApplyPage() {
         employmentTypeCd: EMPLOYMENT_CD[employmentType] ?? 'ETC',
       })
       const applId = res.data?.applId
-      router.push(`/loans/apply/result?applId=${applId}&amount=${requestedAmount}&period=${period}&purpose=${purpose}`)
+      router.push(`/loans/apply/${applId}/identity-verification`)
     } catch (err: any) {
       setSubmitError(err.response?.data?.message ?? '신청 중 오류가 발생했습니다.')
     } finally {

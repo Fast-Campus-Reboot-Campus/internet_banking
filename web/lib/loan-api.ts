@@ -123,7 +123,7 @@ export const loanApplicationApi = {
   submitConsent: (applId: number, body: { consentTypeCd: string; agreedYn: string }) =>
     api.post<any>(`/api/loan-applications/${applId}/credit-consents`, body),
 
-  verifyIdentity: (applId: number, body: { verificationMethodCd: string }) =>
+  verifyIdentity: (applId: number, body: { idvMethodCd: string; idvTargetCd: string; mobileNo: string }) =>
     api.post<any>(`/api/loan-applications/${applId}/identity-verifications`, body),
 
   getPrescreening: (applId: number) =>
