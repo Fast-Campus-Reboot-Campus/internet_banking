@@ -888,11 +888,22 @@ export default function Header() {
     setRemaining(seconds)
 
     const tick = setInterval(() => {
-      seconds -= 1
-      setRemaining(seconds)
-      if (seconds <= 0) {
+      const storedExpiry = localStorage.getItem('sessionExpiry')
+      if (!storedExpiry) {
         clearInterval(tick)
+        window.location.href = '/logout'
+        return
+      }
+      const remaining = Math.max(0, Math.round((parseInt(storedExpiry) - Date.now()) / 1000))
+      setRemaining(remaining)
+      if (remaining <= 0) {
+        clearInterval(tick)
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
         localStorage.removeItem('sessionExpiry')
+        localStorage.removeItem('user')
+        localStorage.removeItem('customerId')
         window.location.href = '/logout'
       }
     }, 1000)

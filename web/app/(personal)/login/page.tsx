@@ -438,6 +438,7 @@ function IdLoginTab() {
     setLoading(true)
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
+      localStorage.removeItem('sessionExpiry')
       localStorage.setItem('accessToken', data.data.accessToken)
       localStorage.setItem('access_token', data.data.accessToken)
       localStorage.setItem('customerId', String(data.data.customerId))

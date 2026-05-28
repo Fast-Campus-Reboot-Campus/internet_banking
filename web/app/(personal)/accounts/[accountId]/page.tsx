@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { use } from 'react'
 import { MOCK_ACCOUNTS, MOCK_TRANSACTIONS, formatNumber } from '@/lib/mock-data'
 
 const DATE_PRESETS = ['1개월', '3개월', '6개월', '1년', '직접입력']
 const TX_TYPE_OPTS = ['전체', '입금', '출금']
 
-export default function AccountDetailPage({ params }: { params: Promise<{ accountId: string }> }) {
-  const { accountId } = use(params)
+export default function AccountDetailPage({ params }: { params: { accountId: string } }) {
+  const { accountId } = params
   const account = MOCK_ACCOUNTS.find(a => a.id === accountId)
   const transactions = MOCK_TRANSACTIONS.filter(tx => tx.accountId === accountId)
 
