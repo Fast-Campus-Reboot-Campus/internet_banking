@@ -41,9 +41,21 @@ public class DocumentVerifyService {
                                     DocType docType,
                                     StructuredData structuredData,
                                     String productId) {
-        List<ForgerySignal> signals  = new ArrayList<>();
+        return verify(submission, docType, structuredData, productId, 0.0, List.of());
+    }
+
+    /**
+     * D-4: 위변조 사이드카 점수를 외부에서 주입받아 합산.
+     */
+    public VerificationBlock verify(DocumentSubmission submission,
+                                    DocType docType,
+                                    StructuredData structuredData,
+                                    String productId,
+                                    double preComputedForgeryScore,
+                                    List<ForgerySignal> preComputedSignals) {
+        List<ForgerySignal> signals  = new ArrayList<>(preComputedSignals);
         List<MissingDocument> missing = new ArrayList<>();
-        double forgeryScore = 0.0;
+        double forgeryScore = preComputedForgeryScore;
 
         // ── 1. 만료·누락 검사 ──────────────────────────────────────────────
         Map<String, String> issueDateMap = buildIssueDateMap(docType, structuredData);

@@ -76,6 +76,19 @@ public class DocumentSubmission {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void markHoldPending() {
+        this.humanReviewStatus = HumanReviewStatus.PENDING;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void applyHumanDecision(HumanReviewStatus decision, String reviewerId) {
+        this.humanReviewStatus = decision;
+        this.reviewerId = reviewerId;
+        this.verifyStatus = (decision == HumanReviewStatus.CONFIRMED_FORGERY)
+            ? VerifyStatus.LOCKED : VerifyStatus.CLEARED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public enum VerifyStatus {
         PENDING, AUTO_PASS, NEEDS_RESUBMIT, HOLD, LOCKED, CLEARED
     }
