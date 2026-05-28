@@ -2,6 +2,7 @@ package com.bank.docagent.submission.service;
 
 import com.bank.docagent.forgery.service.ForgeryAnalysisService;
 import com.bank.docagent.forgery.service.ForgeryAnalysisService.ForgeryResult;
+import com.bank.docagent.infra.ocr.TableOcrClient;
 import com.bank.docagent.kafka.SubmissionEventProducer;
 import com.bank.docagent.kafka.event.RoutedEvent;
 import com.bank.docagent.retention.RetentionService;
@@ -23,8 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 /**
- * L1 → L4b(Forgery) → L3 → L2 → L4 → L5 파이프라인 오케스트레이터.
- * Python 사이드카 호출: L4b(위변조), L3(OCR), L4(LLM)
+ * L1 → L4b(Forgery) → L3 → L2 → [L3b: Table OCR] → L4 → L5 파이프라인 오케스트레이터.
+ * Python 사이드카 호출: L4b(위변조), L3(OCR), L3b(PP-Structure), L4(LLM)
  */
 @Slf4j
 @Service
@@ -38,6 +39,7 @@ public class SubmissionPipelineService {
     private final ForgeryAnalysisService   forgeryService;
     private final DocumentVerifyService    verifyService;
     private final RetentionService         retentionService;
+    private final TableOcrClient           tableOcrClient;
     private final SubmissionEventProducer  eventProducer;
 
     @Value("${doc-agent.default-product-id:P001}")
@@ -51,9 +53,11 @@ public class SubmissionPipelineService {
     public ExtractionResult process(String applicationId, String docCode,
                                     String productId, MultipartFile file) throws IOException {
         byte[] bytes = file.getBytes();
+        String submissionId;
 
         // L1: Ingest — 포맷 검증, MinIO 원본 저장
         DocumentSubmission submission = ingestService.ingest(applicationId, docCode, file);
+        submissionId = submission.getSubmissionId().toString();
 
         // L4b: 위변조 시그널 분석 (사이드카, raw bytes 사용)
         ForgeryResult forgeryResult = forgeryService.analyze(
@@ -66,9 +70,20 @@ public class SubmissionPipelineService {
         // L2: OCR 텍스트 기반 서류 유형 분류
         DocType docType = classifyService.classify(ocrResult.rawText());
 
+        // L3b: 등기부등본 → PP-StructureV2 테이블 파싱 (갑구·을구 인식 강화)
+        String maskedTextForLlm = ocrResult.maskedText();
+        if (docType == DocType.REGISTRY_DEED) {
+            String tableText = tableOcrClient.extractTable(bytes, submissionId);
+            if (tableText != null && !tableText.isBlank()) {
+                maskedTextForLlm = ocrResult.maskedText() + "\n\n[테이블 파싱 결과]\n" + tableText;
+                log.info("등기부등본 테이블 텍스트 병합: submissionId={} tableLen={}",
+                    submissionId, tableText.length());
+            }
+        }
+
         // L4: LLM 구조화 추출 (사이드카)
         StructuredData structuredData = extractService.extract(
-            submission.getSubmissionId().toString(), docType, ocrResult.maskedText());
+            submissionId, docType, maskedTextForLlm);
 
         // L5: 룰 검증 + 진위확인 + 위변조 점수 합산
         VerificationBlock verification = verifyService.verify(
@@ -99,8 +114,7 @@ public class SubmissionPipelineService {
         eventProducer.publishExtracted(event);
 
         log.info("파이프라인 완료: submissionId={} docType={} forgeryScore={} status={}",
-            submission.getSubmissionId(), docType,
-            forgeryResult.aggregateScore(), finalStatus);
+            submissionId, docType, forgeryResult.aggregateScore(), finalStatus);
 
         return ExtractionResult.of(
             submission.getSubmissionId(), applicationId, docCode,

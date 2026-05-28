@@ -6,6 +6,7 @@ import com.bank.docagent.submission.dto.extracted.StructuredData;
 import com.bank.docagent.submission.dto.verification.*;
 import com.bank.docagent.submission.dto.verification.VerificationBlock.ForgeryBlock;
 import com.bank.docagent.submission.service.DocumentClassifyService.DocType;
+import com.bank.docagent.verify.domain.LoanProductDocumentRepository;
 import com.bank.docagent.verify.port.IdentityVerificationPort;
 import com.bank.docagent.verify.port.IdentityVerificationPort.VerifyResult;
 import com.bank.docagent.verify.port.IdentityVerificationPort.VerifyType;
@@ -33,9 +34,10 @@ public class DocumentVerifyService {
     private static final double THRESHOLD_RESUBMIT = 0.3;
     private static final double THRESHOLD_HOLD      = 0.7;
 
-    private final ExpiryCheckService expiryCheck;
-    private final ChecksumService    checksumService;
-    private final IdentityVerificationPort identityPort;
+    private final ExpiryCheckService              expiryCheck;
+    private final ChecksumService                 checksumService;
+    private final IdentityVerificationPort        identityPort;
+    private final LoanProductDocumentRepository   productDocRepo;
 
     public VerificationBlock verify(DocumentSubmission submission,
                                     DocType docType,
@@ -91,7 +93,15 @@ public class DocumentVerifyService {
         }
 
         // ── 4. 라우팅 결정 ─────────────────────────────────────────────────
-        VerifyStatus status = routingDecision(forgeryScore, missing);
+        // auto_verify_enabled=false 서류(예: 매매계약서)는 점수 무관 심사원 HOLD 강제
+        boolean forceHold = productDocRepo
+            .findByProductIdAndReqDocCode(productId, submission.getDocCode())
+            .map(d -> !d.isAutoVerifyEnabled())
+            .orElse(false);
+
+        VerifyStatus status = forceHold
+            ? VerifyStatus.HOLD
+            : routingDecision(forgeryScore, missing);
         String humanReviewStatus = (status == VerifyStatus.HOLD)
             ? "PENDING" : "NOT_REQUIRED";
 

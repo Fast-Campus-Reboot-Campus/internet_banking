@@ -10,4 +10,6 @@ public interface LoanProductDocumentRepository
     List<LoanProductDocument> findByProductId(String productId);
 
     List<LoanProductDocument> findByProductIdAndEssentialTrue(String productId);
+
+    java.util.Optional<LoanProductDocument> findByProductIdAndReqDocCode(String productId, String reqDocCode);
 }
