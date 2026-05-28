@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Bot, CreditCard, MessageCircle, Phone, Send, Sparkles, X } from 'lucide-react'
+import { Bot, MessageCircle, Phone, Send, Sparkles, X } from 'lucide-react'
 import {
   ChatbotButton,
   ChatbotFeatureExecuteResponse,
@@ -18,13 +18,6 @@ import {
   startChatbotConsultation,
 } from '@/lib/consultation-api'
 import ConsultModal from '@/components/layout/ConsultModal'
-import {
-  DepositViewAccount,
-  fetchDepositRecommendAgent,
-  fetchDepositAccountViewModels,
-  getCurrentDepositCustomerId,
-  terminateDepositContract,
-} from '@/lib/deposit-api'
 
 type ChatMessage = {
   id: string
@@ -32,8 +25,6 @@ type ChatMessage = {
   text: string
   buttons?: ChatbotButton[]
   data?: Record<string, unknown>[]
-  accounts?: DepositViewAccount[]
-  terminateInfo?: { target: DepositViewAccount; deposits: DepositViewAccount[] }
 }
 
 type ExpandedRow = {
@@ -88,23 +79,16 @@ const FIELD_LABELS: Record<string, string> = {
   total_balance: '\uCD1D \uC794\uC561',
   monthly_surplus: '\uC6D4\uD3C9\uADE0 \uC789\uC5EC\uC790\uAE08',
   monthly_tx_count: '\uC6D4\uD3C9\uADE0 \uAC70\uB798\uAC74\uC218',
-  total_inflow: '총입금',
-  total_outflow: '총출금',
-  net_cash_flow: '순현금흐름',
-  estimated_savings_amount: '예상 저축 가능 금액',
   has_data: '\uD604\uAE08\uD750\uB984 \uB370\uC774\uD130',
   product_count: '\uCD94\uCC9C \uAC00\uB2A5 \uC0C1\uD488 \uC218',
   rank: '\uC21C\uC704',
   product_name: '\uC0C1\uD488\uBA85',
   product_type: '\uC0C1\uD488\uAD6C\uBD84',
   base_interest_rate: '\uAE30\uBCF8\uAE08\uB9AC',
-  best_rate: '최고금리',
   min_join_amount: '\uCD5C\uC18C \uAC00\uC785\uAE08\uC561',
   max_join_amount: '\uCD5C\uB300 \uAC00\uC785\uAE08\uC561',
   min_period_month: '\uCD5C\uC18C \uAE30\uAC04',
   max_period_month: '\uCD5C\uB300 \uAE30\uAC04',
-  reason: '추천 사유',
-  recommend_reason: '추천 사유',
   target_groups: '\uAC00\uC785 \uB300\uC0C1',
   is_early_termination_allowed: '\uC911\uB3C4\uD574\uC9C0',
   is_tax_benefit_available: '\uC138\uAE08 \uD61C\uD0DD',
@@ -137,17 +121,10 @@ function formatDisplayValue(key: string, value: unknown) {
   if (typeof value === 'boolean') return value ? '\uC788\uC74C' : '\uC5C6\uC74C'
   if (typeof value === 'number') {
     const formatted = Math.round(value).toLocaleString('ko-KR')
-    if (
-      key.includes('amount') ||
-      key.includes('balance') ||
-      key.includes('surplus') ||
-      key.includes('inflow') ||
-      key.includes('outflow') ||
-      key.includes('cash_flow')
-    ) return `${formatted}${TEXT.won}`
+    if (key.includes('amount') || key.includes('balance') || key.includes('surplus')) return `${formatted}${TEXT.won}`
     if (key.includes('count')) return `${formatted}${TEXT.count}`
     if (key.includes('period_month')) return `${formatted}\uAC1C\uC6D4`
-    if (key === 'base_interest_rate' || key === 'best_rate') return `${value}%`
+    if (key === 'base_interest_rate') return `${value}%`
     if (key === 'rank') return `${formatted}\uC21C\uC704`
     return formatted
   }
@@ -155,18 +132,8 @@ function formatDisplayValue(key: string, value: unknown) {
   const text = String(value)
   if (VALUE_LABELS[text]) return VALUE_LABELS[text]
   if (key === 'created_at') return text.replace('T', ' ').slice(0, 16)
-  if (key === 'base_interest_rate' || key === 'best_rate') return `${text}%`
-  if (
-    /^-?\d+(\.\d+)?$/.test(text) &&
-    (
-      key.includes('amount') ||
-      key.includes('balance') ||
-      key.includes('surplus') ||
-      key.includes('inflow') ||
-      key.includes('outflow') ||
-      key.includes('cash_flow')
-    )
-  ) {
+  if (key === 'base_interest_rate') return `${text}%`
+  if (/^-?\d+(\.\d+)?$/.test(text) && (key.includes('amount') || key.includes('balance') || key.includes('surplus'))) {
     return `${Number(text).toLocaleString('ko-KR')}${TEXT.won}`
   }
   if (/^-?\d+(\.\d+)?$/.test(text) && key.includes('period_month')) return `${Number(text).toLocaleString('ko-KR')}\uAC1C\uC6D4`
@@ -186,11 +153,9 @@ function dataTitle(row: Record<string, unknown>, index: number) {
 
 function rowSummary(row: Record<string, unknown>, index: number) {
   if (row.row_type === 'recommended_product') {
-    const rate = row.best_rate ?? row.base_interest_rate
     return {
       title: `${formatDisplayValue('rank', row.rank)} · ${formatDisplayValue('product_name', row.product_name)}`,
-      meta: `${formatDisplayValue('product_type', row.product_type)} · ${formatFieldLabel(row.best_rate ? 'best_rate' : 'base_interest_rate')} ${formatDisplayValue(row.best_rate ? 'best_rate' : 'base_interest_rate', rate)}`,
-      reason: (row.reason ?? row.recommend_reason) as string | undefined,
+      meta: `${formatDisplayValue('product_type', row.product_type)} · ${formatFieldLabel('base_interest_rate')} ${formatDisplayValue('base_interest_rate', row.base_interest_rate)}`,
     }
   }
 
@@ -238,92 +203,6 @@ function addFeatureResult(result: ChatbotFeatureExecuteResponse): ChatMessage {
   }
 }
 
-function fallbackRecommendRows() {
-  return [
-    {
-      row_type: 'recommended_product',
-      rank: 1,
-      product_name: 'AXful 직장인우대적금',
-      product_type: 'SAVINGS',
-      base_interest_rate: 3.2,
-      min_period_month: 12,
-      max_period_month: 36,
-      recommend_reason: '월급 이체 고객에게 우대금리를 제공하는 정기적금입니다.',
-    },
-    {
-      row_type: 'recommended_product',
-      rank: 2,
-      product_name: 'AXful 꿈적금',
-      product_type: 'SAVINGS',
-      base_interest_rate: 3.0,
-      min_period_month: 12,
-      max_period_month: 36,
-      recommend_reason: '목표금액을 정해 꾸준히 모으기 좋은 적금입니다.',
-    },
-    {
-      row_type: 'recommended_product',
-      rank: 3,
-      product_name: 'AXful 쏙머니통장',
-      product_type: 'DEPOSIT',
-      base_interest_rate: 1.5,
-      min_period_month: 1,
-      max_period_month: 1,
-      recommend_reason: '입출금이 자유롭고 단기 여유자금 관리에 적합합니다.',
-    },
-  ]
-}
-
-async function buildDepositRecommendFallback(customerNo: string): Promise<ChatMessage> {
-  try {
-    const result = await fetchDepositRecommendAgent(customerNo, 3)
-    const cashFlow = result.cashFlow
-    const recommendations = result.recommendations ?? result.products ?? []
-    const rows = recommendations.map((product, index) => ({
-      row_type: 'recommended_product',
-      rank: index + 1,
-      product_id: product.product_id ?? product.productId,
-      product_name: product.product_name ?? product.productName ?? '추천 상품',
-      product_type: product.product_type ?? product.productType ?? 'DEPOSIT',
-      base_interest_rate: product.base_interest_rate ?? product.baseInterestRate ?? 0,
-      best_rate: product.bestRate,
-      min_join_amount: product.minJoinAmount,
-      max_join_amount: product.maxJoinAmount,
-      min_period_month: product.minPeriodMonth,
-      max_period_month: product.maxPeriodMonth,
-      reason: product.reason,
-    }))
-    const data = cashFlow
-      ? [
-          {
-            row_type: 'cash_flow_summary',
-            total_inflow: cashFlow.totalInflow,
-            total_outflow: cashFlow.totalOutflow,
-            net_cash_flow: cashFlow.netCashFlow,
-            estimated_savings_amount: cashFlow.estimatedSavingsAmount,
-            product_count: rows.length,
-          },
-          ...rows,
-        ]
-      : rows
-
-    return {
-      id: messageId('deposit-recommend'),
-      role: 'bot',
-      text: rows.length > 0
-        ? '고객님의 최근 현금흐름을 기준으로 추천 상품을 정리했습니다.'
-        : '추천 가능한 상품을 찾지 못했습니다. 상품 안내 버튼에서 전체 상품을 확인해 주세요.',
-      data,
-    }
-  } catch {
-    return {
-      id: messageId('deposit-recommend-fallback'),
-      role: 'bot',
-      text: '추천 서버 연결이 지연되어 기본 추천 상품을 먼저 보여드립니다. 잠시 후 다시 시도하면 현금흐름 기반 추천을 확인할 수 있습니다.',
-      data: fallbackRecommendRows(),
-    }
-  }
-}
-
 export default function ChatbotWidget() {
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
@@ -333,8 +212,6 @@ export default function ChatbotWidget() {
   const [customerNo, setCustomerNo] = useState(DEFAULT_CUSTOMER_NO)
   const [chatbotConsultationId, setChatbotConsultationId] = useState<number | null>(null)
   const [expandedRow, setExpandedRow] = useState<ExpandedRow | null>(null)
-  const [terminateSelections, setTerminateSelections] = useState<Record<string, string>>({})
-  const [terminateDone, setTerminateDone] = useState<Set<string>>(new Set())
   const [dataPages, setDataPages] = useState<Record<string, number>>({})
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
@@ -355,7 +232,6 @@ export default function ChatbotWidget() {
       { type: 'recommend' as const, label: TEXT.recommend, message: '\uB0B4 \uD604\uAE08 \uD750\uB984\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC744 \uCD94\uCC9C\uD574\uC918' },
       { type: 'cashflow' as const, label: TEXT.cashflow, message: '\uCD5C\uADFC \uD604\uAE08 \uD750\uB984\uC744 \uC54C\uB824\uC918' },
       { type: 'consult' as const, label: '\uC0C1\uB2F4\uC6D0 \uC5F0\uACB0', message: '' },
-      { type: 'my_accounts' as const, label: '\uB0B4 \uC0C1\uD488', message: '' },
     ],
     [],
   )
@@ -463,16 +339,6 @@ export default function ChatbotWidget() {
         pushMessages([addFeatureResult(result)])
       }
     } catch {
-      if (featureCode === 'CASH_FLOW_RECOMMEND') {
-        const fallback = await buildDepositRecommendFallback(customerNo.trim() || getCurrentDepositCustomerId())
-        if (replaceMessages) {
-          setMessages((current) => [...current, fallback])
-        } else {
-          pushMessages([fallback])
-        }
-        return
-      }
-
       const errorMessage: ChatMessage = {
         id: messageId('error'),
         role: 'system',
@@ -488,118 +354,10 @@ export default function ChatbotWidget() {
     }
   }
 
-  async function handleMyAccounts() {
-    let joined: DepositViewAccount[] = []
-    let overrides: Record<string, number> = {}
-    try {
-      joined = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-    } catch {}
-    if (joined.length === 0) {
-      try {
-        const raw = localStorage.getItem('joinedAccounts')
-        if (raw) joined = JSON.parse(raw) as DepositViewAccount[]
-      } catch {}
-    }
-    try {
-      const raw = localStorage.getItem('accountOverrides')
-      if (raw) overrides = JSON.parse(raw)
-    } catch {}
-    const allAccounts: DepositViewAccount[] = [...joined].map(a => ({
-      ...a,
-      balance: a.balance + (overrides[a.id] || 0),
-      availableBalance: a.availableBalance + (overrides[a.id] || 0),
-    }))
-    pushMessages([
-      { id: messageId('user'), role: 'user', text: '내 상품 조회' },
-      {
-        id: messageId('my_accounts'),
-        role: 'bot',
-        text: `보유 계좌 ${allAccounts.length}개입니다. 해지할 상품을 선택하세요.`,
-        accounts: allAccounts,
-      },
-    ])
-  }
-
-  async function handleTerminateRequest(msgId: string, target: DepositViewAccount) {
-    let joined: DepositViewAccount[] = []
-    try {
-      joined = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-    } catch {}
-    if (joined.length === 0) {
-      try {
-        const raw = localStorage.getItem('joinedAccounts')
-        if (raw) joined = JSON.parse(raw) as DepositViewAccount[]
-      } catch {}
-    }
-    const deposits: DepositViewAccount[] = [...joined].filter(a => a.type === '입출금')
-    pushMessages([
-      { id: messageId('user'), role: 'user', text: `${target.name} 해지 요청` },
-      {
-        id: messageId('terminate_confirm'),
-        role: 'bot',
-        text: `${target.name} (${target.number}) 계좌를 해지하시겠습니까?\n해지금액 ${target.balance.toLocaleString('ko-KR')}원이 입금될 계좌를 선택해주세요.`,
-        terminateInfo: { target, deposits },
-      },
-    ])
-  }
-
-  async function handleTerminateConfirm(msgId: string, target: DepositViewAccount) {
-    const depositId = terminateSelections[msgId]
-    let joined: DepositViewAccount[] = []
-    try {
-      joined = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-    } catch {}
-    if (joined.length === 0) {
-      try {
-        const raw = localStorage.getItem('joinedAccounts')
-        if (raw) joined = JSON.parse(raw) as DepositViewAccount[]
-      } catch {}
-    }
-    const depositAccount = joined.find(a => a.id === depositId)
-    if (!depositId || !depositAccount) {
-      alert('입금 계좌를 선택해주세요.')
-      return
-    }
-    setTerminateDone(prev => { const s = new Set(prev); s.add(msgId); return s })
-    try {
-      if (target.contractId) {
-        await terminateDepositContract(target.contractId)
-      }
-      const terminatedBalance = target.balance
-      let updated = joined.filter(a => a.id !== target.id)
-
-      // 해지금액을 입금 계좌에 합산
-      const targetInJoined = updated.find(a => a.id === depositId)
-      if (targetInJoined) {
-        updated = updated.map(a => a.id === depositId
-          ? { ...a, balance: a.balance + terminatedBalance, availableBalance: a.availableBalance + terminatedBalance }
-          : a
-        )
-      } else {
-        const overrides = JSON.parse(localStorage.getItem('accountOverrides') || '{}')
-        overrides[depositId] = (overrides[depositId] || 0) + terminatedBalance
-        localStorage.setItem('accountOverrides', JSON.stringify(overrides))
-      }
-
-      localStorage.setItem('joinedAccounts', JSON.stringify(updated))
-    } catch {}
-    pushMessages([
-      {
-        id: messageId('terminate_done'),
-        role: 'bot',
-        text: `${target.name} 해지가 완료되었습니다.\n${target.balance.toLocaleString('ko-KR')}원이 ${depositAccount.name} (${depositAccount.number})으로 입금됩니다.`,
-      },
-    ])
-  }
-
   async function handleQuickAction(action: (typeof quickActions)[number]) {
     if (loading) return
     if (action.type === 'consult') {
       setShowConsult(true)
-      return
-    }
-    if (action.type === 'my_accounts') {
-      handleMyAccounts()
       return
     }
     if (action.type === 'recommend') {
@@ -708,9 +466,6 @@ export default function ChatbotWidget() {
                                 <span className="min-w-0">
                                   <span className="block truncate text-xs font-bold text-kb-text">{summary.title}</span>
                                   <span className="block truncate text-[11px] text-kb-text-muted">{summary.meta}</span>
-                                  {summary.reason && (
-                                    <span className="block truncate text-[11px] text-[#2D6A4F] mt-0.5">💡 {summary.reason}</span>
-                                  )}
                                 </span>
                                 <span className="flex-none text-[11px] font-bold text-[#2D6A4F]">{TEXT.detail}</span>
                               </button>
@@ -768,74 +523,6 @@ export default function ChatbotWidget() {
                       )
                     })()}
 
-                    {message.accounts && message.accounts.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {message.accounts.map((account) => (
-                          <div key={account.id} className="rounded border border-kb-border bg-white p-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-kb-text truncate">{account.name}</p>
-                                <p className="text-[11px] text-kb-text-muted">{account.number}</p>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <span className="text-[10px] border border-kb-border px-1 text-kb-text-muted">{account.type}</span>
-                                  <span className="text-[11px] text-kb-text">{account.balance.toLocaleString('ko-KR')}원</span>
-                                </div>
-                              </div>
-                              {account.type !== '입출금' && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleTerminateRequest(message.id, account)}
-                                  className="flex-shrink-0 text-[11px] border border-[#E05555] px-2 py-1 text-[#E05555] hover:bg-red-50 rounded"
-                                >
-                                  해지
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {message.terminateInfo && (() => {
-                      const { target, deposits } = message.terminateInfo
-                      const done = terminateDone.has(message.id)
-                      return (
-                        <div className="mt-3 space-y-2">
-                          {!done && (
-                            <>
-                              <select
-                                value={terminateSelections[message.id] ?? ''}
-                                onChange={e => setTerminateSelections(prev => ({ ...prev, [message.id]: e.target.value }))}
-                                className="w-full rounded border border-kb-border px-2 py-1.5 text-xs outline-none bg-white"
-                              >
-                                <option value="">입금 계좌 선택</option>
-                                {deposits.map(d => (
-                                  <option key={d.id} value={d.id}>{d.name} ({d.number})</option>
-                                ))}
-                              </select>
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleTerminateConfirm(message.id, target)}
-                                  className="flex-1 rounded border border-[#E05555] bg-[#E05555] py-1.5 text-xs font-bold text-white hover:opacity-90"
-                                >
-                                  해지하기
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setTerminateDone(prev => { const s = new Set(prev); s.add(message.id); return s })}
-                                  className="flex-1 rounded border border-kb-border py-1.5 text-xs text-kb-text-muted hover:bg-kb-beige-light"
-                                >
-                                  취소
-                                </button>
-                              </div>
-                            </>
-                          )}
-                          {done && <p className="text-xs text-kb-text-muted">처리가 완료되었습니다.</p>}
-                        </div>
-                      )
-                    })()}
-
                     {message.buttons && message.buttons.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {message.buttons.map((button) => (
@@ -873,14 +560,11 @@ export default function ChatbotWidget() {
                         ? 'border-[#C09B3A] bg-[#FFF8DA] text-[#7A5200] hover:bg-[#FFEFA7]'
                         : action.type === 'consult'
                           ? 'border-[#2D6A4F] bg-white text-[#2D6A4F] hover:bg-[#EAF4EF]'
-                          : action.type === 'my_accounts'
-                            ? 'border-kb-border bg-white text-kb-text hover:bg-kb-beige-light'
-                            : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
+                          : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
                     }`}
                   >
                     {action.type === 'recommend' && <Sparkles className="h-3.5 w-3.5" />}
                     {action.type === 'consult' && <Phone className="h-3.5 w-3.5" />}
-                    {action.type === 'my_accounts' && <CreditCard className="h-3.5 w-3.5" />}
                     {action.label}
                   </button>
                 ))}

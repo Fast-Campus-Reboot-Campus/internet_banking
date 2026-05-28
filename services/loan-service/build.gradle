@@ -1,5 +1,10 @@
 // loan-service: 의존성/플러그인은 루트 build.gradle 의 subprojects 블록에서 일괄 관리
 
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+}
+
 // advisory-service 소스를 같은 JVM에서 컴파일 (com.bank.loan.advisory.* 패키지)
 sourceSets {
     main {
@@ -7,7 +12,10 @@ sourceSets {
             srcDirs += ['../advisory-service/src/main/java']
         }
         resources {
-            srcDirs += ['../advisory-service/src/main/resources']
+            srcDirs += [
+                '../advisory-service/src/main/resources',
+                '../advisory-service/src/main/avro'   // Avro 스키마 파일 classpath 포함
+            ]
         }
     }
     test {
@@ -15,4 +23,14 @@ sourceSets {
             srcDirs += ['../advisory-service/src/test/java']
         }
     }
+}
+
+// L3 Avro + Schema Registry 의존성
+repositories {
+    maven { url 'https://packages.confluent.io/maven/' }
+}
+
+dependencies {
+    implementation 'org.apache.avro:avro:1.11.3'
+    implementation 'io.confluent:kafka-avro-serializer:7.6.1'
 }

@@ -3,6 +3,7 @@ package com.bank.loan.review.controller;
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviewStatsResponse;
+import com.bank.loan.review.service.LoanReviewApproverService;
 import com.bank.loan.review.service.LoanReviewAutoDecideService;
 import com.bank.loan.review.service.LoanReviewService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +28,7 @@ public class PendingReviewController {
 
     private final LoanReviewService service;
     private final LoanReviewAutoDecideService autoDecideService;
+    private final LoanReviewApproverService approverService;
 
     @Operation(summary = "확정 대기 권고 목록",
             description = "자동 결정으로 PENDING_APPROVAL 상태가 된 본심사를 reviewedAt 오름차순(오래된 권고 우선)으로 반환. "
@@ -34,6 +36,14 @@ public class PendingReviewController {
     @GetMapping("/pending")
     public ApiResponse<List<LoanReviewResponse>> listPending() {
         return ApiResponse.ok(autoDecideService.listPending());
+    }
+
+    @Operation(summary = "승인자 대기 목록",
+            description = "PENDING_APPROVER 상태의 본심사를 reviewedAt 오름차순으로 반환. "
+                    + "승인자는 본 목록에서 건을 골라 POST /api/loan-applications/{applId}/review/approver-approve 로 확정.")
+    @GetMapping("/pending-approver")
+    public ApiResponse<List<LoanReviewResponse>> listPendingApprover() {
+        return ApiResponse.ok(approverService.listPendingApprover());
     }
 
     @Operation(summary = "본심사 통계",

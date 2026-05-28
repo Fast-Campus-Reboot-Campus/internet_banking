@@ -1,0 +1,42 @@
+# services/payment-service/docker-compose-mock.yml
+#
+# 테스트 전용 Mock KFTC/BOK 자동 응답기
+# ★ 기동 전제: docker-compose-kafka.yml 의 kftc-kafka, bok-kafka 가 healthy 상태
+#
+# 기동:
+#   cd services/payment-service
+#   docker compose -f docker-compose-mock.yml up -d
+#
+# 종료:
+#   docker compose -f docker-compose-mock.yml down
+#
+# 성공률 조정 (기본 100% 성공):
+#   SUCCESS_RATE=0.7 docker compose -f docker-compose-mock.yml up -d   # 70% 성공
+#
+# 동작:
+#   kftc.network.request  ->  SETTLEMENT_NOTIFY(0000)      ->  kftc.network.response
+#   bok.network.request   ->  SETTLEMENT_COMPLETED(0000)   ->  bok.network.response
+
+name: payment-mock
+
+networks:
+  payment-net:
+    external: true
+    name: payment_payment-net   # docker-compose-kafka.yml (name: payment) 에서 생성된 네트워크
+
+services:
+  mock-responder:
+    image: python:3.12-alpine
+    container_name: payment-mock-responder
+    command: >
+      sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
+    volumes:
+      - ./mock:/app:ro
+    environment:
+      KFTC_BOOTSTRAP: kftc-kafka:29092
+      BOK_BOOTSTRAP:  bok-kafka:29093
+      SUCCESS_RATE:   "${SUCCESS_RATE:-1.0}"
+      DELAY_MS:       "${DELAY_MS:-300}"
+    networks:
+      - payment-net
+    restart: on-failure

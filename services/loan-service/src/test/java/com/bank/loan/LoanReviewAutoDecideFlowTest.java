@@ -189,7 +189,8 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
     }
 
     @Test @Order(20)
-    void 권고_APPROVED_확정() throws Exception {
+    void 권고_APPROVED_확정_후_BIAS_REVIEWING() throws Exception {
+        // confirm 은 이제 BIAS_REVIEWING 으로 전이 (승인자 단계 도입으로 COMPLETED 아님)
         // approveApplId 는 시나리오 10 에서 PENDING_APPROVAL APPROVED 권고 상태
         String body = """
                 { "reviewerId":91001, "confirmRemark":"권고 그대로 확정" }
@@ -197,14 +198,14 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", approveApplId)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.revStatusCd").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.revStatusCd").value("BIAS_REVIEWING"))
                 .andExpect(jsonPath("$.data.revDecisionCd").value("APPROVED"))
                 .andExpect(jsonPath("$.data.reviewerId").value(91001))
-                .andExpect(jsonPath("$.data.approvedAt").exists());
+                .andExpect(jsonPath("$.data.approvedAt").doesNotExist());
     }
 
     @Test @Order(21)
-    void 권고_REJECTED_확정() throws Exception {
+    void 권고_REJECTED_확정_후_BIAS_REVIEWING() throws Exception {
         // cbRejectApplId 는 시나리오 11 에서 PENDING_APPROVAL REJECTED 권고 상태
         String body = """
                 { "reviewerId":91002 }
@@ -212,7 +213,7 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", cbRejectApplId)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.revStatusCd").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.revStatusCd").value("BIAS_REVIEWING"))
                 .andExpect(jsonPath("$.data.revDecisionCd").value("REJECTED"))
                 .andExpect(jsonPath("$.data.rejectReasonCd").value("CB_REJECT"))
                 .andExpect(jsonPath("$.data.reviewerId").value(91002))
@@ -221,7 +222,7 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
 
     @Test @Order(22)
     void 이미_확정된_본심사_재confirm_422() throws Exception {
-        // 시나리오 20 에서 approveApplId 가 이미 COMPLETED
+        // 시나리오 20 에서 approveApplId 가 이미 BIAS_REVIEWING — PENDING_APPROVAL 아님
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", approveApplId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

@@ -78,19 +78,18 @@ export default function ConsultModal({ onClose }: Props) {
               <IconChat />
               <span className="text-[15px] font-bold">채팅상담</span>
             </div>
-            <p className="text-[15px] font-bold" style={{ color: '#2563EB' }}>평일 09:00~18:00</p>
-            <p className="text-[12px] text-kb-text-muted">토·일·공휴일 제외</p>
+            <p className="text-[15px] font-bold" style={{ color: '#2563EB' }}>24시간 365일</p>
+            <p className="text-[12px] text-kb-text-muted">언제든지 신청가능</p>
             <p className="text-[12px] text-kb-text-body leading-relaxed mt-2">
-              상담원과 실시간 1:1 채팅상담을 하실 수 있습니다.
+              상담직원과 실시간 채팅상담을 하실 수 있습니다.
             </p>
             <div className="pt-3">
-              <a
-                href="/support/consultation/live-chat"
-                className="inline-block border border-kb-border px-5 py-2 text-[12px] text-kb-text-body hover:bg-kb-beige transition-colors"
-                onClick={onClose}
+              <button
+                className="border border-kb-border px-5 py-2 text-[12px] text-kb-text-body hover:bg-kb-beige transition-colors"
+                onClick={() => window.open('http://localhost:8087/chat', '_blank')}
               >
-                상담원 연결하기
-              </a>
+                채팅상담하기
+              </button>
             </div>
           </div>
 

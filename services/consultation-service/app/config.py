@@ -8,7 +8,8 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     # DB 접속 정보는 반드시 환경변수(CONSULTATION_DATABASE_URL)로 주입하세요.
     # 예: CONSULTATION_DATABASE_URL=postgresql+psycopg://user:pass@host:5432/db
-    database_url: str = ""
+    # 기본값 없음 — 미설정 시 시작 즉시 ValidationError 발생 (의도적)
+    database_url: str
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_enabled: bool = False
     kafka_topic_chatbot_events: str = "consultation.chatbot.events"

@@ -1,5 +1,6 @@
 package com.bank.payment.inbound.kafka;
 
+import com.bank.payment.config.PaymentMetrics;
 import com.bank.payment.domain.KftcClearingTransaction;
 import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.domain.service.PaymentOrchestrator;
@@ -22,6 +23,7 @@ public class KftcNetworkResponseConsumer {
     private final ObjectMapper objectMapper;
     private final PaymentTransactionService txService;
     private final PaymentOrchestrator orchestrator;
+    private final PaymentMetrics metrics;
 
     @Value("${payment.bank-code:A}")
     private String bankCode;
@@ -75,6 +77,8 @@ public class KftcNetworkResponseConsumer {
                 }
 
                 orchestrator.processKftcReject(rejectPi, clearingNo, responseCode, rejectMessage, rejectedAt);
+                metrics.paymentFailed();
+                metrics.compensation("F2_KFTC");
                 log.info("[KFTC] REJECT 처리완료. piId={} clearingNo={}", rejectPiId, clearingNo);
                 break;
             }
@@ -104,11 +108,13 @@ public class KftcNetworkResponseConsumer {
                     String settledAt = payload.path("settledAt").asText();
                     String settlementDate = settledAt.length() >= 8 ? settledAt.substring(0, 8) : null;
                     txService.txSettlement(pi, clearingNo, settledAt, settlementDate);
+                    metrics.paymentCompleted(pi.getRequestedAt());
                     log.info("[KFTC] SETTLEMENT_NOTIFY 처리완료. piId={} CLEARING→COMPLETED", piId);
                 } else {
                     // F7: 정산실패 통보 — 상태 가드(COMPLETED skip / !CLEARING skip) 통과(=CLEARING) 후 진입
                     String rejectMessage = payload.path("rejectMessage").asText();
                     log.error("[F7] KFTC 정산실패 통보 수신 → 자동보상. clearingNo={} responseCode={}", clearingNo, responseCode);
+                    metrics.compensation("F7_KFTC");
                     orchestrator.processSettlementFailure(clearingNo, responseCode, rejectMessage);
                 }
                 break;
@@ -120,6 +126,7 @@ public class KftcNetworkResponseConsumer {
         log.info("KFTC response received: key={} messageType={} partition={} offset={}",
                 record.key(), messageType, record.partition(), record.offset());
 
+        metrics.consumed("kftc.network.response");
         // ★ DB COMMIT 후 ack. 예외 시 미호출 → Kafka 재전달
         ack.acknowledge();
     }

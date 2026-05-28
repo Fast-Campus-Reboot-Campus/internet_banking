@@ -1,6 +1,7 @@
 package com.bank.payment.inbound.kafka;
 
 import com.bank.payment.common.BankCodeMapper;
+import com.bank.payment.config.PaymentMetrics;
 import com.bank.payment.domain.IdempotencyKey;
 import com.bank.payment.domain.mapper.IdempotencyKeyMapper;
 import com.bank.payment.domain.service.InboundPaymentCommand;
@@ -27,6 +28,7 @@ public class KftcNetworkRequestConsumer {
     private final PaymentTransactionService txService;
     private final InboundPaymentOrchestrator inboundOrchestrator;
     private final IdempotencyKeyMapper idempotencyKeyMapper;
+    private final PaymentMetrics metrics;
 
     @Value("${payment.bank-code:A}")
     private String bankCode;
@@ -69,6 +71,7 @@ public class KftcNetworkRequestConsumer {
         IdempotencyKey existing = idempotencyKeyMapper.selectByKey(command.clearingNo());
         if (existing != null) {
             log.info("[IN] 멱등 재수신 skip: 이미 처리된 clearingNo={}", command.clearingNo());
+            metrics.idempotencyDuplicate();
             ack.acknowledge();
             return;
         }
@@ -79,6 +82,7 @@ public class KftcNetworkRequestConsumer {
         log.info("[IN] PAYMENT_REQUEST 수신 완료: piId={} clearingNo={} key={} partition={} offset={}",
                 piId, command.clearingNo(), record.key(), record.partition(), record.offset());
 
+        metrics.consumed("kftc.network.request");
         ack.acknowledge();
     }
 

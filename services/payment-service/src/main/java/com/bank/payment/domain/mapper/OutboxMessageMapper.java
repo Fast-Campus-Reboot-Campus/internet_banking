@@ -14,4 +14,6 @@ public interface OutboxMessageMapper {
     void markSent(String messageId);
 
     void markFailed(@Param("messageId") String messageId, @Param("lastError") String lastError);
+
+    int countPending();
 }

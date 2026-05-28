@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuditAnalysisController {
 
-    private final AuditAnalysisService service;
+    private final AgenticAuditAnalysisService service;
 
     @Operation(summary = "감사 분석 실행", description = "BIAS_DETECTION 또는 COMPLIANCE_VERIFICATION 분석 수행")
     @PostMapping("/analyze")

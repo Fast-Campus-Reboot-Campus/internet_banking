@@ -11,7 +11,6 @@ _INTENT_PRIORITY: list[str] = [
     "PRODUCT_COMPARE",
     "TERMS_RAG",
     "CASH_FLOW_RECOMMEND",
-    "PRODUCT_DETAIL",
     "PRODUCT_GUIDE",
     "FAQ",
 ]
@@ -35,15 +34,10 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
         "내 상황에 맞", "나한테 맞는", "나에게 맞는", "내 수입", "내 지출",
         "맞춤 추천", "내 상황 분석", "분석해서 추천", "패턴 분석",
     ],
-    "PRODUCT_DETAIL": [
-        "상세", "자세히", "설명해", "설명 해", "어떤 상품이야", "어떤 거야",
-        "특징", "혜택", "기간은", "금리는 얼마", "어떤게 있어",
-    ],
     "PRODUCT_GUIDE": [
         "상품 추천", "상품 알려", "어떤 상품", "예금 상품", "적금 상품", "청약 상품",
         "상품 종류", "상품 뭐가", "상품 뭐", "어떤 예금", "어떤 적금",
         "예금 알려", "적금 알려", "청약 알려", "추천해줘", "추천해 줘",
-        "예금", "적금", "상품들", "전부", "모두", "다 알려",
     ],
     "FAQ": [
         "자주 묻는", "faq", "FAQ", "자주하는 질문",
@@ -79,7 +73,6 @@ class FeatureAnswerFormatter:
             "JOIN_CONDITION":  self._join_condition,
             "PRODUCT_COMPARE": self._compare,
             "TERMS_RAG":       self._terms,
-            "PRODUCT_DETAIL":  self._product_detail,
         }
         handler = handlers.get(feature_code)
         if handler:
@@ -119,31 +112,6 @@ class FeatureAnswerFormatter:
                 status = row.get("product_status", "")
                 lines.append(f"- {name} ({ptype}) 기본금리 {rate}%  [{status}]")
         lines.append("\n특정 상품에 대해 더 알고 싶으시면 질문해 주세요.")
-        return "\n".join(lines)
-
-    def _product_detail(self, data: list[dict]) -> str:
-        lines = ["[상품 상세 안내]\n"]
-        for row in data[:3]:
-            name      = row.get("product_name", "") or row.get("deposit_product_name", "")
-            ptype     = row.get("product_type", "") or row.get("deposit_product_type", "")
-            desc      = row.get("description", "")
-            rate      = row.get("base_interest_rate", "")
-            min_amt   = row.get("min_join_amount", "")
-            max_amt   = row.get("max_join_amount", "")
-            min_month = row.get("min_period_month", "")
-            max_month = row.get("max_period_month", "")
-            early     = "가능" if row.get("is_early_termination_allowed") else "불가"
-            tax       = "있음" if row.get("is_tax_benefit_available") else "없음"
-
-            lines.append(f"■ {name} ({ptype})")
-            if desc:
-                lines.append(f"  - 설명: {desc}")
-            lines.append(f"  - 기본금리: 연 {rate}%")
-            lines.append(f"  - 가입금액: {min_amt:,}원 ~ {max_amt:,}원" if isinstance(min_amt, int) else f"  - 가입금액: {min_amt} ~ {max_amt}")
-            lines.append(f"  - 가입기간: {min_month}개월 ~ {max_month}개월")
-            lines.append(f"  - 중도해지: {early} / 세제혜택: {tax}")
-            lines.append("")
-        lines.append("상품 가입은 앱 또는 영업점을 방문해 주세요.")
         return "\n".join(lines)
 
     def _join_condition(self, data: list[dict]) -> str:
@@ -190,6 +158,16 @@ class FeatureAnswerFormatter:
         return "\n".join(lines)
 
 
+import time
+
+from app.metrics import (
+    chatbot_fallback_total,
+    chatbot_llm_completion_tokens,
+    chatbot_llm_duration_seconds,
+    chatbot_llm_error_total,
+    chatbot_llm_prompt_tokens,
+)
+
 # ──────────────────────────────────────────────────────────────────────────────
 # LLM 응답 (OpenAI)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -210,7 +188,15 @@ class LlmAdapter:
         self.api_key = api_key
         self.model = model
 
-    def answer(self, message: str, context: str = "") -> str:
+    def answer(self, message: str, context: str = "") -> tuple[str, bool]:
+        """LLM 응답을 반환한다.
+
+        Returns:
+            (response_text, is_error) — is_error=True 이면 LLM 호출 실패를 의미하며
+            호출자가 상담사 이관 등 fallback 처리를 수행해야 한다.
+        """
+        start = time.perf_counter()
+        is_error = False
         try:
             from openai import OpenAI
             client = OpenAI(api_key=self.api_key)
@@ -226,9 +212,20 @@ class LlmAdapter:
                 max_tokens=500,
                 temperature=0.3,
             )
-            return response.choices[0].message.content.strip()
+            if response.usage:
+                chatbot_llm_prompt_tokens.labels(method="answer").observe(response.usage.prompt_tokens)
+                chatbot_llm_completion_tokens.labels(method="answer").observe(response.usage.completion_tokens)
+            return response.choices[0].message.content.strip(), False
         except Exception as exc:
-            return f"죄송합니다, 일시적인 오류가 발생했습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요. ({exc})"
+            is_error = True
+            return (
+                f"죄송합니다, 일시적인 오류가 발생했습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요. ({exc})",
+                True,
+            )
+        finally:
+            chatbot_llm_duration_seconds.labels(method="answer").observe(time.perf_counter() - start)
+            if is_error:
+                chatbot_llm_error_total.labels(method="answer").inc()
 
     def recommend(
         self,
@@ -245,6 +242,8 @@ class LlmAdapter:
             user_query  : 고객 질문 텍스트
             history_ctx : _build_history_context() 반환값 (없으면 빈 문자열)
         """
+        start = time.perf_counter()
+        is_error = False
         try:
             from openai import OpenAI
             client = OpenAI(api_key=self.api_key)
@@ -307,19 +306,28 @@ class LlmAdapter:
                 max_tokens=600,
                 temperature=0.3,
             )
+            if response.usage:
+                chatbot_llm_prompt_tokens.labels(method="recommend").observe(response.usage.prompt_tokens)
+                chatbot_llm_completion_tokens.labels(method="recommend").observe(response.usage.completion_tokens)
             return response.choices[0].message.content.strip()
 
         except ImportError:
+            is_error = True
             return (
                 "죄송합니다, AI 추천 서비스를 사용하려면 openai 패키지가 필요합니다. "
                 "상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
             )
         except Exception:
+            is_error = True
             # 구체적인 에러 메시지를 외부에 노출하지 않는다
             return (
                 "죄송합니다, 상품 추천 중 일시적인 오류가 발생했습니다. "
                 "잠시 후 다시 시도하거나 '상담사 연결'을 선택해 주세요."
             )
+        finally:
+            chatbot_llm_duration_seconds.labels(method="recommend").observe(time.perf_counter() - start)
+            if is_error:
+                chatbot_llm_error_total.labels(method="recommend").inc()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -330,6 +338,7 @@ class LlmHandoffAdapter:
     process_method_code = "BP002"
 
     def answer(self, message: str) -> str:
+        chatbot_fallback_total.inc()
         return (
             "시나리오로 즉시 처리하기 어려운 문의입니다. "
             "LLM 응답 검증 레이어가 연결되기 전까지는 상담사 연결을 권장합니다."

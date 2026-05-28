@@ -26,6 +26,15 @@ public class DepositAccountClientMock implements DepositAccountClient {
     // IN-03 계좌: 사고신고/FROZEN (수신 거절 트리거용)
     private static final String IN03_FROZEN_RECEIVER = "99987654321";
 
+    // 케이스 5: 수신계좌 폐쇄 트리거 — accountStatus=CLOSED → ACCOUNT_CLOSED
+    private static final String CLOSED_RECEIVER = "99990000000003";
+
+    // 케이스 6: 수신계좌 사고신고 트리거 — accountStatus=ACTIVE + fraudFlag=true → ACCOUNT_RESTRICTED
+    private static final String FRAUD_RECEIVER = "99990000000004";
+
+    // 케이스 4: 수신계좌 예금주 불일치 트리거 — getHolder에서 "홍길동" 반환
+    private static final String HOLDER_MISMATCH_RECEIVER = "99990000000002";
+
     @Override
     public DepositResponse<AccountInquiryData> getAccount(String accountNo) {
         if (IN03_FROZEN_RECEIVER.equals(accountNo)) {
@@ -33,6 +42,20 @@ public class DepositAccountClientMock implements DepositAccountClient {
                     accountNo, "DEMAND", "FROZEN", "DP-2025-001",
                     "2024-03-15T09:00:00Z", null, "0001", true, 1);
             return new DepositResponse<>("E2001", "사고신고 계좌", "2026-05-16T14:30:00Z", data);
+        }
+        // 케이스 5: CLOSED 수신계좌 → ACCOUNT_CLOSED
+        if (CLOSED_RECEIVER.equals(accountNo)) {
+            AccountInquiryData data = new AccountInquiryData(
+                    accountNo, "DEMAND", "CLOSED", "DP-2025-001",
+                    "2024-03-15T09:00:00Z", "2026-01-01T00:00:00Z", "0001", false, 1);
+            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
+        }
+        // 케이스 6: ACTIVE + fraudFlag=true → ACCOUNT_RESTRICTED
+        if (FRAUD_RECEIVER.equals(accountNo)) {
+            AccountInquiryData data = new AccountInquiryData(
+                    accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
+                    "2024-03-15T09:00:00Z", null, "0001", true, 1);
+            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
         }
         AccountInquiryData data = new AccountInquiryData(
                 accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
@@ -49,6 +72,11 @@ public class DepositAccountClientMock implements DepositAccountClient {
             holder = "변학도";
         } else if (RECEIVER.equals(accountNo)) {
             holder = "성춘향";
+        } else if (HOLDER_MISMATCH_RECEIVER.equals(accountNo)) {
+            // 케이스 4: 예금주명 "홍길동" 반환 — 요청값(성춘향)과 불일치 → OWNER_INQUIRY_FAILED
+            HolderInquiryData data = new HolderInquiryData(
+                    accountNo, "홍길동", "INDIVIDUAL", "CUST-0002", false, 1);
+            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
         } else {
             holder = "이몽룡";
         }

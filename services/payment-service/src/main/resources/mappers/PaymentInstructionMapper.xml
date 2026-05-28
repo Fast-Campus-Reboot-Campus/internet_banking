@@ -125,4 +125,10 @@
         WHERE payment_instruction_id = #{paymentInstructionId}
     </update>
 
+    <select id="countIncomplete" resultType="int">
+        SELECT COUNT(*)
+        FROM payment_instruction
+        WHERE status NOT IN ('COMPLETED', 'FAILED', 'CANCELED')
+    </select>
+
 </mapper>
