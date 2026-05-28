@@ -591,6 +591,32 @@ public class PaymentTransactionService {
         return new PaymentResult(piId, pi.getTransactionNo(), "CLEARING", null, null);
     }
 
+    /**
+     * AUTHORIZED→SCHEDULED 전이. is_scheduled=true + scheduled_execution_at 세팅.
+     * 낙관락: WHERE status='AUTHORIZED' AND version=#{version}. affected rows≠1 이면 throw.
+     * 상태이력: SCHEDULED_REGISTERED (AUTHORIZED→SCHEDULED, triggered_by='USER').
+     * @param piId 결제지시번호
+     * @param version authorize 직후 최신 버전 (pi.getVersion()+1)
+     * @param scheduledExecutionAt 예약실행시각 (미래 시각, 컨트롤러에서 검증 완료)
+     */
+    @Transactional
+    public void markScheduled(String piId, Integer version, LocalDateTime scheduledExecutionAt) {
+        LocalDateTime now = LocalDateTime.now();
+
+        int updated = paymentInstructionMapper.updateScheduled(piId, scheduledExecutionAt, version);
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException(
+                    "결제지시 SCHEDULED 전이 충돌(낙관락/상태 불일치): " + piId);
+        }
+
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        int seq = (maxSeq == null ? 0 : maxSeq) + 1;
+        StatusHistory history = StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq,
+                "AUTHORIZED", "SCHEDULED", "SCHEDULED_REGISTERED", "USER", now);
+        statusHistoryMapper.insert(history);
+    }
+
     /** PI 재조회 — 이중보상 가드용. 보상 진입 직전 현재 상태 확인. */
     public PaymentInstruction selectById(String paymentInstructionId) {
         return paymentInstructionMapper.selectById(paymentInstructionId);

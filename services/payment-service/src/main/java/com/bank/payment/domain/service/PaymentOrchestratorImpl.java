@@ -49,6 +49,8 @@ import java.util.UUID;
 @Service
 public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
+    private static final long BOK_ROUTING_THRESHOLD = 1_000_000_000L;
+
     private final PaymentTransactionService txService;
     private final DepositAccountClient depositAccountClient;
     private final DepositBalanceClient depositBalanceClient;
@@ -77,17 +79,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     @Override
     public PaymentResult processPayment(PaymentCommand command) {
         boolean isIntraBank = isIntraBank(command.receiverBankCode());
-
-        // P-007: 10억(1,000,000,000) 이상은 BOK(한은망 거액이체), 미만은 KFTC(금융결제원).
-        // ★정책충돌: 테이블정의서 CHECK 예시 1억은 오류로 판단 — enum #16/#39 "10억" 채택.
-        String routingNetworkType;
-        if (isIntraBank) {
-            routingNetworkType = "INTERNAL";
-        } else if (command.transferAmount().compareTo(BigDecimal.valueOf(1_000_000_000L)) >= 0) {
-            routingNetworkType = "BOK";
-        } else {
-            routingNetworkType = "KFTC";
-        }
+        String routingNetworkType = determineRoutingNetworkType(command);
 
         // TX-1: PI DRAFT INSERT — 중복 멱등키는 메트릭 기록 후 DuplicateKeyException 재발생
         PaymentInstruction pi;
@@ -113,7 +105,8 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         WithdrawStepResult withdrawStep = null;
 
         try {
-            ExternalValidationResult validation = step2_externalValidation(pi, command);
+            ExternalValidationResult validation = step2a_registerValidation(pi, command);
+            step2b_executeValidation(pi, command);
 
             txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
 
@@ -177,10 +170,43 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         }
     }
 
+    @Override
+    public PaymentResult registerScheduledPayment(PaymentCommand command, java.time.LocalDateTime scheduledExecutionAt) {
+        boolean isIntraBank = isIntraBank(command.receiverBankCode());
+        String routingNetworkType = determineRoutingNetworkType(command);
+
+        PaymentInstruction pi;
+        try {
+            pi = txService.txStep1(command, isIntraBank, routingNetworkType);
+        } catch (DuplicateKeyException e) {
+            metrics.idempotencyDuplicate();
+            log.warn("[SCHED] 중복 멱등키 감지: idempotencyKey={}", command.idempotencyKey());
+            throw e;
+        }
+
+        try {
+            // step2a: 계좌·예금주 A 검증 + receiver snapshot (잔액·한도 B 검증 제외)
+            step2a_registerValidation(pi, command);
+
+            // DRAFT→AUTHORIZED (pi.getVersion()=0)
+            txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
+
+            // AUTHORIZED→SCHEDULED (authorize 후 DB version=1 → version 인자=pi.getVersion()+1=1)
+            txService.markScheduled(pi.getPaymentInstructionId(), pi.getVersion() + 1, scheduledExecutionAt);
+
+            return new PaymentResult(pi.getPaymentInstructionId(), pi.getTransactionNo(), "SCHEDULED", null, null);
+
+        } catch (PaymentValidationException e) {
+            // A 검증 실패 → DRAFT→FAILED (B-3 미도달, 자금변동 없음)
+            return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()));
+        }
+    }
+
     /** BOK 거액이체 송신. step2/authorize/step3는 망 무관 공용 호출. */
     private PaymentResult processInterBok(PaymentInstruction pi, PaymentCommand command) {
         try {
-            ExternalValidationResult validation = step2_externalValidation(pi, command);
+            ExternalValidationResult validation = step2a_registerValidation(pi, command);
+            step2b_executeValidation(pi, command);
 
             txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
 
@@ -201,7 +227,8 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
     private PaymentResult processInterBank(PaymentInstruction pi, PaymentCommand command) {
         try {
-            ExternalValidationResult validation = step2_externalValidation(pi, command);
+            ExternalValidationResult validation = step2a_registerValidation(pi, command);
+            step2b_executeValidation(pi, command);
 
             txService.authorize(pi.getPaymentInstructionId(), pi.getVersion());
 
@@ -232,17 +259,29 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         };
     }
 
+    // P-007: 10억(1,000,000,000) 이상은 BOK(한은망 거액이체), 미만은 KFTC(금융결제원).
+    // ★정책충돌: 테이블정의서 CHECK 예시 1억은 오류로 판단 — enum #16/#39 "10억" 채택.
+    private String determineRoutingNetworkType(PaymentCommand command) {
+        if (isIntraBank(command.receiverBankCode())) {
+            return "INTERNAL";
+        } else if (command.transferAmount().compareTo(BigDecimal.valueOf(BOK_ROUTING_THRESHOLD)) >= 0) {
+            return "BOK";
+        } else {
+            return "KFTC";
+        }
+    }
+
     // receiverBankCode == 자행코드(A은행=004, B은행=088) → 자행
     private boolean isIntraBank(String receiverBankCode) {
         return BankCodeMapper.toNumeric(bankCode).equals(receiverBankCode);
     }
 
     /**
-     * Step 2: 외부검증 8건 (합의서 시트17 S1 순서).
-     * A-1송신 → A-1수신 → A-2송신 → A-2수신(HOLDER_DECEASED/HOLDER_MISMATCH) → B-1 → B-2
-     * 모두 트랜잭션 밖. PI receiver_holder_name_snap은 A-2수신 직후 단독 커밋.
+     * Step 2a: A 검증 (계좌·예금주). 등록 및 즉시이체 공용.
+     * A-1송신 → A-1수신(자행) → A-2송신 → A-2수신(자행, HOLDER_DECEASED/HOLDER_MISMATCH)
+     * receiver_holder_name_snap 영속화 포함. 트랜잭션 밖.
      */
-    private ExternalValidationResult step2_externalValidation(PaymentInstruction pi, PaymentCommand command) {
+    private ExternalValidationResult step2a_registerValidation(PaymentInstruction pi, PaymentCommand command) {
         String piId = pi.getPaymentInstructionId();
         String sender = command.senderAccountId();
         String receiver = command.receiverAccountNo();
@@ -309,6 +348,17 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             txService.updateReceiverHolderSnap(piId, receiverHolderName, null);
         }
 
+        return new ExternalValidationResult(senderHolderName, receiverHolderName);
+    }
+
+    /**
+     * Step 2b: B 검증 (잔액·한도). 즉시이체 전용 — 예약등록 경로에서는 호출하지 않음.
+     * B-1 잔액 → B-2 한도. 트랜잭션 밖.
+     */
+    private void step2b_executeValidation(PaymentInstruction pi, PaymentCommand command) {
+        String piId = pi.getPaymentInstructionId();
+        String sender = command.senderAccountId();
+
         // B-1 잔액조회 (송신계좌) — 결과 확인 후 박제 (FAIL/SUCCESS 분기)
         DepositResponse<BalanceInquiryData> balanceResp = depositBalanceClient.getBalance(sender);
         BalanceInquiryData balance = balanceResp.data();
@@ -336,8 +386,6 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         if (needed > limit.monthlyRemaining()) {
             throw new PaymentValidationException("LIMIT_EXCEEDED", "월 한도 초과");
         }
-
-        return new ExternalValidationResult(senderHolderName, receiverHolderName);
     }
 
     // ── Step 3: 출금 (B-3, 트랜잭션 밖) ─────────────────────────────────────

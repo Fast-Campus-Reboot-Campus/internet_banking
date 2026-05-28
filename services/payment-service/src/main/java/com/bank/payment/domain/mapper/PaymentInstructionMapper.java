@@ -28,4 +28,8 @@ public interface PaymentInstructionMapper {
     List<PaymentInstruction> selectTimedOut();
 
     int countIncomplete();
+
+    int updateScheduled(@Param("paymentInstructionId") String paymentInstructionId,
+                        @Param("scheduledExecutionAt") LocalDateTime scheduledExecutionAt,
+                        @Param("version") Integer version);
 }

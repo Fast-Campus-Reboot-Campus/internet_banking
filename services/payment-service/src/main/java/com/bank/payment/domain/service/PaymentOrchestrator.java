@@ -17,6 +17,16 @@ public interface PaymentOrchestrator {
     PaymentResult processPayment(PaymentCommand command);
 
     /**
+     * 예약이체 등록. DRAFT→AUTHORIZED→SCHEDULED 전이 후 종료.
+     * step2b(잔액·한도)/step3(출금·입금)/txStep4 호출 없음. Outbox·ledger INSERT 없음.
+     * A 검증 실패 시 DRAFT→FAILED (기존 txStepFail 패턴 동일).
+     * @param command 이체 지시 + 신원 + 멱등키
+     * @param scheduledExecutionAt 예약실행시각 (미래 시각, 컨트롤러에서 검증 완료)
+     * @return 처리 결과 (status=SCHEDULED)
+     */
+    PaymentResult registerScheduledPayment(PaymentCommand command, java.time.LocalDateTime scheduledExecutionAt);
+
+    /**
      * F2 KFTC 거절 보상. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 출금취소 + CT REJECTED.
      * Kafka consumer(kftc.network.response REJECT/PAYMENT_REJECT)에서 호출.
      * @param freshPi DB 재조회한 PI (CLEARING 또는 REVERSING 상태)
