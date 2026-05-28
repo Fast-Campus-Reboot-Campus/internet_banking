@@ -17,6 +17,7 @@ interface UploadedDoc {
   docTypeCd: string
   fileName: string
   uploadedAt: string
+  verifyResultCd?: string
 }
 
 export default function LoanDocumentsPage() {
@@ -98,27 +99,51 @@ export default function LoanDocumentsPage() {
         {DOC_TYPES.map(dt => {
           const uploaded = docs.find(d => d.docTypeCd === dt.code)
           const isUploading = uploading === dt.code
+          const verifyResult = uploaded?.verifyResultCd
+          const isHold = verifyResult === 'HOLD' || verifyResult === 'FRAUD'
+          const needsResubmit = verifyResult === 'NEEDS_RESUBMIT'
           return (
-            <div key={dt.code} className="border border-kb-border p-5 flex items-center justify-between">
+            <div key={dt.code} className={`border p-5 flex items-center justify-between ${
+              isHold ? 'border-orange-300 bg-orange-50' :
+              needsResubmit ? 'border-orange-400 bg-yellow-50' :
+              'border-kb-border'
+            }`}>
               <div>
                 <p className="text-[14px] font-bold text-kb-text mb-0.5">{dt.label}</p>
                 <p className="text-[12px] text-kb-text-muted">{dt.desc}</p>
                 {uploaded && (
-                  <p className="text-[12px] text-green-600 mt-1">
-                    ✓ {uploaded.fileName} 제출 완료
-                  </p>
+                  isHold ? (
+                    <p className="text-[12px] text-orange-600 mt-1">
+                      검토 중입니다. 추가 안내를 기다려주세요.
+                    </p>
+                  ) : needsResubmit ? (
+                    <p className="text-[12px] text-orange-700 font-semibold mt-1">
+                      ⚠ 재제출이 필요합니다 — 화질이 낮거나 내용이 누락되었습니다.
+                    </p>
+                  ) : (
+                    <p className="text-[12px] text-green-600 mt-1">
+                      ✓ {uploaded.fileName} 제출 완료
+                    </p>
+                  )
                 )}
               </div>
               <button
                 onClick={() => handleFileClick(dt.code)}
-                disabled={isUploading}
+                disabled={isUploading || isHold}
                 className={`px-5 py-2 text-[13px] font-medium transition-colors whitespace-nowrap ${
-                  uploadedTypes.has(dt.code)
+                  isHold
+                    ? 'border border-gray-300 text-gray-400 cursor-not-allowed opacity-50'
+                    : needsResubmit
+                    ? 'bg-orange-500 text-white font-bold hover:brightness-95'
+                    : uploadedTypes.has(dt.code)
                     ? 'border border-kb-border text-kb-text-muted hover:bg-kb-beige-light'
                     : 'bg-kb-yellow text-kb-text font-bold hover:brightness-95'
                 }`}
               >
-                {isUploading ? '업로드 중...' : uploadedTypes.has(dt.code) ? '재업로드' : '파일 선택'}
+                {isUploading ? '업로드 중...' :
+                 isHold ? '재업로드 불가' :
+                 needsResubmit ? '재업로드' :
+                 uploadedTypes.has(dt.code) ? '재업로드' : '파일 선택'}
               </button>
             </div>
           )
