@@ -146,7 +146,7 @@ export default function MyKBPage() {
           <h2 className="text-lg font-bold text-kb-text">기본정보</h2>
           <div className="flex gap-2">
             <button className="border border-kb-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">본인정보 이용/제공 조회</button>
-            <button className="border border-kb-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">정보수정</button>
+            <Link href="/settings" className="border border-kb-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">정보수정</Link>
           </div>
         </div>
         <table className="w-full border-collapse text-[13px]">
