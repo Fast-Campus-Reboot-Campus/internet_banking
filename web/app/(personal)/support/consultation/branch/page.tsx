@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 const SUPPORT_TABS = [
   { label: '고객상담', href: '#', active: true },
@@ -51,7 +51,6 @@ const TIMES = [
 ]
 
 export default function BranchConsultationPage() {
-  const [, setUserName] = useState('고객')
   const [pageTab, setPageTab] = useState<'apply' | 'history'>('apply')
   const [branch, setBranch] = useState('')
   const [contentType, setContentType] = useState('선택')
@@ -60,16 +59,6 @@ export default function BranchConsultationPage() {
   const [reserveType, setReserveType] = useState<'auto' | 'manual'>('auto')
   const [staffSelect, setStaffSelect] = useState('선택')
   const [memo, setMemo] = useState('')
-
-  useEffect(() => {
-    try {
-      const token = localStorage.getItem('access_token')
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        if (payload?.name) setUserName(payload.name)
-      }
-    } catch {}
-  }, [])
 
   function handleSubmit() {
     if (!branch) { alert('상담 지점을 입력해주세요.'); return }
