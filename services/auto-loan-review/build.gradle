@@ -29,4 +29,7 @@ dependencies {
 
     // ── B1 테스트: H2 인메모리 DB (Flyway 마이그레이션 검증) ─────────────
     testRuntimeOnly 'com.h2database:h2'
+
+    // ── 편향 검증 Kafka 컨슈머 ────────────────────────────────────────
+    implementation 'org.springframework.kafka:spring-kafka'
 }

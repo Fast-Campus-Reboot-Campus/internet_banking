@@ -1,5 +1,6 @@
 package com.bank.ai.review.client;
 
+import com.bank.ai.bias.dto.BiasReportCallbackRequest;
 import com.bank.ai.review.dto.ReviewReportUpdateRequest;
 import com.bank.common.web.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,20 @@ public class LoanServiceClient {
         log.info("Sending report update callback to loan-service: revId={}", revId);
         restClient.patch()
                 .uri("/api/loan-applications/reviews/{revId}/report", revId)
+                .body(req)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    /**
+     * 편향 분석 결과를 loan-service 에 콜백.
+     * POST /api/internal/loan-reviews/{revId}/bias-report
+     */
+    public void reportBias(Long revId, BiasReportCallbackRequest req) {
+        log.info("Sending bias-report callback to loan-service: revId={} severity={}",
+                revId, req.severityCd());
+        restClient.post()
+                .uri("/api/internal/loan-reviews/{revId}/bias-report", revId)
                 .body(req)
                 .retrieve()
                 .toBodilessEntity();

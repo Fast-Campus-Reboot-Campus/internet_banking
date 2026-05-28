@@ -179,6 +179,18 @@ ai:
         senior: 0.788
         young: 0.750
 
+  # ---- Kafka (편향 검증 컨슈머) ----
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: auto-loan-review-bias
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+
 management:
   endpoints:
     web:
