@@ -182,3 +182,64 @@ groups:
         annotations:
           summary: "미완료 거래 과다"
           description: "미완료 상태 거래 {{ $value }}건 — 타임아웃 또는 처리 지연 확인 필요"
+
+  - name: ml-loan-review
+    interval: 30s
+    rules:
+      - alert: ReviewResponseTimeSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(review_duration_seconds_bucket{application="ai-service"}[5m])) by (le)
+          ) > 3
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ML 심사 응답 지연"
+          description: "자동심사 p95 응답시간이 {{ $value | humanizeDuration }} — inference-server 상태 확인 필요"
+
+      - alert: ReviewInferenceErrorHigh
+        expr: |
+          sum(rate(review_inference_error_total{application="ai-service"}[5m]))
+          /
+          (sum(rate(review_decision_total{application="ai-service"}[5m])) + sum(rate(review_inference_error_total{application="ai-service"}[5m])) + 0.001)
+          > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ML 심사 추론 실패율 급증"
+          description: "자동심사 추론 실패율 {{ $value | humanizePercentage }} — inference-server 연결 또는 모델 상태 확인"
+
+      - alert: ReviewRejectRateHigh
+        expr: |
+          sum(rate(review_decision_total{application="ai-service", decision="REJECT"}[10m]))
+          /
+          sum(rate(review_decision_total{application="ai-service"}[10m]))
+          > 0.70
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ML 심사 거절율 이상 급증 (데이터 드리프트 의심)"
+          description: "10분간 REJECT 비율 {{ $value | humanizePercentage }} — 입력 피처 분포 변화(드리프트) 또는 모델 이상 가능성"
+
+      - alert: ReviewInputMissingHigh
+        expr: |
+          sum(increase(review_input_missing_total{application="ai-service"}[5m])) > 10
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ML 심사 입력 결측치 급증"
+          description: "5분간 핵심 필드 결측치 {{ $value }}건 — 업스트림 데이터 파이프라인 이상 가능성"
+
+      - alert: ReviewInputOutlierHigh
+        expr: |
+          sum(increase(review_input_outlier_total{application="ai-service"}[5m])) > 10
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ML 심사 입력 이상치 급증"
+          description: "5분간 핵심 필드 이상치 {{ $value }}건 — 입력 데이터 품질 저하 또는 클라이언트 버그 가능성"
