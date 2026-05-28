@@ -141,11 +141,11 @@ class FeatureExecutorBase:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=30 * months)).strftime("%Y-%m-%d")
         tx_rows = self._rows(
             """
-            SELECT transaction_type, amount
+            SELECT direction_type, amount
               FROM deposit_transactions
              WHERE account_id IN :account_ids
-               AND transaction_status = 'COMPLETED'
-               AND created_at >= :cutoff
+               AND status = 'SUCCESS'
+               AND transaction_at >= :cutoff
             """,
             {"account_ids": account_ids, "cutoff": cutoff},
             expanding_params=("account_ids",),
@@ -159,11 +159,8 @@ class FeatureExecutorBase:
                 "has_data":         False,
             }
 
-        inflow  = sum(float(r["amount"] or 0) for r in tx_rows if r["transaction_type"] == "DEPOSIT")
-        outflow = sum(
-            float(r["amount"] or 0) for r in tx_rows
-            if r["transaction_type"] in ("WITHDRAWAL", "TRANSFER")
-        )
+        inflow  = sum(float(r["amount"] or 0) for r in tx_rows if r.get("direction_type") == "IN")
+        outflow = sum(float(r["amount"] or 0) for r in tx_rows if r.get("direction_type") == "OUT")
         return {
             "total_balance":    total_balance,
             "monthly_surplus":  (inflow - outflow) / months,
