@@ -446,7 +446,7 @@ export default function DepositJoinPage() {
 
               <div className="text-[12px] text-kb-text-muted mb-5 space-y-1">
                 <p>※ 본 상품정보 교회를 이용하실 시 상품 이전을 참조하기 위한 것입니다. 자세한 내용은 <button className="text-kb-blue hover:underline">상품설명서 ›</button>를 참조하시기 바랍니다.</p>
-                <p>※ 가입 후에는 '계약서류' 관련 약관을 통해 상품설명문서를 확인할 수 있습니다.</p>
+                <p>※ 가입 후에는 &lsquo;계약서류&rsquo; 관련 약관을 통해 상품설명문서를 확인할 수 있습니다.</p>
               </div>
 
               {/* 계좌 비밀번호 확인 */}

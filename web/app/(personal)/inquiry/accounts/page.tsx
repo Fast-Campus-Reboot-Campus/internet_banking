@@ -5,58 +5,6 @@ import { useState, useEffect } from 'react'
 import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
 import InquirySidebar from '@/components/inquiry/InquirySidebar'
 
-const SIDEBAR_INQUIRY = [
-  {
-    label: '계좌조회',
-    expandable: true,
-    children: [
-      { label: 'AX풀뱅크 계좌조회', href: '/inquiry/accounts', active: true },
-      { label: '다른금융 조회', href: '#' },
-      { label: 'AXful금융그룹통합 조회', href: '#' },
-      { label: '휴면계좌 조회', href: '#' },
-      { label: '전자통장 조회', href: '#' },
-      { label: '장기미거래신탁계좌 조회', href: '#' },
-      { label: '계좌종합관리 계좌조회', href: '#' },
-      { label: '착오송금 반환 동의', href: '#' },
-      { label: '오픈뱅킹 착오송금 반환 신청', href: '#' },
-      { label: '공채 본인부담금 조회', href: '#' },
-    ],
-  },
-  {
-    label: '거래내역 조회',
-    expandable: true,
-    children: [
-      { label: '거래내역 조회', href: '/inquiry/transactions' },
-      { label: '다른금융 통합거래내역조회', href: '#' },
-    ],
-  },
-  {
-    label: '전자어음 조회',
-    expandable: true,
-    children: [
-      { label: '전자어음 조회', href: '#' },
-      { label: '전자어음 발행조회', href: '#' },
-    ],
-  },
-  {
-    label: '에스크로 조회',
-    expandable: true,
-    children: [
-      { label: '에스크로 거래조회', href: '#' },
-      { label: '에스크로 입금확인', href: '#' },
-    ],
-  },
-  {
-    label: '수표어음 조회',
-    expandable: true,
-    children: [
-      { label: '수표조회', href: '#' },
-      { label: '어음조회', href: '#' },
-    ],
-  },
-  { label: '어카운트인포', href: '#' },
-  { label: '계약서류 관리', href: '#' },
-]
 
 const ACCOUNT_TABS = ['예금', '펀드', '신탁/ISA', '대출', '외화/골드', '보험/공제', '퇴직연금', '전체계좌']
 
@@ -134,7 +82,6 @@ function SectionHeader({ dotColor, label, count, balance, open, onToggle, showOr
 export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState('예금')
   const [balanceVisible, setBalanceVisible] = useState(true)
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['계좌조회']))
   const [mgmtOpen, setMgmtOpen] = useState<string | null>(null)
   const [userName, setUserName] = useState<string | null>(null)
   const [checkingOpen, setCheckingOpen] = useState(true)

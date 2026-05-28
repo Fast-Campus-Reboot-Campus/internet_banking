@@ -11,7 +11,7 @@ import {
   getChatMessages,
   endChat,
 } from '@/lib/consultation-api'
-import type { ChatMessage } from '@/lib/consultation-api'
+
 
 const SUPPORT_TABS = [
   { label: '고객상담', href: '#', active: true },

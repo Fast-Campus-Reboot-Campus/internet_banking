@@ -13,8 +13,6 @@ export default function TerminateResultPage() {
   const [endYear, setEndYear] = useState('2026')
   const [endMonth, setEndMonth] = useState('05')
   const [endDay, setEndDay] = useState('25')
-  const [searched, setSearched] = useState(false)
-
   const YEARS = ['2026', '2025', '2024', '2023', '2022']
   const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
   const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
@@ -48,7 +46,6 @@ export default function TerminateResultPage() {
               <div className="flex gap-1">
                 {PERIOD_BTNS.map((b, i) => (
                   <button key={i}
-                    onClick={() => setSearched(false)}
                     className="border border-kb-border px-3 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
                     {b}
                   </button>
@@ -102,7 +99,6 @@ export default function TerminateResultPage() {
             </div>
             <div className="flex justify-center mt-3">
               <button
-                onClick={() => setSearched(true)}
                 className="px-10 py-2 text-[13px] font-bold text-white hover:opacity-90"
                 style={{ backgroundColor: '#5BC9A8' }}>
                 조회
