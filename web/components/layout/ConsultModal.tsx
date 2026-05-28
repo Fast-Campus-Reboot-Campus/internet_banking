@@ -84,14 +84,10 @@ export default function ConsultModal({ onClose }: Props) {
               상담직원과 실시간 채팅상담을 하실 수 있습니다.
             </p>
             <div className="pt-3">
-<<<<<<< HEAD
               <button
                 className="border border-kb-border px-5 py-2 text-[12px] text-kb-text-body hover:bg-kb-beige transition-colors"
                 onClick={() => window.open('http://localhost:8090/chat', '_blank')}
               >
-=======
-              <button className="border border-kb-border px-5 py-2 text-[12px] text-kb-text-body hover:bg-kb-beige transition-colors">
->>>>>>> 8336117 (feat(web): add Next.js 프론트엔드 (AX풀뱅크 인터넷뱅킹 클론))
                 채팅상담하기
               </button>
             </div>
