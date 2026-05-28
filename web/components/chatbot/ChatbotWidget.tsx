@@ -362,12 +362,20 @@ export default function ChatbotWidget() {
 
   function handleMyAccounts() {
     let joined: Account[] = []
+    let overrides: Record<string, number> = {}
     try {
       const raw = localStorage.getItem('joinedAccounts')
       if (raw) joined = JSON.parse(raw) as Account[]
     } catch {}
-    const allAccounts = [...MOCK_ACCOUNTS, ...joined]
-    const deposits = allAccounts.filter(a => a.type === '입출금')
+    try {
+      const raw = localStorage.getItem('accountOverrides')
+      if (raw) overrides = JSON.parse(raw)
+    } catch {}
+    const allAccounts = [...MOCK_ACCOUNTS, ...joined].map(a => ({
+      ...a,
+      balance: a.balance + (overrides[a.id] || 0),
+      availableBalance: a.availableBalance + (overrides[a.id] || 0),
+    }))
     pushMessages([
       { id: messageId('user'), role: 'user', text: '내 상품 조회' },
       {
@@ -412,7 +420,22 @@ export default function ChatbotWidget() {
     }
     setTerminateDone(prev => new Set([...prev, msgId]))
     try {
-      const updated = joined.filter(a => a.id !== target.id)
+      const terminatedBalance = target.balance
+      let updated = joined.filter(a => a.id !== target.id)
+
+      // 해지금액을 입금 계좌에 합산
+      const targetInJoined = updated.find(a => a.id === depositId)
+      if (targetInJoined) {
+        updated = updated.map(a => a.id === depositId
+          ? { ...a, balance: a.balance + terminatedBalance, availableBalance: a.availableBalance + terminatedBalance }
+          : a
+        )
+      } else {
+        const overrides = JSON.parse(localStorage.getItem('accountOverrides') || '{}')
+        overrides[depositId] = (overrides[depositId] || 0) + terminatedBalance
+        localStorage.setItem('accountOverrides', JSON.stringify(overrides))
+      }
+
       localStorage.setItem('joinedAccounts', JSON.stringify(updated))
     } catch {}
     pushMessages([

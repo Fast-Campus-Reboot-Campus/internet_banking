@@ -39,10 +39,25 @@ export default function DepositTerminatePage() {
   function handleConfirm() {
     if (!password && !mouseInput) { alert('해지계좌 비밀번호를 입력해주세요.'); return }
     if (!depositNo) { alert('입금계좌를 선택해주세요.'); return }
-    // localStorage에서 해지 계좌 제거
     if (selected) {
       try {
-        const updated = joinedAccounts.filter(a => a.id !== selected.id)
+        const terminatedBalance = selected.balance
+        let updated = joinedAccounts.filter(a => a.id !== selected.id)
+
+        // 해지금액을 입금 계좌에 합산
+        const targetInJoined = updated.find(a => a.id === depositNo)
+        if (targetInJoined) {
+          updated = updated.map(a => a.id === depositNo
+            ? { ...a, balance: a.balance + terminatedBalance, availableBalance: a.availableBalance + terminatedBalance }
+            : a
+          )
+        } else {
+          // MOCK_ACCOUNT인 경우 별도 override 저장
+          const overrides = JSON.parse(localStorage.getItem('accountOverrides') || '{}')
+          overrides[depositNo] = (overrides[depositNo] || 0) + terminatedBalance
+          localStorage.setItem('accountOverrides', JSON.stringify(overrides))
+        }
+
         localStorage.setItem('joinedAccounts', JSON.stringify(updated))
         setJoinedAccounts(updated)
       } catch {}

@@ -96,6 +96,15 @@ public class Contract extends BaseEntity {
     @Column(name = "auto_transfer_day")
     private Integer autoTransferDay;
 
+    /** 자동이체 출금 계좌 ID */
+    @Column(name = "source_account_id")
+    private Long sourceAccountId;
+
+    /** 연속 미납/자동이체 실패 횟수 */
+    @Column(name = "consecutive_miss_count", nullable = false)
+    @Builder.Default
+    private Integer consecutiveMissCount = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "contract_status", nullable = false)
     @Builder.Default
@@ -164,5 +173,24 @@ public class Contract extends BaseEntity {
     public void updateDepositSettings(Boolean autoTransferEnabled, Integer autoTransferDay) {
         if (autoTransferEnabled != null) this.autoTransferEnabled = autoTransferEnabled;
         if (autoTransferDay != null) this.autoTransferDay = autoTransferDay;
+    }
+
+    public void updateSourceAccount(Long sourceAccountId) {
+        this.sourceAccountId = sourceAccountId;
+    }
+
+    public void incrementMissCount() {
+        this.consecutiveMissCount = this.consecutiveMissCount + 1;
+    }
+
+    public void resetMissCount() {
+        this.consecutiveMissCount = 0;
+    }
+
+    /** 3회 연속 실패 시 자동이체 비활성화 + 계약 정지 */
+    public void suspendAutoTransfer(LocalDate statusChangedAt) {
+        this.autoTransferEnabled = false;
+        this.contractStatus = ContractStatus.SUSPENDED;
+        this.statusChangedAt = statusChangedAt;
     }
 }

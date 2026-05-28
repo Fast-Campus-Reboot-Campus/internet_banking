@@ -36,6 +36,7 @@ public class ContractController {
                         req.contractInterestRate(), req.totalPreferentialRate(),
                         req.taxBenefitType(), req.isAutoRenewal(),
                         req.autoTransferEnabled(), req.autoTransferDay(),
+                        req.sourceAccountId(),
                         req.branchId(), req.managerId(), req.savingType(), req.accountPassword()));
     }
 

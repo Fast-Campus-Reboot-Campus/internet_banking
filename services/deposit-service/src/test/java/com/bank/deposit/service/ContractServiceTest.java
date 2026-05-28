@@ -134,7 +134,7 @@ class ContractServiceTest {
             Contract result = contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(1_000_000), 12,
                     JoinChannel.WEB, null, null, null, false, false, null,
-                    null, null, null, "1234");
+                    null, null, null, null, "1234");
 
             assertThat(result.getCustomerId()).isEqualTo("CUST-001");
             assertThat(result.getContractNumber()).startsWith("CTR-");
@@ -155,7 +155,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(1_000_000), 12,
                     null, null, null, null, false, false, null,
-                    null, null, null, "1234"))
+                    null, null, null, null, "1234"))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -167,7 +167,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(1_000_000), 12,
                     null, null, null, null, false, false, null,
-                    null, null, null, null))
+                    null, null, null, null, null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -187,7 +187,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(100), 12,
                     JoinChannel.WEB, null, null, null, false, false, null,
-                    null, null, null, "1234"))
+                    null, null, null, null, "1234"))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("최소 가입금액");
         }
@@ -208,7 +208,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(999_999_999), 12,
                     JoinChannel.WEB, null, null, null, false, false, null,
-                    null, null, null, "1234"))
+                    null, null, null, null, "1234"))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("최대 가입금액");
         }
@@ -231,7 +231,7 @@ class ContractServiceTest {
             Contract result = contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(100_000), 12,
                     JoinChannel.WEB, null, null, null, false, false, null,
-                    null, null, null, "1234");
+                    null, null, null, null, "1234");
 
             assertThat(result.getJoinAmount()).isEqualByComparingTo("100000");
         }
@@ -246,7 +246,7 @@ class ContractServiceTest {
             Contract result = contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(1_000_000), 12,
                     JoinChannel.WEB, BigDecimal.valueOf(3.0), BigDecimal.valueOf(0.5),
-                    null, false, false, null, null, null, null, "1234");
+                    null, false, false, null, null, null, null, null, "1234");
 
             assertThat(result.getFinalInterestRate()).isEqualByComparingTo("3.5");
         }

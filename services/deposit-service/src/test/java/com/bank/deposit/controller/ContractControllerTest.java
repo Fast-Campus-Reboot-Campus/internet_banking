@@ -91,6 +91,7 @@ class ContractControllerTest {
         given(contractService.createContract(
                 eq("CUST-001"), eq(1L), any(), eq(12), any(),
                 any(), any(), any(), any(), any(), any(),
+                any(),
                 any(), any(), any(), anyString()))
                 .willReturn(contract("CTR-NEW", "CUST-001"));
 

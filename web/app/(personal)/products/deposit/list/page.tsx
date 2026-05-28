@@ -33,6 +33,7 @@ const DEPOSIT_PRODUCTS: Product[] = [
     desc: '가입 조건을 직접 설계하는',
     period: '36개월 기준',
     rate: '연 2.2%~2.3%',
+    canApply: true,
   },
   {
     id: 'regular',
@@ -41,6 +42,7 @@ const DEPOSIT_PRODUCTS: Product[] = [
     desc: '목돈 모아 안정수익 마음든든',
     period: '36개월 기준',
     rate: '연 2.25%~2.25%',
+    canApply: true,
   },
   {
     id: 'axful-youth',
@@ -72,6 +74,7 @@ const FREE_SAVINGS_PRODUCTS: Product[] = [
     period: '6개월 기준',
     rate: '연 1%~7.2%',
     isNew: true,
+    canApply: true,
   },
   {
     id: 'axful-green',
@@ -89,6 +92,7 @@ const FREE_SAVINGS_PRODUCTS: Product[] = [
     desc: '고객 모두의 높은 수익을 위한 특별한 준비',
     period: '1개월 기준',
     rate: '연 2%~6%',
+    canApply: true,
   },
 ]
 
@@ -101,6 +105,35 @@ const REGULAR_SAVINGS_PRODUCTS: Product[] = [
     desc: '국군장병 미래대비 앞날준비',
     period: '24개월 기준',
     rate: '연 5%~10.5%',
+    canApply: true,
+  },
+  {
+    id: 'axful-work',
+    name: 'AXful 직장인우대적금',
+    channel: '인터넷·스타뱅킹',
+    desc: '급여이체 고객 우대금리 제공',
+    period: '12~36개월',
+    rate: '연 3.2%~4.5%',
+    canApply: true,
+  },
+  {
+    id: 'axful-dream',
+    name: 'AXful 꿈적금',
+    channel: '인터넷·스타뱅킹',
+    desc: '목표금액 설정으로 꿈을 향해 꾸준히',
+    period: '12~36개월',
+    rate: '연 3.0%~4.2%',
+    canApply: true,
+  },
+  {
+    id: 'axful-together',
+    name: 'AXful 함께적금',
+    channel: '스타뱅킹',
+    desc: '가족·연인과 함께 모으는 공동 적금',
+    period: '6~24개월',
+    rate: '연 2.8%~4.0%',
+    isNew: true,
+    canApply: true,
   },
 ]
 
@@ -190,6 +223,7 @@ const HOUSING_PRODUCTS: Product[] = [
     channel: '스타뱅킹',
     period: '24개월 기준',
     rate: '연 3.1%~4.5%',
+    canApply: true,
   },
 ]
 

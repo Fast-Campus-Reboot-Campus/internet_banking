@@ -18,8 +18,13 @@ const PRODUCT_NAMES: Record<string, string> = {
   'axful-star-savings': 'AXful 특★한 적금',
   // 정기적금
   'axful-soldier': 'AXful 장병내일준비적금',
+  'axful-work': 'AXful 직장인우대적금',
+  'axful-dream': 'AXful 꿈적금',
+  'axful-together': 'AXful 함께적금',
   // 입출금자유
   'axful-youth-account': 'AXful 청년우대통장',
+  'axful-sok': 'AXful 쏙머니통장',
+  'monimo-daily': '모니모 AXful 매일이자 통장',
   // 주택청약
   'housing-savings': '주택청약종합저축',
   'youth-housing': '청년 주택드림 청약통장',
@@ -28,6 +33,7 @@ const PRODUCT_NAMES: Record<string, string> = {
 // 적금 상품 ID (전체)
 const SAVINGS_IDS = new Set([
   'axful-free', 'axful-dollar', 'axful-green', 'axful-soldier', 'axful-star-savings',
+  'axful-work', 'axful-dream', 'axful-together',
 ])
 // 자유적금 ID (납입 자유)
 const FREE_SAVINGS_IDS = new Set([
@@ -35,11 +41,15 @@ const FREE_SAVINGS_IDS = new Set([
 ])
 // 정기적금 ID (월 고정 납입)
 const REGULAR_SAVINGS_IDS = new Set([
-  'axful-soldier',
+  'axful-soldier', 'axful-work', 'axful-dream', 'axful-together',
 ])
 
 const HOUSING_IDS = new Set([
   'housing-savings', 'youth-housing',
+])
+
+const CHECKING_IDS = new Set([
+  'axful-youth-account', 'axful-sok', 'monimo-daily',
 ])
 
 // 적금별 가입기간 범위
@@ -48,7 +58,30 @@ const SAVINGS_PERIOD_RANGE: Record<string, { min: number; max: number; label: st
   'axful-dollar':       { min: 6,  max: 6,  label: '6개월 고정' },
   'axful-green':        { min: 6,  max: 36, label: '6~36개월, 월단위' },
   'axful-soldier':      { min: 24, max: 24, label: '24개월 고정' },
+  'axful-work':         { min: 12, max: 36, label: '12~36개월, 월단위' },
+  'axful-dream':        { min: 12, max: 36, label: '12~36개월, 월단위' },
+  'axful-together':     { min: 6,  max: 24, label: '6~24개월, 월단위' },
   'axful-star-savings': { min: 1,  max: 12, label: '1~12개월, 월단위' },
+}
+
+const PRODUCT_RATES: Record<string, string> = {
+  'axful-regular':       '연 2.4%',
+  'axful-super':         '연 2.2%',
+  'regular':             '연 2.25%',
+  'axful-youth':         '연 3.5%',
+  'axful-free':          '연 2.95%',
+  'axful-dollar':        '연 1.0%',
+  'axful-green':         '연 2.85%',
+  'axful-star-savings':  '연 2.0%',
+  'axful-soldier':       '연 5.0% + 우대 최대 5.5%',
+  'axful-work':          '연 3.2% + 우대 최대 1.3%',
+  'axful-dream':         '연 3.0% + 우대 최대 1.2%',
+  'axful-together':      '연 2.8% + 우대 최대 1.2%',
+  'axful-youth-account': '연 2.0%',
+  'axful-sok':           '연 1.5%',
+  'monimo-daily':        '연 2.5% (일 복리)',
+  'housing-savings':     '연 3.1%',
+  'youth-housing':       '연 3.1% + 우대 최대 1.4%',
 }
 
 const TERMS = [
@@ -130,6 +163,7 @@ export default function DepositJoinPage() {
   const productName = PRODUCT_NAMES[id] ?? 'AXful 정기예금'
   const isSavings = SAVINGS_IDS.has(id)
   const isHousing = HOUSING_IDS.has(id)
+  const isChecking = CHECKING_IDS.has(id)
   const isFreeStyleSavings = FREE_SAVINGS_IDS.has(id)   // 자유적금: 납입 자유
   const isRegularSavings   = REGULAR_SAVINGS_IDS.has(id) // 정기적금: 월 고정 납입
   const periodRange = isSavings ? (SAVINGS_PERIOD_RANGE[id] ?? { min: 1, max: 36, label: '1~36개월, 월단위' }) : { min: 1, max: 36, label: '1~36개월, 월단위' }
@@ -150,6 +184,17 @@ export default function DepositJoinPage() {
   function checkAll(val: boolean) {
     setTermChecks({ illegal: val, protection: val, priority: val, burden: val, product: val, final: val })
   }
+
+  /* ─── 군인 인증 state (장병내일준비적금 전용) ─── */
+  const [militaryBranch, setMilitaryBranch] = useState('')
+  const [militaryId, setMilitaryId] = useState('')
+  const [enlistDate, setEnlistDate] = useState('')
+  const [dischargeDate, setDischargeDate] = useState('')
+
+  /* ─── 자동이체 state (정기적금 전용) ─── */
+  const [autoTransfer, setAutoTransfer] = useState<'yes' | 'no' | null>(null)
+  const [transferDay, setTransferDay] = useState('')
+  const [transferAccount, setTransferAccount] = useState('')
 
   /* ─── Step 2 state ─── */
   const [period, setPeriod] = useState(() => {
@@ -184,15 +229,34 @@ export default function DepositJoinPage() {
   }
 
   function handleStep2Next() {
-    const m = parseInt(period)
-    if (!m || m < periodRange.min || m > periodRange.max) {
-      alert(`가입기간을 올바르게 입력해주세요. (${periodRange.label})`)
+    if (id === 'axful-soldier') {
+      if (!militaryBranch) { alert('군종을 선택해주세요.'); return }
+      if (!militaryId.trim()) { alert('군번을 입력해주세요.'); return }
+      if (!enlistDate) { alert('입대일을 입력해주세요.'); return }
+      if (!dischargeDate) { alert('전역예정일을 입력해주세요.'); return }
+    }
+    if (!isChecking) {
+      const m = parseInt(period)
+      if (!m || m < periodRange.min || m > periodRange.max) {
+        alert(`가입기간을 올바르게 입력해주세요. (${periodRange.label})`)
+        return
+      }
+    }
+    if (isRegularSavings) {
+      if (autoTransfer === null) { alert('자동이체 여부를 선택해주세요.'); return }
+      const a = parseInt(amount.replace(/,/g, ''))
+      if (!a || a < 10000) { alert('납입금액은 최소 1만원 이상이어야 합니다.'); return }
+      if (autoTransfer === 'yes') {
+        if (!transferDay) { alert('자동이체일을 선택해주세요.'); return }
+        if (!transferAccount) { alert('자동이체 출금계좌를 선택해주세요.'); return }
+      }
+      setStep(3)
       return
     }
     const a = parseInt(amount.replace(/,/g, ''))
     if (isSavings || isHousing) {
       if (!a || a < 10000) { alert('납입금액은 최소 1만원 이상이어야 합니다.'); return }
-    } else if (!a || a < 1000000) {
+    } else if (!isChecking && (!a || a < 1000000)) {
       alert('가입금액은 최소 100만원 이상이어야 합니다.')
       return
     }
@@ -212,7 +276,7 @@ export default function DepositJoinPage() {
       const newAcc = {
         id: String(now.getTime()),
         number: `531089-04-${rand6}`,
-        type: isHousing ? '청약' : isSavings ? '적금' : '예금',
+        type: isHousing ? '청약' : isSavings ? '적금' : isChecking ? '입출금' : '예금',
         name: productName,
         balance: parseInt(amount.replace(/,/g, '')) || 0,
         availableBalance: 0,
@@ -376,8 +440,46 @@ export default function DepositJoinPage() {
               <p className="text-[14px] font-bold text-[#5BC9A8] border-b-2 border-[#5BC9A8] inline-block pb-1 mb-4">정보입력</p>
 
               <div className="border border-kb-border px-5 py-2 mb-6 space-y-0">
-                {/* 가입기간 */}
-                <FormRow label="가입기간">
+                {/* 군인 인증 - 장병내일준비적금 전용 */}
+                {id === 'axful-soldier' && (
+                  <>
+                    <div className="bg-[#F0FAF7] border border-[#5BC9A8] px-4 py-3 mb-3 text-[12px] text-kb-text-body rounded">
+                      <p className="font-semibold text-[#2D6A4F] mb-1">현역 복무 중인 장병만 가입 가능합니다.</p>
+                      <p>· 군번 및 복무 정보는 병무청 데이터와 대조하여 확인됩니다.</p>
+                      <p>· 허위 정보 입력 시 가입이 취소될 수 있습니다.</p>
+                    </div>
+                    <FormRow label="군종 선택">
+                      <div className="flex gap-5 flex-wrap">
+                        {['육군', '해군', '공군', '해병대', '해양경찰'].map(branch => (
+                          <label key={branch} className="flex items-center gap-2 text-[13px] cursor-pointer">
+                            <input type="radio" name="militaryBranch" checked={militaryBranch === branch}
+                              onChange={() => setMilitaryBranch(branch)} className="accent-[#5BC9A8]" />
+                            {branch}
+                          </label>
+                        ))}
+                      </div>
+                    </FormRow>
+                    <FormRow label="군번">
+                      <input type="text" value={militaryId} onChange={e => setMilitaryId(e.target.value)}
+                        placeholder="예: 20-12345678"
+                        className="border border-kb-border px-3 py-1.5 text-[13px] w-48 outline-none" />
+                      <p className="text-[12px] text-kb-text-muted mt-1">군번은 군 식별번호입니다.</p>
+                    </FormRow>
+                    <FormRow label="입대일">
+                      <input type="date" value={enlistDate} onChange={e => setEnlistDate(e.target.value)}
+                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none" />
+                    </FormRow>
+                    <FormRow label="전역예정일">
+                      <input type="date" value={dischargeDate} onChange={e => setDischargeDate(e.target.value)}
+                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none" />
+                      <p className="text-[12px] text-kb-text-muted mt-1">* 전역예정일 기준으로 만기가 설정됩니다.</p>
+                    </FormRow>
+                  </>
+                )}
+
+                {/* 가입기간 - 입출금 상품은 숨김 */}
+                {!isChecking && (
+                  <FormRow label="가입기간">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-[12px] text-kb-text-muted mr-2">{periodRange.label}</p>
                     {periodRange.min === periodRange.max ? (
@@ -413,31 +515,113 @@ export default function DepositJoinPage() {
                       </>
                     )}
                   </div>
-                </FormRow>
+                  </FormRow>
+                )}
 
-                {/* 가입금액 / 월 납입금액 / 자유납입 */}
-                <FormRow label={isFreeStyleSavings ? '최초 납입금액' : isRegularSavings ? '월 납입금액' : '가입금액'}>
+                {/* 자동이체 여부 - 정기적금 전용 */}
+                {isRegularSavings && (
+                  <FormRow label="자동이체 여부">
+                    <div className="flex gap-6">
+                      <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                        <input type="radio" name="autoTransfer" value="yes"
+                          checked={autoTransfer === 'yes'}
+                          onChange={() => setAutoTransfer('yes')} className="accent-[#5BC9A8]" />
+                        신청
+                      </label>
+                      <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                        <input type="radio" name="autoTransfer" value="no"
+                          checked={autoTransfer === 'no'}
+                          onChange={() => setAutoTransfer('no')} className="accent-[#5BC9A8]" />
+                        미신청
+                      </label>
+                    </div>
+                  </FormRow>
+                )}
+
+                {/* 월 납입금액 - 정기적금은 항상, 그 외는 가입금액/자유납입/초기입금 */}
+                <FormRow label={isFreeStyleSavings ? '최초 납입금액' : isRegularSavings ? '월 납입금액' : isChecking ? '초기 입금금액' : '가입금액'}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-[12px] text-kb-text-muted mr-2">
-                      {isFreeStyleSavings
-                        ? '최소 1만원 이상, 이후 자유 납입'
-                        : isRegularSavings
-                          ? '최소 1만원 이상, 원단위'
-                          : '최소 100만원 이상, 원단위'}
+                      {isFreeStyleSavings ? '최소 1만원 이상, 이후 자유 납입'
+                        : isRegularSavings ? '최소 1만원 이상, 원단위'
+                        : isChecking ? '최소 1원 이상, 원단위'
+                        : '최소 100만원 이상, 원단위'}
                     </p>
                     <input type="text" value={amount} onChange={e => setAmount(e.target.value)}
                       placeholder="0"
                       className="border border-kb-border px-3 py-1.5 text-[13px] w-32 outline-none text-right" />
                     <span className="text-[13px]">원</span>
-                    {(isSavings ? [1, 3, 5, 10] : [1000, 500, 300, 100]).map(v => (
-                      <button key={v}
-                        onClick={() => addAmount(v)}
+                    {(isSavings ? [1, 3, 5, 10] : isChecking ? [1, 3, 5, 10, 20] : [1000, 500, 300, 100]).map(v => (
+                      <button key={v} onClick={() => addAmount(v)}
                         className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
-                        {isSavings ? `${v}만` : (v >= 1000 ? `${v / 100}천만` : `${v}만`)}
+                        {(isSavings || isChecking) ? `${v}만` : (v >= 1000 ? `${v / 100}천만` : `${v}만`)}
                       </button>
                     ))}
                   </div>
                 </FormRow>
+
+                {/* 자동이체일 - 신청 선택 시 */}
+                {isRegularSavings && autoTransfer === 'yes' && (
+                  <FormRow label="자동이체일">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px]">매월</span>
+                      <select value={transferDay} onChange={e => setTransferDay(e.target.value)}
+                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white w-24">
+                        <option value="">선택</option>
+                        <option value="1">1일</option>
+                        <option value="2">2일</option>
+                        <option value="3">3일</option>
+                        <option value="4">4일</option>
+                        <option value="5">5일</option>
+                        <option value="6">6일</option>
+                        <option value="7">7일</option>
+                        <option value="8">8일</option>
+                        <option value="9">9일</option>
+                        <option value="10">10일</option>
+                        <option value="11">11일</option>
+                        <option value="12">12일</option>
+                        <option value="13">13일</option>
+                        <option value="14">14일</option>
+                        <option value="15">15일</option>
+                        <option value="16">16일</option>
+                        <option value="17">17일</option>
+                        <option value="18">18일</option>
+                        <option value="19">19일</option>
+                        <option value="20">20일</option>
+                        <option value="21">21일</option>
+                        <option value="22">22일</option>
+                        <option value="23">23일</option>
+                        <option value="24">24일</option>
+                        <option value="25">25일</option>
+                        <option value="26">26일</option>
+                        <option value="27">27일</option>
+                        <option value="28">28일</option>
+                        <option value="29">29일</option>
+                        <option value="30">30일</option>
+                        <option value="31">31일</option>
+                      </select>
+                      <span className="text-[13px]">이체</span>
+                    </div>
+                    <p className="text-[12px] text-kb-text-muted mt-1">* 29~31일은 해당 월 말일에 이체됩니다.</p>
+                  </FormRow>
+                )}
+
+                {/* 자동이체 출금계좌 - 신청 선택 시 */}
+                {isRegularSavings && autoTransfer === 'yes' && (
+                  <FormRow label="자동이체 출금계좌">
+                    <div className="flex items-center gap-2 mb-1">
+                      <select className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white">
+                        <option>AX풀뱅크</option>
+                      </select>
+                      <select value={transferAccount} onChange={e => setTransferAccount(e.target.value)}
+                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white flex-1 max-w-[280px]">
+                        <option value="">계좌 선택</option>
+                        <option value="acc1">531089-04-274618 (AX풀뱅크 입출금)</option>
+                      </select>
+                    </div>
+                    <p className="text-[12px]">출금가능금액 <span className="text-[#E05555] font-bold">1,007,807</span>원</p>
+                  </FormRow>
+                )}
 
                 {/* 쿠폰/포인트 */}
                 <FormRow label="AXful금융쿠폰/포인트리 사용">
@@ -490,28 +674,32 @@ export default function DepositJoinPage() {
                   </div>
                 </FormRow>
 
-                {/* 만기 해지방법 */}
-                <FormRow label="만기 해지방법">
-                  <select value={maturity} onChange={e => setMaturity(e.target.value)}
-                    className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white w-60">
-                    {MATURITY_OPTIONS.map(o => <option key={o}>{o}</option>)}
-                  </select>
-                  <p className="text-[12px] text-kb-text-muted mt-1">* 만기 해지방법은 만기일 전까지 변경할 수 있습니다.</p>
-                </FormRow>
+                {/* 만기 해지방법 - 입출금 상품은 숨김 */}
+                {!isChecking && (
+                  <FormRow label="만기 해지방법">
+                    <select value={maturity} onChange={e => setMaturity(e.target.value)}
+                      className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white w-60">
+                      {MATURITY_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                    </select>
+                    <p className="text-[12px] text-kb-text-muted mt-1">* 만기 해지방법은 만기일 전까지 변경할 수 있습니다.</p>
+                  </FormRow>
+                )}
 
-                {/* LMS */}
-                <FormRow label="상품만기알림(LMS) 서비스 신청">
-                  <div className="flex gap-6 mb-2">
-                    {([['yes', '예'], ['no', '아니오']] as const).map(([val, label]) => (
-                      <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
-                        <input type="radio" name="lms" checked={lms === val}
-                          onChange={() => setLms(val)} className="accent-[#5BC9A8]" />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                  <p className="text-[12px] text-kb-text-muted">LMS를 통해 예·적금상품의 만기를 사전 안내해드리는 서비스</p>
-                </FormRow>
+                {/* LMS - 입출금 상품은 숨김 */}
+                {!isChecking && (
+                  <FormRow label="상품만기알림(LMS) 서비스 신청">
+                    <div className="flex gap-6 mb-2">
+                      {([['yes', '예'], ['no', '아니오']] as const).map(([val, label]) => (
+                        <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
+                          <input type="radio" name="lms" checked={lms === val}
+                            onChange={() => setLms(val)} className="accent-[#5BC9A8]" />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-[12px] text-kb-text-muted">LMS를 통해 예·적금상품의 만기를 사전 안내해드리는 서비스</p>
+                  </FormRow>
+                )}
 
                 {/* 권유직원 */}
                 <FormRow label="권유직원선택">
@@ -572,11 +760,24 @@ export default function DepositJoinPage() {
                 <tbody>
                   {[
                     { label: '신규일자', value: '2026.05.25' },
-                    { label: '가입기간', value: `${maturityDate} (${period}개월)` },
-                    { label: isFreeStyleSavings ? '납입방식' : isRegularSavings ? '월 납입금액' : '가입금액',
+                    ...(id === 'axful-soldier' ? [
+                      { label: '군종', value: militaryBranch },
+                      { label: '군번', value: militaryId },
+                      { label: '입대일', value: enlistDate },
+                      { label: '전역예정일', value: dischargeDate },
+                    ] : []),
+                    ...(!isChecking ? [{ label: '가입기간', value: `${maturityDate} (${period}개월)` }] : []),
+                    ...(isRegularSavings ? [
+                      { label: '자동이체 여부', value: autoTransfer === 'yes' ? '신청' : '미신청' },
+                      ...(autoTransfer === 'yes' ? [
+                        { label: '자동이체일', value: `매월 ${transferDay}일` },
+                        { label: '자동이체 출금계좌', value: 'AX풀뱅크 531089-04-274618' },
+                      ] : []),
+                    ] : []),
+                    { label: isFreeStyleSavings ? '납입방식' : isRegularSavings ? '월 이체금액' : isChecking ? '초기 입금금액' : '가입금액',
                       value: isFreeStyleSavings ? '자유 납입 (1회 최소 1만원)' : `${amount}원` },
                     { label: '이자지급방법', value: isSavings ? '만기일시지급식' : '공기일시지급 근식' },
-                    { label: '적용금리', value: '2.1 + 0.75(%)' },
+                    { label: '적용금리', value: PRODUCT_RATES[id] ?? '연 2.4%' },
                     { label: '적용과세', value: taxExempt ? '비과세' : '일반' },
                     { label: '출금계좌', value: 'AX풀뱅크 531089-04-274618' },
                     { label: '상품만기알림(LMS) 서비스 신청', value: lms === 'yes' ? '신청' : '미신청' },
@@ -594,7 +795,7 @@ export default function DepositJoinPage() {
 
               <div className="text-[12px] text-kb-text-muted mb-5 space-y-1">
                 <p>※ 본 상품정보 교회를 이용하실 시 상품 이전을 참조하기 위한 것입니다. 자세한 내용은 <button className="text-kb-blue hover:underline">상품설명서 ›</button>를 참조하시기 바랍니다.</p>
-                <p>※ 가입 후에는 '계약서류' 관련 약관을 통해 상품설명문서를 확인할 수 있습니다.</p>
+                <p>※ 가입 후에는 &apos;계약서류&apos; 관련 약관을 통해 상품설명문서를 확인할 수 있습니다.</p>
               </div>
 
               {/* 계좌 비밀번호 확인 */}

@@ -21,6 +21,7 @@ public record ContractCreateRequest(
         Boolean isAutoRenewal,
         Boolean autoTransferEnabled,
         Integer autoTransferDay,
+        Long sourceAccountId,
         Long branchId,
         Long managerId,
         SavingType savingType,

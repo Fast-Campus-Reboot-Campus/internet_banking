@@ -54,6 +54,7 @@ public class ContractService {
                                    BigDecimal contractInterestRate, BigDecimal totalPreferentialRate,
                                    TaxBenefitType taxBenefitType, Boolean isAutoRenewal,
                                    Boolean autoTransferEnabled, Integer autoTransferDay,
+                                   Long sourceAccountId,
                                    Long branchId, Long managerId, SavingType savingType,
                                    String accountPassword) {
         Product product = productRepository.findById(productId)
@@ -104,6 +105,7 @@ public class ContractService {
                 .isAutoRenewal(isAutoRenewal != null && isAutoRenewal)
                 .autoTransferEnabled(autoTransferEnabled != null && autoTransferEnabled)
                 .autoTransferDay(autoTransferDay)
+                .sourceAccountId(sourceAccountId)
                 .build());
 
         // 비밀번호 BCrypt 해시 처리 — 평문 저장 금지
