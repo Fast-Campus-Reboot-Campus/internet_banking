@@ -15,7 +15,7 @@
 | "정기적금 금리 알려줘" | `FEATURE_RATE_GUIDE` | false | ✅ |
 | "가입 조건 알려줘" | `FEATURE_JOIN_CONDITION` | false | ✅ |
 | "상품 추천해줘" | `FEATURE_PRODUCT_GUIDE` | false | ✅ |
-| "안녕하세요 날씨 어때요" | `BP002_LLM` | true | ✅ |
+| "안녕하세요 날씨 어때요" | `STAFF_REQUEST` | true | ✅ |
 
 ---
 

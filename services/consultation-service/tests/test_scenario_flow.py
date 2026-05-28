@@ -48,7 +48,7 @@ class TestScenarioButtonFlow:
 
         response = send(service, session.chatbot_consultation_id, button_value="AGENT")
 
-        assert response.process_method == "BP002_LLM"
+        assert response.process_method == "STAFF_REQUEST"
         assert response.agent_transfer_required is True
 
 
@@ -109,7 +109,7 @@ class TestLlmFallback:
 
         response = send(service, session.chatbot_consultation_id, message="분류되지 않는 임의 문장")
 
-        assert response.process_method == "BP002_LLM"
+        assert response.process_method == "STAFF_REQUEST"
         assert response.agent_transfer_required is True
 
 
@@ -144,7 +144,7 @@ class TestChatbotIntentPersistence:
 
         intent_names = {intent.intent_name for intent in db.scalars(select(ChatbotIntent)).all()}
 
-        assert {"RATE_GUIDE", "LLM_FALLBACK", "AGENT_TRANSFER"}.issubset(intent_names)
+        assert {"RATE_GUIDE", "LLM_FALLBACK", "STAFF_REQUEST", "STAFF_ERROR_FALLBACK"}.issubset(intent_names)
 
     def test_classified_intent_id_is_saved(self, service, db):
         service.seed_default_scenario()

@@ -151,7 +151,7 @@ class ChatbotService:
             # ── 상담사 연결 버튼: LLM 호출 없이 바로 이관 ──────────────────────
             # (버그 수정: 이전 코드는 LLM 호출과 상담사 이관이 동시에 발생)
             if self._is_agent_node(next_node):
-                process_method = "BP002_LLM"
+                process_method = "STAFF_REQUEST"
                 process_code = CODE_PROCESS_LLM
                 response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
                 agent_transfer_required = True
@@ -184,13 +184,18 @@ class ChatbotService:
                 rag_ctx = self._build_rag_context(message or "")
                 llm_context = "\n\n".join(filter(None, [rag_ctx, history_ctx]))
 
-                llm_response = self._llm_adapter.answer(message or "", context=llm_context)
+                llm_result = self._llm_adapter.answer(message or "", context=llm_context)
+                if isinstance(llm_result, tuple):
+                    llm_response, llm_is_error = llm_result
+                else:
+                    llm_response = llm_result
+                    llm_is_error = self._is_llm_error(llm_response)
 
                 # LLM 실패 시(에러 메시지 반환) → 상담사 이관
-                if self._is_llm_error(llm_response):
-                    agent_intent = self._get_intent(chatbot.scenario_id, "AGENT_TRANSFER")
+                if llm_is_error:
+                    agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_ERROR_FALLBACK")
                     response_message = "죄송합니다, 일시적인 오류가 발생했습니다. 상담사에게 연결해 드리겠습니다."
-                    process_method = "AGENT_TRANSFER"
+                    process_method = "STAFF_ERROR_FALLBACK"
                     process_code = CODE_PROCESS_LLM
                     node_id = current_node_id or 0
                     agent_transfer_required = True
@@ -207,8 +212,8 @@ class ChatbotService:
                     if llm_intent:
                         chatbot.intent_id = llm_intent.intent_id
             else:
-                agent_intent = self._get_intent(chatbot.scenario_id, "AGENT_TRANSFER")
-                process_method = "BP002_LLM"
+                agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_REQUEST")
+                process_method = "STAFF_REQUEST"
                 process_code = CODE_PROCESS_LLM
                 response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
                 agent_transfer_required = True
@@ -1638,7 +1643,8 @@ class ChatbotService:
             {"intent_name": "FAQ",               "intent_desc": "자주 묻는 질문",             "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 6},
             {"intent_name": "CASH_FLOW_RECOMMEND","intent_desc": "현금흐름 기반 상품 추천",    "process_method_code_id": CODE_PROCESS_LLM,      "priority": 7},
             {"intent_name": "LLM_FALLBACK",      "intent_desc": "LLM 자유 응답",              "process_method_code_id": CODE_PROCESS_LLM,      "priority": 8},
-            {"intent_name": "AGENT_TRANSFER",    "intent_desc": "상담사 이관",                "process_method_code_id": CODE_PROCESS_LLM,      "priority": 9},
+            {"intent_name": "STAFF_REQUEST",     "intent_desc": "상담사 이관",                "process_method_code_id": CODE_PROCESS_LLM,      "priority": 9},
+            {"intent_name": "STAFF_ERROR_FALLBACK", "intent_desc": "오류로 인한 상담사 이관", "process_method_code_id": CODE_PROCESS_LLM,      "priority": 10},
         ]
         for spec in intent_specs:
             exists = self.db.scalars(

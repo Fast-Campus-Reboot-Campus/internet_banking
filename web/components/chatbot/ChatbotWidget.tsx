@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Bot, MessageCircle, Phone, Send, Sparkles, X } from 'lucide-react'
+import { Bot, MessageCircle, PackageSearch, Phone, Send, Sparkles, X } from 'lucide-react'
 import {
   ChatbotButton,
   ChatbotFeatureExecuteResponse,
@@ -42,6 +42,7 @@ const TEXT = {
   saving: '\uC800\uCD95',
   recommend: '\uC0C1\uD488 \uCD94\uCC9C',
   cashflow: '\uCD5C\uADFC \uD604\uAE08\uD750\uB984',
+  myProducts: '\uB0B4 \uC0C1\uD488',
   detail: '\uC0C1\uC138',
   won: '\uC6D0',
   count: '\uAC74',
@@ -229,6 +230,7 @@ export default function ChatbotWidget() {
   const quickActions = useMemo(
     () => [
       ...PRODUCT_CHOICES.map((choice) => ({ type: 'product_guide' as const, ...choice })),
+      { type: 'my_products' as const, label: TEXT.myProducts, message: '\uB0B4 \uC0C1\uD488 \uBCF4\uC5EC\uC918' },
       { type: 'recommend' as const, label: TEXT.recommend, message: '\uB0B4 \uD604\uAE08 \uD750\uB984\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC744 \uCD94\uCC9C\uD574\uC918' },
       { type: 'cashflow' as const, label: TEXT.cashflow, message: '\uCD5C\uADFC \uD604\uAE08 \uD750\uB984\uC744 \uC54C\uB824\uC918' },
       { type: 'consult' as const, label: '\uC0C1\uB2F4\uC6D0 \uC5F0\uACB0', message: '' },
@@ -317,7 +319,7 @@ export default function ChatbotWidget() {
     }
   }
 
-  async function handleFeature(featureCode: 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE', userText: string, replaceMessages = false) {
+  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE', userText: string, replaceMessages = false) {
     setLoading(true)
     if (replaceMessages) {
       setExpandedRow(null)
@@ -362,6 +364,10 @@ export default function ChatbotWidget() {
     }
     if (action.type === 'recommend') {
       await handleFeature('CASH_FLOW_RECOMMEND', action.message, true)
+      return
+    }
+    if (action.type === 'my_products') {
+      await handleFeature('MY_PRODUCTS', action.message, true)
       return
     }
     if (action.type === 'cashflow') {
@@ -560,11 +566,14 @@ export default function ChatbotWidget() {
                         ? 'border-[#C09B3A] bg-[#FFF8DA] text-[#7A5200] hover:bg-[#FFEFA7]'
                         : action.type === 'consult'
                           ? 'border-[#2D6A4F] bg-white text-[#2D6A4F] hover:bg-[#EAF4EF]'
+                          : action.type === 'my_products'
+                            ? 'border-[#2D6A4F] bg-[#EAF4EF] text-[#2D6A4F] hover:bg-[#D8EEE3]'
                           : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
                     }`}
                   >
                     {action.type === 'recommend' && <Sparkles className="h-3.5 w-3.5" />}
                     {action.type === 'consult' && <Phone className="h-3.5 w-3.5" />}
+                    {action.type === 'my_products' && <PackageSearch className="h-3.5 w-3.5" />}
                     {action.label}
                   </button>
                 ))}
@@ -603,7 +612,7 @@ export default function ChatbotWidget() {
           setPanelOffset({ x: 0, y: 0 })
           setOpen(true)
         }}
-        className="fixed bottom-6 right-6 z-[220] flex h-16 w-32 items-center justify-center gap-2 rounded-full bg-red-600 text-white shadow-xl transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+        className="fixed bottom-6 right-28 z-[320] flex h-16 w-32 items-center justify-center gap-2 rounded-full bg-red-600 text-white shadow-xl transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
         aria-label={TEXT.openChat}
       >
         <MessageCircle className="h-7 w-7" />
