@@ -7,6 +7,8 @@ import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.document.domain.LoanDocument;
+import com.bank.loan.document.docagent.DocAgentClient;
+import com.bank.loan.document.docagent.SubmissionResult;
 import com.bank.loan.document.dto.LoanDocumentListResponse;
 import com.bank.loan.document.dto.LoanDocumentResponse;
 import com.bank.loan.document.repository.LoanDocumentRepository;
@@ -25,11 +27,15 @@ public class LoanDocumentService {
 
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_TABLE_CD = "LOAN_DOCUMENT";
-    private static final String REASON_UPLOADED = "DOCUMENT_UPLOADED";
     private static final String REASON_DELETED  = "DOCUMENT_DELETED";
+
+    private static final String REASON_VERIFIED        = "DOCUMENT_VERIFIED";
+    private static final String REASON_NEEDS_RESUBMIT  = "DOCUMENT_NEEDS_RESUBMIT";
+    private static final String REASON_HOLD            = "DOCUMENT_HOLD";
 
     private final LoanDocumentRepository repository;
     private final LoanApplicationRepository applicationRepository;
+    private final DocAgentClient docAgentClient;
     private final CurrentActorProvider currentActor;
     private final StatusHistoryPublisher statusHistoryPublisher;
 
@@ -79,10 +85,24 @@ public class LoanDocumentService {
                 .submittedAt(OffsetDateTime.now())
                 .build());
 
+        SubmissionResult result = docAgentClient.submit(
+                application.getApplNo(),
+                docTypeCd,
+                String.valueOf(application.getProdId()),
+                file);
+
+        saved.applyVerifyResult(result.verifyStatus(), result.submissionId());
+
+        String reason = switch (result.verifyStatus()) {
+            case SubmissionResult.VERIFY_AUTO_PASS      -> REASON_VERIFIED;
+            case SubmissionResult.VERIFY_NEEDS_RESUBMIT -> REASON_NEEDS_RESUBMIT;
+            default                                     -> REASON_HOLD;
+        };
+
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_TABLE_CD, saved.getDocId(),
-                null, LoanDocument.STATUS_UPLOADED,
-                REASON_UPLOADED, "applId=" + application.getApplId() + ", docTypeCd=" + docTypeCd,
+                LoanDocument.STATUS_UPLOADED, saved.getDocStatusCd(),
+                reason, "submissionId=" + result.submissionId(),
                 currentActor.currentActorId()
         ));
 

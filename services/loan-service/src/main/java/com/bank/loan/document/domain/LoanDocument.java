@@ -82,4 +82,18 @@ public class LoanDocument extends BaseEntity {
     public void markDeleted() {
         this.docStatusCd = STATUS_DELETED;
     }
+
+    /** doc-agent 검증 결과 반영. submissionId 는 docUrl 에 보존. */
+    public void applyVerifyResult(String verifyStatus, String submissionId) {
+        this.docUrl        = submissionId;
+        this.verifyResultCd = verifyStatus;
+        switch (verifyStatus) {
+            case "AUTO_PASS" -> {
+                this.docStatusCd = STATUS_VERIFIED;
+                this.verifiedAt  = OffsetDateTime.now();
+            }
+            case "NEEDS_RESUBMIT" -> this.docStatusCd = STATUS_REJECTED;
+            // HOLD: STATUS_UPLOADED 유지
+        }
+    }
 }
