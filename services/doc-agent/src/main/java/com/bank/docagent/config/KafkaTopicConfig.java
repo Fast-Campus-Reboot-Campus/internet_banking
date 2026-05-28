@@ -13,4 +13,5 @@ public class KafkaTopicConfig {
     @Bean public NewTopic extracted()          { return TopicBuilder.name("doc-agent.extracted").partitions(3).replicas(1).build(); }
     @Bean public NewTopic verified()           { return TopicBuilder.name("doc-agent.verified").partitions(3).replicas(1).build(); }
     @Bean public NewTopic routed()             { return TopicBuilder.name("doc-agent.routed").partitions(3).replicas(1).build(); }
+    @Bean public NewTopic fraudAudit()         { return TopicBuilder.name("doc-agent.fraud.audit").partitions(3).replicas(1).build(); }
 }
