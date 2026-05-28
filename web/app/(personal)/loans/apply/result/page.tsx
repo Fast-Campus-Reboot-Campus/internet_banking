@@ -239,6 +239,12 @@ function LoanResultContent() {
           </Link>
         )}
         {applId && !isRejected && (
+          <Link href={`/loans/apply/${applId}/guarantor`}
+            className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+            보증인 동의
+          </Link>
+        )}
+        {applId && !isRejected && (
           <Link href={`/loans/apply/${applId}/documents`}
             className="px-10 py-3 border border-kb-text text-[14px] font-medium text-kb-text hover:bg-kb-beige-light transition-colors">
             서류 제출

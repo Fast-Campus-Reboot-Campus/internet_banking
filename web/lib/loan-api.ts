@@ -143,11 +143,24 @@ export const loanApplicationApi = {
   getDocuments: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/documents`),
 
-  submitGuarantorAgreement: (applId: number, body: object) =>
-    api.post<any>(`/api/loan-applications/${applId}/guarantor-agreements`, body),
-
   getReview: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/review`),
+};
+
+// ─── 보증인 동의 ───────────────────────────────────────────────
+
+export const guarantorApi = {
+  list: (applId: number) =>
+    api.get<any>(`/api/loan-applications/${applId}/guarantor-agreements`),
+
+  register: (applId: number, body: object) =>
+    api.post<any>(`/api/loan-applications/${applId}/guarantor-agreements`, body),
+
+  sign: (applId: number, gagrId: number, body: { signedDocUrl: string; signedDocHash: string }) =>
+    api.post<any>(`/api/loan-applications/${applId}/guarantor-agreements/${gagrId}/sign`, body),
+
+  cancel: (applId: number, gagrId: number, body?: { cancelReasonCd?: string; cancelRemark?: string }) =>
+    api.post<any>(`/api/loan-applications/${applId}/guarantor-agreements/${gagrId}/cancel`, body ?? {}),
 };
 
 // ─── 담보 ─────────────────────────────────────────────────────
