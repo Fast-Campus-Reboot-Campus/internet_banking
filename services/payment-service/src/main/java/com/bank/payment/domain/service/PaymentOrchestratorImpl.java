@@ -455,9 +455,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건 + FAILED + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, clearingNo,
-                "KFTC_REJECTION", "KFTC_REJECTED", "EXTERNAL_REJECTION");
+        ReversalContext ctx = new ReversalContext(
+                rejectCode, rejectMessage, clearingNo,
+                "KFTC_REJECTION", "KFTC_REJECTED", "EXTERNAL_REJECTION",
+                "SYSTEM", null, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F3: BOK 거절 보상 ────────────────────────────────────────────────────
@@ -510,8 +512,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건 + FAILED + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteBokRejectReversal(
-                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, bokReferenceNo);
+        ReversalContext ctx = new ReversalContext(
+                rejectCode, rejectMessage, bokReferenceNo,
+                "BOK_REJECTION", "BOK_REJECTED", "EXTERNAL_REJECTION",
+                "SYSTEM", null, "BOK");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F4: KFTC 송신실패 자동보상 ──────────────────────────────────────────────
@@ -569,10 +574,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
+        ReversalContext ctx = new ReversalContext(
                 "PUBLISH_FAILURE", rejectMsg, null,
-                "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE");
+                "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE",
+                "SYSTEM", null, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F4 BOK: 송신실패 자동보상 ────────────────────────────────────────────────
@@ -629,13 +635,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         }
 
         // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
-        // updateRejected는 piId WHERE — bokReferenceNo 불필요(null 전달)
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteBokRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
+        ReversalContext ctx = new ReversalContext(
                 "PUBLISH_FAILURE", rejectMsg, null,
                 "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE",
-                "SYSTEM", null);
+                "SYSTEM", null, "BOK");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F7: KFTC 정산실패 자동보상 ──────────────────────────────────────────────
@@ -704,10 +709,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
+        ReversalContext ctx = new ReversalContext(
                 "SETTLEMENT_FAILURE", rejectMsg, clearingNo,
-                "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE");
+                "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE",
+                "SYSTEM", null, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F7 BOK: 정산실패 자동보상 ────────────────────────────────────────────────
@@ -774,16 +780,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteBokRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
-                "SETTLEMENT_FAILURE",   // rejectCode
-                rejectMsg,              // rejectMessage
-                bokReferenceNo,         // bokReferenceNo (BST updateRejected WHERE piId 기준, 참조용)
-                "SETTLEMENT_FAILURE",   // reversalReason
-                "SYSTEM_ERROR",         // failureCategory
-                "SETTLEMENT_FAILURE",   // outboxFailureCategory
-                "SYSTEM",               // triggeredBy
-                null);                  // operatorId
+        ReversalContext ctx = new ReversalContext(
+                "SETTLEMENT_FAILURE", rejectMsg, bokReferenceNo,
+                "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE",
+                "SYSTEM", null, "BOK");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F6-Ⅱ-2: 운영자 강제취소 ──────────────────────────────────────────────────
@@ -826,16 +827,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(OPERATOR) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
-                "OPERATOR",     // rejectCode (CT reject_code 및 status_history reason_code)
-                reason,         // rejectMessage (운영자 사유)
-                null,           // clearingNo (CT는 piId로 조회하므로 불사용)
-                "OPERATOR",     // reversalReason (역분개4 reversal_reason)
-                "SYSTEM_ERROR", // failureCategory (PI.failure_category)
-                "OPERATOR",     // outboxFailureCategory (Outbox payload)
-                "OPERATOR",     // triggeredBy (REVERSING→FAILED 이력 triggered_by)
-                operatorId);    // operatorId
+        ReversalContext ctx = new ReversalContext(
+                "OPERATOR", reason, null,
+                "OPERATOR", "SYSTEM_ERROR", "OPERATOR",
+                "OPERATOR", operatorId, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     /**
