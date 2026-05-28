@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Bot, MessageCircle, Send, Sparkles, X } from 'lucide-react'
+import { Bot, MessageCircle, Phone, Send, Sparkles, X } from 'lucide-react'
 import {
   ChatbotButton,
   ChatbotFeatureExecuteResponse,
@@ -17,6 +17,7 @@ import {
   sendChatbotMessage,
   startChatbotConsultation,
 } from '@/lib/consultation-api'
+import ConsultModal from '@/components/layout/ConsultModal'
 
 type ChatMessage = {
   id: string
@@ -205,6 +206,7 @@ function addFeatureResult(result: ChatbotFeatureExecuteResponse): ChatMessage {
 export default function ChatbotWidget() {
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
+  const [showConsult, setShowConsult] = useState(false)
   const [loading, setLoading] = useState(false)
   const [input, setInput] = useState('')
   const [customerNo, setCustomerNo] = useState(DEFAULT_CUSTOMER_NO)
@@ -541,6 +543,14 @@ export default function ChatbotWidget() {
             </div>
 
             <div className="border-t border-kb-border bg-white px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setShowConsult(true)}
+                className="mb-3 flex w-full items-center justify-center gap-2 rounded border border-[#2D6A4F] py-2 text-xs font-bold text-[#2D6A4F] hover:bg-[#EAF4EF] transition-colors"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                상담원 연결
+              </button>
               <div className="mb-3 grid grid-cols-3 gap-2">
                 {quickActions.map((action) => (
                   <button
@@ -586,6 +596,7 @@ export default function ChatbotWidget() {
 
   return (
     <>
+      {showConsult && <ConsultModal onClose={() => setShowConsult(false)} />}
       <button
         type="button"
         onClick={() => {
