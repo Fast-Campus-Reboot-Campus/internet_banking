@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import InquirySidebar from '@/components/inquiry/InquirySidebar'
-import { MOCK_ACCOUNTS, MOCK_TRANSACTIONS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, fetchTransactions, DepositViewAccount, DepositTransaction } from '@/lib/deposit-api'
 
 const PERIOD_BUTTONS = ['당일', '1주일', '1개월', '3개월', '6개월', '1년']
 const MONTH_BUTTONS = ['05월', '04월', '03월']
@@ -20,21 +21,48 @@ export default function TransactionsPage() {
   const [activeTab, setActiveTab] = useState('간편조회')
   const [searched, setSearched] = useState(false)
   const [calSearched, setCalSearched] = useState(false)
-  const [expandedTxId, setExpandedTxId] = useState<string | null>(null)
+  const [expandedTxId, setExpandedTxId] = useState<number | null>(null)
   const [txType, setTxType] = useState<'전체' | '입금' | '출금'>('전체')
   const [sortOrder, setSortOrder] = useState<'최근' | '과거'>('최근')
   const [memoFilter, setMemoFilter] = useState('')
   const [minAmount, setMinAmount] = useState('')
   const [maxAmount, setMaxAmount] = useState('')
   const [senderFilter, setSenderFilter] = useState('')
+  const [accounts, setAccounts] = useState<DepositViewAccount[]>([])
+  const [allTransactions, setAllTransactions] = useState<DepositTransaction[]>([])
+  const [loadingAccounts, setLoadingAccounts] = useState(true)
+
+  useEffect(() => {
+    const customerId = getCurrentDepositCustomerId()
+    async function loadData() {
+      try {
+        const accs = await fetchDepositAccountViewModels(customerId)
+        setAccounts(accs)
+      } catch {
+        setAccounts([])
+      } finally {
+        setLoadingAccounts(false)
+      }
+      try {
+        const txs = await fetchTransactions({ customerId })
+        setAllTransactions(txs)
+      } catch {
+        setAllTransactions([])
+      }
+    }
+    loadData()
+  }, [])
 
   const txs = selectedAccount
-    ? MOCK_TRANSACTIONS.filter(t => t.accountId === selectedAccount)
+    ? allTransactions.filter(t => {
+        const acc = accounts.find(a => a.id === selectedAccount)
+        return acc?.number === t.accountNumber
+      })
     : []
 
-  const totalDeposit  = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)
-  const totalWithdraw = txs.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0)
-  const selectedAcc   = MOCK_ACCOUNTS.find(a => a.id === selectedAccount)
+  const totalDeposit  = txs.filter(t => t.directionType === 'IN').reduce((s, t) => s + Number(t.amount), 0)
+  const totalWithdraw = txs.filter(t => t.directionType === 'OUT').reduce((s, t) => s + Number(t.amount), 0)
+  const selectedAcc   = accounts.find(a => a.id === selectedAccount)
 
   function handleSearch() { setSearched(true) }
 
@@ -56,8 +84,9 @@ export default function TransactionsPage() {
   /* 달력으로 보기 – 해당 월 거래 */
   const calTxs = (() => {
     if (!calSearched || !calAccount) return []
-    const prefix = `${year}.${month}`
-    return MOCK_TRANSACTIONS.filter(t => t.accountId === calAccount && t.datetime.startsWith(prefix))
+    const acc = accounts.find(a => a.id === calAccount)
+    const prefix = `${year}-${month}`
+    return allTransactions.filter(t => acc?.number === t.accountNumber && t.transactionAt.startsWith(prefix))
   })()
 
   /* 달력 그리드 계산 */
@@ -71,8 +100,8 @@ export default function TransactionsPage() {
 
   function txsOnDay(day: number) {
     const d = String(day).padStart(2,'0')
-    const key = `${year}.${month}.${d}`
-    return calTxs.filter(t => t.datetime.startsWith(key))
+    const key = `${year}-${month}-${d}`
+    return calTxs.filter(t => t.transactionAt.startsWith(key))
   }
 
   return (
@@ -152,7 +181,9 @@ export default function TransactionsPage() {
                           className="border border-kb-border px-3 py-1.5 text-[13px] w-[340px]"
                         >
                           <option value="">－선택－</option>
-                          {MOCK_ACCOUNTS.map(a => (
+                          {loadingAccounts ? (
+                            <option disabled>loading...</option>
+                          ) : accounts.map(a => (
                             <option key={a.id} value={a.id}>
                               {a.number} : {a.name}
                             </option>
@@ -216,8 +247,8 @@ export default function TransactionsPage() {
                             const day = weekIdx * 7 + dayIdx - firstDay + 1
                             const valid = day >= 1 && day <= daysInMonth
                             const dayTxs = valid ? txsOnDay(day) : []
-                            const deposits  = dayTxs.filter(t => t.amount > 0)
-                            const withdraws = dayTxs.filter(t => t.amount < 0)
+                            const deposits  = dayTxs.filter(t => t.directionType === 'IN')
+                            const withdraws = dayTxs.filter(t => t.directionType === 'OUT')
                             return (
                               <td key={dayIdx}
                                 className={`border border-kb-border align-top p-1.5 h-20 text-[11px] ${
@@ -227,10 +258,10 @@ export default function TransactionsPage() {
                                   <>
                                     <p className="font-semibold mb-1">{day}</p>
                                     {deposits.map(t => (
-                                      <p key={t.id} className="text-blue-600 truncate">{formatNumber(t.amount)}</p>
+                                      <p key={t.transactionId} className="text-blue-600 truncate">{formatNumber(Number(t.amount))}</p>
                                     ))}
                                     {withdraws.map(t => (
-                                      <p key={t.id} className="text-red-500 truncate">{formatNumber(Math.abs(t.amount))}</p>
+                                      <p key={t.transactionId} className="text-red-500 truncate">{formatNumber(Number(t.amount))}</p>
                                     ))}
                                   </>
                                 )}
@@ -269,7 +300,9 @@ export default function TransactionsPage() {
                           className="border border-kb-border px-3 py-1.5 text-[13px] w-[340px]"
                         >
                           <option value="">－선택－</option>
-                          {MOCK_ACCOUNTS.map(a => (
+                          {loadingAccounts ? (
+                            <option disabled>loading...</option>
+                          ) : accounts.map(a => (
                             <option key={a.id} value={a.id}>
                               {a.number} : {a.name}
                             </option>
@@ -447,8 +480,8 @@ export default function TransactionsPage() {
                   )}
 
                   <div className="flex justify-between text-[13px] text-kb-text-muted mb-3">
-                    <span>* 총 입금금액({txs.filter(t=>t.amount>0).length}건) : <span className="text-kb-text font-semibold">{formatNumber(totalDeposit)}원</span></span>
-                    <span>* 총 출금금액({txs.filter(t=>t.amount<0).length}건) : <span className="text-kb-text font-semibold">{formatNumber(totalWithdraw)}원</span></span>
+                    <span>* 총 입금금액({txs.filter(t=>t.directionType==='IN').length}건) : <span className="text-kb-text font-semibold">{formatNumber(totalDeposit)}원</span></span>
+                    <span>* 총 출금금액({txs.filter(t=>t.directionType==='OUT').length}건) : <span className="text-kb-text font-semibold">{formatNumber(totalWithdraw)}원</span></span>
                   </div>
 
                   <table className="w-full border-collapse text-[12px]">
@@ -467,75 +500,67 @@ export default function TransactionsPage() {
                           </td>
                         </tr>
                       ) : txs.map(tx => {
-                        const isExpanded = expandedTxId === tx.id
+                        const isExpanded = expandedTxId === tx.transactionId
+                        const isIn = tx.directionType === 'IN'
+                        const amt = Number(tx.amount)
                         return (
-                          <Fragment key={tx.id}>
+                          <Fragment key={tx.transactionId}>
                             <tr
-                              onClick={() => setExpandedTxId(isExpanded ? null : tx.id)}
+                              onClick={() => setExpandedTxId(isExpanded ? null : tx.transactionId)}
                               className={`cursor-pointer transition-colors ${isExpanded ? 'bg-kb-beige-light' : 'hover:bg-kb-beige-light'}`}
                             >
                               <td className="border border-kb-border px-2 py-2 text-center" onClick={e => e.stopPropagation()}>
                                 <input type="checkbox" />
                               </td>
-                              <td className="border border-kb-border px-2 py-2 text-center">{tx.datetime}</td>
-                              <td className="border border-kb-border px-2 py-2">{tx.description}</td>
-                              <td className="border border-kb-border px-2 py-2 text-center">{tx.sender ?? ''}</td>
+                              <td className="border border-kb-border px-2 py-2 text-center">{tx.transactionAt}</td>
+                              <td className="border border-kb-border px-2 py-2">{tx.transactionSummary || tx.transactionType}</td>
+                              <td className="border border-kb-border px-2 py-2 text-center"></td>
                               <td className="border border-kb-border px-2 py-2 text-right text-kb-red">
-                                {tx.amount < 0 ? formatNumber(Math.abs(tx.amount)) : ''}
+                                {!isIn ? formatNumber(amt) : ''}
                               </td>
                               <td className="border border-kb-border px-2 py-2 text-right text-kb-blue">
-                                {tx.amount > 0 ? formatNumber(tx.amount) : ''}
+                                {isIn ? formatNumber(amt) : ''}
                               </td>
-                              <td className="border border-kb-border px-2 py-2 text-right">{formatNumber(tx.balance)}</td>
-                              <td className="border border-kb-border px-2 py-2 text-center">{tx.memo ?? ''}</td>
-                              <td className="border border-kb-border px-2 py-2 text-center">{tx.branch ?? ''}</td>
+                              <td className="border border-kb-border px-2 py-2 text-right">-</td>
+                              <td className="border border-kb-border px-2 py-2 text-center">{tx.transactionMemo ?? ''}</td>
+                              <td className="border border-kb-border px-2 py-2 text-center"></td>
                             </tr>
                             {isExpanded && (
-                              <tr key={`${tx.id}-detail`} className="bg-[#F5F8FF]">
+                              <tr key={`${tx.transactionId}-detail`} className="bg-[#F5F8FF]">
                                 <td colSpan={9} className="border border-kb-border px-6 py-4">
                                   <div className="flex gap-10 text-[12px]">
                                     <div className="space-y-1.5">
                                       <div className="flex gap-3">
                                         <span className="text-kb-text-muted w-20">거래일시</span>
-                                        <span className="text-kb-text font-medium">{tx.datetime}</span>
+                                        <span className="text-kb-text font-medium">{tx.transactionAt}</span>
                                       </div>
                                       <div className="flex gap-3">
                                         <span className="text-kb-text-muted w-20">거래구분</span>
-                                        <span className={tx.amount > 0 ? 'text-kb-blue font-medium' : 'text-kb-red font-medium'}>
-                                          {tx.amount > 0 ? '입금' : '출금'}
+                                        <span className={isIn ? 'text-kb-blue font-medium' : 'text-kb-red font-medium'}>
+                                          {isIn ? '입금' : '출금'}
                                         </span>
                                       </div>
                                       <div className="flex gap-3">
                                         <span className="text-kb-text-muted w-20">거래금액</span>
                                         <span className="text-kb-text font-medium">
-                                          {formatNumber(Math.abs(tx.amount))}원
+                                          {formatNumber(amt)}원
                                         </span>
-                                      </div>
-                                      <div className="flex gap-3">
-                                        <span className="text-kb-text-muted w-20">거래 후 잔액</span>
-                                        <span className="text-kb-text font-medium">{formatNumber(tx.balance)}원</span>
                                       </div>
                                     </div>
                                     <div className="space-y-1.5">
                                       <div className="flex gap-3">
                                         <span className="text-kb-text-muted w-20">적요</span>
-                                        <span className="text-kb-text">{tx.description}</span>
+                                        <span className="text-kb-text">{tx.transactionSummary || tx.transactionType}</span>
                                       </div>
-                                      {tx.sender && (
-                                        <div className="flex gap-3">
-                                          <span className="text-kb-text-muted w-20">보낸분/받는분</span>
-                                          <span className="text-kb-text">{tx.sender}</span>
-                                        </div>
-                                      )}
-                                      {tx.memo && (
+                                      {tx.transactionMemo && (
                                         <div className="flex gap-3">
                                           <span className="text-kb-text-muted w-20">송금메모</span>
-                                          <span className="text-kb-text">{tx.memo}</span>
+                                          <span className="text-kb-text">{tx.transactionMemo}</span>
                                         </div>
                                       )}
                                       <div className="flex gap-3">
-                                        <span className="text-kb-text-muted w-20">거래점</span>
-                                        <span className="text-kb-text">{tx.branch ?? '-'}</span>
+                                        <span className="text-kb-text-muted w-20">거래유형</span>
+                                        <span className="text-kb-text">{tx.transactionType}</span>
                                       </div>
                                     </div>
                                     <div className="ml-auto flex items-start gap-2 pt-1">

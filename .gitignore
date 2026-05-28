@@ -23,6 +23,7 @@ Thumbs.db
 .env
 .env.local
 *.local
+*.bak
 .venv/
 venv/
 env/
@@ -30,6 +31,9 @@ env/
 # Logs
 *.log
 logs/
+
+# Local service launchers
+services/consultation-service/start-*.bat
 
 # Java
 *.class

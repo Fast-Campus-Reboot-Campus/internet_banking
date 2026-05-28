@@ -5,6 +5,7 @@ import com.bank.deposit.dto.request.AccountAliasUpdateRequest;
 import com.bank.deposit.dto.request.AccountCreateRequest;
 import com.bank.deposit.dto.request.AccountLimitUpdateRequest;
 import com.bank.deposit.dto.request.AccountStatusUpdateRequest;
+import com.bank.deposit.security.AuthenticatedCustomerValidator;
 import com.bank.deposit.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,16 +21,23 @@ import java.util.List;
 public class AccountController {
 
     private final AccountService accountService;
+    private final AuthenticatedCustomerValidator customerValidator;
 
     @PostMapping
-    public ResponseEntity<Account> create(@Valid @RequestBody AccountCreateRequest req) {
+    public ResponseEntity<Account> create(
+            @RequestHeader(value = AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, required = false) String authenticatedCustomerId,
+            @Valid @RequestBody AccountCreateRequest req) {
+        customerValidator.validate(authenticatedCustomerId, req.customerId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(accountService.create(req.customerId(), req.contractId(), req.accountType(),
                         req.savingType(), req.accountAlias(), req.accountPassword()));
     }
 
     @GetMapping
-    public List<Account> list(@RequestParam String customerId) {
+    public List<Account> list(
+            @RequestHeader(value = AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, required = false) String authenticatedCustomerId,
+            @RequestParam String customerId) {
+        customerValidator.validate(authenticatedCustomerId, customerId);
         return accountService.findByCustomer(customerId);
     }
 

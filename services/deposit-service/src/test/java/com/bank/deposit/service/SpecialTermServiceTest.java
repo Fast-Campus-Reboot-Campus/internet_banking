@@ -4,14 +4,17 @@ import com.bank.deposit.domain.entity.SpecialTerm;
 import com.bank.deposit.domain.enums.SpecialTermStatus;
 import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.repository.SpecialTermRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,11 +28,16 @@ import static org.mockito.BDDMockito.then;
 @DisplayName("SpecialTermService")
 class SpecialTermServiceTest {
 
-    @InjectMocks
     private SpecialTermService specialTermService;
 
     @Mock
     private SpecialTermRepository specialTermRepository;
+
+    @BeforeEach
+    void setUp() {
+        Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        specialTermService = new SpecialTermService(specialTermRepository, clock);
+    }
 
     @Nested
     @DisplayName("특약 목록 조회")
@@ -138,6 +146,7 @@ class SpecialTermServiceTest {
         SpecialTerm result = specialTermService.changeStatus(1L, SpecialTermStatus.INACTIVE);
 
         assertThat(result.getStatus()).isEqualTo(SpecialTermStatus.INACTIVE);
+        assertThat(result.getStatusChangedAt()).isEqualTo("20260101");
     }
 
     // ── 픽스처 ──────────────────────────────────────────────────────────────
