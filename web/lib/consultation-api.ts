@@ -72,3 +72,71 @@ export async function executeChatbotFeature(
   )
   return data
 }
+
+// ── 상담사 채팅 ──────────────────────────────────────────────────────────────
+
+export type AgentQueueItem = {
+  chat_consultation_id: number
+  consultation_id: number
+  customer_no: string
+  chatbot_consultation_id: number | null
+  waiting_since: string | null
+}
+
+export type ChatMessage = {
+  message_id: number
+  sender_type: 'USER' | 'BOT' | 'AGENT'
+  message: string
+  sent_at: string | null
+  read_yn: string
+}
+
+export type ChatConsultation = {
+  chat_consultation_id: number
+  consultation_id: number
+  chatbot_consultation_id: number | null
+  status: 'WAITING' | 'CONNECTED' | 'ENDED'
+  employee_id: number | null
+  agent_requested_at: string | null
+  agent_connected_at: string | null
+  chat_started_at: string | null
+  chat_ended_at: string | null
+  active_yn: string
+  satisfaction_score: number | null
+}
+
+export async function getAgentQueue(): Promise<AgentQueueItem[]> {
+  const { data } = await consultationApi.get<AgentQueueItem[]>('/chat/queue')
+  return data
+}
+
+export async function connectAgent(chatConsultationId: number, employeeId: number): Promise<ChatConsultation> {
+  const { data } = await consultationApi.post<ChatConsultation>(
+    `/chat/consultations/${chatConsultationId}/connect`,
+    { employee_id: employeeId },
+  )
+  return data
+}
+
+export async function sendChatMessage(chatConsultationId: number, message: string, senderType: 'USER' | 'AGENT'): Promise<ChatMessage> {
+  const { data } = await consultationApi.post<ChatMessage>(
+    `/chat/consultations/${chatConsultationId}/messages`,
+    { message, sender_type: senderType },
+  )
+  return data
+}
+
+export async function getChatMessages(chatConsultationId: number): Promise<ChatMessage[]> {
+  const { data } = await consultationApi.get<ChatMessage[]>(
+    `/chat/consultations/${chatConsultationId}/messages`,
+  )
+  return data
+}
+
+export async function endChat(chatConsultationId: number, satisfactionScore?: number): Promise<ChatConsultation> {
+  const { data } = await consultationApi.post<ChatConsultation>(
+    `/chat/consultations/${chatConsultationId}/end`,
+    { satisfaction_score: satisfactionScore ?? null },
+  )
+  return data
+}
