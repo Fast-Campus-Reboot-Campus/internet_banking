@@ -28,6 +28,9 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
     // F8 계좌: B-4 입금 시 시스템 장애 시뮬레이션 (race condition)
     private static final String F8_FAIL_RECEIVER = "12345678909999";
 
+    // 케이스 3: 한도초과 트리거 — perTxLimit=100원으로 설정, 1000원 이상 이체 시 LIMIT_EXCEEDED
+    private static final String LIMIT_SENDER = "99990000000001";
+
     @Override
     public DepositResponse<BalanceInquiryData> getBalance(String accountNo) {
         // BOK_SENDER(11011100000) 및 기존 SENDER(12345678901234): 20억 — 10억 BOK + 100만 KFTC 둘 다 통과
@@ -48,10 +51,20 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
 
     @Override
     public DepositResponse<LimitInquiryData> getLimit(String accountNo, String date) {
+        // 케이스 3: LIMIT_SENDER — perTxLimit/daily/monthly 모두 100원
+        //           → 1000원 이상 이체 시 1회 한도 초과 → LIMIT_EXCEEDED
+        if (LIMIT_SENDER.equals(accountNo)) {
+            LimitInquiryData data = new LimitInquiryData(
+                    accountNo, "2026-05-27",
+                    100L, 0L, 100L,
+                    100L, 0L, 100L,
+                    100L, "PERSONAL_RESTRICTED");
+            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
+        }
         // perTxLimit 20억: 10억 BOK 단건 통과. 100만 KFTC는 100만 < 20억이라 회귀 없음.
         // dailyLimit/monthlyLimit도 20억: 10억 단건 일·월 한도 안 걸림.
         LimitInquiryData data = new LimitInquiryData(
-                accountNo, "2026-05-16",
+                accountNo, "2026-05-27",
                 2000000000L, 0L, 2000000000L,
                 2000000000L, 0L, 2000000000L,
                 2000000000L, "PERSONAL_NORMAL");
