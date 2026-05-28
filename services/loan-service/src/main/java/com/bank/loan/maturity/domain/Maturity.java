@@ -91,4 +91,9 @@ public class Maturity extends BaseEntity {
         this.lastExtendedDate = today;
         if (typeCd != null) this.extensionTypeCd = typeCd;
     }
+
+    /** 만기 도래 일배치: ACTIVE → MATURED 전이. */
+    public void markMatured() {
+        this.matStatusCd = STATUS_MATURED;
+    }
 }

@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { MOCK_ACCOUNTS, MOCK_TRANSACTIONS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, fetchTransactions, DepositTransaction, DepositViewAccount } from '@/lib/deposit-api'
 
 const QUICK_ACTIONS = [
   { label: '계좌이체', href: '/transfer/account', icon: '💸' },
@@ -14,16 +15,34 @@ const QUICK_ACTIONS = [
 export default function DashboardPage() {
   const [userName, setUserName] = useState<string | null>(null)
   const [balanceVisible, setBalanceVisible] = useState(true)
+  const [accounts, setAccounts] = useState<DepositViewAccount[]>([])
+  const [recentTx, setRecentTx] = useState<DepositTransaction[]>([])
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user')
       if (stored) setUserName(JSON.parse(stored).name)
     } catch {}
+
+    const customerId = getCurrentDepositCustomerId()
+    async function loadData() {
+      try {
+        const accs = await fetchDepositAccountViewModels(customerId)
+        setAccounts(accs)
+      } catch {
+        setAccounts([])
+      }
+      try {
+        const txs = await fetchTransactions({ customerId })
+        setRecentTx(txs.slice(0, 5))
+      } catch {
+        setRecentTx([])
+      }
+    }
+    loadData()
   }, [])
 
-  const totalBalance = MOCK_ACCOUNTS.reduce((s, a) => s + a.balance, 0)
-  const recentTx = MOCK_TRANSACTIONS.slice(0, 5)
+  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
 
   const now = new Date()
   const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
@@ -66,7 +85,7 @@ export default function DashboardPage() {
             {balanceVisible ? formatNumber(totalBalance) : '●●●●●●●'}원
           </p>
           <div className="border-t border-kb-border pt-3 space-y-2">
-            {MOCK_ACCOUNTS.map(acc => (
+            {accounts.map(acc => (
               <div key={acc.id} className="flex justify-between text-[13px]">
                 <span className="text-kb-text-muted truncate max-w-[130px]">{acc.name}</span>
                 <span className="font-medium text-kb-text">
@@ -98,7 +117,7 @@ export default function DashboardPage() {
 
           {/* 계좌 요약 */}
           <div className="border border-kb-border-dark rounded-xl divide-y divide-kb-border overflow-hidden">
-            {MOCK_ACCOUNTS.map(acc => (
+            {accounts.map(acc => (
               <div key={acc.id} className="flex items-center justify-between px-5 py-4">
                 <div>
                   <p className="text-[13px] font-bold text-kb-text">{acc.name}</p>
@@ -142,24 +161,34 @@ export default function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {recentTx.map(tx => (
-              <tr key={tx.id} className="hover:bg-kb-beige-light transition-colors">
-                <td className="border border-kb-border px-4 py-2 text-kb-text-muted whitespace-nowrap">{tx.datetime}</td>
-                <td className="border border-kb-border px-4 py-2 text-kb-text-body">
-                  {tx.description}
-                  {tx.memo && <span className="text-[11px] text-kb-text-muted ml-2">[{tx.memo}]</span>}
-                </td>
-                <td className="border border-kb-border px-4 py-2 text-right text-kb-red font-medium">
-                  {tx.amount < 0 ? formatNumber(Math.abs(tx.amount)) : ''}
-                </td>
-                <td className="border border-kb-border px-4 py-2 text-right text-kb-blue font-medium">
-                  {tx.amount > 0 ? formatNumber(tx.amount) : ''}
-                </td>
-                <td className="border border-kb-border px-4 py-2 text-right text-kb-text">
-                  {formatNumber(tx.balance)}
+            {recentTx.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="border border-kb-border px-4 py-6 text-center text-kb-text-muted">
+                  거래내역이 없습니다.
                 </td>
               </tr>
-            ))}
+            ) : recentTx.map(tx => {
+              const amt = Number(tx.amount)
+              const isOut = tx.directionType === 'OUT'
+              return (
+                <tr key={tx.transactionId} className="hover:bg-kb-beige-light transition-colors">
+                  <td className="border border-kb-border px-4 py-2 text-kb-text-muted whitespace-nowrap">{tx.transactionAt}</td>
+                  <td className="border border-kb-border px-4 py-2 text-kb-text-body">
+                    {tx.transactionSummary || tx.transactionType}
+                    {tx.transactionMemo && <span className="text-[11px] text-kb-text-muted ml-2">[{tx.transactionMemo}]</span>}
+                  </td>
+                  <td className="border border-kb-border px-4 py-2 text-right text-kb-red font-medium">
+                    {isOut ? formatNumber(amt) : ''}
+                  </td>
+                  <td className="border border-kb-border px-4 py-2 text-right text-kb-blue font-medium">
+                    {!isOut ? formatNumber(amt) : ''}
+                  </td>
+                  <td className="border border-kb-border px-4 py-2 text-right text-kb-text">
+                    -
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </section>

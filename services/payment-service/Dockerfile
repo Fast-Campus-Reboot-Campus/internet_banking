@@ -10,6 +10,9 @@ COPY build.gradle settings.gradle gradle.properties ./
 COPY common/build.gradle common/build.gradle
 COPY services/payment-service/build.gradle services/payment-service/build.gradle
 
+# gradle.properties의 Windows JDK 경로는 컨테이너 내에서 유효하지 않으므로 제거
+RUN sed -i '/org\.gradle\.java\.home/d' gradle.properties
+
 RUN gradle :services:payment-service:dependencies --no-daemon -q 2>/dev/null || true
 
 # 소스 복사 + bootJar 빌드

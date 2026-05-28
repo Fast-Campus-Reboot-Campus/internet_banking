@@ -5,7 +5,8 @@ from typing import Any
 from sqlalchemy import bindparam, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
-from app.features.maturity_agent import MaturityManagementAgent
+from app.features import ProductFeatureExecutor, StaffFeatureExecutor, UserFinanceFeatureExecutor
+from app.features.base import build_history_context
 from app.kafka import KafkaEventPublisher
 from app.llm import FeatureAnswerFormatter, IntentClassifier, LlmAdapter, LlmHandoffAdapter
 from app.rag import ProductRagEngine

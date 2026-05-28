@@ -1,7 +1,14 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import {
+  fetchDepositAccounts,
+  fetchDepositContracts,
+  fetchDepositProducts,
+  getCurrentDepositCustomerId,
+} from '@/lib/deposit-api'
 
 const MOCK_ROWS = [
   {
@@ -20,7 +27,58 @@ const MOCK_ROWS = [
   },
 ]
 
+type NewHistoryRow = {
+  date: string
+  accountNo: string
+  type: string
+  withdrawNo: string
+  amount: string
+}
+
+function dateText(value?: string) {
+  return value ? value.replace(/-/g, '.') : '-'
+}
+
 export default function DepositNewHistoryPage() {
+  const [rows, setRows] = useState<NewHistoryRow[]>(MOCK_ROWS)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadRows() {
+      try {
+        const customerId = getCurrentDepositCustomerId()
+        const [contracts, accounts, products] = await Promise.all([
+          fetchDepositContracts(customerId),
+          fetchDepositAccounts(customerId),
+          fetchDepositProducts(),
+        ])
+        if (cancelled) return
+
+        const accountByContractId = new Map(accounts.map(account => [account.contractId, account]))
+        const productById = new Map(products.map(product => [product.productId, product]))
+        const apiRows = contracts.map(contract => {
+          const account = accountByContractId.get(contract.contractId)
+          const product = productById.get(contract.productId)
+          return {
+            date: dateText(contract.startedAt),
+            accountNo: account?.accountNumber || contract.contractNumber,
+            type: product?.productName || '가입 상품',
+            withdrawNo: contract.sourceAccountId ? String(contract.sourceAccountId) : '-',
+            amount: Number(contract.joinAmount || 0).toLocaleString('ko-KR'),
+          }
+        })
+        if (apiRows.length > 0) setRows(apiRows)
+      } catch {
+        setRows(MOCK_ROWS)
+      }
+    }
+
+    loadRows()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="max-w-kb-container mx-auto px-6 py-6">
       {/* 브레드크럼 */}
@@ -42,7 +100,7 @@ export default function DepositNewHistoryPage() {
           {/* 안내 */}
           <div className="border border-kb-border bg-[#FAFAFA] px-4 py-3 mb-5 text-[12px] text-kb-text-body space-y-1">
             <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>예금 신규결과/내역입니다.</span></p>
-            <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>AX풀뱅크 계좌형자주 가입현황은 '재청·저주신규조회' 화면에서 확인가능합니다.</span></p>
+            <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>AX풀뱅크 계좌형자주 가입현황은 &apos;재청·저주신규조회&apos; 화면에서 확인가능합니다.</span></p>
           </div>
 
           {/* 테이블 */}
@@ -57,7 +115,7 @@ export default function DepositNewHistoryPage() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_ROWS.map((row, i) => (
+              {rows.map((row, i) => (
                 <tr key={i} className="hover:bg-[#fafafa]">
                   <td className="border border-kb-border px-3 py-3 text-center text-kb-text-body">{row.date}</td>
                   <td className="border border-kb-border px-3 py-3 text-center text-kb-text-body">{row.accountNo}</td>

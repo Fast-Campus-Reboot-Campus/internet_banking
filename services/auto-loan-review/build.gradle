@@ -1,0 +1,32 @@
+// auto-loan-review: 의존성/플러그인은 루트 build.gradle 의 subprojects 블록에서 일괄 관리.
+// 본 모듈은 RDB(JPA) 를 사용하지 않으므로 공통에서 들어오는 spring-data-jpa starter 만 제외.
+configurations.implementation {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-data-jpa'
+}
+
+// ── Spring AI BOM (버전 일괄 관리) ────────────────────────────────────────
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:1.0.0"
+    }
+}
+
+dependencies {
+    // ── Spring AI (BOM 관리 — 버전 생략) ─────────────────────────────────
+    implementation 'org.springframework.ai:spring-ai-openai'                                       // Gemini OpenAI-compat LLM 클라이언트 (A1)
+    implementation 'org.springframework.ai:spring-ai-starter-model-vertex-ai-embedding'             // D1: RAG 임베딩 (Vertex AI text-embedding-005)
+
+    // ── B1: Audit Log — JDBC + Flyway ────────────────────────────────────
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.flywaydb:flyway-core'
+
+    // ── 통합 테스트 (L11) ────────────────────────────────────────────────
+    testImplementation 'org.wiremock:wiremock-standalone:3.9.1'
+    testImplementation 'org.awaitility:awaitility'
+
+    // ── B4: PSI Drift + Fairness ─────────────────────────────────────────
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+
+    // ── B1 테스트: H2 인메모리 DB (Flyway 마이그레이션 검증) ─────────────
+    testRuntimeOnly 'com.h2database:h2'
+}

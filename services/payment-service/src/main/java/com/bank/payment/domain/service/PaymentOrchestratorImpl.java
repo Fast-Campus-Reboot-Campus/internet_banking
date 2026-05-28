@@ -24,10 +24,12 @@ import com.bank.payment.outbound.feign.dto.LimitInquiryData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
+import com.bank.payment.config.PaymentMetrics;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -52,6 +54,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     private final DepositBalanceClient depositBalanceClient;
     private final IdGenerator idGenerator;
     private final ObjectMapper objectMapper;
+    private final PaymentMetrics metrics;
 
     @Value("${payment.bank-code:A}")
     private String bankCode;
@@ -61,12 +64,14 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             DepositAccountClient depositAccountClient,
             DepositBalanceClient depositBalanceClient,
             IdGenerator idGenerator,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            PaymentMetrics metrics) {
         this.txService = txService;
         this.depositAccountClient = depositAccountClient;
         this.depositBalanceClient = depositBalanceClient;
         this.idGenerator = idGenerator;
         this.objectMapper = objectMapper;
+        this.metrics = metrics;
     }
 
     @Override
@@ -84,8 +89,15 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             routingNetworkType = "KFTC";
         }
 
-        // TX-1: PI DRAFT INSERT — 실패 시 예외가 PaymentValidationException이 아니므로 try 밖
-        PaymentInstruction pi = txService.txStep1(command, isIntraBank, routingNetworkType);
+        // TX-1: PI DRAFT INSERT — 중복 멱등키는 메트릭 기록 후 DuplicateKeyException 재발생
+        PaymentInstruction pi;
+        try {
+            pi = txService.txStep1(command, isIntraBank, routingNetworkType);
+        } catch (DuplicateKeyException e) {
+            metrics.idempotencyDuplicate();
+            log.warn("[OUT] 중복 멱등키 감지: idempotencyKey={}", command.idempotencyKey());
+            throw e;
+        }
 
         if (isIntraBank) {
             return processIntraBank(pi, command);
@@ -211,7 +223,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     private static String failedEventTypeFor(String failureCategory) {
         return switch (failureCategory) {
             case "INSUFFICIENT_BALANCE" -> "BALANCE_CHECK_FAILED";
-            default -> "VALIDATION_FAILED";
+            case "LIMIT_EXCEEDED"       -> "LIMIT_CHECK_FAILED";
+            case "OWNER_INQUIRY_FAILED" -> "OWNER_INQUIRY_FAILED";
+            case "ACCOUNT_RESTRICTED"   -> "ACCOUNT_CHECK_FAILED";
+            case "ACCOUNT_CLOSED"       -> "ACCOUNT_CHECK_FAILED";
+            // 안전망: 위 5개 외 예상치 못한 code 진입 시 — 실제 경로에서는 미사용
+            default                     -> "PAYMENT_FAILED";
         };
     }
 
@@ -236,11 +253,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 "/api/v1/accounts/" + sender, senderAccountResp.code());
         AccountInquiryData senderAccount = senderAccountResp.data();
         if (!"ACTIVE".equals(senderAccount.accountStatus())) {
-            throw new PaymentValidationException("ACCOUNT_INACTIVE",
+            // CLOSED → ACCOUNT_CLOSED, FROZEN/DORMANT 등 → ACCOUNT_RESTRICTED
+            String fc = "CLOSED".equals(senderAccount.accountStatus()) ? "ACCOUNT_CLOSED" : "ACCOUNT_RESTRICTED";
+            throw new PaymentValidationException(fc,
                     "송신계좌 비활성: " + senderAccount.accountStatus());
         }
         if (Boolean.TRUE.equals(senderAccount.fraudFlag())) {
-            throw new PaymentValidationException("FRAUD_REPORTED", "송신계좌 사고신고");
+            throw new PaymentValidationException("ACCOUNT_RESTRICTED", "송신계좌 사고신고");
         }
 
         // A-1 계좌조회 (수신계좌) — 자행만. 타행은 수신계좌가 타 은행 관할이므로 deposit 검증 생략
@@ -250,11 +269,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     "/api/v1/accounts/" + receiver, receiverAccountResp.code());
             AccountInquiryData receiverAccount = receiverAccountResp.data();
             if (!"ACTIVE".equals(receiverAccount.accountStatus())) {
-                throw new PaymentValidationException("ACCOUNT_INACTIVE",
+                // CLOSED → ACCOUNT_CLOSED, FROZEN/DORMANT 등 → ACCOUNT_RESTRICTED
+                String fc = "CLOSED".equals(receiverAccount.accountStatus()) ? "ACCOUNT_CLOSED" : "ACCOUNT_RESTRICTED";
+                throw new PaymentValidationException(fc,
                         "수신계좌 비활성: " + receiverAccount.accountStatus());
             }
             if (Boolean.TRUE.equals(receiverAccount.fraudFlag())) {
-                throw new PaymentValidationException("FRAUD_REPORTED", "수신계좌 사고신고");
+                throw new PaymentValidationException("ACCOUNT_RESTRICTED", "수신계좌 사고신고");
             }
         }
 
@@ -273,10 +294,10 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     "/api/v1/accounts/" + receiver + "/holder", receiverHolderResp.code());
             HolderInquiryData receiverHolder = receiverHolderResp.data();
             if (Boolean.TRUE.equals(receiverHolder.deceasedFlag())) {
-                throw new PaymentValidationException("HOLDER_DECEASED", "수신 예금주 사망");
+                throw new PaymentValidationException("OWNER_INQUIRY_FAILED", "수신 예금주 사망");
             }
             if (!receiverHolder.holderName().equals(command.receiverHolderName())) {
-                throw new PaymentValidationException("HOLDER_MISMATCH",
+                throw new PaymentValidationException("OWNER_INQUIRY_FAILED",
                         "수신자명 불일치: 입력=" + command.receiverHolderName()
                         + ", 조회=" + receiverHolder.holderName());
             }
@@ -307,13 +328,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 "/api/v1/limits/" + sender, limitResp.code());
         LimitInquiryData limit = limitResp.data();
         if (needed > limit.perTxLimit()) {
-            throw new PaymentValidationException("SINGLE_TX_LIMIT", "1회 한도 초과");
+            throw new PaymentValidationException("LIMIT_EXCEEDED", "1회 한도 초과");
         }
         if (needed > limit.dailyRemaining()) {
-            throw new PaymentValidationException("DAILY_LIMIT_EXCEEDED", "일일 한도 초과");
+            throw new PaymentValidationException("LIMIT_EXCEEDED", "일일 한도 초과");
         }
         if (needed > limit.monthlyRemaining()) {
-            throw new PaymentValidationException("MONTHLY_LIMIT_EXCEEDED", "월 한도 초과");
+            throw new PaymentValidationException("LIMIT_EXCEEDED", "월 한도 초과");
         }
 
         return new ExternalValidationResult(senderHolderName, receiverHolderName);
@@ -434,9 +455,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건 + FAILED + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, clearingNo,
-                "KFTC_REJECTION", "KFTC_REJECTED", "EXTERNAL_REJECTION");
+        ReversalContext ctx = new ReversalContext(
+                rejectCode, rejectMessage, clearingNo,
+                "KFTC_REJECTION", "KFTC_REJECTED", "EXTERNAL_REJECTION",
+                "SYSTEM", null, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F3: BOK 거절 보상 ────────────────────────────────────────────────────
@@ -489,8 +512,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건 + FAILED + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteBokRejectReversal(
-                freshPi, tx2Version, originals, cancelResult, rejectCode, rejectMessage, bokReferenceNo);
+        ReversalContext ctx = new ReversalContext(
+                rejectCode, rejectMessage, bokReferenceNo,
+                "BOK_REJECTION", "BOK_REJECTED", "EXTERNAL_REJECTION",
+                "SYSTEM", null, "BOK");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F4: KFTC 송신실패 자동보상 ──────────────────────────────────────────────
@@ -548,10 +574,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
+        ReversalContext ctx = new ReversalContext(
                 "PUBLISH_FAILURE", rejectMsg, null,
-                "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE");
+                "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE",
+                "SYSTEM", null, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F4 BOK: 송신실패 자동보상 ────────────────────────────────────────────────
@@ -608,13 +635,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         }
 
         // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
-        // updateRejected는 piId WHERE — bokReferenceNo 불필요(null 전달)
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteBokRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
+        ReversalContext ctx = new ReversalContext(
                 "PUBLISH_FAILURE", rejectMsg, null,
                 "PUBLISH_FAILURE", "SYSTEM_ERROR", "PUBLISH_FAILURE",
-                "SYSTEM", null);
+                "SYSTEM", null, "BOK");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F7: KFTC 정산실패 자동보상 ──────────────────────────────────────────────
@@ -683,10 +709,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
+        ReversalContext ctx = new ReversalContext(
                 "SETTLEMENT_FAILURE", rejectMsg, clearingNo,
-                "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE");
+                "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE",
+                "SYSTEM", null, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F7 BOK: 정산실패 자동보상 ────────────────────────────────────────────────
@@ -753,16 +780,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteBokRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
-                "SETTLEMENT_FAILURE",   // rejectCode
-                rejectMsg,              // rejectMessage
-                bokReferenceNo,         // bokReferenceNo (BST updateRejected WHERE piId 기준, 참조용)
-                "SETTLEMENT_FAILURE",   // reversalReason
-                "SYSTEM_ERROR",         // failureCategory
-                "SETTLEMENT_FAILURE",   // outboxFailureCategory
-                "SYSTEM",               // triggeredBy
-                null);                  // operatorId
+        ReversalContext ctx = new ReversalContext(
+                "SETTLEMENT_FAILURE", rejectMsg, bokReferenceNo,
+                "SETTLEMENT_FAILURE", "SYSTEM_ERROR", "SETTLEMENT_FAILURE",
+                "SYSTEM", null, "BOK");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     // ── F6-Ⅱ-2: 운영자 강제취소 ──────────────────────────────────────────────────
@@ -805,16 +827,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // TX-2: 역분개4건(OPERATOR) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
         List<Ledger> originals = txService.selectOriginalsByPaymentId(piId);
-        return txService.txCompleteKftcRejectReversal(
-                freshPi, tx2Version, originals, cancelResult,
-                "OPERATOR",     // rejectCode (CT reject_code 및 status_history reason_code)
-                reason,         // rejectMessage (운영자 사유)
-                null,           // clearingNo (CT는 piId로 조회하므로 불사용)
-                "OPERATOR",     // reversalReason (역분개4 reversal_reason)
-                "SYSTEM_ERROR", // failureCategory (PI.failure_category)
-                "OPERATOR",     // outboxFailureCategory (Outbox payload)
-                "OPERATOR",     // triggeredBy (REVERSING→FAILED 이력 triggered_by)
-                operatorId);    // operatorId
+        ReversalContext ctx = new ReversalContext(
+                "OPERATOR", reason, null,
+                "OPERATOR", "SYSTEM_ERROR", "OPERATOR",
+                "OPERATOR", operatorId, "KFTC");
+        return txService.txCompleteNetworkRejectReversal(freshPi, tx2Version, originals, cancelResult, ctx);
     }
 
     /**

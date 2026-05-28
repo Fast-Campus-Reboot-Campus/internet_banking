@@ -8,14 +8,14 @@ import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.exception.ErrorCode;
 import com.bank.deposit.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +23,8 @@ import java.util.UUID;
 public class AccountService {
 
     private final AccountRepository accountRepository;
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private final PasswordEncoder passwordEncoder;
+    private final Clock clock;
 
     public List<Account> findByCustomer(String customerId) {
         return accountRepository.findByCustomerId(customerId);
@@ -48,9 +49,12 @@ public class AccountService {
         if (accountRepository.findByContractId(contractId).isPresent()) {
             throw new BusinessException(ErrorCode.DUPLICATE, "이미 계좌가 생성된 계약입니다.");
         }
+        if (accountPassword == null || accountPassword.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS, "Account password is required.");
+        }
 
-        String today = LocalDate.now().format(DATE_FMT);
-        String accountNumber = generateAccountNumber(today);
+        LocalDate today = LocalDate.now(clock);
+        String accountNumber = generateAccountNumber();
 
         return accountRepository.save(Account.builder()
                 .accountNumber(accountNumber)
@@ -59,7 +63,7 @@ public class AccountService {
                 .accountType(accountType)
                 .savingType(savingType)
                 .accountAlias(accountAlias)
-                .accountPassword(accountPassword)
+                .accountPassword(passwordEncoder.encode(accountPassword))
                 .openedAt(today)
                 .build());
     }
@@ -67,7 +71,7 @@ public class AccountService {
     @Transactional
     public Account changeStatus(Long id, AccountStatus status) {
         Account account = findById(id);
-        account.changeStatus(status, LocalDate.now().format(DATE_FMT));
+        account.changeStatus(status, LocalDate.now(clock));
         return account;
     }
 
@@ -86,11 +90,26 @@ public class AccountService {
         return account;
     }
 
-    private String generateAccountNumber(String today) {
-        String accountNumber;
-        do {
-            accountNumber = "ACC-" + today + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        } while (accountRepository.existsByAccountNumber(accountNumber));
-        return accountNumber;
+    private String generateAccountNumber() {
+        long sequence = accountRepository.nextAccountNumberSequenceValue();
+        String body = String.format("%012d", sequence);
+        return "001-" + body + calculateCheckDigit(body);
+    }
+
+    private int calculateCheckDigit(String body) {
+        int sum = 0;
+        boolean doubleDigit = true;
+        for (int i = body.length() - 1; i >= 0; i--) {
+            int digit = body.charAt(i) - '0';
+            if (doubleDigit) {
+                digit *= 2;
+                if (digit > 9) {
+                    digit -= 9;
+                }
+            }
+            sum += digit;
+            doubleDigit = !doubleDigit;
+        }
+        return (10 - (sum % 10)) % 10;
     }
 }

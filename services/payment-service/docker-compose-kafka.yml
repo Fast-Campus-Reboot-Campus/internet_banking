@@ -228,6 +228,53 @@ services:
       retries: 5
 
   # ===========================================================================
+  # Kafka Exporter — 클러스터별 Consumer Lag / 토픽 지표 수집
+  # Prometheus가 Windows 바이너리로 실행되므로 호스트 포트로 노출
+  # KFTC: 9308, BOK: 9309, Internal: 9310
+  # ===========================================================================
+  kafka-exporter-kftc:
+    image: danielqsj/kafka-exporter:latest
+    container_name: payment-kafka-exporter-kftc
+    ports:
+      - "${KAFKA_EXPORTER_KFTC_PORT:-9308}:9308"
+    command:
+      - "--kafka.server=kftc-kafka:29092"
+    networks:
+      - payment-net
+    depends_on:
+      kftc-kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  kafka-exporter-bok:
+    image: danielqsj/kafka-exporter:latest
+    container_name: payment-kafka-exporter-bok
+    ports:
+      - "${KAFKA_EXPORTER_BOK_PORT:-9309}:9308"
+    command:
+      - "--kafka.server=bok-kafka:29093"
+    networks:
+      - payment-net
+    depends_on:
+      bok-kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  kafka-exporter-internal:
+    image: danielqsj/kafka-exporter:latest
+    container_name: payment-kafka-exporter-internal
+    ports:
+      - "${KAFKA_EXPORTER_INTERNAL_PORT:-9310}:9308"
+    command:
+      - "--kafka.server=internal-kafka:29094"
+    networks:
+      - payment-net
+    depends_on:
+      internal-kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  # ===========================================================================
   # A은행 결제계 서비스 (BANK_CODE=A, 포트 8080)
   # ★ Stage 2에서 build.gradle 완성 후 image 빌드 가능.
   #   현재는 컨테이너 정의 placeholder — Dockerfile 미존재로 직접 기동 불가.

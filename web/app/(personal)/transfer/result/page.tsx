@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 type PendingTransfer = {
@@ -19,18 +20,46 @@ type PendingTransfer = {
 export default function TransferResultPage() {
   const router = useRouter()
   const [data, setData] = useState<PendingTransfer | null>(null)
+  const [accounts, setAccounts] = useState<{ number: string; balance: number }[]>([])
+
+  useEffect(() => {
+    fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+      .then(accs => setAccounts(accs.map(a => ({ number: a.number, balance: Number(a.balance) }))))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
     if (!raw) { router.push('/transfer/account'); return }
-    setData(JSON.parse(raw))
+    const transfer = JSON.parse(raw)
+    setData(transfer)
+
+    // 이체 기록을 localStorage 히스토리에 저장
+    try {
+      const prev = JSON.parse(localStorage.getItem('transferHistory') || '[]')
+      const now = new Date()
+      const datetime =
+        `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}\n` +
+        `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
+      prev.unshift({
+        id: String(now.getTime()),
+        datetime,
+        bank: transfer.toBank,
+        account: transfer.toAccount,
+        receiver: transfer.receiverName,
+        amount: transfer.amount,
+        memo: '',
+      })
+      localStorage.setItem('transferHistory', JSON.stringify(prev.slice(0, 50)))
+    } catch {}
+
     sessionStorage.removeItem('pendingTransfer')
   }, [router])
 
   if (!data) return null
 
-  const fromAcc = MOCK_ACCOUNTS.find(a => a.number === data.fromNumber)
-  const remainingBalance = (fromAcc?.balance ?? 0) - data.amount
+  const fromAcc = accounts.find(a => a.number === data?.fromNumber)
+  const remainingBalance = (fromAcc?.balance ?? 0) - (data?.amount ?? 0)
 
   return (
     <div className="max-w-kb-container mx-auto px-6">

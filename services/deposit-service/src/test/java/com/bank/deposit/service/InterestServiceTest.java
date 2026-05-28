@@ -12,16 +12,19 @@ import com.bank.deposit.repository.AccountRepository;
 import com.bank.deposit.repository.ContractRepository;
 import com.bank.deposit.repository.InterestHistoryRepository;
 import com.bank.deposit.repository.TransactionRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,13 +38,19 @@ import static org.mockito.BDDMockito.then;
 @DisplayName("InterestService")
 class InterestServiceTest {
 
-    @InjectMocks
     private InterestService service;
 
     @Mock private InterestHistoryRepository interestHistoryRepository;
     @Mock private AccountRepository accountRepository;
     @Mock private ContractRepository contractRepository;
     @Mock private TransactionRepository transactionRepository;
+
+    @BeforeEach
+    void setUp() {
+        Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        service = new InterestService(interestHistoryRepository, accountRepository,
+                contractRepository, transactionRepository, clock);
+    }
 
     @Test
     @DisplayName("계약 ID로 이자 이력을 최신순 조회한다")
@@ -134,7 +143,7 @@ class InterestServiceTest {
                 .contractId(1L)
                 .accountType(ProductType.DEPOSIT)
                 .accountPassword("1234")
-                .openedAt("20260101")
+                .openedAt(java.time.LocalDate.of(2026, 1, 1))
                 .balance(balance)
                 .build();
     }
@@ -152,7 +161,7 @@ class InterestServiceTest {
                 .interestAfterTax(BigDecimal.valueOf(83_500))
                 .interestAmount(BigDecimal.valueOf(83_500))
                 .interestReason(InterestReason.REGULAR_INTEREST)
-                .interestPaidAt(OffsetDateTime.now())
+                .interestPaidAt(OffsetDateTime.parse("2026-01-01T09:00:00+09:00"))
                 .build();
     }
 }

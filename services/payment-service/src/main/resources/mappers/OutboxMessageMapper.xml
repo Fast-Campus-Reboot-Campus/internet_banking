@@ -4,6 +4,12 @@
 
 <mapper namespace="com.bank.payment.domain.mapper.OutboxMessageMapper">
 
+    <select id="countPending" resultType="int">
+        SELECT COUNT(*)
+        FROM outbox_message
+        WHERE publish_status = 'PENDING'
+    </select>
+
     <select id="selectPending" resultType="com.bank.payment.domain.OutboxMessage">
         SELECT *
         FROM outbox_message

@@ -57,7 +57,7 @@ export default function CustomersPage() {
 
   function handleReasonConfirm() {
     if (!reasonInput.trim() || !reasonModal) return
-    setUnlockedIds((prev) => new Set([...prev, reasonModal.customerId]))
+    setUnlockedIds((prev) => { const s = new Set(prev); s.add(reasonModal.customerId); return s })
     setReasonModal(null)
   }
 

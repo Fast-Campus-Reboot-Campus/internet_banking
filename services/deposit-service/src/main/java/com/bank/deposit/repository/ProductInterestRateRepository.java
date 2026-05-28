@@ -10,7 +10,6 @@ public interface ProductInterestRateRepository extends JpaRepository<ProductInte
     List<ProductInterestRate> findByProductId(Long productId);
     List<ProductInterestRate> findByProductIdAndIsActive(Long productId, Boolean isActive);
     List<ProductInterestRate> findByProductIdAndRateType(Long productId, RateType rateType);
-
     /** N+1 방지: 여러 상품의 금리를 한 번의 IN 쿼리로 조회. */
     List<ProductInterestRate> findByProductIdInAndIsActive(List<Long> productIds, Boolean isActive);
 }

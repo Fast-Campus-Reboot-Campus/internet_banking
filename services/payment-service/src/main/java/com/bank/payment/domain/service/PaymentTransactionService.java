@@ -1,6 +1,7 @@
 package com.bank.payment.domain.service;
 
 import com.bank.payment.common.IdGenerator;
+import com.bank.payment.common.LedgerFailureSimulator;
 import com.bank.payment.common.exception.LedgerBalanceMismatchException;
 import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.domain.ExternalCall;
@@ -61,6 +62,7 @@ public class PaymentTransactionService {
     private final KftcClearingTransactionMapper clearingTransactionMapper;
     private final BokSettlementTransactionMapper settlementTransactionMapper;
     private final ObjectMapper objectMapper;
+    private final LedgerFailureSimulator ledgerFailureSimulator;
 
     public PaymentTransactionService(
             PaymentInstructionMapper paymentInstructionMapper,
@@ -72,7 +74,8 @@ public class PaymentTransactionService {
             OutboxMessageMapper outboxMessageMapper,
             KftcClearingTransactionMapper clearingTransactionMapper,
             BokSettlementTransactionMapper settlementTransactionMapper,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            LedgerFailureSimulator ledgerFailureSimulator) {
         this.paymentInstructionMapper = paymentInstructionMapper;
         this.idempotencyKeyMapper = idempotencyKeyMapper;
         this.statusHistoryMapper = statusHistoryMapper;
@@ -83,6 +86,7 @@ public class PaymentTransactionService {
         this.clearingTransactionMapper = clearingTransactionMapper;
         this.settlementTransactionMapper = settlementTransactionMapper;
         this.objectMapper = objectMapper;
+        this.ledgerFailureSimulator = ledgerFailureSimulator;
     }
 
     /** TX-1: 멱등키(PROCESSING) + 결제지시(DRAFT) + 상태이력(seq1 INSTRUCTION_CREATED) INSERT */
@@ -222,11 +226,8 @@ public class PaymentTransactionService {
                 "KRW", businessDate, businessDate, businessDate,
                 now, "자행이체 출금");
 
-        // [F5 테스트 트리거] receiverAccountNo=88880000 → 분개 INSERT 직전 강제 실패.
-        // 운영 코드 아님. DB 장애로 인한 분개 INSERT 실패 → txStep4 전체 롤백(AUTHORIZED 복귀) → 보상 흐름 검증용.
-        if ("88880000".equals(command.receiverAccountNo())) {
-            throw new LedgerInsertFailureException("F5 테스트: 분개 INSERT 강제 실패 (receiverAccountNo=88880000)");
-        }
+        // mock 프로파일: F5 시나리오 분개 INSERT 실패 시뮬레이션 (NoOp: 운영환경에서는 아무 일도 없음)
+        ledgerFailureSimulator.checkAndThrow(command.receiverAccountNo());
 
         ledgerMapper.insert(out);
 
@@ -388,10 +389,16 @@ public class PaymentTransactionService {
         paymentInstructionMapper.updateNextTimeoutAt(piId, now.plusMinutes(kftcClearingTimeoutMinutes));
 
         // 10. Outbox (KFTC_REQUEST_SENT, PENDING) — 워커가 kftc.network.request로 비동기 발행
+        // clearingNo를 먼저 생성해 payload에 포함 (Mock/KFTC 응답 측에서 clearingNo로 참조)
+        String clearingTxId = idGenerator.nextClearingTransactionId();
+        String clearingNo   = idGenerator.nextClearingNo();
+        String clearingRequestedAt = now.format(CLEARING_AT_FMT);  // yyyyMMddHHmmss
+
         String payload;
         try {
             payload = objectMapper.writeValueAsString(Map.of(
                     "paymentInstructionId", piId,
+                    "clearingNo", clearingNo,
                     "transactionNo", pi.getTransactionNo(),
                     "senderAccountId", command.senderAccountId(),
                     "receiverBankCode", command.receiverBankCode(),
@@ -408,9 +415,7 @@ public class PaymentTransactionService {
                 "v1", payload, now));
 
         // 11. kftc_clearing_transaction REQUESTED INSERT (PI와 같은 TX, 1:1 박제)
-        String clearingTxId = idGenerator.nextClearingTransactionId();
-        String clearingNo   = idGenerator.nextClearingNo();
-        String clearingRequestedAt = now.format(CLEARING_AT_FMT);  // yyyyMMddHHmmss
+        // (clearingTxId / clearingNo / clearingRequestedAt 는 위 step 10에서 생성)
 
         KftcClearingTransaction clearingTx = KftcClearingTransaction.requestedOut(
                 clearingTxId,
@@ -815,57 +820,22 @@ public class PaymentTransactionService {
     }
 
     /**
-     * TX-2 (F2 보상): 역분개4건 + REVERSING→FAILED + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키.
-     * ★txCompleteReversal(F8)과 별개 메서드 — F8 무변경.
-     * @param pi REVERSING 상태 PI
-     * @param version WHERE 조건 버전 (CLEARING 진입: freshPi.getVersion()+1=4, REVERSING 재진입: freshPi.getVersion()=4)
-     * @param originals 원분개 4건 (is_reversal=FALSE 필터된 목록)
-     * @param cancelResult B-5 출금취소 응답 (R01 balance 박제용, null이면 0,0 fallback)
-     * @param rejectCode KFTC responseCode ('E2001')
-     * @param rejectMessage KFTC rejectMessage
-     * @param clearingNo KFTC 청산식별번호
+     * TX-2 (F2/F3/F4/F7/F6-Ⅱ 보상 공통): 역분개4건 + REVERSING→FAILED + CT/BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키.
+     * ctx.networkType() = "KFTC"|"BOK" 로 mapper/label 분기. 기능 변경 없는 순수 리팩터.
      */
     @Transactional
-    public PaymentResult txCompleteKftcRejectReversal(
+    public PaymentResult txCompleteNetworkRejectReversal(
             PaymentInstruction pi,
             Integer version,
             List<Ledger> originals,
             WithdrawCancelData cancelResult,
-            String rejectCode,
-            String rejectMessage,
-            String clearingNo,
-            String reversalReason,
-            String failureCategory,
-            String outboxFailureCategory) {
-        return txCompleteKftcRejectReversal(pi, version, originals, cancelResult,
-                rejectCode, rejectMessage, clearingNo, reversalReason,
-                failureCategory, outboxFailureCategory, "SYSTEM", null);
-    }
-
-    /**
-     * F6-Ⅱ: triggeredBy/operatorId 포함 실제 구현체.
-     * 10-파라미터 오버로드는 ("SYSTEM", null)로 위임. F6-Ⅱ-2 운영자 취소는 ("OPERATOR", operatorId) 전달.
-     * @param triggeredBy PAYMENT_FAILED 이력의 트리거주체 (F2='SYSTEM', 운영자='OPERATOR')
-     * @param operatorId 운영자ID (triggered_by='OPERATOR'일 때 NOT NULL 강제 — DB CHECK)
-     */
-    @Transactional
-    public PaymentResult txCompleteKftcRejectReversal(
-            PaymentInstruction pi,
-            Integer version,
-            List<Ledger> originals,
-            WithdrawCancelData cancelResult,
-            String rejectCode,
-            String rejectMessage,
-            String clearingNo,
-            String reversalReason,
-            String failureCategory,
-            String outboxFailureCategory,
-            String triggeredBy,
-            String operatorId) {
+            ReversalContext ctx) {
 
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
         String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
+
+        String networkLabel = "KFTC".equals(ctx.networkType()) ? "타행이체" : "BOK이체";
 
         // 원분개 4건 매칭 (journal_type 기준)
         Ledger origOut = originals.stream()
@@ -898,17 +868,17 @@ public class PaymentTransactionService {
                 origOut.getAccountNoSnap(), origOut.getHolderNameSnap(),
                 origOut.getAmount(), r01BalanceBefore, r01BalanceAfter,
                 origOut.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 출금취소 역분개", reversalReason);
+                now, networkLabel + " 출금취소 역분개", ctx.reversalReason());
         ledgerMapper.insert(r01);
 
-        // R03: KB-CLR-0xx DEBIT REVERSAL_CLEARING_PENDING (jn1 — 원분개와 동일 journal_no)
+        // R03: KB-CLR-xxx DEBIT REVERSAL_CLEARING_PENDING (jn1 — 원분개와 동일 journal_no)
         Ledger r03 = Ledger.reversalClearingPending(
                 idGenerator.nextLedgerId(), piId,
                 origClr.getLedgerId(), origClr.getJournalNo(),
                 origClr.getAccountId(), origClr.getAccountNoSnap(), origClr.getHolderNameSnap(),
                 origClr.getAmount(),
                 origClr.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 청산대기 역분개", reversalReason);
+                now, networkLabel + " 청산대기 역분개", ctx.reversalReason());
         ledgerMapper.insert(r03);
 
         // ★ JN-1역 차대변 검증 (P-014): R03(DEBIT) == R01(CREDIT)
@@ -925,7 +895,7 @@ public class PaymentTransactionService {
                 origFee.getAccountNoSnap(), origFee.getHolderNameSnap(),
                 origFee.getAmount(),
                 origFee.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 수수료 역분개", reversalReason);
+                now, networkLabel + " 수수료 역분개", ctx.reversalReason());
         ledgerMapper.insert(r02);
 
         // R04: KB-FEE-001 DEBIT REVERSAL_FEE_INCOME (jn2 — 원분개와 동일 journal_no)
@@ -934,7 +904,7 @@ public class PaymentTransactionService {
                 origFeeInc.getLedgerId(), origFeeInc.getJournalNo(),
                 origFeeInc.getAmount(),
                 origFeeInc.getCurrency(), businessDate, businessDate, businessDate,
-                now, "타행이체 수수료수익 역분개", reversalReason);
+                now, networkLabel + " 수수료수익 역분개", ctx.reversalReason());
         ledgerMapper.insert(r04);
 
         // ★ JN-2역 차대변 검증 (P-014): R04(DEBIT) == R02(CREDIT)
@@ -946,21 +916,26 @@ public class PaymentTransactionService {
 
         // PI REVERSING → FAILED (낙관락, failure_category — V1 CHECK 기존값)
         int updated = paymentInstructionMapper.updateStatus(
-                piId, "FAILED", now, failureCategory, version);
+                piId, "FAILED", now, ctx.failureCategory(), version);
         if (updated == 0) {
-            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(FAILED/F2): " + piId);
+            throw new OptimisticLockingFailureException(
+                    "결제지시 상태 갱신 충돌(FAILED/" + ctx.networkType() + "): " + piId);
         }
 
-        // StatusHistory 1건: REVERSING→FAILED, PAYMENT_FAILED (triggeredBy/operatorId 파라미터화)
+        // StatusHistory 1건: REVERSING→FAILED, PAYMENT_FAILED
         Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
         int seq = (maxSeq == null ? 0 : maxSeq) + 1;
         statusHistoryMapper.insert(StatusHistory.of(
                 idGenerator.nextHistoryId(), piId, seq,
-                "REVERSING", "FAILED", "PAYMENT_FAILED", triggeredBy,
-                rejectCode, rejectMessage, operatorId, now));
+                "REVERSING", "FAILED", "PAYMENT_FAILED", ctx.triggeredBy(),
+                ctx.rejectCode(), ctx.rejectMessage(), ctx.operatorId(), now));
 
-        // CT REQUESTED → REJECTED
-        clearingTransactionMapper.updateRejected(piId, rejectCode, rejectMessage);
+        // CT/BST REQUESTED → REJECTED (networkType 기준 분기)
+        if ("KFTC".equals(ctx.networkType())) {
+            clearingTransactionMapper.updateRejected(piId, ctx.rejectCode(), ctx.rejectMessage());
+        } else {
+            settlementTransactionMapper.updateRejected(piId, ctx.rejectCode(), ctx.rejectMessage());
+        }
 
         // Outbox PAYMENT_REVERSED
         // ★ payload.failureCategory (시나리오 시트8 Outbox 스펙)
@@ -971,15 +946,16 @@ public class PaymentTransactionService {
                     "paymentInstructionNo", piId,
                     "originalAmount", pi.getTransferAmount(),
                     "fee", pi.getFeeAmount(),
-                    "failureCategory", outboxFailureCategory,
-                    "failureCode", rejectCode,
-                    "failureMessage", rejectMessage,
+                    "failureCategory", ctx.outboxFailureCategory(),
+                    "failureCode", ctx.rejectCode(),
+                    "failureMessage", ctx.rejectMessage(),
                     "reversedLedgers", List.of(
                             r01.getLedgerId(), r02.getLedgerId(),
                             r03.getLedgerId(), r04.getLedgerId()),
                     "reversedAt", now.toString()));
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Outbox payload 직렬화 실패(PAYMENT_REVERSED): " + piId, e);
+            throw new IllegalStateException(
+                    "Outbox payload 직렬화 실패(PAYMENT_REVERSED/" + ctx.networkType() + "): " + piId, e);
         }
         outboxMessageMapper.insert(OutboxMessage.of(
                 idGenerator.nextMessageId(), piId, "PAYMENT_REVERSED", "v1", payload, now));
@@ -987,178 +963,7 @@ public class PaymentTransactionService {
         // 멱등키 FAILED (원 요청 재시도 방지)
         idempotencyKeyMapper.updateStatus(pi.getIdempotencyKey(), "FAILED", payload);
 
-        return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", failureCategory, now);
-    }
-
-    /**
-     * TX-2 (F3 BOK 거절보상): 역분개4건 + REVERSING→FAILED + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키.
-     * F3 기존 호출부(processBokReject) → ("BOK_REJECTION","BOK_REJECTED","EXTERNAL_REJECTION","SYSTEM",null) 위임.
-     * F4/F7/운영자 취소는 12-파라미터 오버로드 직접 호출.
-     */
-    @Transactional
-    public PaymentResult txCompleteBokRejectReversal(
-            PaymentInstruction pi,
-            Integer version,
-            List<Ledger> originals,
-            WithdrawCancelData cancelResult,
-            String rejectCode,
-            String rejectMessage,
-            String bokReferenceNo) {
-        return txCompleteBokRejectReversal(pi, version, originals, cancelResult,
-                rejectCode, rejectMessage, bokReferenceNo,
-                "BOK_REJECTION", "BOK_REJECTED", "EXTERNAL_REJECTION", "SYSTEM", null);
-    }
-
-    /**
-     * F4/F7/운영자 취소 재사용: reversalReason/failureCategory/outboxFailureCategory/triggeredBy/operatorId 파라미터화.
-     * KFTC판 txCompleteKftcRejectReversal 12-param과 대칭.
-     * @param reversalReason Ledger.reversal_reason (F3/F7="BOK_REJECTION", F4="BOK_REQUEST_FAILED")
-     * @param failureCategory PI.failure_category (예: "BOK_REJECTED")
-     * @param outboxFailureCategory PAYMENT_REVERSED payload.failureCategory (F3="EXTERNAL_REJECTION", F4="PUBLISH_FAILURE")
-     * @param triggeredBy PAYMENT_FAILED 이력의 트리거주체 (F3/F4/F7="SYSTEM", 운영자="OPERATOR")
-     * @param operatorId 운영자ID (triggered_by='OPERATOR'일 때 NOT NULL — DB CHECK)
-     */
-    @Transactional
-    public PaymentResult txCompleteBokRejectReversal(
-            PaymentInstruction pi,
-            Integer version,
-            List<Ledger> originals,
-            WithdrawCancelData cancelResult,
-            String rejectCode,
-            String rejectMessage,
-            String bokReferenceNo,
-            String reversalReason,
-            String failureCategory,
-            String outboxFailureCategory,
-            String triggeredBy,
-            String operatorId) {
-
-        LocalDateTime now = LocalDateTime.now();
-        String piId = pi.getPaymentInstructionId();
-        String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
-
-        // 원분개 4건 매칭 (journal_type 기준)
-        Ledger origOut = originals.stream()
-                .filter(l -> "TRANSFER_OUT".equals(l.getJournalType()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("원분개 TRANSFER_OUT 없음: " + piId));
-        Ledger origClr = originals.stream()
-                .filter(l -> "CLEARING_PENDING".equals(l.getJournalType()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("원분개 CLEARING_PENDING 없음: " + piId));
-        Ledger origFee = originals.stream()
-                .filter(l -> "FEE".equals(l.getJournalType()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("원분개 FEE 없음: " + piId));
-        Ledger origFeeInc = originals.stream()
-                .filter(l -> "FEE_INCOME".equals(l.getJournalType()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("원분개 FEE_INCOME 없음: " + piId));
-
-        // R01 balance: B-5 응답잔액 박제 (null이면 0,0 fallback — chk_balance_before/after >= 0 만족)
-        BigDecimal r01BalanceBefore = (cancelResult != null)
-                ? BigDecimal.valueOf(cancelResult.balanceBefore()) : BigDecimal.ZERO;
-        BigDecimal r01BalanceAfter = (cancelResult != null)
-                ? BigDecimal.valueOf(cancelResult.balanceAfter()) : BigDecimal.ZERO;
-
-        // R01: 송신계좌 CREDIT REVERSAL_TRANSFER_OUT (jn1)
-        Ledger r01 = Ledger.reversalTransferOut(
-                idGenerator.nextLedgerId(), piId, origOut.getAccountId(),
-                origOut.getLedgerId(), origOut.getJournalNo(),
-                origOut.getAccountNoSnap(), origOut.getHolderNameSnap(),
-                origOut.getAmount(), r01BalanceBefore, r01BalanceAfter,
-                origOut.getCurrency(), businessDate, businessDate, businessDate,
-                now, "BOK이체 출금취소 역분개", reversalReason);
-        ledgerMapper.insert(r01);
-
-        // R03: KB-CLR-BOK DEBIT REVERSAL_CLEARING_PENDING (jn1 — 원분개와 동일 journal_no)
-        // origClr.getAccountId()="KB-CLR-BOK" (txStep4InterBok에서 clearingPendingBok로 INSERT됨)
-        Ledger r03 = Ledger.reversalClearingPending(
-                idGenerator.nextLedgerId(), piId,
-                origClr.getLedgerId(), origClr.getJournalNo(),
-                origClr.getAccountId(), origClr.getAccountNoSnap(), origClr.getHolderNameSnap(),
-                origClr.getAmount(),
-                origClr.getCurrency(), businessDate, businessDate, businessDate,
-                now, "BOK이체 청산대기 역분개", reversalReason);
-        ledgerMapper.insert(r03);
-
-        // ★ JN-1역 차대변 검증 (P-014): R03(DEBIT) == R01(CREDIT)
-        if (r03.getAmount().compareTo(r01.getAmount()) != 0) {
-            throw new LedgerBalanceMismatchException(
-                    "JN-1역 차변≠대변: DEBIT " + r03.getAmount()
-                            + " ≠ CREDIT " + r01.getAmount() + " (PI " + piId + ")");
-        }
-
-        // R02: 송신계좌 CREDIT REVERSAL_FEE (jn2)
-        Ledger r02 = Ledger.reversalFee(
-                idGenerator.nextLedgerId(), piId, origFee.getAccountId(),
-                origFee.getLedgerId(), origFee.getJournalNo(),
-                origFee.getAccountNoSnap(), origFee.getHolderNameSnap(),
-                origFee.getAmount(),
-                origFee.getCurrency(), businessDate, businessDate, businessDate,
-                now, "BOK이체 수수료 역분개", reversalReason);
-        ledgerMapper.insert(r02);
-
-        // R04: KB-FEE-001 DEBIT REVERSAL_FEE_INCOME (jn2 — 원분개와 동일 journal_no)
-        Ledger r04 = Ledger.reversalFeeIncome(
-                idGenerator.nextLedgerId(), piId,
-                origFeeInc.getLedgerId(), origFeeInc.getJournalNo(),
-                origFeeInc.getAmount(),
-                origFeeInc.getCurrency(), businessDate, businessDate, businessDate,
-                now, "BOK이체 수수료수익 역분개", reversalReason);
-        ledgerMapper.insert(r04);
-
-        // ★ JN-2역 차대변 검증 (P-014): R04(DEBIT) == R02(CREDIT)
-        if (r04.getAmount().compareTo(r02.getAmount()) != 0) {
-            throw new LedgerBalanceMismatchException(
-                    "JN-2역 차변≠대변: DEBIT " + r04.getAmount()
-                            + " ≠ CREDIT " + r02.getAmount() + " (PI " + piId + ")");
-        }
-
-        // PI REVERSING → FAILED (낙관락, failure_category — V1 CHECK 기존값)
-        int updated = paymentInstructionMapper.updateStatus(
-                piId, "FAILED", now, failureCategory, version);
-        if (updated == 0) {
-            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(FAILED/F3): " + piId);
-        }
-
-        // StatusHistory 1건: REVERSING→FAILED, PAYMENT_FAILED (triggeredBy/operatorId 파라미터화)
-        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
-        int seq = (maxSeq == null ? 0 : maxSeq) + 1;
-        statusHistoryMapper.insert(StatusHistory.of(
-                idGenerator.nextHistoryId(), piId, seq,
-                "REVERSING", "FAILED", "PAYMENT_FAILED", triggeredBy,
-                rejectCode, rejectMessage, operatorId, now));
-
-        // BST REQUESTED → REJECTED
-        settlementTransactionMapper.updateRejected(piId, rejectCode, rejectMessage);
-
-        // Outbox PAYMENT_REVERSED
-        // ★ payload.failureCategory (시나리오 시트8 Outbox 스펙)
-        //   PI.failure_category (V1 CHECK 기존값)과 레이어별로 다름
-        String payload;
-        try {
-            payload = objectMapper.writeValueAsString(Map.of(
-                    "paymentInstructionNo", piId,
-                    "originalAmount", pi.getTransferAmount(),
-                    "fee", pi.getFeeAmount(),
-                    "failureCategory", outboxFailureCategory,
-                    "failureCode", rejectCode,
-                    "failureMessage", rejectMessage,
-                    "reversedLedgers", List.of(
-                            r01.getLedgerId(), r02.getLedgerId(),
-                            r03.getLedgerId(), r04.getLedgerId()),
-                    "reversedAt", now.toString()));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Outbox payload 직렬화 실패(PAYMENT_REVERSED/BOK): " + piId, e);
-        }
-        outboxMessageMapper.insert(OutboxMessage.of(
-                idGenerator.nextMessageId(), piId, "PAYMENT_REVERSED", "v1", payload, now));
-
-        // 멱등키 FAILED (원 요청 재시도 방지)
-        idempotencyKeyMapper.updateStatus(pi.getIdempotencyKey(), "FAILED", payload);
-
-        return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", failureCategory, now);
+        return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", ctx.failureCategory(), now);
     }
 
     /**

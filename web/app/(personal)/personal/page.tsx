@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import HeroWithQuickMenu from '@/components/home/HeroWithQuickMenu'
 import ProductShowcase from '@/components/home/ProductShowcase'
-import { MOCK_ACCOUNTS, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
+import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, type DepositViewAccount } from '@/lib/deposit-api'
 
 interface StoredUser { name: string; email: string }
 
@@ -21,16 +22,18 @@ const NEWS_ITEMS = [
   { type: '이벤트', title: '소득공제부터 복리이자까지!「노란우산 비대면...', date: '26.04.20 ~ 26.11.30' },
 ]
 
-const mainAccount = MOCK_ACCOUNTS[0]
-
 export default function HomePage() {
   const [user, setUser] = useState<StoredUser | null>(null)
+  const [mainAccount, setMainAccount] = useState<DepositViewAccount | null>(null)
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('user')
       if (raw) setUser(JSON.parse(raw))
     } catch {}
+    fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+      .then(accs => { if (accs.length > 0) setMainAccount(accs[0]) })
+      .catch(() => {})
   }, [])
 
   /* ── 로그인 후 홈 ── */
@@ -82,11 +85,11 @@ export default function HomePage() {
                   거래내역보기
                 </Link>
               </div>
-              <p className="text-[16px] font-bold text-kb-text">{mainAccount.name}</p>
-              <p className="text-[14px] text-kb-text-muted mb-4">{mainAccount.number}</p>
+              <p className="text-[16px] font-bold text-kb-text">{mainAccount?.name ?? '-'}</p>
+              <p className="text-[14px] text-kb-text-muted mb-4">{mainAccount?.number ?? '-'}</p>
               <div className="border-t border-dashed border-kb-border pt-4 mb-4">
                 <p className="text-[26px] font-bold text-kb-text text-right">
-                  {formatNumber(mainAccount.balance)}원
+                  {formatNumber(Number(mainAccount?.balance ?? 0))}원
                 </p>
               </div>
               <div className="flex gap-2">

@@ -37,8 +37,18 @@ spring:
       max-file-size: 10MB
       max-request-size: 20MB
 
+  batch:
+    job:
+      enabled: false        # 부팅 시 자동 실행 방지
+    jdbc:
+      initialize-schema: never  # Flyway로 관리
+
 # 대출 도메인 전용 설정
 loan:
+  batch:
+    eod-cron: "${LOAN_EOD_CRON:0 0 1 * * *}"  # 기본 새벽 1시 KST
+    eom-cron: "${LOAN_EOM_CRON:0 0 3 1 * *}"  # 기본 매월 1일 03:00 KST
+    calendar-seed-cron: "${LOAN_CALENDAR_SEED_CRON:0 0 4 1 12 *}"  # 기본 매년 12월 1일 04:00 KST
   document:
     storage-dir: ${LOAN_DOCUMENT_STORAGE_DIR:./storage/loan-documents}
   # 외부 신용평가(가심사) 엔진 어댑터 선택
@@ -50,6 +60,20 @@ loan:
       http:
         url: ${CREDIT_SCORE_ENGINE_URL:http://localhost:9999}
         api-key: ${CREDIT_SCORE_ENGINE_API_KEY:}
+  # IFRS9 ECL 산정 엔진 어댑터
+  #   mock — MockEclEngine (외부 없이 단순 PD/LGD 룰)
+  #   http — HttpEclEngine (외부 리스크 엔진 — 후속)
+  ecl:
+    engine:
+      type: ${LOAN_ECL_ENGINE_TYPE:mock}
+
+jwt:
+  secret: ${JWT_SECRET:loan-service-local-dev-secret-min-32-chars!!}
+  access-token-validity: 3600000
+  refresh-token-validity: 86400000
+
+internal:
+  token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
 
 management:
   endpoints:

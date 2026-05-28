@@ -273,7 +273,7 @@ pip install -r requirements.txt
 ### 서비스 시작
 
 ```powershell
-uvicorn app.main:app --host 0.0.0.0 --reload --port 8090
+uvicorn app.main:app --host 0.0.0.0 --reload --port 8087
 ```
 
 또는 스크립트 사용 (Windows):
@@ -287,7 +287,7 @@ uvicorn app.main:app --host 0.0.0.0 --reload --port 8090
 서비스 최초 실행 후 한 번 실행:
 
 ```powershell
-curl -X POST http://localhost:8090/chatbot/scenarios/default
+curl -X POST http://localhost:8087/chatbot/scenarios/default
 ```
 
 ---
