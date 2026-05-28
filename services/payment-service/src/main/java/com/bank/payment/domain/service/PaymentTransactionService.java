@@ -1,6 +1,7 @@
 package com.bank.payment.domain.service;
 
 import com.bank.payment.common.IdGenerator;
+import com.bank.payment.common.LedgerFailureSimulator;
 import com.bank.payment.common.exception.LedgerBalanceMismatchException;
 import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.domain.ExternalCall;
@@ -61,6 +62,7 @@ public class PaymentTransactionService {
     private final KftcClearingTransactionMapper clearingTransactionMapper;
     private final BokSettlementTransactionMapper settlementTransactionMapper;
     private final ObjectMapper objectMapper;
+    private final LedgerFailureSimulator ledgerFailureSimulator;
 
     public PaymentTransactionService(
             PaymentInstructionMapper paymentInstructionMapper,
@@ -72,7 +74,8 @@ public class PaymentTransactionService {
             OutboxMessageMapper outboxMessageMapper,
             KftcClearingTransactionMapper clearingTransactionMapper,
             BokSettlementTransactionMapper settlementTransactionMapper,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            LedgerFailureSimulator ledgerFailureSimulator) {
         this.paymentInstructionMapper = paymentInstructionMapper;
         this.idempotencyKeyMapper = idempotencyKeyMapper;
         this.statusHistoryMapper = statusHistoryMapper;
@@ -83,6 +86,7 @@ public class PaymentTransactionService {
         this.clearingTransactionMapper = clearingTransactionMapper;
         this.settlementTransactionMapper = settlementTransactionMapper;
         this.objectMapper = objectMapper;
+        this.ledgerFailureSimulator = ledgerFailureSimulator;
     }
 
     /** TX-1: 멱등키(PROCESSING) + 결제지시(DRAFT) + 상태이력(seq1 INSTRUCTION_CREATED) INSERT */
@@ -222,11 +226,8 @@ public class PaymentTransactionService {
                 "KRW", businessDate, businessDate, businessDate,
                 now, "자행이체 출금");
 
-        // [F5 테스트 트리거] receiverAccountNo=88880000 → 분개 INSERT 직전 강제 실패.
-        // 운영 코드 아님. DB 장애로 인한 분개 INSERT 실패 → txStep4 전체 롤백(AUTHORIZED 복귀) → 보상 흐름 검증용.
-        if ("88880000".equals(command.receiverAccountNo())) {
-            throw new LedgerInsertFailureException("F5 테스트: 분개 INSERT 강제 실패 (receiverAccountNo=88880000)");
-        }
+        // mock 프로파일: F5 시나리오 분개 INSERT 실패 시뮬레이션 (NoOp: 운영환경에서는 아무 일도 없음)
+        ledgerFailureSimulator.checkAndThrow(command.receiverAccountNo());
 
         ledgerMapper.insert(out);
 

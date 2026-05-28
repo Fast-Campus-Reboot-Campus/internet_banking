@@ -223,7 +223,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     private static String failedEventTypeFor(String failureCategory) {
         return switch (failureCategory) {
             case "INSUFFICIENT_BALANCE" -> "BALANCE_CHECK_FAILED";
-            default -> "VALIDATION_FAILED";
+            case "LIMIT_EXCEEDED"       -> "LIMIT_CHECK_FAILED";
+            case "OWNER_INQUIRY_FAILED" -> "OWNER_INQUIRY_FAILED";
+            case "ACCOUNT_RESTRICTED"   -> "ACCOUNT_CHECK_FAILED";
+            case "ACCOUNT_CLOSED"       -> "ACCOUNT_CHECK_FAILED";
+            // 안전망: 위 5개 외 예상치 못한 code 진입 시 — 실제 경로에서는 미사용
+            default                     -> "PAYMENT_FAILED";
         };
     }
 
@@ -248,11 +253,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 "/api/v1/accounts/" + sender, senderAccountResp.code());
         AccountInquiryData senderAccount = senderAccountResp.data();
         if (!"ACTIVE".equals(senderAccount.accountStatus())) {
-            throw new PaymentValidationException("ACCOUNT_INACTIVE",
+            // CLOSED → ACCOUNT_CLOSED, FROZEN/DORMANT 등 → ACCOUNT_RESTRICTED
+            String fc = "CLOSED".equals(senderAccount.accountStatus()) ? "ACCOUNT_CLOSED" : "ACCOUNT_RESTRICTED";
+            throw new PaymentValidationException(fc,
                     "송신계좌 비활성: " + senderAccount.accountStatus());
         }
         if (Boolean.TRUE.equals(senderAccount.fraudFlag())) {
-            throw new PaymentValidationException("FRAUD_REPORTED", "송신계좌 사고신고");
+            throw new PaymentValidationException("ACCOUNT_RESTRICTED", "송신계좌 사고신고");
         }
 
         // A-1 계좌조회 (수신계좌) — 자행만. 타행은 수신계좌가 타 은행 관할이므로 deposit 검증 생략
@@ -262,11 +269,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     "/api/v1/accounts/" + receiver, receiverAccountResp.code());
             AccountInquiryData receiverAccount = receiverAccountResp.data();
             if (!"ACTIVE".equals(receiverAccount.accountStatus())) {
-                throw new PaymentValidationException("ACCOUNT_INACTIVE",
+                // CLOSED → ACCOUNT_CLOSED, FROZEN/DORMANT 등 → ACCOUNT_RESTRICTED
+                String fc = "CLOSED".equals(receiverAccount.accountStatus()) ? "ACCOUNT_CLOSED" : "ACCOUNT_RESTRICTED";
+                throw new PaymentValidationException(fc,
                         "수신계좌 비활성: " + receiverAccount.accountStatus());
             }
             if (Boolean.TRUE.equals(receiverAccount.fraudFlag())) {
-                throw new PaymentValidationException("FRAUD_REPORTED", "수신계좌 사고신고");
+                throw new PaymentValidationException("ACCOUNT_RESTRICTED", "수신계좌 사고신고");
             }
         }
 
@@ -285,10 +294,10 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     "/api/v1/accounts/" + receiver + "/holder", receiverHolderResp.code());
             HolderInquiryData receiverHolder = receiverHolderResp.data();
             if (Boolean.TRUE.equals(receiverHolder.deceasedFlag())) {
-                throw new PaymentValidationException("HOLDER_DECEASED", "수신 예금주 사망");
+                throw new PaymentValidationException("OWNER_INQUIRY_FAILED", "수신 예금주 사망");
             }
             if (!receiverHolder.holderName().equals(command.receiverHolderName())) {
-                throw new PaymentValidationException("HOLDER_MISMATCH",
+                throw new PaymentValidationException("OWNER_INQUIRY_FAILED",
                         "수신자명 불일치: 입력=" + command.receiverHolderName()
                         + ", 조회=" + receiverHolder.holderName());
             }
@@ -319,13 +328,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                 "/api/v1/limits/" + sender, limitResp.code());
         LimitInquiryData limit = limitResp.data();
         if (needed > limit.perTxLimit()) {
-            throw new PaymentValidationException("SINGLE_TX_LIMIT", "1회 한도 초과");
+            throw new PaymentValidationException("LIMIT_EXCEEDED", "1회 한도 초과");
         }
         if (needed > limit.dailyRemaining()) {
-            throw new PaymentValidationException("DAILY_LIMIT_EXCEEDED", "일일 한도 초과");
+            throw new PaymentValidationException("LIMIT_EXCEEDED", "일일 한도 초과");
         }
         if (needed > limit.monthlyRemaining()) {
-            throw new PaymentValidationException("MONTHLY_LIMIT_EXCEEDED", "월 한도 초과");
+            throw new PaymentValidationException("LIMIT_EXCEEDED", "월 한도 초과");
         }
 
         return new ExternalValidationResult(senderHolderName, receiverHolderName);
