@@ -203,9 +203,16 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     }
 
     /**
-     * 예약이체 실행. 워커가 claim 성공 후 호출 (정상 경로 전용 — 실패/보상은 3-C에서 추가).
+     * 예약이체 실행. 워커가 claim 성공 후 호출.
      * ★txStep1/authorize/markScheduled 재호출 금지 — 이미 PROCESSING 상태.
      * 타행/BOK는 UnsupportedOperationException 가드.
+     *
+     * 실패 3갈래 처리:
+     *   PaymentValidationException  → sender/잔액 실패 (B-3 미도달) → PROCESSING→FAILED
+     *   DepositInboundFailureException → F8 입금실패 (B-3 성공) → PROCESSING→REVERSING→FAILED
+     *   LedgerInsertFailureException   → F5 분개실패 (txStep4Scheduled 롤백) → PROCESSING→REVERSING→FAILED
+     * ★freshPi(V+1) 재조회: claim 이 DB version=V+1 을 커밋했고 txStep4Scheduled 가 롤백될 수 있으므로
+     *   selectById 로 신선한 version 을 확인 후 낙관락 사용 (즉시이체 F5/F8 과 동일 패턴).
      */
     @Override
     public PaymentResult executeScheduledIntraBank(PaymentInstruction pi) {
@@ -214,18 +221,55 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     "예약이체 타행/BOK 미구현 — 후속 단계. piId=" + pi.getPaymentInstructionId());
         }
 
+        String piId = pi.getPaymentInstructionId();
         PaymentCommand command = rebuildCommand(pi);
-        // step2a 실행용(attempt=2): sender A 재검증 + receiver snapshot 갱신.
-        // 등록 시(attempt=1) call_idempotency_key 와 분리 — DuplicateKeyException 방지.
-        ExternalValidationResult validation = step2a_executeRevalidation(pi, command);
-        // step2b: 실행 시점 잔액·한도 검증 (등록 시에는 생략했던 B 검증)
-        step2b_executeValidation(pi, command);
+        // catch 블록에서도 접근 가능하도록 try 전에 선언 (F8/F5 보상에서 w.callId()/w.txData() 필요)
+        WithdrawStepResult w = null;
 
-        WithdrawStepResult w = step3_withdraw(pi, command);
-        BalanceTxData deposit = step3b_deposit(pi, command);
+        try {
+            // step2a 실행용(attempt=2): sender A 재검증 + receiver snapshot 유지.
+            // 등록 시(attempt=1) call_idempotency_key 와 분리 — DuplicateKeyException 방지.
+            ExternalValidationResult validation = step2a_executeRevalidation(pi, command);
+            // step2b: 실행 시점 잔액·한도 검증 (등록 시에는 생략했던 B 검증)
+            step2b_executeValidation(pi, command);
 
-        return txService.txStep4Scheduled(pi, w.txData(), deposit, command,
-                validation.senderHolderName(), validation.receiverHolderName());
+            w = step3_withdraw(pi, command);
+            BalanceTxData deposit = step3b_deposit(pi, command);
+
+            return txService.txStep4Scheduled(pi, w.txData(), deposit, command,
+                    validation.senderHolderName(), validation.receiverHolderName());
+
+        } catch (PaymentValidationException e) {
+            // sender/잔액 실패 — B-3 미도달, 자금변동 없음
+            PaymentInstruction freshPi = txService.selectById(piId);
+            if ("FAILED".equals(freshPi.getStatus()) || "CANCELED".equals(freshPi.getStatus())) {
+                return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", null);
+            }
+            return txService.txStepFail(freshPi, e.getFailureCategory(),
+                    failedEventTypeFor(e.getFailureCategory()), "PROCESSING");
+
+        } catch (DepositInboundFailureException e) {
+            // F8: B-4 입금 실패 — B-3 출금 성공, 자금변동 발생 → 보상 필수
+            PaymentInstruction freshPi = txService.selectById(piId);
+            if ("FAILED".equals(freshPi.getStatus()) || "CANCELED".equals(freshPi.getStatus())) {
+                return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", null);
+            }
+            // freshPi.version = claim 후 V+1. txMarkReversing WHERE version=V+1 → REVERSING(V+2)
+            txService.txMarkReversing(freshPi, freshPi.getVersion(), "PROCESSING");
+            step3c_withdrawCancel(freshPi, command, w.callId(), w.txData());
+            // txCompleteReversal WHERE version=V+2 → FAILED(V+3)
+            return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
+
+        } catch (LedgerInsertFailureException e) {
+            // F5: txStep4Scheduled 롤백 → PROCESSING(V+1) 복귀. B-3/B-4 성공 → 보상 필수
+            PaymentInstruction freshPi = txService.selectById(piId);
+            if ("FAILED".equals(freshPi.getStatus()) || "CANCELED".equals(freshPi.getStatus())) {
+                return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", null);
+            }
+            txService.txMarkReversing(freshPi, freshPi.getVersion(), "PROCESSING");
+            step3c_withdrawCancel(freshPi, command, w.callId(), w.txData());
+            return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
+        }
     }
 
     /**

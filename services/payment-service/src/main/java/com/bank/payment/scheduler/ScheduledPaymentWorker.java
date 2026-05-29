@@ -15,7 +15,9 @@ import java.util.List;
  *
  * scheduled_execution_at < now AND status='SCHEDULED' 인 PI = 실행 시각 도래한 예약이체.
  * 단계 2: claim(SCHEDULED→PROCESSING 선점).
- * 단계 3: executeScheduledIntraBank(claim 성공 pi) — 자행 완결. 실패/보상은 3-C에서 추가.
+ * 단계 3: executeScheduledIntraBank(claim 성공 pi) — 자행 완결 + 실패/보상 처리.
+ *         내부에서 PaymentValidationException/DepositInboundFailureException/LedgerInsertFailureException
+ *         모두 종료상태(FAILED)로 닫아 PROCESSING stuck 을 방지.
  * ★ @Transactional 없음 — claim(독립 TX)과 execute(별도 TX) 분리.
  */
 @Slf4j
@@ -51,8 +53,10 @@ public class ScheduledPaymentWorker {
                 orchestrator.executeScheduledIntraBank(pi);
                 log.info("[SCHED] 실행 완료 piId={}", pi.getPaymentInstructionId());
             } catch (Exception e) {
-                // 실패 시 PROCESSING 잔류 → 3-C 에서 보상/FAILED 처리 추가 예정
-                log.error("[SCHED] 처리 실패 piId={}", pi.getPaymentInstructionId(), e);
+                // executeScheduledIntraBank 내부에서 정상 실패는 종료상태(FAILED)로 닫힘.
+                // 여기까지 올라온 예외는 보상 자체 실패 등 예상외 예외 — REVERSING 잔류(범위 밖).
+                log.error("[SCHED] 예상외 처리 실패 piId={} — 운영자 확인 필요",
+                        pi.getPaymentInstructionId(), e);
             }
         }
     }

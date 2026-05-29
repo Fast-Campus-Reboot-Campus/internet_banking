@@ -4,7 +4,9 @@ import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.domain.mapper.PaymentInstructionMapper;
 import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.bank.payment.domain.service.PaymentTransactionService;
+import com.bank.payment.outbound.feign.mock.DepositAccountClientMock;
 import com.bank.payment.scheduler.ScheduledPaymentWorker;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,11 +40,20 @@ class ScheduledPaymentTest extends AbstractPaymentIntegrationTest {
     @Autowired private PaymentInstructionMapper paymentInstructionMapper;
     @Autowired private PaymentOrchestrator orchestrator;
     @Autowired private ScheduledPaymentWorker scheduledPaymentWorker;
+    @Autowired private DepositAccountClientMock accountClientMock;
 
     private static final String BANK_CODE_A      = "004";
     private static final String SENDER_S1        = "12345678901234";
+    private static final String SENDER_F1        = "77770000000001";  // 잔액 500만 — 600만 이체 시 INSUFFICIENT_BALANCE
     private static final String RECEIVER_S1      = "12345678905678";
     private static final String RECEIVER_CLOSED  = "99990000000003";
+    private static final String RECEIVER_F8      = "12345678909999";  // B-4 DEP-9001 → DepositInboundFailureException
+    private static final String RECEIVER_F5      = "88880000";        // 분개 INSERT 강제 실패 → LedgerInsertFailureException
+
+    @AfterEach
+    void resetMockAccountState() {
+        accountClientMock.resetAllClosed();
+    }
 
     private MockHttpServletRequestBuilder postScheduledPayment(
             String idempotencyKey,
@@ -418,6 +429,222 @@ class ScheduledPaymentTest extends AbstractPaymentIntegrationTest {
         long procStartedCount = events.stream()
                 .filter("PROCESSING_STARTED"::equals).count();
         assertThat(procStartedCount).isEqualTo(1);
+    }
+
+    // ── 실행 실패/보상 테스트 (3갈래) ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("sched_execute_senderClosed_failed — claim 후 sender CLOSED → PROCESSING→FAILED, ACCOUNT_CLOSED, ledger 0")
+    void sched_execute_senderClosed_failed() throws Exception {
+        // 1. 정상 등록 (SENDER_S1 ACTIVE)
+        String piId = registerScheduled("SCHED-SCLOS-001-1", "USER-SCLOS-001", "AUTH-SCLOS-001",
+                LocalDateTime.now().plusHours(1));
+
+        // 2. scheduled_execution_at 과거 설정
+        jdbc.update("UPDATE payment_instruction SET scheduled_execution_at = ? WHERE payment_instruction_id = ?",
+                LocalDateTime.now().minusMinutes(1), piId);
+
+        // 3. selectDueScheduled + claim
+        PaymentInstruction pi = paymentInstructionMapper.selectDueScheduled().stream()
+                .filter(p -> piId.equals(p.getPaymentInstructionId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("PI 없음: " + piId));
+        boolean claimed = txService.claimScheduled(pi);
+        assertThat(claimed).isTrue();
+
+        // 4. claim 후, 실행 전 sender 계좌 CLOSED 설정
+        accountClientMock.closeAccount(SENDER_S1);
+
+        // 5. 실행 → step2a_executeRevalidation CLOSED 감지 → PaymentValidationException → PROCESSING→FAILED
+        orchestrator.executeScheduledIntraBank(pi);
+
+        // 6. 검증
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT status, failure_category FROM payment_instruction WHERE payment_instruction_id = ?", piId);
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("failure_category")).isEqualTo("ACCOUNT_CLOSED");
+        assertThat(row.get("status")).isNotEqualTo("PROCESSING"); // stuck 아님
+
+        // ledger 0건 (B-3 미도달)
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?", Integer.class, piId)).isZero();
+
+        // 이력 from_status="PROCESSING" (ACCOUNT_CHECK_FAILED 이벤트)
+        String prevStatusEvent = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'ACCOUNT_CHECK_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusEvent).isEqualTo("PROCESSING");
+
+        // 이력 from_status="PROCESSING" (PAYMENT_FAILED 전이)
+        String prevStatusFailed = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusFailed).isEqualTo("PROCESSING");
+    }
+
+    @Test
+    @DisplayName("sched_execute_insufficientBalance_failed — 잔액부족 sender → PROCESSING→FAILED, INSUFFICIENT_BALANCE, ledger 0")
+    void sched_execute_insufficientBalance_failed() throws Exception {
+        // SENDER_F1 잔액 500만, 이체금액 600만 → step2b 잔액부족 → INSUFFICIENT_BALANCE
+        LocalDateTime futureTime = LocalDateTime.now().plusHours(1);
+        MvcResult result = mockMvc.perform(postScheduledPayment(
+                "SCHED-INSUF-001-1", "USER-INSUF-001", "AUTH-INSUF-001",
+                SENDER_F1, BANK_CODE_A, RECEIVER_S1, "성춘향",
+                6_000_000L, "MOBILE", futureTime
+        ))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("SCHEDULED"))
+        .andReturn();
+
+        String piId = om.readTree(result.getResponse().getContentAsString())
+                .get("paymentInstructionId").asText();
+
+        jdbc.update("UPDATE payment_instruction SET scheduled_execution_at = ? WHERE payment_instruction_id = ?",
+                LocalDateTime.now().minusMinutes(1), piId);
+
+        PaymentInstruction pi = paymentInstructionMapper.selectDueScheduled().stream()
+                .filter(p -> piId.equals(p.getPaymentInstructionId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("PI 없음: " + piId));
+
+        txService.claimScheduled(pi);
+
+        // 실행 → step2b 잔액부족 → PaymentValidationException → PROCESSING→FAILED
+        orchestrator.executeScheduledIntraBank(pi);
+
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT status, failure_category FROM payment_instruction WHERE payment_instruction_id = ?", piId);
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("failure_category")).isEqualTo("INSUFFICIENT_BALANCE");
+        assertThat(row.get("status")).isNotEqualTo("PROCESSING"); // stuck 아님
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?", Integer.class, piId)).isZero();
+
+        // 이력 from_status="PROCESSING"
+        String prevStatusFailed = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusFailed).isEqualTo("PROCESSING");
+    }
+
+    @Test
+    @DisplayName("sched_execute_F8_reversed — F8 receiver 입금실패 → PROCESSING→REVERSING→FAILED, version=등록후+3")
+    void sched_execute_F8_reversed() throws Exception {
+        // 1. F8 트리거 계좌로 예약 등록 (홍판서 — getHolder("12345678909999")="홍판서")
+        LocalDateTime futureTime = LocalDateTime.now().plusHours(1);
+        MvcResult result = mockMvc.perform(postScheduledPayment(
+                "SCHED-F8-001-1", "USER-F8-001", "AUTH-F8-001",
+                SENDER_S1, BANK_CODE_A, RECEIVER_F8, "홍판서",
+                100_000L, "MOBILE", futureTime
+        ))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("SCHEDULED"))
+        .andReturn();
+
+        String piId = om.readTree(result.getResponse().getContentAsString())
+                .get("paymentInstructionId").asText();
+
+        jdbc.update("UPDATE payment_instruction SET scheduled_execution_at = ? WHERE payment_instruction_id = ?",
+                LocalDateTime.now().minusMinutes(1), piId);
+
+        // 2. selectDueScheduled — version 기록
+        PaymentInstruction pi = paymentInstructionMapper.selectDueScheduled().stream()
+                .filter(p -> piId.equals(p.getPaymentInstructionId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("PI 없음: " + piId));
+        int versionAtScheduled = pi.getVersion(); // SCHEDULED 시점 version (= 2)
+
+        // 3. claim → PROCESSING (version V+1)
+        boolean claimed = txService.claimScheduled(pi);
+        assertThat(claimed).isTrue();
+
+        // 4. execute → B-4 DEP-9001 → DepositInboundFailureException → 보상
+        orchestrator.executeScheduledIntraBank(pi);
+
+        // 5. 검증
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT status, failure_category, version FROM payment_instruction WHERE payment_instruction_id = ?", piId);
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("failure_category")).isEqualTo("SYSTEM_ERROR");
+        // version: SCHEDULED(V) + claim(+1) + txMarkReversing(+1) + txCompleteReversal(+1) = V+3
+        assertThat(((Number) row.get("version")).intValue()).isEqualTo(versionAtScheduled + 3);
+
+        // ledger 0건 (txCompleteReversal — 역분개 없음, P-026)
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?", Integer.class, piId)).isZero();
+
+        // SYSTEM_FAILURE_DETECTED: from_status="PROCESSING"
+        String sfdPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'SYSTEM_FAILURE_DETECTED'",
+                String.class, piId);
+        assertThat(sfdPrev).isEqualTo("PROCESSING");
+
+        // COMPENSATION_STARTED: from_status="PROCESSING"
+        String csPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'COMPENSATION_STARTED'",
+                String.class, piId);
+        assertThat(csPrev).isEqualTo("PROCESSING");
+    }
+
+    @Test
+    @DisplayName("sched_execute_F5_reversed — F5 분개실패(txStep4Scheduled 롤백) → 보상, version=등록후+3")
+    void sched_execute_F5_reversed() throws Exception {
+        // 1. F5 트리거 계좌로 예약 등록 (변학도 — getHolder("88880000")="변학도")
+        LocalDateTime futureTime = LocalDateTime.now().plusHours(1);
+        MvcResult result = mockMvc.perform(postScheduledPayment(
+                "SCHED-F5-001-1", "USER-F5-001", "AUTH-F5-001",
+                SENDER_S1, BANK_CODE_A, RECEIVER_F5, "변학도",
+                100_000L, "MOBILE", futureTime
+        ))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("SCHEDULED"))
+        .andReturn();
+
+        String piId = om.readTree(result.getResponse().getContentAsString())
+                .get("paymentInstructionId").asText();
+
+        jdbc.update("UPDATE payment_instruction SET scheduled_execution_at = ? WHERE payment_instruction_id = ?",
+                LocalDateTime.now().minusMinutes(1), piId);
+
+        PaymentInstruction pi = paymentInstructionMapper.selectDueScheduled().stream()
+                .filter(p -> piId.equals(p.getPaymentInstructionId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("PI 없음: " + piId));
+        int versionAtScheduled = pi.getVersion();
+
+        txService.claimScheduled(pi);
+
+        // execute → txStep4Scheduled 내 분개 INSERT 실패 → 롤백 → PROCESSING 복귀 → 보상
+        orchestrator.executeScheduledIntraBank(pi);
+
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT status, failure_category, version FROM payment_instruction WHERE payment_instruction_id = ?", piId);
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("failure_category")).isEqualTo("SYSTEM_ERROR");
+        assertThat(((Number) row.get("version")).intValue()).isEqualTo(versionAtScheduled + 3);
+
+        // ledger 0건 (txStep4Scheduled 롤백으로 분개도 롤백, txCompleteReversal 역분개 없음)
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?", Integer.class, piId)).isZero();
+
+        // REVERSAL 이력 from_status="PROCESSING"
+        String sfdPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'SYSTEM_FAILURE_DETECTED'",
+                String.class, piId);
+        assertThat(sfdPrev).isEqualTo("PROCESSING");
+
+        String csPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'COMPENSATION_STARTED'",
+                String.class, piId);
+        assertThat(csPrev).isEqualTo("PROCESSING");
     }
 
     @Test
