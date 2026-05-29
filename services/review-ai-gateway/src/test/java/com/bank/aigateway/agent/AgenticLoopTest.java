@@ -101,6 +101,30 @@ class AgenticLoopTest {
     }
 
     @Test
+    void tool_결과에_PII_포함_시_LLM_메시지에_마스킹되어_전달() {
+        ToolCall call = new ToolCall("id-pii", "get_reviewer_history", objectMapper.createObjectNode());
+        ArgumentCaptor<ArrayNode> captor = ArgumentCaptor.forClass(ArrayNode.class);
+
+        when(llmClient.completeWithTools(any(), captor.capture(), any()))
+                .thenReturn(toolUseResponse(call, 50, 30))
+                .thenReturn(endTurnResponse("결론", 100, 70));
+
+        loop.run("system", "user msg", List.of(), tc ->
+                "심사관 홍길동씨 주민번호 901010-1234567 전화번호 010-1234-5678 승인율 72%");
+
+        // 두 번째 LLM 호출(tool_result 포함)에서 PII 가 마스킹됐어야 한다
+        ArrayNode secondMessages = captor.getAllValues().get(1);
+        String json = secondMessages.toString();
+        assertThat(json).doesNotContain("901010-1234567");
+        assertThat(json).doesNotContain("010-1234-5678");
+        assertThat(json).doesNotContain("홍길동씨");
+        assertThat(json).contains("[RRN]");
+        assertThat(json).contains("[PHONE]");
+        assertThat(json).contains("[NAME]");
+        assertThat(json).contains("72%");   // 비PII 원문 유지
+    }
+
+    @Test
     void 한_응답에_복수_tool_call이면_모두_실행() {
         ToolCall call1 = new ToolCall("id-a", "get_policy_citation", objectMapper.createObjectNode());
         ToolCall call2 = new ToolCall("id-b", "get_cohort_stats", objectMapper.createObjectNode());

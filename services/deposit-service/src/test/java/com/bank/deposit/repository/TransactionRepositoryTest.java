@@ -12,10 +12,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +36,14 @@ class TransactionRepositoryTest {
 
     @Autowired
     TransactionRepository transactionRepository;
+
+    @TestConfiguration
+    static class ClockTestConfig {
+        @Bean
+        Clock clock() {
+            return Clock.fixed(Instant.parse("2024-06-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        }
+    }
 
     // 기간 기준점
     private static final OffsetDateTime BASE = OffsetDateTime.parse("2024-06-01T00:00:00+09:00");

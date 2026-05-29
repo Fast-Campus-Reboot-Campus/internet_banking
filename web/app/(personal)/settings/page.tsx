@@ -1,48 +1,68 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '@/lib/api'
+
+interface SettingsData {
+  name: string
+  email: string | null
+  phone: string | null
+  zipCode: string | null
+  address: string | null
+  addressDetail: string | null
+  smsReceiveYn: boolean
+  emailReceiveYn: boolean
+  postalReceiveYn: boolean
+}
 
 type Tab = '프로필 수정' | '비밀번호 변경' | '알림 설정' | '화면 설정'
 const TABS: Tab[] = ['프로필 수정', '비밀번호 변경', '알림 설정', '화면 설정']
 
 /* ── 프로필 수정 ── */
-function ProfileTab() {
-  const [name, setName] = useState('홍길동')
-  const [phone, setPhone] = useState('010-0000-0000')
-  const [email, setEmail] = useState('test@axful.com')
-  const [address, setAddress] = useState('서울특별시 ****동')
+function ProfileTab({ data }: { data: SettingsData }) {
+  const [phone, setPhone] = useState(data.phone ?? '')
+  const [email, setEmail] = useState(data.email ?? '')
+  const [zipCode, setZipCode] = useState(data.zipCode ?? '')
+  const [address, setAddress] = useState(data.address ?? '')
+  const [addressDetail, setAddressDetail] = useState(data.addressDetail ?? '')
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSave() {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  async function handleSave() {
+    setError('')
+    try {
+      await api.put('/api/v1/customers/me/profile', { email, phone, zipCode, address, addressDetail })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      setError('저장에 실패했습니다.')
+    }
   }
 
   return (
-    <div className="space-y-0">
+    <div>
       <table className="w-full border-collapse text-[13px]">
         <tbody>
+          <tr>
+            <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">이름</td>
+            <td className="border border-kb-border px-4 py-3 text-kb-text-body">{data.name}</td>
+          </tr>
           {[
-            { label: '이름', value: name, setter: setName, readOnly: true },
-            { label: '휴대폰 번호', value: phone, setter: setPhone, readOnly: false },
-            { label: '이메일', value: email, setter: setEmail, readOnly: false },
-            { label: '자택 주소', value: address, setter: setAddress, readOnly: false },
+            { label: '휴대폰 번호', value: phone, setter: setPhone },
+            { label: '이메일', value: email, setter: setEmail },
+            { label: '우편번호', value: zipCode, setter: setZipCode },
+            { label: '자택 주소', value: address, setter: setAddress },
+            { label: '상세 주소', value: addressDetail, setter: setAddressDetail },
           ].map(row => (
             <tr key={row.label}>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">
-                {row.label}
-              </td>
+              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">{row.label}</td>
               <td className="border border-kb-border px-4 py-3">
-                {row.readOnly ? (
-                  <span className="text-kb-text-body">{row.value}</span>
-                ) : (
-                  <input
-                    type="text"
-                    value={row.value}
-                    onChange={e => row.setter(e.target.value)}
-                    className="w-full max-w-xs border border-kb-border px-3 py-1.5 text-[13px] focus:outline-none focus:border-kb-taupe"
-                  />
-                )}
+                <input
+                  type="text"
+                  value={row.value}
+                  onChange={e => row.setter(e.target.value)}
+                  className="w-full max-w-xs border border-kb-border px-3 py-1.5 text-[13px] focus:outline-none focus:border-kb-taupe"
+                />
               </td>
             </tr>
           ))}
@@ -56,6 +76,7 @@ function ProfileTab() {
           저장
         </button>
         {saved && <span className="text-[13px] text-kb-green">저장되었습니다.</span>}
+        {error && <span className="text-[13px] text-kb-red">{error}</span>}
       </div>
     </div>
   )
@@ -69,14 +90,20 @@ function PasswordTab() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  function handleChange() {
+  async function handleChange() {
     setError('')
     if (!current || !next || !confirm) { setError('모든 항목을 입력해 주세요.'); return }
     if (next.length < 8) { setError('비밀번호는 8자 이상이어야 합니다.'); return }
     if (next !== confirm) { setError('새 비밀번호가 일치하지 않습니다.'); return }
-    setSuccess(true)
-    setCurrent(''); setNext(''); setConfirm('')
-    setTimeout(() => setSuccess(false), 3000)
+    try {
+      await api.put('/api/v1/customers/me/password', { currentPassword: current, newPassword: next })
+      setSuccess(true)
+      setCurrent(''); setNext(''); setConfirm('')
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setError(msg ?? '비밀번호 변경에 실패했습니다.')
+    }
   }
 
   return (
@@ -94,9 +121,7 @@ function PasswordTab() {
             { label: '새 비밀번호 확인', value: confirm, setter: setConfirm },
           ].map(row => (
             <tr key={row.label}>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[180px]">
-                {row.label}
-              </td>
+              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[180px]">{row.label}</td>
               <td className="border border-kb-border px-4 py-3">
                 <input
                   type="password"
@@ -123,45 +148,71 @@ function PasswordTab() {
 }
 
 /* ── 알림 설정 ── */
-type NotifKey = 'transfer' | 'login' | 'marketing' | 'event' | 'rate'
+type NotifKey = 'smsReceiveYn' | 'emailReceiveYn' | 'postalReceiveYn'
+
 const NOTIF_ITEMS: { key: NotifKey; label: string; desc: string }[] = [
-  { key: 'transfer', label: '이체 알림', desc: '입출금 거래 발생 시 알림을 받습니다.' },
-  { key: 'login', label: '로그인 알림', desc: '새로운 기기에서 로그인 시 알림을 받습니다.' },
-  { key: 'marketing', label: '마케팅 정보 수신', desc: '금융 상품 및 이벤트 정보를 받습니다.' },
-  { key: 'event', label: '이벤트/혜택 알림', desc: '프로모션 및 포인트 적립 알림을 받습니다.' },
-  { key: 'rate', label: '금리 변동 알림', desc: '보유 대출의 금리 변경 시 알림을 받습니다.' },
+  { key: 'smsReceiveYn',   label: 'SMS 수신 알림',    desc: '이체·로그인 등 주요 거래 알림을 SMS로 받습니다.' },
+  { key: 'emailReceiveYn', label: '이메일 수신 알림',  desc: '마케팅 및 이벤트 정보를 이메일로 받습니다.' },
+  { key: 'postalReceiveYn',label: '우편 수신 알림',    desc: '금리 변동 등 금융 안내를 우편으로 받습니다.' },
 ]
 
-function NotificationTab() {
+function NotificationTab({ data }: { data: SettingsData }) {
   const [notifs, setNotifs] = useState<Record<NotifKey, boolean>>({
-    transfer: true, login: true, marketing: false, event: false, rate: true,
+    smsReceiveYn:    data.smsReceiveYn,
+    emailReceiveYn:  data.emailReceiveYn,
+    postalReceiveYn: data.postalReceiveYn,
   })
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   function toggle(key: NotifKey) {
     setNotifs(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  async function handleSave() {
+    setError('')
+    try {
+      await api.put('/api/v1/customers/me/notification', notifs)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch {
+      setError('저장에 실패했습니다.')
+    }
+  }
+
   return (
-    <div className="border border-kb-border-dark rounded-xl divide-y divide-kb-border overflow-hidden">
-      {NOTIF_ITEMS.map(item => (
-        <div key={item.key} className="flex items-center justify-between px-5 py-4">
-          <div>
-            <p className="text-base font-semibold text-kb-text">{item.label}</p>
-            <p className="text-sm text-kb-text-muted mt-0.5">{item.desc}</p>
+    <div>
+      <div className="border border-kb-border-dark rounded-xl divide-y divide-kb-border overflow-hidden mb-5">
+        {NOTIF_ITEMS.map(item => (
+          <div key={item.key} className="flex items-center justify-between px-5 py-4">
+            <div>
+              <p className="text-base font-semibold text-kb-text">{item.label}</p>
+              <p className="text-sm text-kb-text-muted mt-0.5">{item.desc}</p>
+            </div>
+            <button
+              onClick={() => toggle(item.key)}
+              className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${notifs[item.key] ? 'bg-kb-blue' : 'bg-gray-300'}`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${notifs[item.key] ? 'translate-x-7' : 'translate-x-1'}`} />
+            </button>
           </div>
-          <button
-            onClick={() => toggle(item.key)}
-            className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${notifs[item.key] ? 'bg-kb-blue' : 'bg-gray-300'}`}
-          >
-            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${notifs[item.key] ? 'translate-x-7' : 'translate-x-1'}`} />
-          </button>
-        </div>
-      ))}
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:brightness-95 transition-all"
+        >
+          저장
+        </button>
+        {saved && <span className="text-[13px] text-kb-green">저장되었습니다.</span>}
+        {error && <span className="text-[13px] text-kb-red">{error}</span>}
+      </div>
     </div>
   )
 }
 
-/* ── 화면 설정 ── */
+/* ── 화면 설정 (localStorage) ── */
 type FontSize = '소' | '중' | '대'
 type ColorTheme = '기본' | '고대비'
 
@@ -170,10 +221,29 @@ function ScreenTab() {
   const [colorTheme, setColorTheme] = useState<ColorTheme>('기본')
   const [mainPageLayout, setMainPageLayout] = useState('기본형')
   const [quickMenuVisible, setQuickMenuVisible] = useState(true)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('screenSettings')
+    if (stored) {
+      try {
+        const s = JSON.parse(stored)
+        if (s.fontSize) setFontSize(s.fontSize)
+        if (s.colorTheme) setColorTheme(s.colorTheme)
+        if (s.mainPageLayout) setMainPageLayout(s.mainPageLayout)
+        if (s.quickMenuVisible !== undefined) setQuickMenuVisible(s.quickMenuVisible)
+      } catch { /* ignore */ }
+    }
+  }, [])
+
+  function handleSave() {
+    localStorage.setItem('screenSettings', JSON.stringify({ fontSize, colorTheme, mainPageLayout, quickMenuVisible }))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
 
   return (
     <div className="space-y-6">
-      {/* 글자 크기 */}
       <div>
         <h3 className="text-[14px] font-bold text-kb-text mb-3">글자 크기</h3>
         <div className="flex gap-2">
@@ -194,7 +264,6 @@ function ScreenTab() {
         </div>
       </div>
 
-      {/* 색상 테마 */}
       <div>
         <h3 className="text-[14px] font-bold text-kb-text mb-3">색상 테마</h3>
         <div className="flex gap-2">
@@ -214,7 +283,6 @@ function ScreenTab() {
         </div>
       </div>
 
-      {/* 메인 화면 레이아웃 */}
       <div>
         <h3 className="text-[14px] font-bold text-kb-text mb-3">메인 화면 레이아웃</h3>
         <div className="flex gap-2">
@@ -234,7 +302,6 @@ function ScreenTab() {
         </div>
       </div>
 
-      {/* 퀵메뉴 표시 */}
       <div className="flex items-center justify-between border border-kb-border-dark rounded-xl px-5 py-4">
         <div>
           <p className="text-base font-semibold text-kb-text">퀵메뉴 표시</p>
@@ -248,9 +315,15 @@ function ScreenTab() {
         </button>
       </div>
 
-      <button className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:brightness-95 transition-all">
-        저장
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:brightness-95 transition-all"
+        >
+          저장
+        </button>
+        {saved && <span className="text-[13px] text-kb-green">저장되었습니다.</span>}
+      </div>
     </div>
   )
 }
@@ -258,10 +331,17 @@ function ScreenTab() {
 /* ── 메인 컴포넌트 ── */
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('프로필 수정')
+  const [settingsData, setSettingsData] = useState<SettingsData | null>(null)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    api.get('/api/v1/customers/me/settings')
+      .then(res => setSettingsData(res.data.data))
+      .catch(() => setLoadError('설정 정보를 불러오지 못했습니다.'))
+  }, [])
 
   return (
     <div className="max-w-kb-container mx-auto px-6 py-10 pb-16">
-      {/* 브레드크럼 */}
       <div className="flex justify-end mb-4 text-[12px] text-kb-text-muted gap-1">
         <span>개인뱅킹</span><span>&gt;</span>
         <span className="font-semibold text-kb-text">설정</span>
@@ -269,7 +349,6 @@ export default function SettingsPage() {
 
       <h1 className="text-2xl font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-text">설정</h1>
 
-      {/* 탭 */}
       <div className="flex border-b border-kb-border mb-6">
         {TABS.map(tab => (
           <button
@@ -286,12 +365,21 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {/* 탭 콘텐츠 */}
       <div>
-        {activeTab === '프로필 수정' && <ProfileTab />}
-        {activeTab === '비밀번호 변경' && <PasswordTab />}
-        {activeTab === '알림 설정' && <NotificationTab />}
-        {activeTab === '화면 설정' && <ScreenTab />}
+        {loadError && (
+          <p className="text-[13px] text-kb-red mb-4">{loadError}</p>
+        )}
+        {!settingsData && !loadError && (
+          <p className="text-[13px] text-kb-text-muted">불러오는 중...</p>
+        )}
+        {settingsData && (
+          <>
+            {activeTab === '프로필 수정'  && <ProfileTab data={settingsData} />}
+            {activeTab === '비밀번호 변경' && <PasswordTab />}
+            {activeTab === '알림 설정'    && <NotificationTab data={settingsData} />}
+            {activeTab === '화면 설정'    && <ScreenTab />}
+          </>
+        )}
       </div>
     </div>
   )

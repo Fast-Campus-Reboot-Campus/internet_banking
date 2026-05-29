@@ -35,7 +35,7 @@
 | 10 | `10_observability.md` | ☐ | 0 | — | MDC/메트릭/상태이력 보강 전체 |
 | 11 | `11_security_pii_idempotency.md` | ☐ | 0 | — | PII 암호화·인가·멱등 전체 |
 | 12 | `12_test_gaps.md` | ◑ | reversal/partial/prepay ☑, closure ☐ | a52c339, 17f158f, fa1c199 | closure 통합 테스트 (08 의존) |
-| 13 | `13_shared_rag_foundation.md` | ⏸ | pgvector만 적용 | 091ecb3 | 메모리룰: RAG (Phase 1.7) 보류 |
+| 13 | `13_rag_operationalization.md` | ☐ | Phase 1.7 완료, 운영 전환 대기 | 091ecb3 외 RAG 커밋 | Stage 1~7 (임베딩 모델·시드·백필·인덱스·통합·메트릭·정리) |
 
 **다음 단계**: plan 08 `종결 completeness` → WRITE_OFF/SUBROGATION 실로직. 완료 시 plan 01·12 의 종결 관련 잔여도 동시 해소. plan 07(orphan API 정리)은 독립이라 언제든 착수 가능.
 
@@ -55,7 +55,7 @@
 | 10 | `10_observability.md` | 관측성·구조화 로그·트레이싱 | MDC·메트릭·상태이력 보강 |
 | 11 | `11_security_pii_idempotency.md` | PII 암호화·인가·멱등 | CryptoService 적용 자리 |
 | 12 | `12_test_gaps.md` | 통합 테스트 갭 | reversal/partialrepayment/prepayment/closure 등 |
-| 13 | `13_shared_rag_foundation.md` | RAG 기반 (pgvector 등) | 메모리룰에 따라 현재 보류 |
+| 13 | `13_rag_operationalization.md` | RAG 운영 전환 (모델·시드·백필·통합) | Phase 1.7 후속 |
 
 ## 비-목표 (본 plan군 전체 공통)
 

@@ -438,9 +438,13 @@ function IdLoginTab() {
     setLoading(true)
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
+      localStorage.removeItem('sessionExpiry')
       localStorage.setItem('accessToken', data.data.accessToken)
       localStorage.setItem('access_token', data.data.accessToken)
       localStorage.setItem('customerId', String(data.data.customerId))
+      if (data.data.refreshToken) {
+        localStorage.setItem('refreshToken', data.data.refreshToken)
+      }
 
       // 이름 표시를 위해 내 정보 조회
       try {
@@ -449,8 +453,9 @@ function IdLoginTab() {
       } catch {}
 
       window.location.href = '/personal'
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? '로그인에 실패했습니다.')
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } }
+      setError(axiosErr.response?.data?.message ?? '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }

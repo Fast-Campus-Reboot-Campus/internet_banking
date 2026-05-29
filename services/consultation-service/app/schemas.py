@@ -137,3 +137,18 @@ class ChatMessageHistoryResponse(BaseModel):
     message: str
     sent_at: datetime | None = None
     read_yn: str = "N"
+
+
+class ChatbotTransferRequest(BaseModel):
+    customer_no: str
+    from_account_id: int
+    to_account_number: str
+    amount: int
+    memo: str = "이체"
+
+
+class ChatbotTransferResponse(BaseModel):
+    status: str          # OK | ERROR
+    message: str
+    transaction_id: int | None = None
+    balance_after: int | None = None

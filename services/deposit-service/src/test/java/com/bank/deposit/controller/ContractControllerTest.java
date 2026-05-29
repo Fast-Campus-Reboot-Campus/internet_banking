@@ -6,12 +6,14 @@ import com.bank.deposit.domain.entity.ContractSpecialTermAgreement;
 import com.bank.deposit.domain.enums.*;
 import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.exception.ErrorCode;
+import com.bank.deposit.security.AuthenticatedCustomerValidator;
 import com.bank.deposit.service.ContractService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -25,6 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ContractController.class)
+@Import(AuthenticatedCustomerValidator.class)
 @DisplayName("ContractController")
 class ContractControllerTest {
 
@@ -54,7 +57,9 @@ class ContractControllerTest {
         given(contractService.findAll(eq("CUST-001"), isNull()))
                 .willReturn(List.of(contract("CTR-001", "CUST-001")));
 
-        mockMvc.perform(get("/contracts").param("customerId", "CUST-001"))
+        mockMvc.perform(get("/contracts")
+                        .header(AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, "CUST-001")
+                        .param("customerId", "CUST-001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].customerId").value("CUST-001"));
@@ -86,10 +91,12 @@ class ContractControllerTest {
         given(contractService.createContract(
                 eq("CUST-001"), eq(1L), any(), eq(12), any(),
                 any(), any(), any(), any(), any(), any(),
+                any(),
                 any(), any(), any(), anyString()))
                 .willReturn(contract("CTR-NEW", "CUST-001"));
 
         mockMvc.perform(post("/contracts")
+                        .header(AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, "CUST-001")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -106,6 +113,15 @@ class ContractControllerTest {
     }
 
     @Test
+    @DisplayName("다른 고객 계약 목록 조회 시 403을 반환한다")
+    void listByCustomerMismatch() throws Exception {
+        mockMvc.perform(get("/contracts")
+                        .header(AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, "CUST-999")
+                        .param("customerId", "CUST-001"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("계약을 해지한다")
     void terminate() throws Exception {
         Contract terminated = Contract.builder()
@@ -117,7 +133,7 @@ class ContractControllerTest {
                 .totalPreferentialRate(BigDecimal.ZERO)
                 .finalInterestRate(BigDecimal.valueOf(3.0))
                 .contractPeriodMonth(12)
-                .startedAt("20260101")
+                .startedAt(java.time.LocalDate.of(2026, 1, 1))
                 .joinChannel(JoinChannel.WEB)
                 .contractStatus(ContractStatus.TERMINATED)
                 .build();
@@ -155,7 +171,7 @@ class ContractControllerTest {
                 .totalPreferentialRate(BigDecimal.ZERO)
                 .finalInterestRate(BigDecimal.valueOf(3.0))
                 .contractPeriodMonth(12)
-                .startedAt("20260101")
+                .startedAt(java.time.LocalDate.of(2026, 1, 1))
                 .joinChannel(JoinChannel.WEB)
                 .contractStatus(ContractStatus.MATURED)
                 .build();
@@ -333,7 +349,7 @@ class ContractControllerTest {
                 .totalPreferentialRate(BigDecimal.ZERO)
                 .finalInterestRate(BigDecimal.valueOf(3.0))
                 .contractPeriodMonth(12)
-                .startedAt("20260101")
+                .startedAt(java.time.LocalDate.of(2026, 1, 1))
                 .joinChannel(JoinChannel.WEB)
                 .build();
     }

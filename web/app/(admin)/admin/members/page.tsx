@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_MEMBERS, MemberRecord, MemberStatus, RiskLevel } from '@/lib/admin-mock-data'
+import { MOCK_MEMBERS, MemberStatus, RiskLevel } from '@/lib/admin-mock-data'
 
 const STATUS_COLOR: Record<MemberStatus, string> = {
   '활성': 'bg-green-100 text-green-700',

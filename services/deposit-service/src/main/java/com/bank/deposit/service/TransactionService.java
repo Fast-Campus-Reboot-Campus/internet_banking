@@ -12,7 +12,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.Assert;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -47,7 +46,7 @@ public class TransactionService {
     @Transactional
     public Transaction deposit(Long accountId, BigDecimal amount, TransactionChannel channelType,
                                String transactionMemo, String depositorCustomerId, String depositorName) {
-        Account account = getActiveAccount(accountId);
+        Account account = getActiveAccountForUpdate(accountId);
         BigDecimal before = account.getBalance();
         account.deposit(amount, clock);
 
@@ -71,7 +70,7 @@ public class TransactionService {
 
     @Transactional
     public Transaction withdraw(Long accountId, BigDecimal amount, TransactionChannel channelType, String transactionMemo) {
-        Account account = getActiveAccount(accountId);
+        Account account = getActiveAccountForUpdate(accountId);
         BigDecimal before = account.getBalance();
         account.withdraw(amount, clock);
 
@@ -96,9 +95,9 @@ public class TransactionService {
      *
      * <p>수정 사항:
      * <ul>
-     * <li>수신 계좌가 없으면 {@link ErrorCode#ACCOUNT_NOT_FOUND} 예외 — 돈 증발 방지</li>
-     * <li>toAccountNo 가 toAccountId 의 accountNumber 와 일치하는지 검증</li>
-     * <li>수신 측 transferType 을 요청 값 그대로 반영 (EXTERNAL → EXTERNAL)</li>
+     *   <li>수신 계좌가 없으면 {@link ErrorCode#ACCOUNT_NOT_FOUND} 예외 — 돈 증발 방지</li>
+     *   <li>toAccountNo 가 toAccountId 의 accountNumber 와 일치하는지 검증</li>
+     *   <li>수신 측 transferType 을 요청 값 그대로 반영 (EXTERNAL → EXTERNAL)</li>
      * </ul>
      */
     @Transactional
@@ -106,11 +105,32 @@ public class TransactionService {
                                 BigDecimal amount, TransferType transferType,
                                 String counterpartyBankCode, String counterpartyBankName,
                                 String counterpartyName, TransactionChannel channelType, String transactionMemo) {
-        Account source = getActiveAccount(fromAccountId);
+        TransferType resolvedType = transferType != null ? transferType : TransferType.INTERNAL;
+        if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
+            throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND);
+        }
+
+        Account source;
+        Account target = null;
+        if (resolvedType == TransferType.INTERNAL) {
+            if (fromAccountId <= toAccountId) {
+                source = getActiveAccountForUpdate(fromAccountId);
+                target = getActiveAccountForUpdate(toAccountId);
+            } else {
+                target = getActiveAccountForUpdate(toAccountId);
+                source = getActiveAccountForUpdate(fromAccountId);
+            }
+            validateCounterpartyAccountNo(toAccountId, toAccountNo, target);
+        } else {
+            source = getActiveAccountForUpdate(fromAccountId);
+            if (toAccountId != null) {
+                Account counterparty = getActiveAccountForUpdate(toAccountId);
+                validateCounterpartyAccountNo(toAccountId, toAccountNo, counterparty);
+            }
+        }
+
         BigDecimal before = source.getBalance();
         source.withdraw(amount, clock);
-
-        TransferType resolvedType = transferType != null ? transferType : TransferType.INTERNAL;
         OffsetDateTime now = OffsetDateTime.now(clock);
 
         Transaction outTx = transactionRepository.save(Transaction.builder()
@@ -136,17 +156,7 @@ public class TransactionService {
                 .transactionMemo(transactionMemo)
                 .build());
 
-        // 내부 이체: 수신 계좌가 반드시 존재해야 한다 (없으면 잔액 증발 버그)
-        if (toAccountId != null) {
-            Account target = accountRepository.findById(toAccountId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
-
-            // 계좌번호 일치 검증
-            if (toAccountNo != null && !toAccountNo.equals(target.getAccountNumber())) {
-                throw new BusinessException(ErrorCode.INVALID_STATUS,
-                        "계좌번호(" + toAccountNo + ")가 계좌 ID(" + toAccountId + ")와 일치하지 않습니다.");
-            }
-
+        if (resolvedType == TransferType.INTERNAL) {
             BigDecimal targetBefore = target.getBalance();
             target.deposit(amount, clock);
             transactionRepository.save(Transaction.builder()
@@ -172,7 +182,7 @@ public class TransactionService {
     @Transactional
     public Transaction savingsPayment(Long accountId, Long contractId, BigDecimal amount,
                                       Integer paymentRound, TransactionChannel channelType) {
-        Account account = getActiveAccount(accountId);
+        Account account = getActiveAccountForUpdate(accountId);
         BigDecimal before = account.getBalance();
         account.deposit(amount, clock);
         account.addPaidAmount(amount);
@@ -201,7 +211,7 @@ public class TransactionService {
             throw new BusinessException(ErrorCode.ALREADY_CANCELED);
         }
 
-        Account account = getActiveAccount(original.getAccountId());
+        Account account = getActiveAccountForUpdate(original.getAccountId());
         BigDecimal before = account.getBalance();
         DirectionType reverseDirection = original.getDirectionType() == DirectionType.IN
                 ? DirectionType.OUT : DirectionType.IN;
@@ -212,7 +222,7 @@ public class TransactionService {
             account.deposit(original.getAmount(), clock);
         }
 
-        original.cancel();
+        original.cancel(clock);
 
         return transactionRepository.save(Transaction.builder()
                 .transactionNumber(generateTxnNumber("REV"))
@@ -232,13 +242,20 @@ public class TransactionService {
                 .build());
     }
 
-    private Account getActiveAccount(Long accountId) {
-        Account account = accountRepository.findById(accountId)
+    private Account getActiveAccountForUpdate(Long accountId) {
+        Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
         if (account.getAccountStatus() != AccountStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
         return account;
+    }
+
+    private void validateCounterpartyAccountNo(Long toAccountId, String toAccountNo, Account target) {
+        if (toAccountNo != null && !toAccountNo.equals(target.getAccountNumber())) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS,
+                    "계좌번호(" + toAccountNo + ")가 계좌 ID(" + toAccountId + ")와 일치하지 않습니다.");
+        }
     }
 
     private String generateTxnNumber(String prefix) {

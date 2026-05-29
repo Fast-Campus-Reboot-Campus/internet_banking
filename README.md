@@ -18,8 +18,10 @@ MSA 구조 기반 인터넷뱅킹 플랫폼. 수신·여신·결제·고객·상
 | `review-ai-gateway` | Java 17 / Spring Boot 3.x | 8088 | 심사 AI 라우팅 게이트웨이 |
 | `payment-service` | Java 17 / Spring Boot 3.x | — | 결제·이체 처리, Kafka 이벤트 |
 | `api-gateway` | Java 17 / Spring Cloud Gateway | — | (보조 게이트웨이) |
-| `consultation-service` | Python 3.11 / FastAPI | 8001 | 챗봇·상담사 채팅, LLM 폴백 |
+| `consultation-service` | Python 3.11 / FastAPI | 8090 | 챗봇·상담사 채팅, LLM 폴백 |
 | `web` | Next.js 15 / TypeScript | 3001 | 고객·어드민 통합 프런트엔드 |
+| `common` | Java | — | 서비스 공통 모듈 |
+| `infra` | Docker Compose | — | PostgreSQL 16, Redis 7, Prometheus, Grafana |
 
 ---
 
@@ -50,6 +52,12 @@ internet_banking/
 │   ├── gateway-service/            # Spring Cloud Gateway
 │   ├── customer-service/           # 고객 도메인
 │   ├── deposit-service/            # 수신 도메인
+│   │   ├── controller/             # REST 컨트롤러
+│   │   ├── service/                # 비즈니스 로직
+│   │   ├── domain/                 # 엔티티, Enum
+│   │   ├── repository/             # JPA Repository
+│   │   ├── dto/                    # 요청/응답 DTO
+│   │   └── exception/              # 예외 처리
 │   ├── loan-service/               # 여신 도메인 (대출 전 생애주기 + RAG)
 │   ├── master-service/             # 공통 마스터 코드
 │   ├── ai-service/                 # AI 서빙 + 벡터 DB
@@ -58,7 +66,29 @@ internet_banking/
 │   ├── payment-service/            # 결제·이체
 │   ├── api-gateway/                # (보조 게이트웨이)
 │   └── consultation-service/       # Python FastAPI — 챗봇·상담
+│       ├── app/
+│       │   ├── main.py             # FastAPI 앱, 라우터, CORS
+│       │   ├── services.py         # ChatbotService (추천 포함), ChatService
+│       │   ├── features/           # 기능별 Feature 모듈
+│       │   ├── models.py           # SQLAlchemy 모델
+│       │   ├── schemas.py          # Pydantic 스키마
+│       │   ├── database.py         # DB 연결
+│       │   └── kafka.py            # Kafka 이벤트 발행
+│       └── tests/                  # pytest 테스트 (325개)
 ├── web/                            # Next.js 프런트엔드
+│   ├── app/
+│   │   ├── (personal)/             # 개인뱅킹 라우트 그룹
+│   │   └── (admin)/                # 어드민 라우트 그룹
+│   ├── components/
+│   │   └── chatbot/ChatbotWidget.tsx  # 챗봇 위젯 (consultation-service 연동)
+│   └── lib/
+│       ├── deposit-api.ts          # deposit-service 클라이언트
+│       ├── consultation-api.ts     # consultation-service 클라이언트
+│       ├── loan-api.ts             # loan-service 클라이언트
+│       ├── advisory-api.ts         # advisory-service 클라이언트
+│       ├── master-api.ts           # master-service 클라이언트
+│       ├── payment-api.ts          # payment-service 클라이언트
+│       └── ai-api.ts               # ai-service 클라이언트
 ├── infra/                          # Prometheus·Grafana·Loki 설정
 └── docs/                           # 가이드 문서
 ```
@@ -119,7 +149,8 @@ internet_banking/
 ```
 
 ```
-GET /api/products/recommend-agent?customerId={id}&periodMonth={n}
+GET /api/products/recommend-agent?customerId={customerId}&periodMonth={periodMonth}
+X-Customer-Id: {customerId}
 ```
 
 ---
@@ -144,7 +175,7 @@ POST /chat/consultations/{id}/connect
 
 ### 사전 조건
 
-- Java 17
+- Java 17+
 - Docker Desktop
 - Python 3.11 (consultation-service)
 - Node.js 20+ (web)
@@ -174,11 +205,18 @@ Swagger UI: `http://localhost:{port}/swagger-ui/index.html`
 
 ```powershell
 cd services/consultation-service
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8090
 ```
 
-Swagger UI: `http://localhost:8001/docs`
+또는 스크립트 사용:
+
+```powershell
+.\scripts\start.ps1
+```
+
+기본 포트: `8090`  
+Swagger UI: `http://localhost:8090/docs`  
+헬스 체크: `http://localhost:8090/health`
 
 ### 프런트엔드 실행
 
@@ -187,6 +225,19 @@ cd web
 npm install
 npm run dev   # http://localhost:3001
 ```
+
+> `.env.local` 파일이 없으면 아래 내용으로 생성:
+>
+> ```env
+> NEXT_PUBLIC_API_URL=http://localhost:8080
+> NEXT_PUBLIC_DEPOSIT_API_URL=http://localhost:8082/api
+> NEXT_PUBLIC_CONSULTATION_API_URL=http://localhost:8090
+> NEXT_PUBLIC_LOAN_API_URL=http://localhost:8083
+> NEXT_PUBLIC_ADVISORY_API_URL=http://localhost:8084
+> NEXT_PUBLIC_MASTER_API_URL=http://localhost:8085
+> NEXT_PUBLIC_AI_API_URL=http://localhost:8086
+> NEXT_PUBLIC_PAYMENT_API_URL=http://localhost:8087
+> ```
 
 ---
 

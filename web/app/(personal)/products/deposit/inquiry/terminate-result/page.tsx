@@ -3,6 +3,12 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import {
+  fetchDepositAccounts,
+  fetchDepositContracts,
+  fetchDepositProducts,
+  getCurrentDepositCustomerId,
+} from '@/lib/deposit-api'
 
 const PERIOD_BTNS = ['당일', '6개월', '6개월', '1년']
 
@@ -14,10 +20,44 @@ export default function TerminateResultPage() {
   const [endMonth, setEndMonth] = useState('05')
   const [endDay, setEndDay] = useState('25')
   const [searched, setSearched] = useState(false)
+  const [rows, setRows] = useState<Array<{
+    accountNo: string
+    terminatedAt: string
+    type: string
+    amount: string
+  }>>([])
 
   const YEARS = ['2026', '2025', '2024', '2023', '2022']
   const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
   const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
+
+  async function handleSearch() {
+    setSearched(true)
+    try {
+      const customerId = getCurrentDepositCustomerId()
+      const [contracts, accounts, products] = await Promise.all([
+        fetchDepositContracts(customerId),
+        fetchDepositAccounts(customerId),
+        fetchDepositProducts(),
+      ])
+      const accountByContractId = new Map(accounts.map(account => [account.contractId, account]))
+      const productById = new Map(products.map(product => [product.productId, product]))
+      setRows(contracts
+        .filter(contract => contract.contractStatus === 'TERMINATED')
+        .map(contract => {
+          const account = accountByContractId.get(contract.contractId)
+          const product = productById.get(contract.productId)
+          return {
+            accountNo: account?.accountNumber || contract.contractNumber,
+            terminatedAt: contract.terminatedAt?.replace(/-/g, '.') || '-',
+            type: product?.productName || '해지 상품',
+            amount: Number(contract.joinAmount || 0).toLocaleString('ko-KR'),
+          }
+        }))
+    } catch {
+      setRows([])
+    }
+  }
 
   return (
     <div className="max-w-kb-container mx-auto px-6 py-6">
@@ -102,7 +142,7 @@ export default function TerminateResultPage() {
             </div>
             <div className="flex justify-center mt-3">
               <button
-                onClick={() => setSearched(true)}
+                onClick={handleSearch}
                 className="px-10 py-2 text-[13px] font-bold text-white hover:opacity-90"
                 style={{ backgroundColor: '#5BC9A8' }}>
                 조회
@@ -120,11 +160,21 @@ export default function TerminateResultPage() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td colSpan={5} className="border border-kb-border px-4 py-8 text-center text-[13px] text-kb-text-muted">
-                  조회하실 내역이 없습니다.
-                </td>
-              </tr>
+              {rows.length > 0 ? rows.map(row => (
+                <tr key={`${row.accountNo}-${row.terminatedAt}`} className="hover:bg-[#fafafa]">
+                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{row.accountNo}</td>
+                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{row.terminatedAt}</td>
+                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{row.type}</td>
+                  <td className="border border-kb-border px-4 py-3 text-right text-kb-text-body">{row.amount}원</td>
+                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">조회</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={5} className="border border-kb-border px-4 py-8 text-center text-[13px] text-kb-text-muted">
+                    {searched ? '조회하실 내역이 없습니다.' : '조회 버튼을 눌러 해지 내역을 확인하세요.'}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </main>

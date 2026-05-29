@@ -16,7 +16,7 @@
 
 | 용어 | 쉬운 설명 |
 |------|----------|
-| **process_method** | 챗봇이 메시지를 처리한 방식. SCENARIO(버튼 선택), BP003_GPT(LLM 응답), BP002_LLM(이관 안내), FEATURE_*(기능 실행), AGENT_TRANSFER(오류로 인한 이관) |
+| **process_method** | 챗봇이 메시지를 처리한 방식. SCENARIO(버튼 선택), BP003_GPT(LLM 응답), STAFF_REQUEST(이관 안내), FEATURE_*(기능 실행), STAFF_ERROR_FALLBACK(오류로 인한 이관) |
 | **이관 (Handoff)** | 챗봇이 처리하지 못하거나 고객이 요청해서 실제 상담사에게 연결되는 것 |
 | **만족도 점수** | 상담 종료 시 고객이 입력하는 1~5점 평점 |
 | **LLM** | 챗봇이 자연어로 응답하기 위해 호출하는 AI 언어 모델 (OpenAI GPT) |
@@ -90,12 +90,12 @@
 | process_method | 의미 |
 |---------------|------|
 | BP003_GPT | LLM이 자연어로 응답 — 정상적인 상담 흐름 |
-| BP002_LLM | 상담사 이관 안내 (고객 요청 이관) |
+| STAFF_REQUEST | 상담사 이관 안내 (고객 요청 이관) |
 | SCENARIO | 시나리오 버튼 흐름으로 처리 |
 | FEATURE_* | 잔액 조회 등 기능 실행으로 처리 |
-| AGENT_TRANSFER | LLM 오류로 인한 자동 이관 — 주의 필요 |
+| STAFF_ERROR_FALLBACK | LLM 오류로 인한 자동 이관 — 주의 필요 |
 
-- **AGENT_TRANSFER가 급증하면**: LLM 오류율도 함께 확인할 것.
+- **STAFF_ERROR_FALLBACK가 급증하면**: LLM 오류율도 함께 확인할 것.
 
 ### 메시지 처리 방식 분포 (1h)
 - 최근 1시간 누적 분포를 파이 차트로 보여준다.
@@ -194,9 +194,9 @@
 4. consultation-service 로그에서 timeout 에러 확인
 
 ### 상담사 이관이 급증했다
-1. **메시지 처리 방식 추이**에서 AGENT_TRANSFER 비중 확인
+1. **메시지 처리 방식 추이**에서 STAFF_ERROR_FALLBACK 비중 확인
 2. **LLM 오류율** 확인 — LLM 실패로 인한 강제 이관 여부
-3. LLM 오류가 없으면: 고객이 직접 이관 요청하는 케이스 증가 (BP002_LLM 비중 확인)
+3. LLM 오류가 없으면: 고객이 직접 이관 요청하는 케이스 증가 (STAFF_REQUEST 비중 확인)
 
 ### Kafka 발행 에러가 발생했다
 1. Kafka 브로커 상태 확인: `docker ps --filter "name=kafka"`
@@ -205,7 +205,7 @@
 
 ### 만족도가 갑자기 낮아졌다
 1. **LLM 응답시간** 확인 — 응답이 너무 느리면 불만족 증가
-2. **AGENT_TRANSFER 비중** 확인 — 오류 이관이 잦으면 불만족 증가
+2. **STAFF_ERROR_FALLBACK 비중** 확인 — 오류 이관이 잦으면 불만족 증가
 3. 챗봇 시나리오 또는 LLM 프롬프트 최근 변경 이력 확인
 
 ---

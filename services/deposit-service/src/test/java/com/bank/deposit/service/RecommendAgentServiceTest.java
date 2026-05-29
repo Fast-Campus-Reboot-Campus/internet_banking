@@ -11,16 +11,19 @@ import com.bank.deposit.repository.AccountRepository;
 import com.bank.deposit.repository.ProductInterestRateRepository;
 import com.bank.deposit.repository.ProductRepository;
 import com.bank.deposit.repository.TransactionRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,8 +34,7 @@ import static org.mockito.BDDMockito.given;
 @DisplayName("RecommendAgentService")
 class RecommendAgentServiceTest {
 
-    @InjectMocks
-    private RecommendAgentService recommendAgentService;
+    private CashflowBasedRecommendService recommendAgentService;
 
     @Mock
     private AccountRepository accountRepository;
@@ -45,6 +47,13 @@ class RecommendAgentServiceTest {
 
     @Mock
     private ProductInterestRateRepository productInterestRateRepository;
+
+    @BeforeEach
+    void setUp() {
+        Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
+        recommendAgentService = new CashflowBasedRecommendService(
+                accountRepository, transactionRepository, productRepository, productInterestRateRepository, clock);
+    }
 
     @Nested
     @DisplayName("recommend()")
@@ -76,13 +85,14 @@ class RecommendAgentServiceTest {
                     new BigDecimal("3.20"), new BigDecimal("10000"), new BigDecimal("1000000"));
             Product deposit = product(2L, "정기예금", ProductType.DEPOSIT,
                     new BigDecimal("2.80"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
                     .willReturn(List.of(savings, deposit));
 
-            given(productInterestRateRepository.findByProductIdAndIsActive(1L, true))
-                    .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
-            given(productInterestRateRepository.findByProductIdAndIsActive(2L, true))
-                    .willReturn(List.of(interestRate(2L, new BigDecimal("3.00"))));
+            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L, 2L)), eq(true)))
+                    .willReturn(List.of(
+                            interestRate(1L, new BigDecimal("3.50")),
+                            interestRate(2L, new BigDecimal("3.00"))
+                    ));
 
             // when
             ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
@@ -150,10 +160,8 @@ class RecommendAgentServiceTest {
                     ));
             // net=150000, 3개월 → estimated=50000
             // minJoinAmount=100000 상품은 필터에서 제외
-            Product highMin = product(1L, "고액예금", ProductType.DEPOSIT,
-                    new BigDecimal("3.50"), new BigDecimal("100000"), null);
-            given(productRepository.findByProductStatus(ProductStatus.SELLING))
-                    .willReturn(List.of(highMin));
+            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+                    .willReturn(List.of());
 
             ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
 
@@ -171,7 +179,7 @@ class RecommendAgentServiceTest {
                             transaction(1L, DirectionType.IN,  new BigDecimal("1000000")),
                             transaction(1L, DirectionType.OUT, new BigDecimal("400000"))
                     ));
-            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
                     .willReturn(List.of());
 
             ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
@@ -194,9 +202,9 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
                     .willReturn(List.of(p));
-            given(productInterestRateRepository.findByProductIdAndIsActive(1L, true))
+            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
 
             // when
@@ -226,9 +234,9 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
                     .willReturn(List.of(p));
-            given(productInterestRateRepository.findByProductIdAndIsActive(1L, true))
+            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
 
             // when
@@ -255,9 +263,9 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
                     .willReturn(List.of(p));
-            given(productInterestRateRepository.findByProductIdAndIsActive(1L, true))
+            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
 
             // when
@@ -315,9 +323,9 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
                     .willReturn(List.of(p));
-            given(productInterestRateRepository.findByProductIdAndIsActive(1L, true))
+            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
 
             // when
@@ -342,7 +350,7 @@ class RecommendAgentServiceTest {
                 .contractId(accountId)
                 .accountType(ProductType.DEPOSIT)
                 .accountPassword("1234")
-                .openedAt("20260101")
+                .openedAt(java.time.LocalDate.of(2026, 1, 1))
                 .accountStatus(AccountStatus.ACTIVE)
                 .build();
     }

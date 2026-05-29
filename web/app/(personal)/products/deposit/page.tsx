@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 const CATEGORIES = [
-  { no: '01', desc: '열심히 모은 종자돈을 더 크게', label: '예금 상품',     href: '/products/deposit/list', key: '예금' },
-  { no: '02', desc: '당신의 노력과 꿈을 모아모아',  label: '적금 상품',     href: '/products/deposit/list', key: '적금' },
-  { no: '03', desc: '입금과 출금을 내 마음대로',    label: '입출금자유 상품', href: '/products/deposit/list', key: '입출금자유' },
-  { no: '04', desc: '내 집 마련의 꿈을 위한',      label: '주택청약 상품', href: '/products/deposit/list', key: '주택청약' },
+  { no: '01', desc: '열심히 모은 종자돈을 더 크게', label: '예금 상품',     href: '/products/deposit/list?tab=예금',      key: '예금' },
+  { no: '02', desc: '당신의 노력과 꿈을 모아모아',  label: '적금 상품',     href: '/products/deposit/list?tab=자유적금',   key: '적금' },
+  { no: '03', desc: '입금과 출금을 내 마음대로',    label: '입출금자유 상품', href: '/products/deposit/list?tab=입출금자유', key: '입출금자유' },
+  { no: '04', desc: '내 집 마련의 꿈을 위한',      label: '주택청약 상품', href: '/products/deposit/list?tab=주택청약',  key: '주택청약' },
 ]
 
 const CALC_TABS = [
@@ -23,7 +23,7 @@ const SLIDES = [
     title: 'AXful Young Youth 적금',
     period: '1년', amount: '3백만원 이내',
     rate: '연 2.1% ~ 3.4%', rateNote: '2026.05.25 기준, 세금공제전, 우대금리포함',
-    href: '/products/deposit/list',
+    href: '/products/deposit/list?tab=자유적금',
   },
   {
     badge: '입출금자유', category: '입출금자유',
@@ -31,7 +31,7 @@ const SLIDES = [
     title: 'AXful Young Youth 통장',
     period: '제한없음', amount: '제한없음',
     rate: '연 2%', rateNote: '2026.05.25 기준, 세금공제전, 우대금리포함',
-    href: '/products/deposit/list',
+    href: '/products/deposit/list?tab=입출금자유',
   },
   {
     badge: '적금', category: '적금',
@@ -39,7 +39,7 @@ const SLIDES = [
     title: 'AXful 내맘대로적금',
     period: '6~36개월', amount: '1만원 이상',
     rate: '연 2.95% ~ 3.55%', rateNote: '2026.05.25 기준, 세금공제전, 우대금리포함',
-    href: '/products/deposit/list',
+    href: '/products/deposit/list?tab=자유적금',
   },
   {
     badge: '예금', category: '예금',
@@ -47,7 +47,7 @@ const SLIDES = [
     title: 'AXful 정기예금',
     period: '1~36개월', amount: '제한없음',
     rate: '연 2.4% ~ 2.9%', rateNote: '2026.05.25 기준, 세금공제전',
-    href: '/products/deposit/list',
+    href: '/products/deposit/list?tab=예금',
   },
   {
     badge: '주택청약', category: '주택청약',
@@ -55,7 +55,7 @@ const SLIDES = [
     title: 'AXful 주택청약종합저축',
     period: '24개월 기준', amount: '제한없음',
     rate: '연 3.1%', rateNote: '2026.05.25 기준, 세금공제전',
-    href: '/products/deposit/list',
+    href: '/products/deposit/list?tab=주택청약',
   },
 ]
 

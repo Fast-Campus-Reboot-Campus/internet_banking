@@ -4,6 +4,7 @@ import com.bank.common.web.ApiResponse;
 import com.bank.loan.advisory.dto.CohortStatsResponse;
 import com.bank.loan.advisory.dto.PolicyCitationResponse;
 import com.bank.loan.advisory.dto.ReviewerHistoryResponse;
+import com.bank.loan.advisory.dto.SimilarCaseResponse;
 import com.bank.loan.advisory.kafka.AdvisoryKafkaQuotaManager;
 import com.bank.loan.advisory.kafka.AdvisorySkewSimulator;
 import com.bank.loan.advisory.service.AdvisoryToolQueryService;
@@ -56,6 +57,15 @@ public class InternalAdvisoryToolController {
     public ApiResponse<AdvisorySkewSimulator.SimulationResult> runSkewSimulation(
             @RequestParam(defaultValue = "1000") int messages) {
         return ApiResponse.ok(skewSimulator.simulate(messages));
+    }
+
+    @Operation(summary = "유사 과거 사례 검색 (rev_id 기준)",
+            description = "rev_id 에 연결된 최신 리포트 기준으로 유사 프로파일 종결 사례를 반환한다. LLM get_similar_cases tool 전용.")
+    @GetMapping("/similar-cases")
+    public ApiResponse<SimilarCaseResponse> getSimilarCases(
+            @RequestParam Long revId,
+            @RequestParam(defaultValue = "5") int topK) {
+        return ApiResponse.ok(service.querySimilarCasesByRevId(revId, topK));
     }
 
     @Operation(summary = "코호트 편향 통계 조회",
