@@ -13,6 +13,7 @@ import com.bank.customer.settings.dto.UpdateNotificationRequest;
 import com.bank.customer.settings.dto.UpdateProfileRequest;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +22,13 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SettingsService {
 
+    private static final String RT_KEY_PREFIX = "RT:";
+
     private final CustomerRepository customerRepository;
     private final PartyRepository partyRepository;
     private final CredentialRepository credentialRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StringRedisTemplate redisTemplate;
 
     @Transactional(readOnly = true)
     public SettingsResponse getSettings(Long customerId) {
@@ -72,6 +76,7 @@ public class SettingsService {
         }
 
         credential.changePassword(passwordEncoder.encode(req.newPassword()));
+        redisTemplate.delete(RT_KEY_PREFIX + customerId);
     }
 
     private Customer findActiveCustomer(Long customerId) {
