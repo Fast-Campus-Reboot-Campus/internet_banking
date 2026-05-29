@@ -111,6 +111,7 @@ public class LoanReviewAutoDecideService {
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038, "dsr-calculation required"));
 
         preconditions.requireIdvPass(applId);
+        preconditions.requireDocumentsCleared(applId);
 
         LoanProduct product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
                 .orElse(null);

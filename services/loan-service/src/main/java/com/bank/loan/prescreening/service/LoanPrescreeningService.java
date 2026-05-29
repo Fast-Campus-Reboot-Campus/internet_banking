@@ -19,9 +19,11 @@ import com.bank.loan.prescreening.engine.CreditScoreResult;
 import com.bank.loan.prescreening.repository.LoanPrescreeningRepository;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
+import com.bank.loan.prescreening.event.PrescreeningPassedEvent;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,6 +66,7 @@ public class LoanPrescreeningService {
     private final CurrentActorProvider currentActor;
     private final CreditScoreEngine creditScoreEngine;
     private final AutoReviewEvaluateClient autoReviewEvaluateClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoanPrescreeningResponse run(Long applId, RunPrescreeningRequest req) {
@@ -168,6 +171,18 @@ public class LoanPrescreeningService {
                 "prescId=" + saved.getPrescId(),
                 actorId
         ));
+
+        // PASS 시 신용평가 자동 실행 트리거
+        if (pass) {
+            eventPublisher.publishEvent(new PrescreeningPassedEvent(
+                    applId,
+                    saved.getEstimatedScore(),
+                    saved.getEstimatedGrade(),
+                    saved.getEstimatedLimitAmt(),
+                    estimatedRate,
+                    saved.getPrescEngineVersion()
+            ));
+        }
 
         return LoanPrescreeningResponse.of(saved);
     }
