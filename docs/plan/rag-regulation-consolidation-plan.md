@@ -25,18 +25,27 @@
 
 ## 2. 현재 상태 (As-Is)
 
-| 서비스 | 벡터 스토어 | 임베딩 모델 | 임베딩 대상 | 규정 중복 |
-| --- | --- | --- | --- | --- |
-| **ai-service / auto-loan-review** (`com.bank.ai.rag`) | PostgreSQL pgvector (`rag_chunk`) | text-embedding-3-small / 1536 | LAW, SUPERVISION_GUIDE(규정), INTERNAL_RULE, POLICY, PRODUCT_TERMS, FAQ, FAIR_LENDING, BIAS_CASE | O |
-| **advisory-service** (`com.bank.loan.advisory.rag`) | PostgreSQL pgvector (`advisory_document_chunk`) | text-embedding-3-small / 1536 | 정책문서(규정), 유사 케이스(`advisory_case_index`) | O |
-| **consultation-service** (`app/rag.py`) | in-memory 코사인 | text-embedding-3-small / 1536 | 상품 + 약관(terms) | X (규정 안 봄) |
+> 범위: **여신/심사 도메인**. `consultation-service` 는 **수신계 소관 — 본 계획 범위 외**.
+
+**공통 규정을 각자 따로 임베딩해 쓰던 "3개 에이전트":**
+
+| 에이전트 | 벡터 스토어 | 규정 임베딩 |
+| --- | --- | --- |
+| **doc-agent** | (Elasticsearch 도입 대상) | O |
+| **auto-loan-review** (`com.bank.ai.rag`) | PostgreSQL pgvector | O |
+| **advisory-service** (`com.bank.loan.advisory.rag`, `advisory_document_chunk`) | PostgreSQL pgvector | O |
+
+**별도 위치:**
+- **`ai-service`** — 위 3개의 RAG 를 **합쳐보려고 만든 통합 시도 서비스**. 즉 "규정 RAG 를 한 곳으로 모으자"는 방향은 이미 한 번 착수된 상태 (consolidation 후보).
+- `consultation-service` — 수신계 소관(상품·약관 추천), 본 계획 범위 외.
 
 ### 2.1 핵심 진단
-- 세 서비스 임베딩 모델이 현재 동일(text-embedding-3-small, 1536) → 벡터 공간 호환.
-  **단, Phase E 는 Vertex `text-embedding-005`(768d)로 변경 — §3.3 정합성 이슈 참조.**
-- ai-service 는 이미 모범 패턴: `RagProfile`(PRODUCT / REVIEW / BIAS_AUDIT)로 규정을 물리적으로 한 벌만 임베딩 → 메타 필터로 소비자별 논리 분리.
-- 진짜 중복 = ai-service `rag_chunk` ↔ advisory-service `advisory_document_chunk`: 서로 다른 DB 에 같은 규정을 따로 임베딩, 공유 메커니즘 0.
-- consultation 의 상품·약관은 규정 중복과 무관 → 통합 대상 아님.
+- **3개 에이전트(doc-agent / auto-loan-review / advisory)가 같은 규정을 각자 다른 스토어에 중복 임베딩** → 갱신 불일치·비용 중복·인용 출처 분산.
+- **ai-service 의 존재 자체가 "통합하자"는 합의의 증거.** 따라서 남은 결정은 *통합 여부*가 아니라 **"통합을 어디로 모을지"**.
+- ES 가 **doc-agent 에 확정 도입**되므로 통합 위치 후보:
+  - **(가) doc-agent ES 를 규정 단일 인덱스 owner 로** — ai-service 의 통합 역할을 doc-agent ES 가 흡수.
+  - (나) ai-service(통합 시도 서비스)를 유지하되 그 백엔드를 ES 로 — doc-agent 와의 역할 중복 발생.
+  - → **(가) 권장** (ES 가 이미 doc-agent 에 있고, owner 가 둘이면 다시 분산). **ai-service 거취(흡수/폐기)는 결정 필요 — §3.5.**
 
 ---
 
@@ -47,16 +56,16 @@
 ```
 ┌─────────────────────────────────────────────┐
 │  doc-agent (Elasticsearch) = 공통 규정 인덱스   │  ← single source of truth
-│  kb_policy (LAW / SUPERVISION_GUIDE / POLICY)   │     (소유: doc-agent)
+│  kb_policy (LAW / SUPERVISION_GUIDE / POLICY)   │     (소유: doc-agent, ai-service 통합역할 흡수)
 │  + doc_type · effective_date · matrix_coord 필터 │
 └─────────────────────────────────────────────┘
         ▲ 검색 API(텍스트 in)   ▲ 검색 API(텍스트 in)
         │                       │
-  ai-service              advisory-service          consultation
- (REVIEW/BIAS)            (PolicyCitation)          (규정 안 봄 → 그대로)
+  auto-loan-review        advisory-service       (consultation = 수신계, 범위 외)
         │                       │
         └── 고유 데이터는 각자 분리 보관 ──────┘
-            (유사케이스, 상품·약관)
+            (유사케이스 등)
+※ ai-service: 통합 시도 서비스 → doc-agent ES 로 흡수 또는 폐기 (§3.5 결정)
 ```
 
 ### 3.1 통합 대상 (공통 규정)
@@ -86,6 +95,19 @@
 | 비용 | 동일 문서 N중 임베딩 | 1회 임베딩 |
 | 감사/grounding | 인용 ID 가 서비스별로 흩어짐 | `Citation.id` 단일 출처 → 검증·추적 단순 |
 | 검색 품질 | pgvector `simple`/`pg_trgm` 형태소 인식 X | ES nori + BM25 + RRF 하이브리드 |
+
+### 3.5 ⚠️ ai-service 거취 (결정 필요)
+
+ai-service 가 이미 "규정 RAG 통합"을 목표로 만들어졌으므로, doc-agent ES 통합과 **역할이 겹친다.**
+방치하면 통합 지점이 둘(ai-service + doc-agent ES)이 되어 또 분산된다. 셋 중 하나로 정리:
+
+| 옵션 | 내용 | 비고 |
+| --- | --- | --- |
+| **(가) doc-agent 흡수** (권장) | ES·규정 인덱스·검색 API 를 doc-agent 가 소유. ai-service 의 RAG 자산을 doc-agent 로 이관 후 **ai-service 폐기/축소** | owner 단일화. ES 가 이미 doc-agent 에 있으니 자연스러움 |
+| (나) ai-service = ES 게이트웨이 | doc-agent 는 ES 인프라만, ai-service 가 규정 검색 API 의 단일 진입점 | 통합 시도 자산 재활용. 단 doc-agent/ai-service 책임 경계 재정의 필요 |
+| (다) ai-service 폐기, 각자 doc-agent 직접 | ai-service 제거, auto-loan-review·advisory 가 doc-agent API 직접 호출 | 가장 단순. ai-service 투자 매몰 |
+
+→ **(가) 권장.** 결정에 따라 §5 E5·§10 영향 범위의 `ai-service` 항목을 확정한다.
 
 ---
 
@@ -292,7 +314,9 @@ ai:
 | `doc-agent` | ES 클라이언트 + `EsHybridSearchService` + `EsPolicyIndex` 신규, 임베딩·outbox enricher consumer, 규정 검색 API 공개(E5-1) |
 | `loan-service` | `loan_review_outbox` 테이블 + `SimilarCaseOutboxPublisher` 신규 |
 | `advisory-service` | E5: 규정 검색을 doc-agent API 위임, 자체 규정 임베딩 적재 중단. 유사케이스 유지/통합 검토 |
-| `consultation-service`(Python) | 변경 없음(규정 미사용) |
+| `auto-loan-review` | 규정 검색을 doc-agent API 위임, 자체 규정 임베딩 적재 중단 |
+| `ai-service` | **§3.5 결정 따라** — (가) doc-agent 로 자산 이관 후 폐기/축소 / (나) ES 게이트웨이로 재배치 / (다) 폐기 |
+| `consultation-service` | **수신계 소관 — 본 계획 범위 외, 변경 없음** |
 | `docker-compose.yml` | `elasticsearch`, `kibana`, `cp-kafka-connect` 추가(profile `rag`) |
 | `GroundingValidator` / `ReviewReportService` | 변경 0줄(interface 추출 효과) |
 | 마이그레이션 | V6(outbox), V7(`shadow_run_result.rag_enabled`) |
