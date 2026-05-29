@@ -38,7 +38,7 @@ class RagRetrievalServiceTest {
 
     @Test
     void rag_비활성시_검색_호출_없이_빈_리스트() {
-        var props = new RagProperties(false, Map.of("TRACK_3", 5));
+        var props = new RagProperties(false, "inline", Map.of("TRACK_3", 5));
         var service = new RagRetrievalService(ragSearchService, SEARCH_PROPS, props);
         var guard = new AgentLoopGuard(6, 2);
 
@@ -50,7 +50,7 @@ class RagRetrievalServiceTest {
 
     @Test
     void guard_cap_소진시_검색_전_중단_빈_리스트() {
-        var props = new RagProperties(true, Map.of("TRACK_3", 5));
+        var props = new RagProperties(true, "inline", Map.of("TRACK_3", 5));
         var service = new RagRetrievalService(ragSearchService, SEARCH_PROPS, props);
         // guard 슬롯 0개 남음 (maxToolCalls=0)
         var guard = new AgentLoopGuard(0, 2);
@@ -63,7 +63,7 @@ class RagRetrievalServiceTest {
 
     @Test
     void 정상_검색_청크_반환() {
-        var props = new RagProperties(true, Map.of("TRACK_3", 5));
+        var props = new RagProperties(true, "inline", Map.of("TRACK_3", 5));
         var service = new RagRetrievalService(ragSearchService, SEARCH_PROPS, props);
         var guard = new AgentLoopGuard(6, 2);
         when(ragSearchService.search(anyString(), anyString(), isNull(), anyInt()))
@@ -77,7 +77,7 @@ class RagRetrievalServiceTest {
 
     @Test
     void guard_null이면_cap만으로_제한() {
-        var props = new RagProperties(true, Map.of("TRACK_1", 1));
+        var props = new RagProperties(true, "inline", Map.of("TRACK_1", 1));
         var service = new RagRetrievalService(ragSearchService, SEARCH_PROPS, props);
         when(ragSearchService.search(anyString(), anyString(), isNull(), anyInt()))
                 .thenReturn(List.of(stubChunk(10L)));
@@ -89,7 +89,7 @@ class RagRetrievalServiceTest {
 
     @Test
     void cap_0인_트랙은_검색_스킵() {
-        var props = new RagProperties(true, Map.of("TRACK_1", 0));
+        var props = new RagProperties(true, "inline", Map.of("TRACK_1", 0));
         var service = new RagRetrievalService(ragSearchService, SEARCH_PROPS, props);
         var guard = new AgentLoopGuard(6, 2);
 

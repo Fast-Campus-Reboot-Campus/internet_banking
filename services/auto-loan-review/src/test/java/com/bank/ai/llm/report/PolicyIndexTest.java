@@ -37,8 +37,8 @@ class PolicyIndexTest {
         ));
 
         var entry = idx.get("A_V1");
-        assertThat(entry).isNotNull();
-        assertThat(entry.text()).isEqualTo("정책 A");
-        assertThat(entry.source()).isEqualTo("src-1");
+        assertThat(entry).isPresent();
+        assertThat(entry.get().text()).isEqualTo("정책 A");
+        assertThat(entry.get().source()).isEqualTo("src-1");
     }
 }

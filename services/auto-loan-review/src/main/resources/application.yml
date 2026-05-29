@@ -47,22 +47,36 @@ spring:
         location: ${VERTEX_LOCATION:us-central1}
 
 ai:
-  # ---- D1: RAG ----
+  # ---- E1: RAG (Elasticsearch 하이브리드 검색) ----
   rag:
     enabled: ${AI_RAG_ENABLED:false}              # kill switch — false 시 인라인 policy fallback
+    backend: ${AI_RAG_BACKEND:inline}             # inline / es (Phase E)
     embedding:
-      provider: ${AI_RAG_EMB_PROVIDER:stub}       # stub / vertex (D1-3 구현체 선택)
-      dimensions: 1024
+      provider: ${AI_RAG_EMB_PROVIDER:stub}       # stub / vertex
+      dimensions: 768                             # text-embedding-005 기본 출력 (Phase E: 1024→768)
+    es:
+      uris: ${ES_URIS:http://localhost:9200}
+      api-key: ${ES_API_KEY:}
+      connect-timeout: 2s
+      read-timeout: 5s
+      indexes:
+        policy: kb_policy
+        cases: kb_similar_cases
+        faq: kb_internal_faq
     search:
-      alpha: 0.7                                  # 벡터 가중치 (FTS = 1 - alpha)
-      similarity-threshold: 0.5                   # 이하 결과 제외
+      alpha: 0.7                                  # pgvector 레거시 (backend=inline 시 사용)
+      similarity-threshold: 0.5                   # pgvector 레거시
       default-k: 5
+      num-candidates: 100                         # ES kNN num_candidates (Phase E)
+      rrf:
+        rank-window-size: 50                      # ES RRF 파라미터
+        rank-constant: 60
     call-caps-per-track:
       TRACK_1: 1
       TRACK_2: 2
       TRACK_3: 5
     rerank:
-      enabled: false                              # D-F2 옵션
+      enabled: false                              # E-F1 옵션
 
   # ---- B4: PSI Drift + Fairness ----
   drift:
