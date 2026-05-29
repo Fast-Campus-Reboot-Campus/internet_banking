@@ -22,7 +22,10 @@ public enum CustomerErrorCode implements ErrorCode {
     CUST_010(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."),
     CUST_011(HttpStatus.FORBIDDEN,    "계정이 잠겨 있습니다. 비밀번호 5회 오류."),
     CUST_012(HttpStatus.FORBIDDEN,    "탈퇴하거나 비활성화된 계정입니다."),
-    CUST_013(HttpStatus.UNAUTHORIZED, "비밀번호가 만료되었습니다.");
+    CUST_013(HttpStatus.UNAUTHORIZED, "비밀번호가 만료되었습니다."),
+
+    // 설정
+    CUST_020(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다.");
 
     private final HttpStatus status;
     private final String message;

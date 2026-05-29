@@ -19,6 +19,7 @@ interface MyPageData {
   customerGradeCode: string
   customerStatusCode: string
   joinedAt: string
+  lastLoginAt: string | null
 }
 
 function maskId(loginId: string) {
@@ -86,8 +87,8 @@ export default function MyKBPage() {
     )
   }
 
-  const joinedAt = new Date(data.joinedAt)
-  const joinedStr = `${joinedAt.getFullYear()}.${String(joinedAt.getMonth() + 1).padStart(2, '0')}.${String(joinedAt.getDate()).padStart(2, '0')} ${String(joinedAt.getHours()).padStart(2, '0')}:${String(joinedAt.getMinutes()).padStart(2, '0')}`
+  const lastLoginDate = data.lastLoginAt ? new Date(data.lastLoginAt) : new Date(data.joinedAt)
+  const joinedStr = `${lastLoginDate.getFullYear()}.${String(lastLoginDate.getMonth() + 1).padStart(2, '0')}.${String(lastLoginDate.getDate()).padStart(2, '0')} ${String(lastLoginDate.getHours()).padStart(2, '0')}:${String(lastLoginDate.getMinutes()).padStart(2, '0')}`
 
   return (
     <div className="max-w-kb-container mx-auto px-6 py-10 pb-16">
@@ -145,7 +146,7 @@ export default function MyKBPage() {
           <h2 className="text-lg font-bold text-kb-text">기본정보</h2>
           <div className="flex gap-2">
             <button className="border border-kb-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">본인정보 이용/제공 조회</button>
-            <button className="border border-kb-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">정보수정</button>
+            <Link href="/settings" className="border border-kb-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">정보수정</Link>
           </div>
         </div>
         <table className="w-full border-collapse text-[13px]">
