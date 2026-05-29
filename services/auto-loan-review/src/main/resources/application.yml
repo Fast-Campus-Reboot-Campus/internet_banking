@@ -198,6 +198,12 @@ ai:
         senior: 0.788
         young: 0.750
 
+  # ---- E3-6: 케이스 임베딩 엔리처 ----
+  case-enricher:
+    enabled: ${AI_CASE_ENRICHER_ENABLED:false}
+    raw-topic: loan-review.case-indexed.v1
+    enriched-topic: loan-review.case-indexed-enriched.v1
+
   # ---- Kafka (편향 검증 컨슈머) ----
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
