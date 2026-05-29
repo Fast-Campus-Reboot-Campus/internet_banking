@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface CommonAccountRepository extends JpaRepository<CommonAccount, Long> {
 
     Optional<CommonAccount> findByAccountNo(String accountNo);
+
+    Optional<CommonAccount> findByAccountNickname(String accountNickname);
 }

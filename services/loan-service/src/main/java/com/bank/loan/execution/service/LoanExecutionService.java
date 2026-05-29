@@ -20,8 +20,8 @@ import com.bank.loan.notification.channel.StubEmailAdapter;
 import com.bank.loan.notification.channel.StubKakaoAdapter;
 import com.bank.loan.notification.channel.StubSmsAdapter;
 import com.bank.loan.notification.outbox.NotificationOutboxAppender;
+import com.bank.loan.payment.SystemAccountProvider;
 import com.bank.loan.payment.client.PaymentServiceClient;
-import com.bank.loan.payment.client.PaymentServiceProperties;
 import com.bank.loan.payment.client.dto.PaymentRequest;
 import com.bank.loan.payment.client.dto.PaymentResponse;
 import com.bank.loan.product.repository.LoanProductRepository;
@@ -75,7 +75,7 @@ public class LoanExecutionService {
     private final CurrentActorProvider currentActor;
     private final CryptoService cryptoService;
     private final PaymentServiceClient paymentServiceClient;
-    private final PaymentServiceProperties paymentProps;
+    private final SystemAccountProvider systemAccountProvider;
 
     // FAILED 기록을 유지하기 위해 BusinessException 발생 시에도 커밋
     @Transactional(noRollbackFor = BusinessException.class)
@@ -146,7 +146,7 @@ public class LoanExecutionService {
         String payIdemKey = "EXEC-" + contract.getCntrId() + "-"
                 + (idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : saved.getExecId());
         PaymentRequest payReq = new PaymentRequest(
-                paymentProps.disbursement().accountNo(),
+                systemAccountProvider.disbursementAccount().getAccountNo(),
                 req.disbursementBankCd(),
                 req.disbursementAccountNo(),
                 contract.getCntrNo(),

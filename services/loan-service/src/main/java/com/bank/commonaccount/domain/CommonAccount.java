@@ -48,6 +48,9 @@ public class CommonAccount {
     @Column(name = "account_type_cd", length = 30)
     private String accountTypeCd;
 
+    @Column(name = "account_nickname", length = 100)
+    private String accountNickname;
+
     @Column(name = "bank_cd", length = 10)
     private String bankCd;
 

@@ -7,8 +7,9 @@ import com.bank.loan.calendar.service.BusinessDayService;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.common.security.crypto.CryptoService;
+import com.bank.commonaccount.domain.CommonAccount;
+import com.bank.loan.payment.SystemAccountProvider;
 import com.bank.loan.payment.client.PaymentServiceClient;
-import com.bank.loan.payment.client.PaymentServiceProperties;
 import com.bank.loan.payment.client.dto.PaymentRequest;
 import com.bank.loan.payment.client.dto.PaymentResponse;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
@@ -71,7 +72,7 @@ public class AutoDebitBatchService {
     private final LoanContractRepository contractRepository;
     private final RepaymentService repaymentService;
     private final PaymentServiceClient paymentServiceClient;
-    private final PaymentServiceProperties paymentProps;
+    private final SystemAccountProvider systemAccountProvider;
     private final CryptoService cryptoService;
     private final BusinessDayService businessDayService;
     private final AutoDebitClearingPendingRepository clearingPendingRepository;
@@ -167,12 +168,12 @@ public class AutoDebitBatchService {
                                                RepaymentAccount account,
                                                LoanContract contract) {
         String senderAccountNo = cryptoService.decrypt(account.getAccountNoEnc());
-        PaymentServiceProperties.Collection coll = paymentProps.collection();
+        CommonAccount collection = systemAccountProvider.collectionAccount();
         return new PaymentRequest(
                 senderAccountNo,
-                coll.bankCode(),
-                coll.accountNo(),
-                coll.holderName(),
+                collection.getBankCd(),
+                collection.getAccountNo(),
+                collection.getAccountNickname(),
                 BigDecimal.valueOf(schedule.getScheduledTotal()),
                 "대출상환 " + schedule.getInstallmentNo() + "회차",
                 "대출상환",

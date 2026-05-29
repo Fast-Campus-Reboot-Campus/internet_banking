@@ -89,13 +89,9 @@ crypto:
   key-base64: ${CRYPTO_KEY_BASE64:bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM=}
 
 payment:
+  # 수납/집행 시스템 계좌는 common_db.common_account(account_nickname=LOAN_COLLECTION/LOAN_DISBURSEMENT)로 이관.
+  # SystemAccountProvider 가 조회한다. 여기엔 payment-service 엔드포인트만.
   url: ${PAYMENT_SERVICE_URL:http://localhost:8080}
-  collection:
-    bank-code: ${PAYMENT_COLLECTION_BANK_CODE:004}
-    account-no: ${PAYMENT_COLLECTION_ACCOUNT_NO:00000000000}
-    holder-name: ${PAYMENT_COLLECTION_HOLDER_NAME:한국은행}
-  disbursement:
-    account-no: ${PAYMENT_DISBURSEMENT_ACCOUNT_NO:00000000000}
 
 doc-agent:
   base-url: ${DOC_AGENT_BASE_URL:http://doc-agent:8080}
