@@ -2,6 +2,11 @@
 
 > 작성일: 2026-05-29
 > 상태: design draft
+> **갱신(2026-05-29): §3.5 결정 일부 실행됨** — `ai-service` 는 빌드에서 제거되었고,
+>   자동심사는 `auto-loan-review`(포트 8086)가 전담한다(`ai-service` 슬롯 스왑).
+>   즉 §3.5 의 "ai-service 폐기"는 완료. 다만 **규정 RAG 의 doc-agent ES 흡수(가안)는 미완**으로,
+>   `auto-loan-review`·`advisory` 의 자체 임베딩 제거 + doc-agent 조회 전환이 남은 작업이다.
+>   아래 본문의 `ai-service` 서술은 의사결정 당시 기록으로 보존한다.
 > 배경: **doc-agent 에 Elasticsearch 를 도입**(목적 = 규정 검색 품질 향상)하는 시점에,
 >       3개 에이전트가 각각 따로 임베딩하던 **공통 규정 코퍼스**를 어떻게 다룰지 결정.
 > 선행/연관 문서: `docs/plan/phase-d-rag.md`(pgvector 안 — supersede), `docs/plan/rag-corpora.md`(코퍼스 정의),
@@ -45,7 +50,7 @@
 - ES 가 **doc-agent 에 확정 도입**되므로 통합 위치 후보:
   - **(가) doc-agent ES 를 규정 단일 인덱스 owner 로** — ai-service 의 통합 역할을 doc-agent ES 가 흡수.
   - (나) ai-service(통합 시도 서비스)를 유지하되 그 백엔드를 ES 로 — doc-agent 와의 역할 중복 발생.
-  - → **(가) 권장** (ES 가 이미 doc-agent 에 있고, owner 가 둘이면 다시 분산). **ai-service 거취(흡수/폐기)는 결정 필요 — §3.5.**
+  - → **(가) 권장** (ES 가 이미 doc-agent 에 있고, owner 가 둘이면 다시 분산). **ai-service 는 폐기 완료(2026-05-29) — §3.5.**
 
 ---
 
@@ -96,7 +101,13 @@
 | 감사/grounding | 인용 ID 가 서비스별로 흩어짐 | `Citation.id` 단일 출처 → 검증·추적 단순 |
 | 검색 품질 | pgvector `simple`/`pg_trgm` 형태소 인식 X | ES nori + BM25 + RRF 하이브리드 |
 
-### 3.5 ⚠️ ai-service 거취 (결정 필요)
+### 3.5 ✅ ai-service 거취 (결정·실행 완료)
+
+> **결과(2026-05-29):** `ai-service` 는 빌드/배선에서 제거되고 `auto-loan-review` 가 8086 슬롯을
+> 전담한다 — 아래 (다) "ai-service 폐기"에 해당. 자동심사 자산은 이미 `auto-loan-review` 가
+> 자체 보유하므로 (가)의 "RAG 자산 이관"은 불필요했다. **남은 (가) 권장 사항** = 규정 RAG 의
+> doc-agent ES 단일 소유: `auto-loan-review`·`advisory` 의 자체 임베딩 제거 후 doc-agent 조회 전환.
+> 아래 옵션 표는 의사결정 기록으로 보존한다.
 
 ai-service 가 이미 "규정 RAG 통합"을 목표로 만들어졌으므로, doc-agent ES 통합과 **역할이 겹친다.**
 방치하면 통합 지점이 둘(ai-service + doc-agent ES)이 되어 또 분산된다. 셋 중 하나로 정리:
@@ -315,7 +326,7 @@ ai:
 | `loan-service` | `loan_review_outbox` 테이블 + `SimilarCaseOutboxPublisher` 신규 |
 | `advisory-service` | E5: 규정 검색을 doc-agent API 위임, 자체 규정 임베딩 적재 중단. 유사케이스 유지/통합 검토 |
 | `auto-loan-review` | 규정 검색을 doc-agent API 위임, 자체 규정 임베딩 적재 중단 |
-| `ai-service` | **§3.5 결정 따라** — (가) doc-agent 로 자산 이관 후 폐기/축소 / (나) ES 게이트웨이로 재배치 / (다) 폐기 |
+| `ai-service` | ✅ **폐기 완료(2026-05-29)** — 빌드에서 제거, `auto-loan-review` 가 8086 전담(§3.5) |
 | `consultation-service` | **수신계 소관 — 본 계획 범위 외, 변경 없음** |
 | `docker-compose.yml` | `elasticsearch`, `kibana`, `cp-kafka-connect` 추가(profile `rag`) |
 | `GroundingValidator` / `ReviewReportService` | 변경 0줄(interface 추출 효과) |

@@ -44,7 +44,7 @@
 | loan-service | 8083 | 대출 심사 및 관리 |
 | payment-service | 8084 | 이체 및 결제 처리 |
 | master-service | 8085 | 공통 마스터 데이터 |
-| ai-service | 8086 | 자동 심사 AI 모듈 |
+| auto-loan-review | 8086 | 자동 심사 AI 모듈 |
 
 드롭다운에 서비스 이름이 보이지 않으면 해당 서비스가 실행되지 않은 것이다.
 

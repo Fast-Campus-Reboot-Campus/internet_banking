@@ -1,6 +1,6 @@
 # inference-server
 
-자동심사 ML 모델 추론 서버. ai-service(Java) 의 게이트웨이가 이 서버를 호출한다.
+자동심사 ML 모델 추론 서버. auto-loan-review(Java) 의 게이트웨이가 이 서버를 호출한다.
 운영 ML 패턴으로 Python 모델 서빙과 Java 비즈니스 로직을 분리.
 
 ## 실행

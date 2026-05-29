@@ -240,7 +240,7 @@ services/inference-server/
 - **React 18 + TypeScript + Vite**
 - 상태 관리: Zustand (경량)
 - UI: shadcn/ui + Tailwind
-- 실시간: SSE (`EventSource`) — loan-service → ai-service → 대시보드
+- 실시간: SSE (`EventSource`) — loan-service → auto-loan-review → 대시보드
 
 ### E2. 핵심 화면
 
@@ -281,7 +281,7 @@ Track 3 카드:
 ### E3. 실시간 Push
 ```
 loan-service → LOAN_REVIEW 업데이트 → SSE 브로드캐스트
-ai-service   → LLM 리포트 완료     → SSE 브로드캐스트
+auto-loan-review   → LLM 리포트 완료     → SSE 브로드캐스트
 Frontend     → EventSource 구독    → 카드 갱신
 ```
 

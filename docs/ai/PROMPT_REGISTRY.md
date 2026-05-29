@@ -79,10 +79,10 @@
 
 | 날짜 | ID | 변경 | 담당 |
 |------|----|------|------|
-| 2026-05-26 | `purpose_analysis` v1 | 최초 등록 (llm-pipeline.md L2) | ai-service |
-| 2026-05-26 | `review_report_track{1,2,3}` v1 | 최초 등록 (llm-pipeline.md L7) | ai-service |
-| 2026-05-26 | `agent_reasoning_summary` v1 | 신규 등록 (pre-review-agent-plan A4) | ai-service |
-| 2026-05-26 | `rejection_reason_draft` v1 | 신규 등록 (pre-review-agent-plan A8) | ai-service |
+| 2026-05-26 | `purpose_analysis` v1 | 최초 등록 (llm-pipeline.md L2) | auto-loan-review |
+| 2026-05-26 | `review_report_track{1,2,3}` v1 | 최초 등록 (llm-pipeline.md L7) | auto-loan-review |
+| 2026-05-26 | `agent_reasoning_summary` v1 | 신규 등록 (pre-review-agent-plan A4) | auto-loan-review |
+| 2026-05-26 | `rejection_reason_draft` v1 | 신규 등록 (pre-review-agent-plan A8) | auto-loan-review |
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Last updated: 2026-05-26
 > Status: Phase 1.5/1.6 완료, Phase 1.7 RAG 보류, Pre-Review Agent (A4~A9) 완료
-> Owner: ai-service 팀
+> Owner: auto-loan-review 팀
 
 본 문서는 자동 대출 심사 보조 시스템의 **시스템 비전·구성 요소·책임 분담·의사결정 흐름**을 한 곳에 정리한 source of truth. 신규 합류자가 5분 안에 의도를 파악하고, 후속 phase 작성 시 본 문서를 참조한다.
 
@@ -401,7 +401,7 @@ doc: "주담대 정상 직장인 PD 임계치는 자행 신용정책서 §3.2.1 
 ## 8. 의사결정 흐름 (Sequence)
 
 1. 신청 접수 (loan-service)
-2. ai-service `/evaluate` 호출 (REST, sync)
+2. auto-loan-review `/evaluate` 호출 (REST, sync)
 3. 사전처리 Step 1~6 실행 → 트랙 결정 + 1차 응답
 4. 결과를 loan-service 에 반환, 심사원 대시보드에 카드 표시
 5. 비동기로 Step 7~8 실행 (LLM 보강·리포트)
@@ -439,7 +439,7 @@ doc: "주담대 정상 직장인 PD 임계치는 자행 신용정책서 §3.2.1 
 
 | Phase | 내용 | 상태 | 상세 문서 |
 |-------|------|------|----------|
-| 0 | 공통 인프라 (ai-service, pgvector, PII, ai-db) | 부분 완료 | — |
+| 0 | 공통 인프라 (auto-loan-review, pgvector, PII, ai-db) | 부분 완료 | — |
 | 1.1 | 합성 데이터 4 Layer (HMDA + Home Credit 한국화) | ✅ 완료¹ | hmda-localization.md, pd-label-acquisition.md |
 | 1.5 | LLM 보강 — 신청 사유 plausibility 분석 | ✅ 완료 | llm-pipeline.md |
 | 1.6 | LLM 리포트 생성기 (트랙별 톤) | ✅ 완료 | llm-pipeline.md |

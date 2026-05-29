@@ -37,7 +37,7 @@
                           표준 JSON
                                   │
                                   ▼
-                          [ai-service (사전대출심사)]
+                          [auto-loan-review (사전대출심사)]
                                   │
                                   ▼
                           [review-ai-gateway] ─▶ [auto-loan-review]
@@ -121,7 +121,7 @@ Kafka 토픽: `doc-agent.submission.received`, `.classified`, `.extracted`, `.ve
 
 | 자동 점수 | 시스템 동작 | 최종 확정 |
 |---|---|---|
-| < 0.3 | **AUTO_PASS** — ai-service 전달 | 자동 (사후 샘플링 감사) |
+| < 0.3 | **AUTO_PASS** — auto-loan-review 전달 | 자동 (사후 샘플링 감사) |
 | 0.3 ~ 0.7 | **NEEDS_RESUBMIT** — 형식 문제로 가정, 재제출 안내 | 자동 |
 | ≥ 0.7 또는 체크섬 실패 | **HOLD** — 잠금, 심사원 큐, 고객엔 "확인 중" 표시 | **사람만 위변조 확정/해제** |
 | 심사원이 위변조 확정 | **LOCKED + 감사팀 이관** | 사람 (감사팀)만 형사조치 결정 |
@@ -197,7 +197,7 @@ CREATE TABLE LOAN_FORGERY_SIGNAL (
 
 ## 7. 표준 출력 JSON 스키마
 
-doc-agent → ai-service 전달 표준. 필드별 confidence·source_doc·routing 포함.
+doc-agent → auto-loan-review 전달 표준. 필드별 confidence·source_doc·routing 포함.
 
 ```json
 {
@@ -445,7 +445,7 @@ services:
 | **D-2** | L4 Extract (Ollama Qwen2.5:3b + JSON Schema) + 필드별 confidence | 직장인 신용대출 4종 서류 추출 |
 | **D-3** | L5 Verify — 룰 정합성·만료일·체크섬, 운전면허 진위확인 실연동 | 누락/만료 라우팅 (상황 A) 동작 |
 | **D-4** | 위변조 시그널 (메타·ELA·Copy-Move·의미), 골든셋 구축, 임계치 ROC 확정 | 회귀 SLA 통과, HOLD 라우팅 동작 |
-| **D-5** | ai-service / review-ai-gateway 연계, 감사팀 큐, 심사원 UNLOCK 엔드포인트 | E2E 신청→심사 한 사이클 |
+| **D-5** | auto-loan-review / review-ai-gateway 연계, 감사팀 큐, 심사원 UNLOCK 엔드포인트 | E2E 신청→심사 한 사이클 |
 | **D-6** | 주담대 서류군 확장 (등기부등본 PP-Structure, 매매계약서) | P002 상품 전체 커버 |
 
 커밋 규칙: `feat(doc-agent): ...` 와 `test(doc-agent): ...` 분리 ([feedback_split_feat_test_commits.md]).
