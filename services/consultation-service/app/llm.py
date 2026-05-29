@@ -160,6 +160,8 @@ class FeatureAnswerFormatter:
 
 import time
 
+from langfuse.decorators import observe
+
 from app.metrics import (
     chatbot_fallback_total,
     chatbot_llm_completion_tokens,
@@ -188,6 +190,7 @@ class LlmAdapter:
         self.api_key = api_key
         self.model = model
 
+    @observe(name="llm-answer")
     def answer(self, message: str, context: str = "") -> tuple[str, bool]:
         """LLM 응답을 반환한다.
 
@@ -198,7 +201,7 @@ class LlmAdapter:
         start = time.perf_counter()
         is_error = False
         try:
-            from openai import OpenAI
+            from langfuse.openai import OpenAI
             client = OpenAI(api_key=self.api_key)
 
             messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
@@ -227,6 +230,7 @@ class LlmAdapter:
             if is_error:
                 chatbot_llm_error_total.labels(method="answer").inc()
 
+    @observe(name="llm-recommend")
     def recommend(
         self,
         cash_flow: dict,
@@ -245,7 +249,7 @@ class LlmAdapter:
         start = time.perf_counter()
         is_error = False
         try:
-            from openai import OpenAI
+            from langfuse.openai import OpenAI
             client = OpenAI(api_key=self.api_key)
 
             # ── 현금흐름 요약 텍스트 ─────────────────────────────────────────────

@@ -1,0 +1,313 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "LLM 호출 현황 — 전 서비스",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "sum(increase(ai_agent_llm_calls_total{application=\"auto-loan-review\"}[1h]))",
+          "legendFormat": "대출심사 (1h)"
+        }
+      ],
+      "title": "대출심사 LLM 호출 (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "sum(increase(chatbot_llm_calls_total{application=\"consultation-service\"}[1h]))",
+          "legendFormat": "챗봇 (1h)"
+        }
+      ],
+      "title": "챗봇 LLM 호출 (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": {
+        "defaults": { "unit": "currencyUSD", "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 20 }] } },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "sum(ai_agent_cost_usd_total{application=\"auto-loan-review\"})",
+          "legendFormat": "누적 비용"
+        }
+      ],
+      "title": "대출심사 누적 비용 (USD)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.9 }, { "color": "green", "value": 0.95 }] } },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_agent_llm_calls_total{application=\"auto-loan-review\",outcome=\"SUCCESS\"}[5m])) / (sum(rate(ai_agent_llm_calls_total{application=\"auto-loan-review\"}[5m])) + 0.001)",
+          "legendFormat": "대출심사 LLM 성공률"
+        }
+      ],
+      "title": "대출심사 LLM 성공률",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 5 },
+      "id": 5,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_agent_llm_calls_total{application=\"auto-loan-review\"}[5m]))",
+          "legendFormat": "대출심사"
+        },
+        {
+          "expr": "sum(rate(chatbot_llm_calls_total{application=\"consultation-service\"}[5m]))",
+          "legendFormat": "챗봇"
+        }
+      ],
+      "title": "서비스별 LLM 호출 추이 (req/s)",
+      "type": "timeseries"
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 101,
+      "title": "LLM 응답시간 — 서비스별",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 6,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(ai_agent_llm_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
+          "legendFormat": "대출심사 p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(ai_agent_llm_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
+          "legendFormat": "대출심사 p50"
+        }
+      ],
+      "title": "대출심사 LLM 응답시간",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 7,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(chatbot_llm_duration_seconds_bucket{application=\"consultation-service\"}[5m])) by (le))",
+          "legendFormat": "챗봇 p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(chatbot_llm_duration_seconds_bucket{application=\"consultation-service\"}[5m])) by (le))",
+          "legendFormat": "챗봇 p50"
+        }
+      ],
+      "title": "챗봇 LLM 응답시간",
+      "type": "timeseries"
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "id": 102,
+      "title": "RAG 검색 — 서비스별",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "id": 8,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rag_search_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le, corpus))",
+          "legendFormat": "대출심사 p95 ({{corpus}})"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rag_search_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
+          "legendFormat": "ai-service p95"
+        }
+      ],
+      "title": "RAG 검색 레이턴시 p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "id": 9,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(increase(rag_search_miss_total{application=\"auto-loan-review\"}[5m])) by (corpus)",
+          "legendFormat": "대출심사 미스 ({{corpus}})"
+        }
+      ],
+      "title": "RAG 검색 미스 추이",
+      "type": "timeseries"
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+      "id": 103,
+      "title": "이상 감지 — 폴백 · 에러",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "id": 10,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(increase(ai_agent_fallback_total{application=\"auto-loan-review\"}[5m])) by (reason)",
+          "legendFormat": "대출심사 폴백 — {{reason}}"
+        },
+        {
+          "expr": "sum(increase(ai_agent_hard_fail_total{application=\"auto-loan-review\"}[5m])) by (reason)",
+          "legendFormat": "대출심사 하드실패 — {{reason}}"
+        }
+      ],
+      "title": "대출심사 폴백 · 하드실패 추이",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "id": 11,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(increase(chatbot_llm_error_total{application=\"consultation-service\"}[5m]))",
+          "legendFormat": "챗봇 LLM 오류"
+        },
+        {
+          "expr": "sum(increase(ai_agent_disagreement_total{application=\"auto-loan-review\"}[5m]))",
+          "legendFormat": "대출심사 에이전트 불일치"
+        }
+      ],
+      "title": "서비스별 LLM 오류 추이",
+      "type": "timeseries"
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 104,
+      "title": "토큰 & 비용 — 전 서비스",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "id": 12,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_agent_tokens_input_total{application=\"auto-loan-review\"}[5m]))",
+          "legendFormat": "대출심사 입력"
+        },
+        {
+          "expr": "sum(rate(ai_agent_tokens_output_total{application=\"auto-loan-review\"}[5m]))",
+          "legendFormat": "대출심사 출력"
+        }
+      ],
+      "title": "토큰 사용량 추이",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "id": 13,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_agent_cost_usd_total{application=\"auto-loan-review\"}[1h]))",
+          "legendFormat": "대출심사 비용/h"
+        }
+      ],
+      "title": "서비스별 LLM 비용 추이 (USD/h)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["llm", "rag", "overview", "agent"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "LLM / RAG 통합 모니터링",
+  "uid": "llm-overview",
+  "version": 1
+}

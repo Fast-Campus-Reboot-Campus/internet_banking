@@ -30,10 +30,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 62
       },
-      "id": 100,
-      "title": "심사 처리량 · 결정 분포",
+      "id": 106,
+      "title": "LLM 호출 현황",
       "type": "row"
     },
     {
@@ -61,11 +61,11 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 6,
         "x": 0,
-        "y": 1
+        "y": 63
       },
-      "id": 1,
+      "id": 200,
       "options": {
         "reduceOptions": {
           "calcs": [
@@ -78,11 +78,695 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(review_decision_total{application=\"ai-service\"}[1h]))",
-          "legendFormat": "1시간 심사 건수"
+          "expr": "sum(increase(ai_agent_llm_calls_total{application=\"auto-loan-review\"}[1h]))",
+          "legendFormat": "1시간 LLM 호출"
         }
       ],
-      "title": "총 심사 건수 (1h)",
+      "title": "LLM 호출 횟수 (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.9
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 63
+      },
+      "id": 201,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_agent_llm_calls_total{application=\"auto-loan-review\",outcome=\"SUCCESS\"}[5m])) / (sum(rate(ai_agent_llm_calls_total{application=\"auto-loan-review\"}[5m])) + 0.001)",
+          "legendFormat": "성공률"
+        }
+      ],
+      "title": "LLM 성공률 (5m)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "green",
+                "value": 8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 63
+      },
+      "id": 202,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "ai_agent_rpm_remaining{application=\"auto-loan-review\"}",
+          "legendFormat": "RPM 잔여"
+        }
+      ],
+      "title": "RPM 잔여 한도",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "green",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 63
+      },
+      "id": 203,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "ai_agent_rpd_remaining{application=\"auto-loan-review\"}",
+          "legendFormat": "RPD 잔여"
+        }
+      ],
+      "title": "RPD 잔여 한도",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 67
+      },
+      "id": 204,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_agent_llm_calls_total{application=\"auto-loan-review\",outcome=\"SUCCESS\"}[5m]))",
+          "legendFormat": "성공"
+        },
+        {
+          "expr": "sum(rate(ai_agent_llm_calls_total{application=\"auto-loan-review\",outcome=~\"FALLBACK|ERROR\"}[5m]))",
+          "legendFormat": "실패/폴백"
+        }
+      ],
+      "title": "LLM 호출 추이 (req/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 67
+      },
+      "id": 205,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(ai_agent_llm_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(ai_agent_llm_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        }
+      ],
+      "title": "LLM 응답시간 (p50/p95)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 75
+      },
+      "id": 107,
+      "title": "토큰 & 비용",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 76
+      },
+      "id": 206,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "sum(ai_agent_cost_usd_total{application=\"auto-loan-review\"})",
+          "legendFormat": "누적 비용"
+        }
+      ],
+      "title": "누적 LLM 비용 (USD)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 76
+      },
+      "id": 207,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "sum(ai_agent_tokens_input_total{application=\"auto-loan-review\"}) + sum(ai_agent_tokens_output_total{application=\"auto-loan-review\"})",
+          "legendFormat": "총 토큰"
+        }
+      ],
+      "title": "누적 토큰 합계",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
+      "id": 208,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ai_agent_tokens_input_total{application=\"auto-loan-review\"}[5m]))",
+          "legendFormat": "입력 토큰/s"
+        },
+        {
+          "expr": "sum(rate(ai_agent_tokens_output_total{application=\"auto-loan-review\"}[5m]))",
+          "legendFormat": "출력 토큰/s"
+        }
+      ],
+      "title": "토큰 사용량 추이",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 80
+      },
+      "id": 209,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(ai_agent_fallback_total{application=\"auto-loan-review\"}[5m])) by (reason)",
+          "legendFormat": "폴백 — {{reason}}"
+        },
+        {
+          "expr": "sum(increase(ai_agent_hard_fail_total{application=\"auto-loan-review\"}[5m])) by (reason)",
+          "legendFormat": "하드실패 — {{reason}}"
+        }
+      ],
+      "title": "폴백 · 하드실패 추이",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 88
+      },
+      "id": 108,
+      "title": "RAG 검색",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 89
+      },
+      "id": 210,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(rag_search_miss_total{application=\"auto-loan-review\"}[1h]))",
+          "legendFormat": "미스 건수"
+        }
+      ],
+      "title": "RAG 검색 미스 (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 89
+      },
+      "id": 211,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "sum(rag_chunk_count_sum{application=\"auto-loan-review\"}) / (sum(rag_chunk_count_count{application=\"auto-loan-review\"}) + 0.001)",
+          "legendFormat": "평균 청크 수"
+        }
+      ],
+      "title": "평균 검색 청크 수",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 93
+      },
+      "id": 212,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(rag_search_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le, corpus))",
+          "legendFormat": "p50 ({{corpus}})"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(rag_search_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le, corpus))",
+          "legendFormat": "p95 ({{corpus}})"
+        }
+      ],
+      "title": "RAG 검색 레이턴시 (p50/p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 93
+      },
+      "id": 213,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(rag_search_miss_total{application=\"auto-loan-review\"}[5m])) by (corpus)",
+          "legendFormat": "미스 — {{corpus}}"
+        },
+        {
+          "expr": "sum(rate(rag_citation_count_per_report_sum{application=\"auto-loan-review\"}[5m])) / (sum(rate(rag_citation_count_per_report_count{application=\"auto-loan-review\"}[5m])) + 0.001)",
+          "legendFormat": "평균 인용 수"
+        }
+      ],
+      "title": "검색 미스 · 인용 추이",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 101
+      },
+      "id": 109,
+      "title": "에이전트 실행",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 102
+      },
+      "id": 214,
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(ai_agent_runs_total{application=\"auto-loan-review\"}[1h]))",
+          "legendFormat": "1시간 실행"
+        }
+      ],
+      "title": "에이전트 실행 횟수 (1h)",
       "type": "stat"
     },
     {
@@ -118,11 +802,11 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 1
+        "w": 6,
+        "x": 6,
+        "y": 102
       },
-      "id": 2,
+      "id": 215,
       "options": {
         "reduceOptions": {
           "calcs": [
@@ -135,323 +819,11 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(review_inference_error_total{application=\"ai-service\"}[1h]))",
-          "legendFormat": "추론 실패 건수"
+          "expr": "sum(increase(ai_agent_disagreement_total{application=\"auto-loan-review\"}[1h]))",
+          "legendFormat": "불일치"
         }
       ],
-      "title": "추론 실패 건수 (1h)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.5
-              },
-              {
-                "color": "red",
-                "value": 0.7
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 1
-      },
-      "id": 3,
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background"
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"REJECT\"}[10m])) / sum(rate(review_decision_total{application=\"ai-service\"}[10m]))",
-          "legendFormat": "REJECT 비율"
-        }
-      ],
-      "title": "REJECT 비율 (10m)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.01
-              },
-              {
-                "color": "green",
-                "value": 0.05
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 12,
-        "y": 1
-      },
-      "id": 4,
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background"
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(review_inference_error_total{application=\"ai-service\"}[5m])) / (sum(rate(review_decision_total{application=\"ai-service\"}[5m])) + sum(rate(review_inference_error_total{application=\"ai-service\"}[5m])) + 0.001)",
-          "legendFormat": "에러율"
-        }
-      ],
-      "title": "추론 에러율 (5m)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 5
-      },
-      "id": 5,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"APPROVE\"}[5m]))",
-          "legendFormat": "APPROVE"
-        },
-        {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"CONDITIONAL\"}[5m]))",
-          "legendFormat": "CONDITIONAL"
-        },
-        {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"REJECT\"}[5m]))",
-          "legendFormat": "REJECT"
-        }
-      ],
-      "title": "결정 분포 추이 (req/s)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 5
-      },
-      "id": 6,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(review_inference_error_total{application=\"ai-service\"}[5m]))",
-          "legendFormat": "추론 실패"
-        }
-      ],
-      "title": "추론 에러 발생 추이",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 13
-      },
-      "id": 101,
-      "title": "응답시간 (p50 / p95)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 0,
-        "y": 14
-      },
-      "id": 7,
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background"
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
-          "legendFormat": "p50"
-        }
-      ],
-      "title": "응답시간 p50",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 2
-              },
-              {
-                "color": "red",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 8,
-        "y": 14
-      },
-      "id": 8,
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "background"
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
-          "legendFormat": "p95"
-        }
-      ],
-      "title": "응답시간 p95",
+      "title": "에이전트 불일치 (1h)",
       "type": "stat"
     },
     {
@@ -467,119 +839,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 18
-      },
-      "id": 9,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
-          "legendFormat": "p50"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
-          "legendFormat": "p95"
-        }
-      ],
-      "title": "응답시간 추이 (p50 / p95)",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 26
-      },
-      "id": 102,
-      "title": "모델 예측 신뢰도 (Score)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 27
-      },
-      "id": 10,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (le))",
-          "legendFormat": "APPROVE p50"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"CONDITIONAL\"}[5m])) by (le))",
-          "legendFormat": "CONDITIONAL p50"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"REJECT\"}[5m])) by (le))",
-          "legendFormat": "REJECT p50"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (le))",
-          "legendFormat": "APPROVE p95"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"REJECT\"}[5m])) by (le))",
-          "legendFormat": "REJECT p95"
-        }
-      ],
-      "title": "결정별 신뢰도(Score) 분포 (p50 / p95)",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 35
-      },
-      "id": 103,
-      "title": "데이터 드리프트 감지 (입력 피처 분포)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 106
       },
-      "id": 11,
+      "id": 216,
       "options": {
         "tooltip": {
           "mode": "multi"
@@ -587,64 +851,16 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_input_dsr_bucket{application=\"ai-service\"}[10m])) by (le))",
-          "legendFormat": "DSR p50"
+          "expr": "histogram_quantile(0.50, sum(rate(ai_agent_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le, track))",
+          "legendFormat": "p50 ({{track}})"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_input_dsr_bucket{application=\"ai-service\"}[10m])) by (le))",
-          "legendFormat": "DSR p95"
+          "expr": "histogram_quantile(0.95, sum(rate(ai_agent_latency_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le, track))",
+          "legendFormat": "p95 ({{track}})"
         }
       ],
-      "title": "입력 DSR 분포 추이",
+      "title": "에이전트 실행시간 (p50/p95)",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 36
-      },
-      "id": 12,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(review_input_credit_score_bucket{application=\"ai-service\"}[10m])) by (le))",
-          "legendFormat": "신용점수 p50"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(review_input_credit_score_bucket{application=\"ai-service\"}[10m])) by (le))",
-          "legendFormat": "신용점수 p95"
-        }
-      ],
-      "title": "입력 신용점수 분포 추이",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 44
-      },
-      "id": 104,
-      "title": "모델 버전별 결과 비교",
-      "type": "row"
     },
     {
       "datasource": {
@@ -660,50 +876,10 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 45
-      },
-      "id": 13,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (modelVersion)",
-          "legendFormat": "APPROVE ({{modelVersion}})"
-        },
-        {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"REJECT\"}[5m])) by (modelVersion)",
-          "legendFormat": "REJECT ({{modelVersion}})"
-        },
-        {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"CONDITIONAL\"}[5m])) by (modelVersion)",
-          "legendFormat": "CONDITIONAL ({{modelVersion}})"
-        }
-      ],
-      "title": "모델 버전별 결정 분포",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 12,
-        "y": 45
+        "y": 106
       },
-      "id": 14,
+      "id": 217,
       "options": {
         "tooltip": {
           "mode": "multi"
@@ -711,97 +887,25 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (modelVersion, le))",
-          "legendFormat": "p95 ({{modelVersion}})"
-        }
-      ],
-      "title": "모델 버전별 응답시간 p95",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 53
-      },
-      "id": 105,
-      "title": "데이터 품질 (결측치 · 이상치)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
+          "expr": "sum(rate(ai_agent_tool_calls_total{application=\"auto-loan-review\",status=\"OK\"}[5m])) by (tool_name)",
+          "legendFormat": "성공 — {{tool_name}}"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 54
-      },
-      "id": 15,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
         {
-          "expr": "sum(increase(review_input_missing_total{application=\"ai-service\"}[5m])) by (field)",
-          "legendFormat": "결측 — {{field}}"
+          "expr": "sum(rate(ai_agent_tool_calls_total{application=\"auto-loan-review\",status=\"ERROR\"}[5m])) by (tool_name)",
+          "legendFormat": "실패 — {{tool_name}}"
         }
       ],
-      "title": "핵심 필드 결측치 발생 추이",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "bfmta2uf2mebka"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 54
-      },
-      "id": 16,
-      "options": {
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(review_input_outlier_total{application=\"ai-service\"}[5m])) by (field)",
-          "legendFormat": "이상치 — {{field}}"
-        }
-      ],
-      "title": "핵심 필드 이상치 발생 추이",
+      "title": "도구 호출 추이 (tool_name)",
       "type": "timeseries"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
   "tags": [
-    "ml",
-    "loan",
-    "review",
-    "ai-service"
+    "llm",
+    "rag",
+    "agent",
+    "auto-loan-review"
   ],
   "time": {
     "from": "now-1h",
@@ -809,7 +913,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "ML 대출 심사 모니터링",
-  "uid": "ml-loan-review",
+  "title": "대출심사 LLM / RAG / 에이전트 모니터링",
+  "uid": "auto-loan-review-llm",
   "version": 1
 }
