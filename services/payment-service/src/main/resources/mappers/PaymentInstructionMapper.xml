@@ -131,6 +131,29 @@
         WHERE status NOT IN ('COMPLETED', 'FAILED', 'CANCELED')
     </select>
 
+    <!-- 예약이체 워커: 실행 시각이 도래한 SCHEDULED PI 폴링. selectTimedOut 대칭. -->
+    <select id="selectDueScheduled" resultType="com.bank.payment.domain.PaymentInstruction">
+        SELECT *
+        FROM payment_instruction
+        WHERE status = 'SCHEDULED'
+          AND scheduled_execution_at &lt; now()
+        ORDER BY scheduled_execution_at ASC
+        LIMIT 50
+    </select>
+
+    <!-- 예약이체 워커 선점(claim) 전용 UPDATE. status 가드(SCHEDULED) 포함. version+1. -->
+    <!-- next_timeout_at/next_retry_at 건드리지 않음(updateStatus 와 달리 NULL 세팅 없음). -->
+    <!-- scheduled_execution_at/is_scheduled 는 감사 목적으로 그대로 보존. -->
+    <update id="claimScheduledForExecution">
+        UPDATE payment_instruction
+           SET status           = 'PROCESSING',
+               version          = version + 1,
+               last_modified_at = now()
+         WHERE payment_instruction_id = #{paymentInstructionId}
+           AND status               = 'SCHEDULED'
+           AND version              = #{version}
+    </update>
+
     <!-- AUTHORIZED→SCHEDULED 전이. is_scheduled=true + scheduled_execution_at 세팅. 낙관락 포함. -->
     <update id="updateScheduled">
         UPDATE payment_instruction

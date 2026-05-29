@@ -565,6 +565,29 @@ public class PaymentTransactionService {
     }
 
     /**
+     * SCHEDULED→PROCESSING 선점(claim). 예약이체 워커 전용. 독립 @Transactional — 후속 실행 TX와 분리 필수.
+     * 반환 true = 선점 성공, false = 다른 인스턴스가 이미 선점(정상 경합, 예외 아님).
+     * ★ pi.getVersion() 은 selectDueScheduled 로 읽은 값(claim 전)을 그대로 넘길 것.
+     *   이 메서드는 pi 객체의 version 을 변경하지 않는다. DB만 +1.
+     *   단계 3 실행 TX는 pi.getVersion()+1 을 WHERE 조건으로 사용한다.
+     */
+    @Transactional
+    public boolean claimScheduled(PaymentInstruction pi) {
+        int updated = paymentInstructionMapper.claimScheduledForExecution(
+                pi.getPaymentInstructionId(), pi.getVersion());
+        if (updated == 0) {
+            return false;
+        }
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(pi.getPaymentInstructionId());
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), pi.getPaymentInstructionId(),
+                (maxSeq == null ? 0 : maxSeq) + 1,
+                "SCHEDULED", "PROCESSING", "SCHEDULED_TRIGGERED", "SCHEDULER",
+                LocalDateTime.now()));
+        return true;
+    }
+
+    /**
      * AUTHORIZED→SCHEDULED 전이. is_scheduled=true + scheduled_execution_at 세팅.
      * 낙관락: WHERE status='AUTHORIZED' AND version=#{version}. affected rows≠1 이면 throw.
      * 상태이력: SCHEDULED_REGISTERED (AUTHORIZED→SCHEDULED, triggered_by='USER').
