@@ -132,6 +132,9 @@ public class LoanReviewService {
                     "guarantorRequired: signedCount < minGuarantorCount=" + product.getMinGuarantorCount());
         }
 
+        // 사전조건 7: doc-agent 서류 검증 미해결 없음 (AUTO_PASS 또는 REVIEWER_PASS 만 허용)
+        preconditions.requireDocumentsCleared(applId);
+
         boolean approved = LoanReview.DECISION_APPROVED.equals(req.revDecisionCd());
         OffsetDateTime now = OffsetDateTime.now();
         Long actorId = currentActor.currentActorId();

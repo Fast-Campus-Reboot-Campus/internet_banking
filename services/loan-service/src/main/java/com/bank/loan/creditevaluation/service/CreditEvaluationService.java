@@ -10,10 +10,12 @@ import com.bank.loan.creditevaluation.domain.CreditEvaluation;
 import com.bank.loan.creditevaluation.dto.CreditEvaluationResponse;
 import com.bank.loan.creditevaluation.dto.RunCreditEvaluationRequest;
 import com.bank.loan.creditevaluation.repository.CreditEvaluationRepository;
+import com.bank.loan.creditevaluation.event.CreditEvaluationCompletedEvent;
 import com.bank.loan.prescreening.domain.LoanPrescreening;
 import com.bank.loan.prescreening.repository.LoanPrescreeningRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +48,7 @@ public class CreditEvaluationService {
     private final LoanPrescreeningRepository prescreeningRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CreditEvaluationResponse run(Long applId, RunCreditEvaluationRequest req) {
@@ -91,6 +94,13 @@ public class CreditEvaluationService {
                 REASON_CEVAL_COMPLETED,
                 "decision=" + req.cevalDecisionCd() + ", engine=" + req.cevalEngine(),
                 actorId
+        ));
+
+        eventPublisher.publishEvent(new CreditEvaluationCompletedEvent(
+                applId,
+                application.getCustomerId(),
+                saved.getCevalDecisionCd(),
+                application.getEstimatedIncomeAmt()
         ));
 
         return CreditEvaluationResponse.of(saved);
