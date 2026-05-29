@@ -5,6 +5,8 @@ import com.bank.loan.advisory.dto.CohortStatsResponse;
 import com.bank.loan.advisory.dto.PolicyCitationResponse;
 import com.bank.loan.advisory.dto.ReviewerHistoryResponse;
 import com.bank.loan.advisory.rag.PolicyCitationRetriever;
+import com.bank.loan.advisory.rag.SimilarCaseRetriever;
+import com.bank.loan.advisory.repository.ReviewAdvisoryReportRepository;
 import com.bank.loan.advisory.repository.ReviewerDecisionSnapshotRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.repository.LoanReviewRepository;
@@ -26,15 +28,18 @@ import static org.mockito.Mockito.when;
 
 class AdvisoryToolQueryServiceTest {
 
-    PolicyCitationRetriever            citationRetriever = mock(PolicyCitationRetriever.class);
-    LoanReviewRepository               loanReviewRepo    = mock(LoanReviewRepository.class);
-    ReviewerDecisionSnapshotRepository snapshotRepo      = mock(ReviewerDecisionSnapshotRepository.class);
+    PolicyCitationRetriever            citationRetriever   = mock(PolicyCitationRetriever.class);
+    SimilarCaseRetriever               similarCaseRetriever = mock(SimilarCaseRetriever.class);
+    ReviewAdvisoryReportRepository     reportRepo          = mock(ReviewAdvisoryReportRepository.class);
+    LoanReviewRepository               loanReviewRepo      = mock(LoanReviewRepository.class);
+    ReviewerDecisionSnapshotRepository snapshotRepo        = mock(ReviewerDecisionSnapshotRepository.class);
 
     AdvisoryToolQueryService service;
 
     @BeforeEach
     void setUp() {
-        service = new AdvisoryToolQueryService(citationRetriever, loanReviewRepo, snapshotRepo);
+        service = new AdvisoryToolQueryService(
+                citationRetriever, similarCaseRetriever, reportRepo, loanReviewRepo, snapshotRepo);
     }
 
     @Test

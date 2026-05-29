@@ -36,8 +36,10 @@ public class AgenticAuditAnalysisService {
             {
               "conclusion": "BIAS_SUSPECTED | NO_BIAS_DETECTED | INSUFFICIENT_DATA",
               "reasoningSummary": "한국어로 된 200자 이내 감사 의견",
-              "confidenceScore": 0.0 ~ 1.0
+              "confidenceScore": 0.0 ~ 1.0,
+              "citedChunkIds": [chunk_id, ...]
             }
+            citedChunkIds 는 get_policy_citation 또는 get_similar_cases 결과에서 실제로 결론 도출에 사용한 chunk_id 목록입니다. 미사용 시 빈 배열([])을 반환하십시오.
             """;
 
     private static final String COMPLIANCE_SYSTEM = """
@@ -54,8 +56,10 @@ public class AgenticAuditAnalysisService {
             {
               "conclusion": "VIOLATION_SUSPECTED | COMPLIANT | INSUFFICIENT_DATA",
               "reasoningSummary": "한국어로 된 200자 이내 감사 의견",
-              "confidenceScore": 0.0 ~ 1.0
+              "confidenceScore": 0.0 ~ 1.0,
+              "citedChunkIds": [chunk_id, ...]
             }
+            citedChunkIds 는 get_policy_citation 또는 get_similar_cases 결과에서 실제로 결론 도출에 사용한 chunk_id 목록입니다. 미사용 시 빈 배열([])을 반환하십시오.
             """;
 
     private final AgenticLoop   agenticLoop;
@@ -88,7 +92,8 @@ public class AgenticAuditAnalysisService {
                     parsed.reasoningSummary(),
                     parsed.confidenceScore(),
                     loopResult.inputTokens(),
-                    loopResult.outputTokens()
+                    loopResult.outputTokens(),
+                    parsed.citedChunkIds()
             );
         } finally {
             metrics.recordAnalysisDuration(timer, req.analysisType());

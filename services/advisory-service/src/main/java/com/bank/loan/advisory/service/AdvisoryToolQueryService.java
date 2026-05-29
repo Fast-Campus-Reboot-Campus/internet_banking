@@ -1,10 +1,14 @@
 package com.bank.loan.advisory.service;
 
+import com.bank.loan.advisory.domain.ReviewAdvisoryReport;
 import com.bank.loan.advisory.domain.ReviewerDecisionSnapshot;
 import com.bank.loan.advisory.dto.CohortStatsResponse;
 import com.bank.loan.advisory.dto.PolicyCitationResponse;
 import com.bank.loan.advisory.dto.ReviewerHistoryResponse;
+import com.bank.loan.advisory.dto.SimilarCaseResponse;
 import com.bank.loan.advisory.rag.PolicyCitationRetriever;
+import com.bank.loan.advisory.rag.SimilarCaseRetriever;
+import com.bank.loan.advisory.repository.ReviewAdvisoryReportRepository;
 import com.bank.loan.advisory.repository.ReviewerDecisionSnapshotRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.repository.LoanReviewRepository;
@@ -24,12 +28,25 @@ public class AdvisoryToolQueryService {
     private static final int DEFAULT_TOP_K = 3;
 
     private final PolicyCitationRetriever            citationRetriever;
+    private final SimilarCaseRetriever               similarCaseRetriever;
+    private final ReviewAdvisoryReportRepository     reportRepo;
     private final LoanReviewRepository               loanReviewRepo;
     private final ReviewerDecisionSnapshotRepository snapshotRepo;
 
     @Transactional(readOnly = true)
     public PolicyCitationResponse queryCitations(String query) {
         return citationRetriever.retrieve(null, "TOOL_QUERY", query, DEFAULT_TOP_K, null);
+    }
+
+    @Transactional
+    public SimilarCaseResponse querySimilarCasesByRevId(Long revId, int topK) {
+        List<ReviewAdvisoryReport> reports =
+                reportRepo.findByRevIdAndDeletedAtIsNullOrderByGeneratedAtDesc(revId);
+        if (reports.isEmpty()) {
+            return new SimilarCaseResponse(null, 0, List.of());
+        }
+        Long advrId = reports.get(0).getAdvrId();
+        return similarCaseRetriever.retrieve(advrId, topK, null);
     }
 
     @Transactional(readOnly = true)

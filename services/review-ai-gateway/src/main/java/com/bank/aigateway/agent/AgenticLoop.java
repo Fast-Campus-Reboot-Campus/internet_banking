@@ -4,6 +4,7 @@ import com.bank.aigateway.llm.ToolAwareLlmClient;
 import com.bank.aigateway.llm.agentic.ClaudeAgenticResponse;
 import com.bank.aigateway.llm.agentic.ToolCall;
 import com.bank.aigateway.llm.agentic.ToolDefinition;
+import com.bank.aigateway.tool.PiiMaskingUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -103,7 +104,8 @@ public class AgenticLoop {
     private String executeQuietly(ToolCall call, Function<ToolCall, String> executor) {
         try {
             String result = executor.apply(call);
-            return result != null ? result : "";
+            // tool 결과에 포함된 PII 가 LLM 에 전달되지 않도록 마스킹
+            return PiiMaskingUtil.mask(result != null ? result : "");
         } catch (Exception e) {
             log.warn("Tool 실행 실패 — tool={}: {}", call.name(), e.getMessage());
             return "{\"error\":\"tool_execution_failed\",\"tool\":\"%s\",\"reason\":\"%s\"}"

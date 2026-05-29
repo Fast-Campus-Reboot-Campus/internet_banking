@@ -5,29 +5,22 @@ import com.bank.loan.advisory.dto.PolicyCitationResponse;
 import com.bank.loan.advisory.repository.AdvisoryRetrievalLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 정책문서 청크 코사인 유사도 검색 (plan §11.4.2 — Task 6-6).
+ * 정책문서 청크 코사인 유사도 검색 (시나리오 δ — ai-service 어댑터).
+ *
+ * 기존: advisory_document_chunk JDBC 직접 쿼리
+ * 변경: ai-service POST /rag/search (profile=review) 위임
  *
  * CRITICAL 룰 발화 시 AdvisoryEvaluator 가 자동 호출 (6-7 훅).
  * 심사관 요청 시 AdvisoryRagController 가 직접 호출.
- *
- * 검색 대상:
- *   - active_yn='Y' 문서
- *   - 오늘(YYYYMMDD)이 effective_start_date ~ effective_end_date 범위에 포함된 청크
- *   - 동일 embedding_model_cd
- *
  * 결과는 ADVISORY_RETRIEVAL_LOG 에 append-only 기록 (감사용).
  */
 @Slf4j
@@ -35,10 +28,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PolicyCitationRetriever {
 
-    private static final int DEFAULT_TOP_K = 3;
+    private static final int    DEFAULT_TOP_K   = 3;
+    private static final String PROFILE_REVIEW  = "review";
 
-    private final JdbcTemplate                  jdbcTemplate;
-    private final EmbeddingClient               embeddingClient;
+    private final AiServiceRagClient             aiServiceRagClient;
     private final AdvisoryRetrievalLogRepository logRepo;
 
     /**
@@ -54,40 +47,20 @@ public class PolicyCitationRetriever {
     @Transactional
     public PolicyCitationResponse retrieve(Long advrId, String ruleCd,
                                            String queryText, int topK, Long requestedBy) {
-        float[] qvec   = embeddingClient.embed(queryText);
-        String  qvecStr = EmbeddingClient.toVectorString(qvec);
-        String  modelCd = embeddingClient.defaultModelCd();
-        String  today   = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        List<AiServiceRagClient.ChunkHit> hits = aiServiceRagClient.search(queryText, PROFILE_REVIEW, topK);
 
-        List<PolicyCitationResponse.CitationItem> items = new ArrayList<>();
-        try {
-            items = jdbcTemplate.query("""
-                SELECT c.chunk_id, c.doc_id, d.doc_cd, d.doc_title, c.section_path, c.chunk_text,
-                       1 - (c.embedding <=> CAST(? AS vector)) AS score
-                FROM   advisory_document_chunk c
-                JOIN   advisory_document d ON c.doc_id = d.doc_id
-                WHERE  c.embedding_model_cd = ?
-                  AND  d.active_yn = 'Y'
-                  AND  d.deleted_at IS NULL
-                  AND  (d.effective_start_date IS NULL OR d.effective_start_date <= ?)
-                  AND  (d.effective_end_date   IS NULL OR d.effective_end_date   >= ?)
-                ORDER  BY c.embedding <=> CAST(? AS vector)
-                LIMIT  ?
-                """,
-                    (rs, i) -> new PolicyCitationResponse.CitationItem(
-                            rs.getLong("chunk_id"),
-                            rs.getLong("doc_id"),
-                            rs.getString("doc_cd"),
-                            rs.getString("doc_title"),
-                            rs.getString("section_path"),
-                            rs.getString("chunk_text"),
-                            rs.getDouble("score")),
-                    qvecStr, modelCd, today, today, qvecStr, topK);
-        } catch (Exception e) {
-            log.warn("정책 인용 검색 실패 (빈 결과 반환) — advrId={} rule={}: {}", advrId, ruleCd, e.getMessage());
-        }
+        List<PolicyCitationResponse.CitationItem> items = hits.stream()
+                .map(h -> new PolicyCitationResponse.CitationItem(
+                        h.chunkId(),
+                        h.docId(),
+                        h.title(),   // ai-service 는 docCd 미노출 → title 대체
+                        h.title(),
+                        h.sourceUri(),
+                        h.content(),
+                        h.score()))
+                .toList();
 
-        appendLog(advrId, ruleCd, queryText, modelCd, items.size(),
+        appendLog(advrId, ruleCd, queryText, "ai-service", items.size(),
                 items.isEmpty() ? null : items.get(0).score(), requestedBy);
 
         return new PolicyCitationResponse(advrId, items.size(), items);
