@@ -9,14 +9,17 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Bot, MessageCircle, Phone, Send, Sparkles, X } from 'lucide-react'
+import { api } from '@/lib/api'
+import { ArrowLeftRight, Bot, Home, MessageCircle, PackageSearch, Phone, Send, Sparkles, X } from 'lucide-react'
 import {
   ChatbotButton,
   ChatbotFeatureExecuteResponse,
   executeChatbotFeature,
+  executeChatbotTransfer,
   sendChatbotMessage,
   startChatbotConsultation,
 } from '@/lib/consultation-api'
+import { getCurrentDepositCustomerId, fetchDepositAccountViewModels } from '@/lib/deposit-api'
 import ConsultModal from '@/components/layout/ConsultModal'
 
 type ChatMessage = {
@@ -25,6 +28,27 @@ type ChatMessage = {
   text: string
   buttons?: ChatbotButton[]
   data?: Record<string, unknown>[]
+  link?: { text: string; href: string }
+  featureCode?: string
+  loginForm?: boolean
+}
+
+type TransferStep = 'form' | 'confirm' | 'processing' | 'done' | 'error'
+
+type MyAccount = { account_id: number; account_number: string; balance: number; account_alias: string | null }
+
+type TransferState = {
+  step: TransferStep
+  fromAccountId: number
+  fromAccountNumber: string
+  fromBalance: number
+  toAccountNumber: string
+  toTab: 'direct' | 'my_accounts'
+  myAccounts: MyAccount[]
+  amount: string
+  memo: string
+  resultMessage: string
+  balanceAfter: number | null
 }
 
 type ExpandedRow = {
@@ -33,7 +57,7 @@ type ExpandedRow = {
   row: Record<string, unknown>
 }
 
-const DEFAULT_CUSTOMER_NO = 'CUST001'
+const DEFAULT_CUSTOMER_NO = ''
 
 const TEXT = {
   deposit: '\uC608\uAE08',
@@ -42,6 +66,7 @@ const TEXT = {
   saving: '\uC800\uCD95',
   recommend: '\uC0C1\uD488 \uCD94\uCC9C',
   cashflow: '\uCD5C\uADFC \uD604\uAE08\uD750\uB984',
+  myProducts: '\uB0B4 \uC0C1\uD488',
   detail: '\uC0C1\uC138',
   won: '\uC6D0',
   count: '\uAC74',
@@ -200,12 +225,15 @@ function addFeatureResult(result: ChatbotFeatureExecuteResponse): ChatMessage {
     role: 'bot',
     text: result.message || '\uC694\uCCAD\uD558\uC2E0 \uB0B4\uC6A9\uC744 \uD655\uC778\uD588\uC2B5\uB2C8\uB2E4.',
     data: result.data,
+    featureCode: result.feature_code,
+    ...(result.requires_auth ? { loginForm: true } : {}),
   }
 }
 
 export default function ChatbotWidget() {
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showConsult, setShowConsult] = useState(false)
   const [loading, setLoading] = useState(false)
   const [input, setInput] = useState('')
@@ -214,6 +242,7 @@ export default function ChatbotWidget() {
   const [expandedRow, setExpandedRow] = useState<ExpandedRow | null>(null)
   const [dataPages, setDataPages] = useState<Record<string, number>>({})
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
+  const [transferState, setTransferState] = useState<TransferState | null>(null)
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -229,6 +258,7 @@ export default function ChatbotWidget() {
   const quickActions = useMemo(
     () => [
       ...PRODUCT_CHOICES.map((choice) => ({ type: 'product_guide' as const, ...choice })),
+      { type: 'my_products' as const, label: TEXT.myProducts, message: '\uB0B4 \uC0C1\uD488 \uBCF4\uC5EC\uC918' },
       { type: 'recommend' as const, label: TEXT.recommend, message: '\uB0B4 \uD604\uAE08 \uD750\uB984\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC744 \uCD94\uCC9C\uD574\uC918' },
       { type: 'cashflow' as const, label: TEXT.cashflow, message: '\uCD5C\uADFC \uD604\uAE08 \uD750\uB984\uC744 \uC54C\uB824\uC918' },
       { type: 'consult' as const, label: '\uC0C1\uB2F4\uC6D0 \uC5F0\uACB0', message: '' },
@@ -238,6 +268,9 @@ export default function ChatbotWidget() {
 
   useEffect(() => {
     setMounted(true)
+    const cid = localStorage.getItem('customerId')
+    if (cid) setCustomerNo(cid)
+    setIsLoggedIn(!!localStorage.getItem('accessToken') && !!localStorage.getItem('user'))
   }, [])
 
   useEffect(() => {
@@ -317,7 +350,7 @@ export default function ChatbotWidget() {
     }
   }
 
-  async function handleFeature(featureCode: 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE', userText: string, replaceMessages = false) {
+  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE', userText: string, replaceMessages = false) {
     setLoading(true)
     if (replaceMessages) {
       setExpandedRow(null)
@@ -356,12 +389,117 @@ export default function ChatbotWidget() {
 
   async function handleQuickAction(action: (typeof quickActions)[number]) {
     if (loading) return
+
+    const AUTH_REQUIRED = new Set(['my_products', 'transfer', 'cashflow', 'recommend'])
+    if (AUTH_REQUIRED.has(action.type)) {
+      if (!localStorage.getItem('accessToken') || !localStorage.getItem('user')) {
+        pushMessages([{
+          id: messageId('auth'),
+          role: 'bot',
+          text: '로그인 후 이용하실 수 있는 서비스입니다.',
+          loginForm: true,
+        }])
+        return
+      }
+    }
+
     if (action.type === 'consult') {
       setShowConsult(true)
       return
     }
     if (action.type === 'recommend') {
       await handleFeature('CASH_FLOW_RECOMMEND', action.message, true)
+      return
+    }
+    if (action.type === 'my_products') {
+      if (!customerNo.trim()) {
+        pushMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
+        return
+      }
+      setLoading(true)
+      pushMessages([{ id: messageId('user'), role: 'user', text: action.message }])
+      try {
+        // 계좌 조회와 동일한 소스: deposit API → localStorage 순서
+        let rows: Record<string, unknown>[] = []
+        try {
+          const apiAccounts = await fetchDepositAccountViewModels(customerNo)
+          rows = apiAccounts.map((a) => ({
+            account_id: a.apiAccountId ?? 0,
+            account_number: a.number,
+            product_name: a.name,
+            product_type: a.type,
+            saving_type: a.savingType ?? null,
+            balance: a.balance,
+            account_status: a.accountStatus ?? 'ACTIVE',
+            maturity_at: a.maturityDate ?? null,
+            started_at: a.createdAt ?? null,
+            is_withdrawable: a.type === '입출금',
+          }))
+        } catch {
+          // deposit API 미응답 시 localStorage fallback (계좌 조회와 동일한 방식)
+          const raw = typeof window !== 'undefined' ? localStorage.getItem('joinedAccounts') : null
+          if (raw) {
+            const stored = JSON.parse(raw) as Array<Record<string, unknown>>
+            rows = stored.map((a) => ({
+              account_id: a.id ?? 0,
+              account_number: a.number ?? '',
+              product_name: a.name ?? '',
+              product_type: a.type,
+              balance: a.balance ?? 0,
+              account_status: 'ACTIVE',
+              maturity_at: a.maturityDate ?? null,
+              started_at: a.createdAt ?? null,
+              is_withdrawable: a.type === '입출금',
+            }))
+          }
+        }
+        const TYPE_ORDER: Record<string, number> = {
+          '입출금': 0,
+          '예금': 1,
+          '정기적금': 2,
+          '자유적금': 3,
+          '적금': 2,
+          '청약': 4,
+        }
+        const sortedRows = [...rows].sort((a, b) => {
+          const typeA = a.product_type === '적금'
+            ? (a.saving_type === 'FREE' ? '자유적금' : '정기적금')
+            : String(a.product_type ?? '')
+          const typeB = b.product_type === '적금'
+            ? (b.saving_type === 'FREE' ? '자유적금' : '정기적금')
+            : String(b.product_type ?? '')
+          return (TYPE_ORDER[typeA] ?? 9) - (TYPE_ORDER[typeB] ?? 9)
+        })
+        pushMessages([{
+          id: messageId('MY_PRODUCTS'),
+          role: 'bot',
+          text: sortedRows.length > 0 ? '가입 상품 조회를 완료했습니다.' : '조회된 가입 상품이 없습니다.',
+          data: sortedRows,
+          featureCode: 'MY_PRODUCTS',
+        }])
+      } catch {
+        pushMessages([{ id: messageId('error'), role: 'system', text: '요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }])
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+    if (action.type === 'transfer') {
+      setLoading(true)
+      pushMessages([{ id: messageId('user'), role: 'user', text: action.message }])
+      try {
+        const result = await executeChatbotFeature('MY_TRANSFERS', {
+          customer_no: customerNo.trim() || DEFAULT_CUSTOMER_NO,
+        })
+        pushMessages([{
+          ...addFeatureResult(result),
+          link: { text: '새 이체 시작하기 →', href: '/transfer/account' },
+        }])
+      } catch {
+        pushMessages([{ id: messageId('error'), role: 'system', text: '요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }])
+      } finally {
+        setLoading(false)
+      }
       return
     }
     if (action.type === 'cashflow') {
@@ -373,6 +511,80 @@ export default function ChatbotWidget() {
       return
     }
     await handleScenarioMessage((action as { message: string }).message)
+  }
+
+  async function startTransfer(accountId: number, accountNumber: string, balance: number) {
+    setTransferState({
+      step: 'form',
+      fromAccountId: accountId,
+      fromAccountNumber: accountNumber,
+      fromBalance: balance,
+      toAccountNumber: '',
+      toTab: 'my_accounts',
+      myAccounts: [],
+      amount: '',
+      memo: '이체',
+      resultMessage: '',
+      balanceAfter: null,
+    })
+    try {
+      let allAccounts: MyAccount[] = []
+      try {
+        const apiAccounts = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+        allAccounts = apiAccounts.map((a) => ({
+          account_id: a.apiAccountId ?? 0,
+          account_number: a.number,
+          balance: a.balance,
+          account_alias: a.name ?? null,
+        }))
+      } catch {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('joinedAccounts') : null
+        if (raw) {
+          const stored = JSON.parse(raw) as Array<Record<string, unknown>>
+          allAccounts = stored.map((a) => ({
+            account_id: Number(a.id ?? 0),
+            account_number: String(a.number ?? ''),
+            balance: Number(a.balance ?? 0),
+            account_alias: a.name ? String(a.name) : null,
+          }))
+        }
+      }
+      const accounts: MyAccount[] = allAccounts.filter((a) => a.account_id !== accountId)
+      setTransferState((s) => s && { ...s, myAccounts: accounts })
+    } catch {
+      // 계좌 로드 실패 시 직접 입력으로 전환
+      setTransferState((s) => s && { ...s, toTab: 'direct' })
+    }
+  }
+
+  async function confirmTransfer() {
+    if (!transferState) return
+    const amount = parseInt(transferState.amount.replace(/,/g, ''), 10)
+    if (!amount || amount <= 0) return
+    setTransferState((s) => s && { ...s, step: 'confirm' })
+  }
+
+  async function executeTransfer() {
+    if (!transferState) return
+    const amount = parseInt(transferState.amount.replace(/,/g, ''), 10)
+    setTransferState((s) => s && { ...s, step: 'processing' })
+    try {
+      const result = await executeChatbotTransfer({
+        customer_no: customerNo.trim() || DEFAULT_CUSTOMER_NO,
+        from_account_id: transferState.fromAccountId,
+        to_account_number: transferState.toAccountNumber,
+        amount,
+        memo: transferState.memo || '이체',
+      })
+      if (result.status === 'OK') {
+        setTransferState((s) => s && { ...s, step: 'done', resultMessage: result.message, balanceAfter: result.balance_after })
+        pushMessages([{ id: messageId('transfer'), role: 'bot', text: `✓ ${result.message}` }])
+      } else {
+        setTransferState((s) => s && { ...s, step: 'error', resultMessage: result.message })
+      }
+    } catch {
+      setTransferState((s) => s && { ...s, step: 'error', resultMessage: '이체 처리 중 오류가 발생했습니다.' })
+    }
   }
 
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
@@ -387,20 +599,36 @@ export default function ChatbotWidget() {
     ? createPortal(
         <div className="fixed inset-0 z-[260] bg-black/20">
           <section
-            className="fixed flex h-[680px] max-h-[calc(100vh-48px)] w-[420px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-lg border border-kb-border bg-white shadow-2xl"
+            className="fixed flex w-[420px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-lg border border-kb-border bg-white shadow-2xl relative"
             style={{
               left: '50vw',
-              top: '50vh',
-              transform: `translate(calc(-50% + ${panelOffset.x}px), calc(-50% + ${panelOffset.y}px))`,
+              top: `max(8px, calc(50vh - 340px + ${panelOffset.y}px))`,
+              height: `min(680px, calc(100vh - 16px))`,
+              transform: `translateX(calc(-50% + ${panelOffset.x}px))`,
             }}
           >
             <header
               onPointerDown={startPanelDrag}
-              className="flex cursor-move select-none items-center justify-between border-b border-kb-border bg-[#2D6A4F] px-4 py-3 text-white"
+              className="flex cursor-move select-none items-center justify-between border-b border-kb-border bg-[#2D6A4F] px-3 py-3 text-white"
             >
               <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15">
-                  <Bot className="h-5 w-5" />
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => {
+                    setMessages([{ id: 'welcome', role: 'bot', text: '안녕하세요. 원하시는 상품군을 고르거나 현금 흐름 기반 상품 추천을 받아보세요.' }])
+                    setChatbotConsultationId(null)
+                    setExpandedRow(null)
+                    setDataPages({})
+                    setTransferState(null)
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/15 flex-shrink-0"
+                  aria-label="챗봇 홈"
+                >
+                  <Home className="h-4 w-4" />
+                </button>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 flex-shrink-0">
+                  <Bot className="h-4 w-4" />
                 </span>
                 <div>
                   <h2 className="text-sm font-bold">{TEXT.title}</h2>
@@ -411,7 +639,7 @@ export default function ChatbotWidget() {
                 type="button"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={() => setOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/15"
+                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/15 flex-shrink-0"
                 aria-label={TEXT.closeChat}
               >
                 <X className="h-5 w-5" />
@@ -428,6 +656,219 @@ export default function ChatbotWidget() {
                 />
               </label>
             </div>
+
+            {transferState ? (<>
+                <div className="flex items-center justify-between border-b border-kb-border bg-white px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (transferState.step === 'confirm') {
+                        setTransferState((s) => s && { ...s, step: 'form' })
+                      } else {
+                        setTransferState(null)
+                      }
+                    }}
+                    className="flex items-center gap-1 text-xs font-medium text-kb-text-muted hover:text-kb-text"
+                  >
+                    <Home className="h-4 w-4" />
+                  </button>
+                  <span className="text-sm font-bold text-kb-text">챗봇 이체</span>
+                  <button type="button" onClick={() => setTransferState(null)} className="text-kb-text-muted hover:text-kb-text">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                  {/* 출금 계좌 */}
+                  <div className="rounded-lg border border-kb-border bg-[#F7F5EF] px-4 py-3">
+                    <p className="mb-1 text-[11px] text-kb-text-muted">출금 계좌</p>
+                    <p className="text-sm font-bold text-kb-text">{transferState.fromAccountNumber}</p>
+                    <p className="text-[11px] text-kb-text-muted">
+                      잔액 {transferState.fromBalance.toLocaleString('ko-KR')}원
+                    </p>
+                  </div>
+
+                  {transferState.step === 'form' && (
+                    <>
+                      <div>
+                        <div className="mb-2 flex rounded border border-kb-border overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setTransferState((s) => s && { ...s, toTab: 'my_accounts', toAccountNumber: '' })}
+                            className={`flex-1 py-1.5 text-xs font-bold transition ${transferState.toTab === 'my_accounts' ? 'bg-[#2D6A4F] text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige'}`}
+                          >
+                            내 계좌
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTransferState((s) => s && { ...s, toTab: 'direct', toAccountNumber: '' })}
+                            className={`flex-1 py-1.5 text-xs font-bold transition ${transferState.toTab === 'direct' ? 'bg-[#2D6A4F] text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige'}`}
+                          >
+                            직접 입력
+                          </button>
+                        </div>
+
+                        {transferState.toTab === 'my_accounts' ? (
+                          transferState.myAccounts.length === 0 ? (
+                            <p className="rounded border border-kb-border bg-[#F7F5EF] px-3 py-3 text-center text-xs text-kb-text-muted">
+                              다른 계좌가 없습니다.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {transferState.myAccounts.map((acc) => (
+                                <button
+                                  key={acc.account_id}
+                                  type="button"
+                                  onClick={() => setTransferState((s) => s && { ...s, toAccountNumber: acc.account_number })}
+                                  className={`w-full rounded border px-3 py-2 text-left text-xs transition ${
+                                    transferState.toAccountNumber === acc.account_number
+                                      ? 'border-[#2D6A4F] bg-[#EAF4EF]'
+                                      : 'border-kb-border bg-[#F7F5EF] hover:bg-kb-beige'
+                                  }`}
+                                >
+                                  <span className="block font-bold text-kb-text">
+                                    {acc.account_alias ?? acc.account_number}
+                                  </span>
+                                  <span className="text-[11px] text-kb-text-muted">
+                                    {acc.account_number} · 잔액 {acc.balance.toLocaleString('ko-KR')}원
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )
+                        ) : (
+                          <input
+                            type="text"
+                            value={transferState.toAccountNumber}
+                            onChange={(e) => setTransferState((s) => s && { ...s, toAccountNumber: e.target.value })}
+                            placeholder="계좌번호 입력 (예: 12345678901234)"
+                            className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F]"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-kb-text">이체 금액</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={transferState.amount ? Number(transferState.amount.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/,/g, '')
+                            if (/^\d*$/.test(raw)) setTransferState((s) => s && { ...s, amount: raw })
+                          }}
+                          placeholder="금액 입력"
+                          className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F]"
+                        />
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {[10000, 50000, 100000, 500000].map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setTransferState((s) => s && { ...s, amount: String((parseInt(s.amount || '0', 10)) + v) })}
+                              className="rounded border border-kb-border bg-[#F7F5EF] px-2 py-1 text-[11px] font-medium text-kb-text hover:bg-kb-beige"
+                            >
+                              +{(v / 10000)}만
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setTransferState((s) => s && { ...s, amount: String(s.fromBalance) })}
+                            className="rounded border border-kb-border bg-[#F7F5EF] px-2 py-1 text-[11px] font-medium text-kb-text hover:bg-kb-beige"
+                          >
+                            전액
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-bold text-kb-text">메모 (선택)</label>
+                        <input
+                          type="text"
+                          value={transferState.memo}
+                          onChange={(e) => setTransferState((s) => s && { ...s, memo: e.target.value })}
+                          placeholder="이체"
+                          className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={confirmTransfer}
+                        disabled={!transferState.toAccountNumber || !transferState.amount}
+                        className="w-full rounded bg-[#2D6A4F] py-3 text-sm font-bold text-white hover:bg-[#24563F] disabled:bg-gray-300"
+                      >
+                        다음
+                      </button>
+                    </>
+                  )}
+
+                  {transferState.step === 'confirm' && (
+                    <>
+                      <div className="rounded-lg border border-kb-border bg-white px-4 py-3 space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-kb-text-muted">수취 계좌</span>
+                          <span className="font-bold text-kb-text">{transferState.toAccountNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-kb-text-muted">이체 금액</span>
+                          <span className="font-bold text-[#1a5fa8]">
+                            {parseInt(transferState.amount, 10).toLocaleString('ko-KR')}원
+                          </span>
+                        </div>
+                        {transferState.memo && (
+                          <div className="flex justify-between">
+                            <span className="text-kb-text-muted">메모</span>
+                            <span className="text-kb-text">{transferState.memo}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTransferState((s) => s && { ...s, step: 'form' })}
+                          className="flex-1 rounded border border-kb-border py-3 text-sm font-bold text-kb-text hover:bg-kb-beige"
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          onClick={executeTransfer}
+                          className="flex-1 rounded bg-[#2D6A4F] py-3 text-sm font-bold text-white hover:bg-[#24563F]"
+                        >
+                          이체 확인
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {transferState.step === 'processing' && (
+                    <div className="flex items-center justify-center py-8 text-sm text-kb-text-muted">
+                      이체 처리 중...
+                    </div>
+                  )}
+
+                  {(transferState.step === 'done' || transferState.step === 'error') && (
+                    <>
+                      <div className={`rounded-lg border px-4 py-4 text-center ${transferState.step === 'done' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                        <p className={`text-lg font-bold mb-1 ${transferState.step === 'done' ? 'text-green-700' : 'text-red-700'}`}>
+                          {transferState.step === 'done' ? '이체 완료' : '이체 실패'}
+                        </p>
+                        <p className="text-sm text-kb-text">{transferState.resultMessage}</p>
+                        {transferState.step === 'done' && transferState.balanceAfter !== null && (
+                          <p className="mt-2 text-xs text-kb-text-muted">
+                            잔여 잔액: {transferState.balanceAfter.toLocaleString('ko-KR')}원
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTransferState(null)}
+                        className="w-full rounded bg-[#2D6A4F] py-3 text-sm font-bold text-white hover:bg-[#24563F]"
+                      >
+                        닫기
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>) : (<>
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#FBFAF7] px-4 py-4">
               {messages.map((message) => (
@@ -458,17 +899,50 @@ export default function ChatbotWidget() {
                           const isOpen = expandedRow?.key === rowKey
                           return (
                             <div key={rowKey} className="rounded border border-kb-border bg-[#F7F5EF]">
-                              <button
-                                type="button"
-                                onClick={() => setExpandedRow(isOpen ? null : { key: rowKey, title: summary.title, row })}
-                                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-kb-beige"
-                              >
-                                <span className="min-w-0">
+                              <div className="flex w-full items-center gap-2 px-3 py-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedRow(isOpen ? null : { key: rowKey, title: summary.title, row })}
+                                  className="min-w-0 flex-1 text-left"
+                                >
                                   <span className="block truncate text-xs font-bold text-kb-text">{summary.title}</span>
                                   <span className="block truncate text-[11px] text-kb-text-muted">{summary.meta}</span>
-                                </span>
-                                <span className="flex-none text-[11px] font-bold text-[#2D6A4F]">{TEXT.detail}</span>
-                              </button>
+                                </button>
+                                <div className="flex flex-none items-center gap-1.5">
+                                  {message.featureCode === 'MY_PRODUCTS' && row.is_withdrawable === true && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        startTransfer(
+                                          Number(row.account_id),
+                                          String(row.account_number ?? ''),
+                                          Number(row.balance ?? 0),
+                                        )
+                                      }}
+                                      className="rounded border border-[#1a5fa8] bg-[#EAF2FB] px-2 py-0.5 text-[10px] font-bold text-[#1a5fa8] hover:bg-[#D0E6F7]"
+                                    >
+                                      이체
+                                    </button>
+                                  )}
+                                  {message.featureCode === 'MY_PRODUCTS' && row.product_type !== '입출금' && (
+                                    <a
+                                      href="/products/deposit/inquiry/terminate"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="rounded border border-[#E05555] bg-white px-2 py-0.5 text-[10px] font-bold text-[#E05555] hover:bg-red-50"
+                                    >
+                                      해지
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedRow(isOpen ? null : { key: rowKey, title: summary.title, row })}
+                                    className="text-[11px] font-bold text-[#2D6A4F]"
+                                  >
+                                    {TEXT.detail}
+                                  </button>
+                                </div>
+                              </div>
                               {isOpen && (
                                 <div className="border-t border-white bg-white px-3 py-2">
                                   <div className="mb-2 flex items-center justify-between">
@@ -537,6 +1011,25 @@ export default function ChatbotWidget() {
                         ))}
                       </div>
                     )}
+                    {message.link && (
+                      <div className="mt-3">
+                        <a
+                          href={message.link.href}
+                          className="inline-flex items-center gap-1.5 rounded bg-[#2D6A4F] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#24563F]"
+                        >
+                          <ArrowLeftRight className="h-3 w-3" />
+                          {message.link.text}
+                        </a>
+                      </div>
+                    )}
+                    {message.loginForm && (
+                      <InlineLoginForm onSuccess={() => {
+                        setIsLoggedIn(true)
+                        const cid = localStorage.getItem('customerId')
+                        if (cid) setCustomerNo(cid)
+                        handleQuickAction({ type: 'my_products', label: TEXT.myProducts, message: '내 상품 보여줘' })
+                      }} />
+                    )}
                   </div>
                 </div>
               ))}
@@ -560,11 +1053,17 @@ export default function ChatbotWidget() {
                         ? 'border-[#C09B3A] bg-[#FFF8DA] text-[#7A5200] hover:bg-[#FFEFA7]'
                         : action.type === 'consult'
                           ? 'border-[#2D6A4F] bg-white text-[#2D6A4F] hover:bg-[#EAF4EF]'
+                          : action.type === 'my_products'
+                            ? 'border-[#2D6A4F] bg-[#EAF4EF] text-[#2D6A4F] hover:bg-[#D8EEE3]'
+                          : action.type === 'transfer'
+                            ? 'border-[#1a5fa8] bg-[#EAF2FB] text-[#1a5fa8] hover:bg-[#D0E6F7]'
                           : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
                     }`}
                   >
                     {action.type === 'recommend' && <Sparkles className="h-3.5 w-3.5" />}
                     {action.type === 'consult' && <Phone className="h-3.5 w-3.5" />}
+                    {action.type === 'my_products' && <PackageSearch className="h-3.5 w-3.5" />}
+                    {action.type === 'transfer' && <ArrowLeftRight className="h-3.5 w-3.5" />}
                     {action.label}
                   </button>
                 ))}
@@ -587,6 +1086,7 @@ export default function ChatbotWidget() {
                 </button>
               </form>
             </div>
+            </>)}
 
           </section>
         </div>,
@@ -603,7 +1103,7 @@ export default function ChatbotWidget() {
           setPanelOffset({ x: 0, y: 0 })
           setOpen(true)
         }}
-        className="fixed bottom-6 right-6 z-[220] flex h-16 w-32 items-center justify-center gap-2 rounded-full bg-red-600 text-white shadow-xl transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+        className="fixed bottom-6 right-28 z-[320] flex h-16 w-32 items-center justify-center gap-2 rounded-full bg-red-600 text-white shadow-xl transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
         aria-label={TEXT.openChat}
       >
         <MessageCircle className="h-7 w-7" />
@@ -611,5 +1111,169 @@ export default function ChatbotWidget() {
       </button>
       {panel}
     </>
+  )
+}
+
+function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
+  const [tab, setTab] = useState<'cert' | 'id'>('cert')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  // 금융인증서
+  const [pin, setPin] = useState('')
+
+  // 아이디 로그인
+  const [loginId, setLoginId] = useState('')
+  const [password, setPassword] = useState('')
+
+  function switchTab(t: 'cert' | 'id') {
+    setTab(t)
+    setError('')
+    setPin('')
+    setLoginId('')
+    setPassword('')
+  }
+
+  async function handleCertLogin() {
+    if (pin.length !== 6) { setError('PIN 6자리를 입력해주세요.'); return }
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/cert-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cert_id: 'cert_1', pin }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        localStorage.setItem('accessToken', data.access_token)
+        localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+        onSuccess()
+      } else {
+        setError('인증서 비밀번호가 맞지 않습니다.')
+      }
+    } catch {
+      setError('네트워크 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleIdLogin() {
+    if (!loginId || !password) { setError('아이디와 비밀번호를 입력해주세요.'); return }
+    setError('')
+    setLoading(true)
+    try {
+      const { data } = await api.post('/api/v1/auth/login', { loginId, password })
+      localStorage.setItem('accessToken', data.data.accessToken)
+      localStorage.setItem('access_token', data.data.accessToken)
+      localStorage.setItem('customerId', String(data.data.customerId))
+      try {
+        const me = await api.get('/api/v1/customers/me')
+        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name }))
+      } catch {}
+      onSuccess()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '로그인에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      {/* 탭 */}
+      <div className="flex border-b border-kb-border mb-3">
+        <button
+          type="button"
+          onClick={() => switchTab('cert')}
+          className={`flex-1 py-1.5 text-[10px] font-bold transition-colors ${tab === 'cert' ? 'border-b-2 border-[#2D6A4F] text-[#2D6A4F]' : 'text-kb-text-muted'}`}
+        >
+          금융인증서
+        </button>
+        <button
+          type="button"
+          onClick={() => switchTab('id')}
+          className={`flex-1 py-1.5 text-[10px] font-bold transition-colors ${tab === 'id' ? 'border-b-2 border-[#2D6A4F] text-[#2D6A4F]' : 'text-kb-text-muted'}`}
+        >
+          아이디 로그인
+        </button>
+      </div>
+
+      {/* 금융인증서 탭 */}
+      {tab === 'cert' && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-kb-text-muted">금융인증서 PIN 6자리를 입력해주세요.</p>
+          <div className="flex gap-1 justify-center">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-7 h-7 rounded flex items-center justify-center border ${i < pin.length ? 'bg-[#2D6A4F] border-[#2D6A4F]' : 'border-kb-border'}`}
+              >
+                {i < pin.length && <span className="text-white text-[8px]">●</span>}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((d) => (
+              <button
+                key={d}
+                type="button"
+                disabled={loading || d === ''}
+                onClick={() => {
+                  if (d === '⌫') { setPin((p) => p.slice(0, -1)); return }
+                  if (d === '') return
+                  if (pin.length < 6) setPin((p) => p + d)
+                }}
+                className={`py-2 text-xs font-medium rounded border border-kb-border transition-colors ${d === '' ? 'invisible' : 'hover:bg-kb-beige'}`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={handleCertLogin}
+            disabled={loading || pin.length !== 6}
+            className="w-full rounded bg-[#2D6A4F] py-1.5 text-xs font-bold text-white hover:bg-[#24563F] disabled:opacity-60"
+          >
+            {loading ? '로그인 중...' : '확인'}
+          </button>
+        </div>
+      )}
+
+      {/* 아이디 로그인 탭 */}
+      {tab === 'id' && (
+        <div className="space-y-2">
+          <input
+            type="text"
+            placeholder="아이디"
+            value={loginId}
+            onChange={(e) => setLoginId(e.target.value)}
+            className="w-full rounded border border-kb-border px-2 py-1.5 text-xs outline-none focus:border-[#2D6A4F]"
+          />
+          <input
+            type="password"
+            placeholder="비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleIdLogin()}
+            className="w-full rounded border border-kb-border px-2 py-1.5 text-xs outline-none focus:border-[#2D6A4F]"
+          />
+          <button
+            type="button"
+            onClick={handleIdLogin}
+            disabled={loading}
+            className="w-full rounded bg-[#2D6A4F] py-1.5 text-xs font-bold text-white hover:bg-[#24563F] disabled:opacity-60"
+          >
+            {loading ? '로그인 중...' : '로그인'}
+          </button>
+        </div>
+      )}
+
+      {error && <p className="mt-2 text-[10px] text-red-500">{error}</p>}
+    </div>
   )
 }

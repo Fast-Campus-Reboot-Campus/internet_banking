@@ -304,7 +304,7 @@ export default function AccountsPage() {
                             이체
                           </Link>
                         </div>
-                        <div className="relative">
+                        <div className="relative mb-1">
                           <button
                             onClick={() => setMgmtOpen(mgmtOpen === account.id ? null : account.id)}
                             className="w-full border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center"
@@ -322,6 +322,10 @@ export default function AccountsPage() {
                             </div>
                           )}
                         </div>
+                        <Link href="/products/deposit/inquiry/terminate"
+                          className="block w-full border border-[#E05555] px-3 py-1.5 text-[12px] text-[#E05555] hover:bg-red-50 text-center">
+                          해지
+                        </Link>
                       </div>
                     </div>
                   </div>

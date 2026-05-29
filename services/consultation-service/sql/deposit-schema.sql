@@ -77,10 +77,14 @@ CREATE TABLE IF NOT EXISTS deposit_transactions (
     transaction_id              BIGSERIAL PRIMARY KEY,
     transaction_number          TEXT,
     account_id                  BIGINT REFERENCES deposit_accounts(account_id),
+    contract_id                 BIGINT REFERENCES deposit_contracts(contract_id),
     transaction_type            TEXT,
     transaction_status          TEXT,
+    direction_type              VARCHAR(10) NOT NULL DEFAULT 'DEBIT',
     amount                      NUMERIC,
-    created_at                  TEXT
+    balance_after               NUMERIC,
+    memo                        TEXT,
+    transaction_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 COMMIT;
