@@ -71,11 +71,11 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
                    t.transaction_type,
                    t.amount,
                    t.transaction_status,
-                   t.created_at
+                   t.transaction_at
               FROM deposit_transactions t
               JOIN deposit_accounts a ON a.account_id = t.account_id
              WHERE a.customer_id = :customer_no
-             ORDER BY t.transaction_id DESC
+             ORDER BY t.transaction_at DESC
              LIMIT 20
             """,
             {"customer_no": request.customer_no},

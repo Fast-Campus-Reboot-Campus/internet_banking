@@ -73,6 +73,7 @@ export type DepositViewAccount = Account & {
   apiAccountId?: number
   contractId?: number
   accountStatus?: string
+  savingType?: string
 }
 
 export type DepositRecommendProduct = {
@@ -364,6 +365,7 @@ export async function fetchDepositAccountViewModels(customerId: string): Promise
         apiAccountId: account.accountId,
         contractId: account.contractId,
         accountStatus: account.accountStatus,
+        savingType: account.savingType,
         number: account.accountNumber,
         type: accountTypeLabel(account, product),
         name: account.accountAlias || product?.productName || fallbackName(account),

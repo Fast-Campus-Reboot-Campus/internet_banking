@@ -121,7 +121,7 @@ def test_unknown_button_uses_llm_fallback_and_opens_agent_queue(db):
     )
     queue = ChatService(db, events).get_waiting_queue()
 
-    assert response.process_method == "BP002_LLM"
+    assert response.process_method == "STAFF_REQUEST"
     assert response.agent_transfer_required is True
     assert len(queue) == 1
     assert [event[0] for event in events.chatbot_events][-2:] == [
