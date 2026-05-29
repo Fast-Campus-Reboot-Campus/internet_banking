@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -49,6 +50,30 @@ from app.services import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _setup_phoenix() -> None:
+    """Phoenix OTel 계측 초기화. PHOENIX_ENABLED=true 일 때만 활성화."""
+    if os.getenv("PHOENIX_ENABLED", "false").lower() != "true":
+        return
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from openinference.instrumentation.openai import OpenAIInstrumentor
+
+        endpoint = os.getenv("PHOENIX_GRPC_ENDPOINT", "http://localhost:4317")
+        provider = TracerProvider()
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint)))
+        trace.set_tracer_provider(provider)
+        OpenAIInstrumentor().instrument()
+        logger.info("[Phoenix] OTel 계측 활성화 → %s", endpoint)
+    except ImportError:
+        logger.warning("[Phoenix] 패키지 미설치 — pip install openinference-instrumentation-openai opentelemetry-exporter-otlp-proto-grpc")
+
+
+_setup_phoenix()
 
 # settings, static_dir 은 설정값이므로 모듈 수준에 유지
 settings = get_settings()

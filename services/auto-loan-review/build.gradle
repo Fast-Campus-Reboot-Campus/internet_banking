@@ -1,4 +1,19 @@
 // auto-loan-review: 의존성/플러그인은 루트 build.gradle 의 subprojects 블록에서 일괄 관리.
+
+// ── OTel Java Agent (Phoenix 계측용) ─────────────────────────────────────────
+configurations { otelAgent }
+
+dependencies {
+    otelAgent("io.opentelemetry.javaagent:opentelemetry-javaagent:2.9.0") { transitive = false }
+}
+
+tasks.register('copyOtelAgent', Copy) {
+    from configurations.otelAgent
+    into "$rootDir/libs"
+    rename { "opentelemetry-javaagent.jar" }
+}
+
+bootJar.dependsOn copyOtelAgent
 // 본 모듈은 RDB(JPA) 를 사용하지 않으므로 공통에서 들어오는 spring-data-jpa starter 만 제외.
 configurations.implementation {
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-data-jpa'
