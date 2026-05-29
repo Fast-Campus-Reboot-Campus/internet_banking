@@ -3,9 +3,16 @@ package com.bank.loan.reversal.service;
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
+import com.bank.common.security.crypto.CryptoService;
 import com.bank.common.web.BusinessException;
+import com.bank.loan.payment.client.PaymentServiceClient;
+import com.bank.loan.payment.client.PaymentServiceProperties;
+import com.bank.loan.payment.client.dto.PaymentRequest;
+import com.bank.loan.payment.client.dto.PaymentResponse;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
 import com.bank.loan.repayment.repository.RepaymentTransactionRepository;
+import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
+import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
 import com.bank.loan.reversal.dto.ReverseRepaymentRequest;
 import com.bank.loan.reversal.dto.ReversalResponse;
 import com.bank.loan.schedule.domain.RepaymentSchedule;
@@ -14,6 +21,8 @@ import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -57,9 +66,14 @@ public class ReversalService {
     private static final String REASON_REVERSED = "REPAYMENT_REVERSED";
     private static final String REASON_PREPAY_REVERSED = "PREPAY_REVERSED";
     private static final String DEFAULT_CHANNEL = "MANUAL";
+    private static final String CHANNEL_INBOUND = "INBOUND";
 
     private final RepaymentTransactionRepository txRepository;
     private final RepaymentScheduleRepository scheduleRepository;
+    private final RepaymentAccountRepository repaymentAccountRepository;
+    private final PaymentServiceClient paymentServiceClient;
+    private final PaymentServiceProperties paymentProps;
+    private final CryptoService cryptoService;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
 
@@ -96,7 +110,13 @@ public class ReversalService {
             throw new BusinessException(LoanErrorCode.LOAN_097);
         }
 
-        // 4) 타입 분기
+        // 4) 환급 이체 — 원 거래에 pi_id 가 있으면 payment-service 를 통해 자동 환급.
+        //    pi_id 가 없는 거래(창구 수납 등)는 환급이 수동 처리이므로 호출 생략.
+        if (target.getPiId() != null) {
+            requestRefund(target, idempotencyKey);
+        }
+
+        // 5) 타입 분기
         return switch (target.getRtxTypeCd()) {
             case RepaymentTransaction.TYPE_SCHEDULED -> reverseScheduled(target, req, idempotencyKey);
             case RepaymentTransaction.TYPE_EARLY     -> reverseEarly(target, req, idempotencyKey);
@@ -236,6 +256,45 @@ public class ReversalService {
                 .reversalYn(RepaymentTransaction.YN_Y)
                 .reversalTargetRtxId(target.getRtxId())
                 .build());
+    }
+
+    /**
+     * payment-service 환급 이체 호출.
+     * senderAccountId = 은행 수납계좌, receiverAccountNo = 고객 상환계좌.
+     * COMPLETED 이외 응답이면 LOAN_186 예외 (역분개 전체 트랜잭션 롤백).
+     */
+    private void requestRefund(RepaymentTransaction target, String idempotencyKey) {
+        RepaymentAccount account = repaymentAccountRepository
+                .findByCntrIdAndDeletedAtIsNull(target.getCntrId())
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_080));
+
+        String receiverAccountNo = cryptoService.decrypt(account.getAccountNoEnc());
+        String receiverHolderName = account.getHolderNameEnc() != null
+                ? cryptoService.decrypt(account.getHolderNameEnc())
+                : account.getHolderNameMasked();
+
+        String refundIdemKey = "REV-" + target.getCntrId() + "-" + target.getRtxId()
+                + (idempotencyKey != null && !idempotencyKey.isBlank() ? "-" + idempotencyKey : "");
+
+        PaymentRequest req = new PaymentRequest(
+                paymentProps.collection().accountNo(),
+                account.getBankCd(),
+                receiverAccountNo,
+                receiverHolderName,
+                BigDecimal.valueOf(target.getTotalAmount()),
+                "대출상환 역분개 환급",
+                "대출환급",
+                CHANNEL_INBOUND,
+                String.valueOf(target.getCntrId())
+        );
+
+        PaymentResponse resp = paymentServiceClient.pay(refundIdemKey, req);
+        if (resp == null || !PaymentResponse.STATUS_COMPLETED.equals(resp.status())) {
+            String detail = resp != null
+                    ? "status=" + resp.status() + ", failureCategory=" + resp.failureCategory()
+                    : "payment-service 응답 없음";
+            throw new BusinessException(LoanErrorCode.LOAN_186, detail);
+        }
     }
 
     /** "V1" → null (V0 없음), "V2" → "V1", "V12" → "V11". 파싱 실패 또는 V1 이하면 null. */
