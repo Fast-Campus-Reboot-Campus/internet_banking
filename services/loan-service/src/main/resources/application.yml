@@ -81,11 +81,11 @@ crypto:
 payment:
   url: ${PAYMENT_SERVICE_URL:http://localhost:8080}
   collection:
-    bank-code: ${PAYMENT_COLLECTION_BANK_CODE:088}
+    bank-code: ${PAYMENT_COLLECTION_BANK_CODE:004}
     account-no: ${PAYMENT_COLLECTION_ACCOUNT_NO:00000000000}
     holder-name: ${PAYMENT_COLLECTION_HOLDER_NAME:한국은행}
   disbursement:
-    account-id: ${PAYMENT_DISBURSEMENT_ACCOUNT_ID:BANK_DISBURSE_001}
+    account-no: ${PAYMENT_DISBURSEMENT_ACCOUNT_NO:00000000000}
 
 doc-agent:
   base-url: ${DOC_AGENT_BASE_URL:http://doc-agent:8080}
