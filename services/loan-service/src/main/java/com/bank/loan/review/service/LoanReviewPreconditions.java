@@ -3,6 +3,8 @@ package com.bank.loan.review.service;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.collateral.domain.Collateral;
 import com.bank.loan.collateral.repository.CollateralRepository;
+import com.bank.loan.document.domain.LoanDocument;
+import com.bank.loan.document.repository.LoanDocumentRepository;
 import com.bank.loan.idv.domain.LoanIdentityVerification;
 import com.bank.loan.idv.repository.LoanIdentityVerificationRepository;
 import com.bank.loan.ltv.domain.LtvCalculation;
@@ -24,6 +26,7 @@ public class LoanReviewPreconditions {
     private final LoanIdentityVerificationRepository idvRepository;
     private final CollateralRepository collateralRepository;
     private final LtvCalculationRepository ltvCalculationRepository;
+    private final LoanDocumentRepository documentRepository;
 
     public void requireIdvPass(Long applId) {
         boolean ok = idvRepository.existsByApplIdAndIdvResultCdAndDeletedAtIsNull(
@@ -62,6 +65,22 @@ public class LoanReviewPreconditions {
         return ltvCalculationRepository.findByColIdAndDeletedAtIsNull(first.getColId())
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_038,
                         "ltv required colId=" + first.getColId()));
+    }
+
+    /**
+     * doc-agent 검증 미완료 서류 차단 — REJECTED(NEEDS_RESUBMIT) 상태 서류가 있으면 본심사 진입 불가.
+     * AUTO_PASS → VERIFIED, NEEDS_RESUBMIT → REJECTED 로 매핑됨 (LoanDocument.applyVerifyResult).
+     */
+    public void requireDocumentsCleared(Long applId) {
+        long rejected = documentRepository
+                .findByApplIdAndDeletedAtIsNullOrderBySubmittedAtAsc(applId)
+                .stream()
+                .filter(d -> LoanDocument.STATUS_REJECTED.equals(d.getDocStatusCd()))
+                .count();
+        if (rejected > 0) {
+            throw new BusinessException(LoanErrorCode.LOAN_055,
+                    "rejectedDocCount=" + rejected);
+        }
     }
 
     private List<Collateral> activeCollaterals(Long applId) {

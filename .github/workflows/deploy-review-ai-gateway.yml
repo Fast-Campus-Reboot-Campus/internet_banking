@@ -1,0 +1,40 @@
+name: Deploy review-ai-gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/review-ai-gateway/**'
+      - 'common/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/deploy-review-ai-gateway.yml'
+      - '.github/workflows/reusable-*.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/review-ai-gateway/**'
+      - 'common/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-java-build.yml
+    with:
+      service-name: review-ai-gateway
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: review-ai-gateway
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: publish
+    uses: ./.github/workflows/reusable-deploy-oracle.yml
+    with:
+      service-name: review-ai-gateway
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+    secrets: inherit

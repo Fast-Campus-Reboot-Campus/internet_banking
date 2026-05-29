@@ -1,0 +1,30 @@
+# GKE Ingress — Cloud Load Balancer 자동 프로비저닝.
+# Managed Certificate 은 별도 리소스로 추가 (HTTPS 필요시).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: internet-banking-ingress
+  namespace: internet-banking
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    # HTTPS 사용시:
+    # networking.gke.io/managed-certificates: "ib-managed-cert"
+    # kubernetes.io/ingress.allow-http: "false"
+spec:
+  defaultBackend:
+    service:
+      name: gateway-service
+      port:
+        number: 8080
+  # 도메인 라우팅이 필요하면:
+  # rules:
+  #   - host: api.example.com
+  #     http:
+  #       paths:
+  #         - path: /
+  #           pathType: Prefix
+  #           backend:
+  #             service:
+  #               name: gateway-service
+  #               port:
+  #                 number: 8080

@@ -1,0 +1,40 @@
+name: Deploy customer-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/customer-service/**'
+      - 'common/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/deploy-customer-service.yml'
+      - '.github/workflows/reusable-*.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/customer-service/**'
+      - 'common/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-java-build.yml
+    with:
+      service-name: customer-service
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: customer-service
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: publish
+    uses: ./.github/workflows/reusable-deploy-oracle.yml
+    with:
+      service-name: customer-service
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+    secrets: inherit

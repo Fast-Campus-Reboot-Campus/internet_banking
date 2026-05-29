@@ -33,7 +33,6 @@ import java.util.List;
 @EnableConfigurationProperties(ClaudeProperties.class)
 @RequiredArgsConstructor
 public class ClaudeLlmClient implements LlmClient, ToolAwareLlmClient {
-public class ClaudeLlmClient implements LlmClient {
 
     private static final String MESSAGES_PATH = "/v1/messages";
     private static final String ANTHROPIC_VERSION = "2023-06-01";

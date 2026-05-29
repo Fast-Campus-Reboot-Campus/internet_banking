@@ -64,6 +64,8 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_053(HttpStatus.CONFLICT,             "이미 LTV 산정이 수행되었습니다. (담보당 1건)"),
     LOAN_054(HttpStatus.NOT_FOUND,            "LTV 산정 내역을 찾을 수 없습니다."),
 
+    LOAN_055(HttpStatus.UNPROCESSABLE_ENTITY, "서류 검증이 완료되지 않았습니다. NEEDS_RESUBMIT 또는 HOLD 상태의 서류가 남아있습니다."),
+
     LOAN_060(HttpStatus.UNPROCESSABLE_ENTITY, "약정 가능한 신청 상태가 아닙니다. (APPROVED 필요)"),
     LOAN_061(HttpStatus.BAD_REQUEST,          "약정 조건이 신청 범위를 벗어났습니다."),
     LOAN_062(HttpStatus.NOT_FOUND,            "대출 계약을 찾을 수 없습니다."),
@@ -127,6 +129,9 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_182(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 보증보험을 취소할 수 없습니다. (ISSUED 필요)"),
     LOAN_183(HttpStatus.UNPROCESSABLE_ENTITY, "보증보험 발급 가능한 계약 상태가 아닙니다. (SIGNED/ACTIVE 필요)"),
     LOAN_184(HttpStatus.UNPROCESSABLE_ENTITY, "보증보험이 등록된 계약은 활성 ISSUED 보증보험이 필요합니다. (drawdown 사전조건)"),
+    LOAN_185(HttpStatus.UNPROCESSABLE_ENTITY, "대출실행 출금 요청이 실패했습니다."),
+    LOAN_186(HttpStatus.UNPROCESSABLE_ENTITY, "역분개 환급 이체 요청이 실패했습니다."),
+    LOAN_187(HttpStatus.UNPROCESSABLE_ENTITY, "온라인 상환 결제 요청이 실패했습니다."),
 
     LOAN_190(HttpStatus.NOT_FOUND,            "알림 outbox 를 찾을 수 없습니다."),
     LOAN_191(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 재전송할 수 없습니다. (FAILED/DEAD 필요)"),
@@ -143,6 +148,9 @@ public enum LoanErrorCode implements ErrorCode {
 
     // 4-eye 원칙 위반 (200)
     LOAN_200(HttpStatus.FORBIDDEN, "심사원 본인이 자신의 편향을 우회 승인할 수 없습니다. 다른 상급자가 승인해야 합니다."),
+
+    // Advisory (201)
+    LOAN_201(HttpStatus.UNPROCESSABLE_ENTITY, "CRITICAL Advisory 리포트를 먼저 확인(ACK)해야 합니다."),
 
     // RAG (210-219)
     LOAN_210(HttpStatus.SERVICE_UNAVAILABLE,  "임베딩 API 호출에 실패했습니다. 잠시 후 재시도하세요."),

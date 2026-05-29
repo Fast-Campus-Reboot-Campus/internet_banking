@@ -3,6 +3,7 @@ package com.bank.loan.guarantor.service;
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
+import com.bank.common.security.crypto.CryptoService;
 import com.bank.common.security.mask.Masking;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
@@ -74,6 +75,7 @@ public class GuarantorAgreementService {
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final ApplicationEventPublisher eventPublisher;
+    private final CryptoService cryptoService;
 
     @Transactional
     public GuarantorAgreementResponse register(Long applId, RegisterGuarantorAgreementRequest req) {
@@ -87,11 +89,11 @@ public class GuarantorAgreementService {
         String ciHash = sha256Hex(req.guarantorMobileNo());
         GuarantorMaster master = masterRepository.findByGuarantorCiHashAndDeletedAtIsNull(ciHash)
                 .orElseGet(() -> masterRepository.save(GuarantorMaster.builder()
-                        .guarantorNameEnc(req.guarantorName().getBytes(StandardCharsets.UTF_8))
+                        .guarantorNameEnc(cryptoService.encrypt(req.guarantorName()))
                         .guarantorNameMasked(Masking.name(req.guarantorName()))
                         .guarantorCiHash(ciHash)
                         .relationTypeCd(req.relationTypeCd())
-                        .mobileNoEnc(req.guarantorMobileNo().getBytes(StandardCharsets.UTF_8))
+                        .mobileNoEnc(cryptoService.encrypt(req.guarantorMobileNo()))
                         .mobileNoMasked(Masking.mobile(req.guarantorMobileNo()))
                         .build()));
 

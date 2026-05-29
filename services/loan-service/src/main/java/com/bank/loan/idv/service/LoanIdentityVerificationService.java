@@ -1,5 +1,6 @@
 package com.bank.loan.idv.service;
 
+import com.bank.common.security.crypto.CryptoService;
 import com.bank.common.security.mask.Masking;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.domain.LoanApplication;
@@ -35,6 +36,7 @@ public class LoanIdentityVerificationService {
 
     private final LoanIdentityVerificationRepository repository;
     private final LoanApplicationRepository applicationRepository;
+    private final CryptoService cryptoService;
 
     @Transactional
     public IdentityVerificationResponse verify(Long applId, VerifyIdentityRequest req,
@@ -56,6 +58,7 @@ public class LoanIdentityVerificationService {
                 .idvResultCd(LoanIdentityVerification.RESULT_PASS)
                 .ciHash(ciHash)
                 .mobileNoMasked(Masking.mobile(req.mobileNo()))
+                .mobileNoEnc(cryptoService.encrypt(req.mobileNo()))
                 .verifiedAt(now)
                 .clientIp(clientIp)
                 .device(device)

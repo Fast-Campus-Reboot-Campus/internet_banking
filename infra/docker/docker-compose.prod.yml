@@ -1,0 +1,471 @@
+# =============================================================================
+# Internet Banking — 운영 docker-compose (Oracle Cloud Free Tier 24GB 기준)
+#
+# - 모든 앱 서비스는 GHCR 이미지를 pull 해서 사용 (CI/CD에서 push)
+# - 메모리 합계 ~14GB (24GB 중 시스템·여유 10GB 확보)
+# - 환경변수는 .env.prod 분리 (커밋 금지)
+# - 로그 회전: max-size 10m, max-file 3
+# - 재시작 정책: unless-stopped (수동 stop 외 자동 복구)
+#
+# 사용:
+#   docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod pull
+#   docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d
+# =============================================================================
+name: internet-banking-prod
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-restart: &default-restart
+  restart: unless-stopped
+
+# =============================================================================
+# 인프라 (DB ×6, Kafka, Schema Registry, Redis, Prometheus, Grafana)
+# =============================================================================
+services:
+  customer-db:
+    image: postgres:16-alpine
+    container_name: ib-customer-db
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${CUSTOMER_DB_NAME:-customer_db}
+      POSTGRES_USER: ${CUSTOMER_DB_USER:-customer}
+      POSTGRES_PASSWORD: ${CUSTOMER_DB_PASSWORD}
+    volumes:
+      - customer-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CUSTOMER_DB_USER:-customer} -d ${CUSTOMER_DB_NAME:-customer_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  deposit-db:
+    image: postgres:16-alpine
+    container_name: ib-deposit-db
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${DEPOSIT_DB_NAME:-deposit_db}
+      POSTGRES_USER: ${DEPOSIT_DB_USER:-deposit}
+      POSTGRES_PASSWORD: ${DEPOSIT_DB_PASSWORD}
+    volumes:
+      - deposit-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DEPOSIT_DB_USER:-deposit} -d ${DEPOSIT_DB_NAME:-deposit_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loan-db:
+    image: postgres:16-alpine
+    container_name: ib-loan-db
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${LOAN_DB_NAME:-loan_db}
+      POSTGRES_USER: ${LOAN_DB_USER:-loan}
+      POSTGRES_PASSWORD: ${LOAN_DB_PASSWORD}
+    volumes:
+      - loan-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOAN_DB_USER:-loan} -d ${LOAN_DB_NAME:-loan_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: ib-payment-db
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${PAYMENT_DB_NAME:-payment_db}
+      POSTGRES_USER: ${PAYMENT_DB_USER:-payment}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD}
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PAYMENT_DB_USER:-payment} -d ${PAYMENT_DB_NAME:-payment_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  master-db:
+    image: postgres:16-alpine
+    container_name: ib-master-db
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${MASTER_DB_NAME:-master_db}
+      POSTGRES_USER: ${MASTER_DB_USER:-master}
+      POSTGRES_PASSWORD: ${MASTER_DB_PASSWORD}
+    volumes:
+      - master-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MASTER_DB_USER:-master} -d ${MASTER_DB_NAME:-master_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ai-db:
+    image: pgvector/pgvector:pg16
+    container_name: ib-ai-db
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME:-ai_db}
+      POSTGRES_USER: ${AI_DB_USER:-ai}
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD}
+    volumes:
+      - ai-db-data:/var/lib/postgresql/data
+      - ../../infra/ai-db/init:/docker-entrypoint-initdb.d:ro
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-ai} -d ${AI_DB_NAME:-ai_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ib-redis
+    <<: *default-restart
+    logging: *default-logging
+    volumes:
+      - redis-data:/data
+    mem_limit: 256m
+    command: ["redis-server", "--maxmemory", "200mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: ib-kafka
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_RETENTION_MINUTES: 10080
+      # Oracle 메모리 절약 (기본 1G → 512M)
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms256M"
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: ib-schema-registry
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: BACKWARD
+      SCHEMA_REGISTRY_HEAP_OPTS: "-Xmx256M -Xms128M"
+    mem_limit: 384m
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/subjects || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ib-prometheus
+    <<: *default-restart
+    logging: *default-logging
+    volumes:
+      - ../../infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    mem_limit: 384m
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'   # Oracle 디스크 절약
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ib-grafana
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ../../infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    mem_limit: 256m
+    depends_on:
+      - prometheus
+
+  # ===========================================================================
+  # 앱 서비스 (모두 GHCR 이미지 사용, env_file .env.prod)
+  # ===========================================================================
+
+  customer-service:
+    image: ghcr.io/${GITHUB_OWNER}/customer-service:${CUSTOMER_IMAGE_TAG:-latest}
+    container_name: ib-customer-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      CUSTOMER_DB_HOST: customer-db
+      REDIS_HOST: redis
+    mem_limit: 640m
+    depends_on:
+      customer-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  deposit-service:
+    image: ghcr.io/${GITHUB_OWNER}/deposit-service:${DEPOSIT_IMAGE_TAG:-latest}
+    container_name: ib-deposit-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DEPOSIT_DB_HOST: deposit-db
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    mem_limit: 768m
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  loan-service:
+    image: ghcr.io/${GITHUB_OWNER}/loan-service:${LOAN_IMAGE_TAG:-latest}
+    container_name: ib-loan-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      LOAN_DB_HOST: loan-db
+      AI_DB_HOST: ai-db
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    mem_limit: 896m
+    depends_on:
+      loan-db:
+        condition: service_healthy
+      ai-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+
+  payment-service:
+    image: ghcr.io/${GITHUB_OWNER}/payment-service:${PAYMENT_IMAGE_TAG:-latest}
+    container_name: ib-payment-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # payment-service application.yml 기본값이 8080 이므로 명시 필요
+      PAYMENT_APP_PORT: 8084
+      PAYMENT_DB_HOST: payment-db
+      DEPOSIT_DB_HOST: deposit-db
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    mem_limit: 768m
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  master-service:
+    image: ghcr.io/${GITHUB_OWNER}/master-service:${MASTER_IMAGE_TAG:-latest}
+    container_name: ib-master-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      MASTER_DB_HOST: master-db
+      REDIS_HOST: redis
+    mem_limit: 512m
+    depends_on:
+      master-db:
+        condition: service_healthy
+
+  ai-service:
+    image: ghcr.io/${GITHUB_OWNER}/ai-service:${AI_IMAGE_TAG:-latest}
+    container_name: ib-ai-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      AI_DB_HOST: ai-db
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    mem_limit: 768m
+    depends_on:
+      ai-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  auto-loan-review:
+    image: ghcr.io/${GITHUB_OWNER}/auto-loan-review:${AUTO_REVIEW_IMAGE_TAG:-latest}
+    container_name: ib-auto-loan-review
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # ai-service 와 같은 AI_APP_PORT 사용하므로 명시적으로 오버라이드
+      AI_APP_PORT: 8089
+      AI_DB_HOST: ai-db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    mem_limit: 768m
+    depends_on:
+      ai-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  review-ai-gateway:
+    image: ghcr.io/${GITHUB_OWNER}/review-ai-gateway:${REVIEW_AIGW_IMAGE_TAG:-latest}
+    container_name: ib-review-ai-gateway
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      LOAN_SERVICE_URL: http://loan-service:8083
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    mem_limit: 512m
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  gateway-service:
+    image: ghcr.io/${GITHUB_OWNER}/gateway-service:${GATEWAY_IMAGE_TAG:-latest}
+    container_name: ib-gateway-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      GATEWAY_APP_PORT: 8080
+      REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET}
+      CUSTOMER_SERVICE_HOST: customer-service
+      CUSTOMER_APP_PORT: 8081
+      DEPOSIT_SERVICE_HOST: deposit-service
+      DEPOSIT_APP_PORT: 8082
+      LOAN_SERVICE_HOST: loan-service
+      LOAN_APP_PORT: 8083
+      PAYMENT_SERVICE_HOST: payment-service
+      PAYMENT_APP_PORT: 8084
+      MASTER_SERVICE_HOST: master-service
+      MASTER_APP_PORT: 8085
+      AI_SERVICE_HOST: ai-service
+      AI_APP_PORT: 8086
+    ports:
+      - "${GATEWAY_PUBLIC_PORT:-8080}:8080"   # 외부 노출 (Oracle 방화벽 룰 필요)
+    mem_limit: 512m
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # api-gateway 는 gateway-service 와 동일하게 8080 사용 → 내부 8079 로 격리.
+  # 운영에서 둘 다 띄울 필요 있는지 사용자 확정 후 결정 (현재 둘 다 등록).
+  api-gateway:
+    image: ghcr.io/${GITHUB_OWNER}/api-gateway:${API_GATEWAY_IMAGE_TAG:-latest}
+    container_name: ib-api-gateway
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    environment:
+      GATEWAY_PORT: 8079
+      JWT_SECRET: ${JWT_SECRET}
+    mem_limit: 512m
+    profiles: ["alt-gateway"]   # 기본 비활성. 필요시 --profile alt-gateway 로 활성화
+
+  consultation-service:
+    image: ghcr.io/${GITHUB_OWNER}/consultation-service:${CONSULTATION_IMAGE_TAG:-latest}
+    container_name: ib-consultation-service
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    mem_limit: 384m
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  deposit-api:
+    image: ghcr.io/${GITHUB_OWNER}/deposit-api:${DEPOSIT_API_IMAGE_TAG:-latest}
+    container_name: ib-deposit-api
+    <<: *default-restart
+    logging: *default-logging
+    env_file: ../../.env.prod
+    mem_limit: 256m
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # data-tools 는 24h 상주 서비스 아님. compose 에 등록만 하고 기본 비활성.
+  # 사용: docker compose run --rm data-tools python scripts/seed_hmda_rag.py
+  data-tools:
+    image: ghcr.io/${GITHUB_OWNER}/data-tools:${DATA_TOOLS_IMAGE_TAG:-latest}
+    container_name: ib-data-tools
+    env_file: ../../.env.prod
+    profiles: ["tools"]   # 기본 비활성. 명시적으로 run 할 때만 동작
+    volumes:
+      - data-tools-output:/app/data
+
+volumes:
+  customer-db-data:
+  deposit-db-data:
+  loan-db-data:
+  payment-db-data:
+  master-db-data:
+  ai-db-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  data-tools-output:

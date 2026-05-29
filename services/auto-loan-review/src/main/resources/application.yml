@@ -92,6 +92,11 @@ ai:
     enabled: ${AI_AUDIT_ENABLED:true}
     include-raw-llm-response: ${AI_AUDIT_RAW_LLM:false}   # LLM 원문 저장 여부 (PII 위험 ↑)
 
+  # ---- loan-service 콜백 클라이언트 ----
+  loan-service:
+    base-url: ${LOAN_SERVICE_BASE_URL:http://localhost:8083}
+    internal-token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
+
   inference:
     base-url: ${AI_INFERENCE_BASE_URL:http://localhost:8090}
 
@@ -192,6 +197,18 @@ ai:
         self_employed: 0.407
         senior: 0.788
         young: 0.750
+
+  # ---- Kafka (편향 검증 컨슈머) ----
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: auto-loan-review-bias
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
 
 management:
   endpoints:

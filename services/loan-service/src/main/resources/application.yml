@@ -51,8 +51,6 @@ loan:
     eod-cron: "${LOAN_EOD_CRON:0 0 1 * * *}"  # 기본 새벽 1시 KST
     eom-cron: "${LOAN_EOM_CRON:0 0 3 1 * *}"  # 기본 매월 1일 03:00 KST
     calendar-seed-cron: "${LOAN_CALENDAR_SEED_CRON:0 0 4 1 12 *}"  # 기본 매년 12월 1일 04:00 KST
-  document:
-    storage-dir: ${LOAN_DOCUMENT_STORAGE_DIR:./storage/loan-documents}
   # 외부 신용평가(가심사) 엔진 어댑터 선택
   #   mock — MockCreditScoreEngine (외부 호출 없음, 자체 룰)
   #   http — HttpCreditScoreEngine (외부 신용평가사 HTTP API 호출)
@@ -69,10 +67,28 @@ loan:
     engine:
       type: ${LOAN_ECL_ENGINE_TYPE:mock}
 
-jwt:
-  secret: ${JWT_SECRET:loan-service-local-dev-secret-min-32-chars!!}
-  access-token-validity: 3600000
-  refresh-token-validity: 86400000
+auto-review:
+  enabled: ${AUTO_REVIEW_ENABLED:true}
+  base-url: ${AUTO_REVIEW_BASE_URL:http://auto-loan-review:8086}
+  internal-token: ${AUTO_REVIEW_INTERNAL_TOKEN:local-internal-token}
+  connect-timeout-ms: ${AUTO_REVIEW_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${AUTO_REVIEW_READ_TIMEOUT_MS:30000}
+
+crypto:
+  # AES-256 키 (32바이트 Base64). 운영 환경에서는 반드시 CRYPTO_KEY_BASE64 환경변수로 교체할 것.
+  key-base64: ${CRYPTO_KEY_BASE64:bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZQ==}
+
+payment:
+  url: ${PAYMENT_SERVICE_URL:http://localhost:8080}
+  collection:
+    bank-code: ${PAYMENT_COLLECTION_BANK_CODE:088}
+    account-no: ${PAYMENT_COLLECTION_ACCOUNT_NO:00000000000}
+    holder-name: ${PAYMENT_COLLECTION_HOLDER_NAME:한국은행}
+  disbursement:
+    account-id: ${PAYMENT_DISBURSEMENT_ACCOUNT_ID:BANK_DISBURSE_001}
+
+doc-agent:
+  base-url: ${DOC_AGENT_BASE_URL:http://doc-agent:8080}
 
 internal:
   token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
@@ -109,6 +125,10 @@ springdoc:
 
 # ---- Advisory / AI Gateway ----
 advisory:
+  service:
+    base-url: ${ADVISORY_BASE_URL:http://advisory-service:8085}
+    timeout-ms: ${ADVISORY_TIMEOUT_MS:5000}
+    connect-timeout-ms: ${ADVISORY_CONNECT_TIMEOUT_MS:3000}
   consumer:
     # L7 실험: 값 변경 후 재기동만으로 효과 측정 가능
     fetch-min-bytes: 1            # 실험: 10240으로 올리면 처리량↑ 지연↑

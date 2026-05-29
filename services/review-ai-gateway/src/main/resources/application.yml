@@ -6,6 +6,20 @@ spring:
     name: review-ai-gateway
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: review-ai-gateway
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.bank.aigateway.consumer"
+        spring.json.use.type.headers: "false"
+        spring.json.value.default.type: "com.bank.aigateway.consumer.LoanBiasCheckPayload"
+
+loan-service:
+  base-url: ${LOAN_SERVICE_URL:http://loan-service:8083}
 
 management:
   endpoints:

@@ -1,6 +1,8 @@
 package com.bank.loan.review.controller;
 
 import com.bank.common.web.ApiResponse;
+import com.bank.loan.advisory.AdvisoryClient;
+import com.bank.loan.advisory.AdvisoryReportSummary;
 import com.bank.loan.review.dto.AiReviewAdviceResponse;
 import com.bank.loan.review.dto.BiasOverrideRequest;
 import com.bank.loan.review.dto.BiasReportRequest;
@@ -28,6 +30,7 @@ public class LoanReviewBiasReportController {
 
     private final LoanReviewBiasReportService biasReportService;
     private final LoanReviewAcknowledgeBiasService acknowledgeBiasService;
+    private final AdvisoryClient advisoryClient;
 
     @Operation(summary = "편향 리포트 수신 (internal)",
             description = "편향 에이전트가 분석 결과를 밀어넣는 내부 전용 API. "
@@ -46,6 +49,14 @@ public class LoanReviewBiasReportController {
     @GetMapping("/api/loan-reviews/{revId}/advices")
     public ApiResponse<List<AiReviewAdviceResponse>> listAdvices(@PathVariable Long revId) {
         return ApiResponse.ok(biasReportService.listByRev(revId));
+    }
+
+    @Operation(summary = "Advisory 리포트 목록 조회",
+            description = "advisory-service 에 적재된 해당 본심사의 Advisory 리포트를 반환. "
+                    + "advisory-service 장애 시 빈 목록 반환 (fail-open).")
+    @GetMapping("/api/loan-reviews/{revId}/advisory-reports")
+    public ApiResponse<List<AdvisoryReportSummary>> listAdvisoryReports(@PathVariable Long revId) {
+        return ApiResponse.ok(advisoryClient.getReports(revId));
     }
 
     @Operation(summary = "편향 BLOCKED 우회 승인 (상급자)",
