@@ -60,7 +60,7 @@ public class LoanExecutionService {
     private static final String DEFAULT_CURRENCY = "KRW";
     private static final String REASON_FIRST_DRAWDOWN = "FIRST_DRAWDOWN";
     private static final String EVENT_LOAN_DISBURSED  = "LOAN_DISBURSED";
-    private static final String CHANNEL_INBOUND = "INBOUND";
+    private static final String CHANNEL_OPEN_BANKING = "OPEN_BANKING";
 
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
@@ -146,14 +146,14 @@ public class LoanExecutionService {
         String payIdemKey = "EXEC-" + contract.getCntrId() + "-"
                 + (idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : saved.getExecId());
         PaymentRequest payReq = new PaymentRequest(
-                paymentProps.disbursement().accountId(),
+                paymentProps.disbursement().accountNo(),
                 req.disbursementBankCd(),
                 req.disbursementAccountNo(),
                 contract.getCntrNo(),
                 BigDecimal.valueOf(requested),
                 "대출실행 " + contract.getCntrNo(),
                 "대출실행",
-                CHANNEL_INBOUND,
+                CHANNEL_OPEN_BANKING,
                 contract.getCntrNo()
         );
         PaymentResponse payResp = paymentServiceClient.pay(payIdemKey, payReq);

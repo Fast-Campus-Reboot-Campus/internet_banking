@@ -66,7 +66,7 @@ public class ReversalService {
     private static final String REASON_REVERSED = "REPAYMENT_REVERSED";
     private static final String REASON_PREPAY_REVERSED = "PREPAY_REVERSED";
     private static final String DEFAULT_CHANNEL = "MANUAL";
-    private static final String CHANNEL_INBOUND = "INBOUND";
+    private static final String CHANNEL_OPEN_BANKING = "OPEN_BANKING";
 
     private final RepaymentTransactionRepository txRepository;
     private final RepaymentScheduleRepository scheduleRepository;
@@ -284,7 +284,7 @@ public class ReversalService {
                 BigDecimal.valueOf(target.getTotalAmount()),
                 "대출상환 역분개 환급",
                 "대출환급",
-                CHANNEL_INBOUND,
+                CHANNEL_OPEN_BANKING,
                 String.valueOf(target.getCntrId())
         );
 
