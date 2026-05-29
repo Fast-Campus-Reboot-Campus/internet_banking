@@ -59,6 +59,7 @@ public class RepaymentAccountService {
                 .accountNoMasked(req.maskedAccount())
                 .accountNoEnc(cryptoService.encrypt(req.accountNo()))
                 .holderNameMasked(req.maskedHolderName())
+                .holderNameEnc(req.holderName() != null ? cryptoService.encrypt(req.holderName()) : null)
                 .racctStatusCd(RepaymentAccount.STATUS_REGISTERED)
                 .autoDebitYn(req.autoDebitYn() == null ? RepaymentAccount.YN_N : req.autoDebitYn())
                 .debitDay(req.debitDay())
