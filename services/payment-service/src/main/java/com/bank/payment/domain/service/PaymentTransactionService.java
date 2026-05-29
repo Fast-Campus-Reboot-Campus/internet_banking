@@ -202,16 +202,7 @@ public class PaymentTransactionService {
         BigDecimal amount = command.transferAmount();
 
         // 1. AUTHORIZED→PROCESSING (낙관락, pi.getVersion()+1 = authorize 후 버전)
-        int updated1 = paymentInstructionMapper.updateStatus(
-                piId, "PROCESSING", null, null, pi.getVersion() + 1);
-        if (updated1 == 0) {
-            throw new OptimisticLockingFailureException(
-                    "결제지시 상태 갱신 충돌(PROCESSING): " + piId);
-        }
-        Integer maxSeq3 = statusHistoryMapper.selectMaxSequence(piId);
-        statusHistoryMapper.insert(StatusHistory.of(
-                idGenerator.nextHistoryId(), piId, (maxSeq3 == null ? 0 : maxSeq3) + 1,
-                "AUTHORIZED", "PROCESSING", "PROCESSING_STARTED", "SYSTEM", now));
+        markProcessing(piId, pi.getVersion() + 1, now);
 
         // 2. journal_no 1번 채번 (분개 그룹, 결제 1건당 1개)
         String journalNo = idGenerator.nextJournalNo();
@@ -308,16 +299,7 @@ public class PaymentTransactionService {
         BigDecimal feeAmount = pi.getFeeAmount();  // txStep1에서 isIntraBank=false → 500
 
         // 1. AUTHORIZED→PROCESSING (낙관락: pi.getVersion()+1=1 → DB v2)
-        int updated1 = paymentInstructionMapper.updateStatus(
-                piId, "PROCESSING", null, null, pi.getVersion() + 1);
-        if (updated1 == 0) {
-            throw new OptimisticLockingFailureException(
-                    "결제지시 상태 갱신 충돌(PROCESSING): " + piId);
-        }
-        Integer maxSeq1 = statusHistoryMapper.selectMaxSequence(piId);
-        statusHistoryMapper.insert(StatusHistory.of(
-                idGenerator.nextHistoryId(), piId, (maxSeq1 == null ? 0 : maxSeq1) + 1,
-                "AUTHORIZED", "PROCESSING", "PROCESSING_STARTED", "SYSTEM", now));
+        markProcessing(piId, pi.getVersion() + 1, now);
 
         // 2. journal_no 2묶음 채번 (JN-01=이체본금, JN-02=수수료)
         String jn1 = idGenerator.nextJournalNo();
@@ -460,16 +442,7 @@ public class PaymentTransactionService {
         BigDecimal feeAmount = pi.getFeeAmount();
 
         // 1. AUTHORIZED→PROCESSING (낙관락: pi.getVersion()+1=1 → DB v2)
-        int updated1 = paymentInstructionMapper.updateStatus(
-                piId, "PROCESSING", null, null, pi.getVersion() + 1);
-        if (updated1 == 0) {
-            throw new OptimisticLockingFailureException(
-                    "결제지시 상태 갱신 충돌(PROCESSING/BOK): " + piId);
-        }
-        Integer maxSeq1 = statusHistoryMapper.selectMaxSequence(piId);
-        statusHistoryMapper.insert(StatusHistory.of(
-                idGenerator.nextHistoryId(), piId, (maxSeq1 == null ? 0 : maxSeq1) + 1,
-                "AUTHORIZED", "PROCESSING", "PROCESSING_STARTED", "SYSTEM", now));
+        markProcessing(piId, pi.getVersion() + 1, now);
 
         // 2. journal_no 2묶음 채번 (JN-01=이체본금, JN-02=수수료)
         String jn1 = idGenerator.nextJournalNo();
@@ -615,6 +588,18 @@ public class PaymentTransactionService {
                 idGenerator.nextHistoryId(), piId, seq,
                 "AUTHORIZED", "SCHEDULED", "SCHEDULED_REGISTERED", "USER", now);
         statusHistoryMapper.insert(history);
+    }
+
+    /** AUTHORIZED→PROCESSING 전이: updateStatus(낙관락) + PROCESSING_STARTED 이력. txStep4 3종 공용. */
+    private void markProcessing(String piId, int version, LocalDateTime now) {
+        int updated = paymentInstructionMapper.updateStatus(piId, "PROCESSING", null, null, version);
+        if (updated == 0) {
+            throw new OptimisticLockingFailureException("결제지시 상태 갱신 충돌(PROCESSING): " + piId);
+        }
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        statusHistoryMapper.insert(StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, (maxSeq == null ? 0 : maxSeq) + 1,
+                "AUTHORIZED", "PROCESSING", "PROCESSING_STARTED", "SYSTEM", now));
     }
 
     /** PI 재조회 — 이중보상 가드용. 보상 진입 직전 현재 상태 확인. */
