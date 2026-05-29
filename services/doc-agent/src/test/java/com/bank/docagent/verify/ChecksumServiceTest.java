@@ -57,14 +57,13 @@ class ChecksumServiceTest {
     }
 
     @Test
-    @DisplayName("사업자번호 유효 케이스 — d[8]≠0 (이중 계산 버그 회귀 방지)")
+    @DisplayName("사업자번호 유효 케이스 — d[8]≠0 (삼성전자 실존 번호)")
     void business_number_valid_d8_nonzero() {
-        // 101-81-24352: d[8]=5
-        // w={1,3,7,1,3,7,1,3}, sum(d[0..7]) = 1+0+7+8+3+14+4+9 = 46
-        // floor(5*5/10) = 2  →  total = 48
-        // check = (10 - 48%10)%10 = 2 → 마지막 자리 2
-        // 수정 전(i<9) 코드: sum에 d[8]*5=25 추가 → total=73, check=7 → 불일치(false)
-        assertThat(sut.validateBusinessNumber("1018124352")).isTrue();
+        // 124-81-00998: d[8]=9
+        // w={1,3,7,1,3,7,1,3,5}, sum(d[0..8]) = 1+6+28+8+3+0+0+27+45 = 118
+        // floor(9*5/10) = 4  →  total = 122
+        // check = (10 - 122%10)%10 = 8 → 마지막 자리 8
+        assertThat(sut.validateBusinessNumber("1248100998")).isTrue();
     }
 
     @Test
