@@ -97,6 +97,12 @@ public abstract class AbstractLoanIntegrationTest {
         r.add("spring.datasource.password", POSTGRES::getPassword);
         r.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
 
+        // common_db 는 같은 테스트 컨테이너를 공유한다. common Flyway 는 전용 이력 테이블을 쓰므로
+        // loan Flyway 와 충돌하지 않는다(CommonDataSourceConfig 참고).
+        r.add("common.datasource.url",      POSTGRES::getJdbcUrl);
+        r.add("common.datasource.username", POSTGRES::getUsername);
+        r.add("common.datasource.password", POSTGRES::getPassword);
+
         r.add("spring.data.redis.host", REDIS::getHost);
         r.add("spring.data.redis.port", () -> REDIS.getFirstMappedPort());
 

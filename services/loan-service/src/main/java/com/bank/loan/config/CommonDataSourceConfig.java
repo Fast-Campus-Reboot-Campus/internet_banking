@@ -1,0 +1,89 @@
+package com.bank.loan.config;
+
+import jakarta.persistence.EntityManagerFactory;
+import org.flywaydb.core.Flyway;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.transaction.PlatformTransactionManager;
+
+import javax.sql.DataSource;
+
+/**
+ * 공통 계좌 DB(common_db) datasource·JPA 구성.
+ *
+ * Phase 1: loan-service 가 common_db 를 채택해 공통 계좌 마스터(common_account)를 직접 다룬다.
+ * 엔티티/리포지토리는 {@code com.bank.commonaccount.*} 패키지로 분리해 기본(loan_db) EMF 스캔
+ * 범위({@code com.bank.loan}, {@code com.bank.common}) 와 겹치지 않게 한다.
+ *
+ * common_db 전용 Flyway 는 Flyway 타입 빈으로 노출하지 않는다 — 노출하면 Boot 의 기본 Flyway
+ * 자동설정(@ConditionalOnMissingBean(Flyway))이 backoff 되어 loan_db 마이그레이션이 멈춘다.
+ * 대신 초기화 마커 빈에서 직접 migrate() 를 호출한다.
+ */
+@Configuration
+@EnableJpaRepositories(
+        basePackages = "com.bank.commonaccount.repository",
+        entityManagerFactoryRef = "commonEntityManagerFactory",
+        transactionManagerRef = "commonTransactionManager"
+)
+public class CommonDataSourceConfig {
+
+    @Bean
+    @ConfigurationProperties("common.datasource")
+    public DataSourceProperties commonDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Bean
+    public DataSource commonDataSource(
+            @Qualifier("commonDataSourceProperties") DataSourceProperties commonDataSourceProperties) {
+        return commonDataSourceProperties.initializeDataSourceBuilder().build();
+    }
+
+    /**
+     * common_db Flyway 마이그레이션 실행. Flyway 타입을 노출하지 않으려 마커를 반환한다.
+     * commonEntityManagerFactory 가 본 빈에 @DependsOn 으로 의존해 스키마 생성 후 EMF 가 뜬다.
+     */
+    @Bean
+    public CommonFlywayInitialized commonFlywayInitializer(
+            @Qualifier("commonDataSource") DataSource commonDataSource) {
+        Flyway.configure()
+                .dataSource(commonDataSource)
+                .locations("classpath:db/common-migration")
+                // 전용 이력 테이블 — 같은 물리 DB 를 공유하는 통합 테스트에서 loan Flyway 와 충돌 방지
+                .table("common_flyway_schema_history")
+                // 기존 스키마(테스트 공유 DB 등)가 비어있지 않아도 최초 마이그레이션 허용
+                .baselineOnMigrate(true)
+                .load()
+                .migrate();
+        return new CommonFlywayInitialized();
+    }
+
+    @Bean
+    @DependsOn("commonFlywayInitializer")
+    public LocalContainerEntityManagerFactoryBean commonEntityManagerFactory(
+            EntityManagerFactoryBuilder builder,
+            @Qualifier("commonDataSource") DataSource commonDataSource) {
+        return builder.dataSource(commonDataSource)
+                .packages("com.bank.commonaccount.domain")
+                .persistenceUnit("common")
+                .build();
+    }
+
+    @Bean
+    public PlatformTransactionManager commonTransactionManager(
+            @Qualifier("commonEntityManagerFactory") EntityManagerFactory commonEntityManagerFactory) {
+        return new JpaTransactionManager(commonEntityManagerFactory);
+    }
+
+    /** common_db Flyway 마이그레이션 완료 마커. */
+    static final class CommonFlywayInitialized {
+    }
+}
