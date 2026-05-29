@@ -52,6 +52,23 @@ services:
       timeout: 5s
       retries: 5
 
+  common-db:
+    image: postgres:16-alpine
+    container_name: ib-common-db
+    environment:
+      POSTGRES_DB: ${COMMON_DB_NAME:-common_db}
+      POSTGRES_USER: ${COMMON_DB_USER:-common}
+      POSTGRES_PASSWORD: ${COMMON_DB_PASSWORD:-common}
+    ports:
+      - "${COMMON_DB_PORT:-5438}:5432"
+    volumes:
+      - common-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${COMMON_DB_USER:-common} -d ${COMMON_DB_NAME:-common_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   payment-db:
     image: postgres:16-alpine
     container_name: ib-payment-db
@@ -186,6 +203,7 @@ volumes:
   customer-db-data:
   deposit-db-data:
   loan-db-data:
+  common-db-data:
   payment-db-data:
   master-db-data:
 
