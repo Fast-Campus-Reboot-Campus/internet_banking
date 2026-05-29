@@ -118,19 +118,24 @@ public class AutoDebitBatchService {
                     continue;
                 }
 
+                String piId = payResp.paymentInstructionId();
                 if (PaymentResponse.STATUS_COMPLETED.equals(payResp.status())) {
-                    repaymentService.repayInstallment(schedule.getCntrId(), req, idemKey);
+                    repaymentService.repayInstallment(schedule.getCntrId(), req, idemKey, null, piId);
                     processed++;
                 } else if (PaymentResponse.STATUS_FAILED.equals(payResp.status())) {
                     log.warn("auto-debit: payment failed cntrId={} installmentNo={} failureCategory={}",
                             schedule.getCntrId(), schedule.getInstallmentNo(), payResp.failureCategory());
                     repaymentService.repayInstallment(schedule.getCntrId(), req, idemKey,
-                            RepaymentTransaction.STATUS_FAILED);
+                            RepaymentTransaction.STATUS_FAILED, piId);
+                    skipped++;
+                } else if (PaymentResponse.STATUS_CLEARING.equals(payResp.status())) {
+                    // 타행 청산 대기: payment-service가 KFTC 정산 완료 후 /api/internal/auto-debit/payment-result 콜백
+                    log.info("auto-debit: CLEARING 대기 cntrId={} installmentNo={} piId={}",
+                            schedule.getCntrId(), schedule.getInstallmentNo(), piId);
                     skipped++;
                 } else {
-                    // CLEARING: 타행 청산 대기 — 별도 협의 필요
-                    log.warn("auto-debit: unhandled payment status={} cntrId={} piId={}",
-                            payResp.status(), schedule.getCntrId(), payResp.paymentInstructionId());
+                    log.warn("auto-debit: unknown payment status={} cntrId={} piId={}",
+                            payResp.status(), schedule.getCntrId(), piId);
                     skipped++;
                 }
             } catch (RuntimeException e) {

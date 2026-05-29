@@ -77,15 +77,21 @@ public class RepaymentService {
 
     @Transactional
     public RepaymentTransactionResponse repayInstallment(Long cntrId, RepayInstallmentRequest req, String idempotencyKey) {
-        return repayInstallment(cntrId, req, idempotencyKey, null);
+        return repayInstallment(cntrId, req, idempotencyKey, null, null);
+    }
+
+    @Transactional
+    public RepaymentTransactionResponse repayInstallment(Long cntrId, RepayInstallmentRequest req, String idempotencyKey, String paymentStatus) {
+        return repayInstallment(cntrId, req, idempotencyKey, paymentStatus, null);
     }
 
     /**
      * paymentStatus=FAILED: payment-service 출금 실패. schedule 상태 유지, FAILED tx 저장.
      * paymentStatus=null or COMPLETED: 기존 성공 경로.
+     * piId: payment-service 결제지시 ID. CLEARING 콜백 추적에 사용.
      */
     @Transactional
-    public RepaymentTransactionResponse repayInstallment(Long cntrId, RepayInstallmentRequest req, String idempotencyKey, String paymentStatus) {
+    public RepaymentTransactionResponse repayInstallment(Long cntrId, RepayInstallmentRequest req, String idempotencyKey, String paymentStatus, String piId) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             var existing = txRepository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
@@ -120,6 +126,7 @@ public class RepaymentService {
                     .balanceAfter(null)
                     .idempotencyKey(idempotencyKey)
                     .reversalYn(RepaymentTransaction.YN_N)
+                    .piId(piId)
                     .build());
             return RepaymentTransactionResponse.of(failed);
         }
@@ -169,6 +176,7 @@ public class RepaymentService {
                 .balanceAfter(schedule.getRemainingBalance())
                 .idempotencyKey(idempotencyKey)
                 .reversalYn(RepaymentTransaction.YN_N)
+                .piId(piId)
                 .build());
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_TABLE_CD, schedule.getRschId(),
