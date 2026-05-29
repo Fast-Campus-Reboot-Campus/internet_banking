@@ -204,7 +204,7 @@ services:
       PAYMENT_APP_PORT: ${PAYMENT_APP_PORT:-8084}
       MASTER_SERVICE_HOST: master-service
       MASTER_APP_PORT: ${MASTER_APP_PORT:-8085}
-      AI_SERVICE_HOST: ai-service
+      AI_SERVICE_HOST: auto-loan-review
       AI_APP_PORT: ${AI_APP_PORT:-8086}
     depends_on:
       redis:

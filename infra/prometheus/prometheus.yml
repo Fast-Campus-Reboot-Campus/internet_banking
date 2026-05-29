@@ -35,7 +35,7 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:8085']
 
-  - job_name: 'ai-service'
+  - job_name: 'auto-loan-review'
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ['localhost:8086']

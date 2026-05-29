@@ -45,7 +45,7 @@ spring:
           predicates:
             - Path=/api/master/**
 
-        - id: ai-service
+        - id: auto-loan-review
           uri: http://${AI_SERVICE_HOST:localhost}:${AI_APP_PORT:8086}
           predicates:
             - Path=/api/ai/**
