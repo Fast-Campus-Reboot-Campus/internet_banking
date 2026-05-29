@@ -198,6 +198,11 @@ class LlmAdapter:
             (response_text, is_error) — is_error=True 이면 LLM 호출 실패를 의미하며
             호출자가 상담사 이관 등 fallback 처리를 수행해야 한다.
         """
+        from langfuse.decorators import langfuse_context
+        langfuse_context.update_current_trace(
+            tags=["consultation-service"],
+            metadata={"service": "consultation-service"},
+        )
         start = time.perf_counter()
         is_error = False
         try:
@@ -246,6 +251,11 @@ class LlmAdapter:
             user_query  : 고객 질문 텍스트
             history_ctx : _build_history_context() 반환값 (없으면 빈 문자열)
         """
+        from langfuse.decorators import langfuse_context
+        langfuse_context.update_current_trace(
+            tags=["consultation-service"],
+            metadata={"service": "consultation-service"},
+        )
         start = time.perf_counter()
         is_error = False
         try:
