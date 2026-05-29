@@ -270,7 +270,7 @@ export default function ChatbotWidget() {
     setMounted(true)
     const cid = localStorage.getItem('customerId')
     if (cid) setCustomerNo(cid)
-    setIsLoggedIn(!!localStorage.getItem('accessToken') && !!localStorage.getItem('user'))
+    setIsLoggedIn(!!localStorage.getItem('access_token') && !!localStorage.getItem('user'))
   }, [])
 
   useEffect(() => {
@@ -392,7 +392,8 @@ export default function ChatbotWidget() {
 
     const AUTH_REQUIRED = new Set(['my_products', 'transfer', 'cashflow', 'recommend'])
     if (AUTH_REQUIRED.has(action.type)) {
-      if (!localStorage.getItem('accessToken') || !localStorage.getItem('user')) {
+      const token = localStorage.getItem('access_token')
+      if (!token) {
         pushMessages([{
           id: messageId('auth'),
           role: 'bot',
@@ -412,7 +413,8 @@ export default function ChatbotWidget() {
       return
     }
     if (action.type === 'my_products') {
-      if (!customerNo.trim()) {
+      const cid = customerNo.trim() || localStorage.getItem('customerId') || ''
+      if (!cid) {
         pushMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
         return
       }
@@ -422,7 +424,7 @@ export default function ChatbotWidget() {
         // 계좌 조회와 동일한 소스: deposit API → localStorage 순서
         let rows: Record<string, unknown>[] = []
         try {
-          const apiAccounts = await fetchDepositAccountViewModels(customerNo)
+          const apiAccounts = await fetchDepositAccountViewModels(cid)
           rows = apiAccounts.map((a) => ({
             account_id: a.apiAccountId ?? 0,
             account_number: a.number,
@@ -1148,6 +1150,7 @@ function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
         const data = await res.json()
         localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('customerId', String(data.user.customer_id))
         localStorage.setItem('user', JSON.stringify(data.user))
         onSuccess()
       } else {
@@ -1171,8 +1174,10 @@ function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
       localStorage.setItem('customerId', String(data.data.customerId))
       try {
         const me = await api.get('/api/v1/customers/me')
-        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name }))
-      } catch {}
+        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, customerId: data.data.customerId }))
+      } catch {
+        localStorage.setItem('user', JSON.stringify({ customerId: data.data.customerId }))
+      }
       onSuccess()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
