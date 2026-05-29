@@ -1,6 +1,12 @@
 server:
   port: ${AI_APP_PORT:8086}
 
+logging:
+  file:
+    name: ${LOG_DIR:C:/logs/internet-banking}/ai-service.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
 langfuse:
   enabled: ${LANGFUSE_ENABLED:false}
   secret-key: ${LANGFUSE_SECRET_KEY:}

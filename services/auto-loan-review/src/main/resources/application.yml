@@ -179,6 +179,12 @@ ai:
         senior: 0.788
         young: 0.750
 
+logging:
+  file:
+    name: ${LOG_DIR:C:/logs/internet-banking}/auto-loan-review.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
 langfuse:
   enabled: ${LANGFUSE_ENABLED:false}
   secret-key: ${LANGFUSE_SECRET_KEY:}

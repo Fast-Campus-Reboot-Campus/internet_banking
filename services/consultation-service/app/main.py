@@ -52,6 +52,24 @@ from app.services import (
 logger = logging.getLogger(__name__)
 
 
+def _setup_file_logging() -> None:
+    """파일 로그 핸들러 설정. LOG_DIR 환경변수로 경로 지정 가능."""
+    log_dir = os.getenv("LOG_DIR", "C:/logs/internet-banking")
+    log_file = os.path.join(log_dir, "consultation-service.log")
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        handler = logging.FileHandler(log_file, encoding="utf-8")
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(threadName)s] %(levelname)-5s %(name)s - %(message)s"
+        ))
+        logging.getLogger().addHandler(handler)
+    except Exception as e:
+        logging.getLogger(__name__).warning("[logging] 파일 핸들러 설정 실패: %s", e)
+
+
+_setup_file_logging()
+
+
 def _setup_phoenix() -> None:
     """Phoenix OTel 계측 초기화. PHOENIX_ENABLED=true 일 때만 활성화."""
     if os.getenv("PHOENIX_ENABLED", "false").lower() != "true":

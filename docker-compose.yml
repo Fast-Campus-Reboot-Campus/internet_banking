@@ -221,6 +221,25 @@ services:
       retries: 5
       start_period: 30s
 
+  loki:
+    image: grafana/loki:latest
+    container_name: ib-loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    command: -config.file=/etc/loki/config.yml
+    volumes:
+      - ./infra/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: ib-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./infra/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - C:/logs/internet-banking:/logs:ro
+    depends_on:
+      - loki
+
   phoenix:
     image: arizephoenix/phoenix:latest
     container_name: ib-phoenix
@@ -276,5 +295,6 @@ volumes:
   kafka-data:
   prometheus-data:
   grafana-data:
+  loki-data:
   langfuse-db-data:
   phoenix-data:
