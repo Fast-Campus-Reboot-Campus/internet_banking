@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,10 +29,18 @@ public class AuditResponseParser {
         String json = extractJson(llmContent);
         try {
             JsonNode node = objectMapper.readTree(json);
+            List<Long> chunkIds = new ArrayList<>();
+            JsonNode chunkNode = node.path("citedChunkIds");
+            if (chunkNode.isArray()) {
+                for (JsonNode id : chunkNode) {
+                    if (id.isNumber()) chunkIds.add(id.asLong());
+                }
+            }
             return new ParsedAuditResult(
                     node.path("conclusion").asText("INSUFFICIENT_DATA"),
                     node.path("reasoningSummary").asText(""),
-                    node.path("confidenceScore").asDouble(0.0)
+                    node.path("confidenceScore").asDouble(0.0),
+                    chunkIds
             );
         } catch (Exception e) {
             log.warn("LLM 응답 파싱 실패 — 원본: {}", llmContent, e);
@@ -49,6 +59,7 @@ public class AuditResponseParser {
     public record ParsedAuditResult(
             String conclusion,
             String reasoningSummary,
-            double confidenceScore
+            double confidenceScore,
+            List<Long> citedChunkIds
     ) {}
 }

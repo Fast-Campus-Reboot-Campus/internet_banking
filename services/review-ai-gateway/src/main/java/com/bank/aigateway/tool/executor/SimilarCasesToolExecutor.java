@@ -46,7 +46,7 @@ public class SimilarCasesToolExecutor implements ToolExecutor {
     public String execute(JsonNode input) {
         long revId = input.path("rev_id").asLong(0);
         if (revId == 0) return "";
-        return httpClient.get("/api/advisory/reports/" + revId + "/similar-cases")
+        return httpClient.get("/api/internal/advisory/similar-cases?revId=" + revId)
                 .orElse("");
     }
 }

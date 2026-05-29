@@ -36,7 +36,7 @@ services:
       retries: 5
 
   loan-db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: ib-loan-db
     environment:
       POSTGRES_DB: ${LOAN_DB_NAME:-loan_db}
@@ -120,8 +120,8 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
-      KAFKA_OFFSETS_RETENTION_MINUTES: 10080
-      KAFKA_REPLICA_SELECTOR_CLASS: org.apache.kafka.common.replica.RackAwareReplicaSelector
+      KAFKA_OFFSETS_RETENTION_MINUTES: 10080         # 7일. 기본값 1440(1일) — 그룹 정지 후 offset 보존 기간
+      KAFKA_REPLICA_SELECTOR_CLASS: org.apache.kafka.common.replica.RackAwareReplicaSelector  # L8 rack awareness
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 10s
@@ -136,7 +136,7 @@ services:
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
-      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: BACKWARD
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: BACKWARD  # 구 consumer가 신 메시지 읽기 가능
     depends_on:
       kafka:
         condition: service_healthy
@@ -221,6 +221,7 @@ volumes:
   loan-db-data:
   payment-db-data:
   master-db-data:
+
   ai-db-data:
   redis-data:
   prometheus-data:
