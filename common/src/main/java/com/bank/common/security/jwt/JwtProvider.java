@@ -25,6 +25,8 @@ public class JwtProvider {
     private static final String CLAIM_EMAIL      = "email";
     private static final String CLAIM_ROLES      = "roles";
     private static final String CLAIM_TOKEN_TYPE = "type";
+    private static final String CLAIM_BRANCH     = "branch";
+    private static final String CLAIM_GRADE      = "grade";
 
     private final SecretKey key;
     private final long accessTokenValidity;
@@ -37,12 +39,19 @@ public class JwtProvider {
     }
 
     public String generateAccessToken(Long customerId, String email, List<String> roles) {
+        return generateAccessToken(customerId, email, roles, null, null);
+    }
+
+    public String generateAccessToken(Long customerId, String email, List<String> roles, String branch, String grade) {
         long now = System.currentTimeMillis();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(String.valueOf(customerId))
                 .claim(CLAIM_EMAIL, email)
                 .claim(CLAIM_ROLES, roles)
-                .claim(CLAIM_TOKEN_TYPE, TokenType.ACCESS.name())
+                .claim(CLAIM_TOKEN_TYPE, TokenType.ACCESS.name());
+        if (branch != null) builder.claim(CLAIM_BRANCH, branch);
+        if (grade  != null) builder.claim(CLAIM_GRADE,  grade);
+        return builder
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + accessTokenValidity))
                 .signWith(key)
@@ -78,8 +87,10 @@ public class JwtProvider {
         List<String> roles = claims.get(CLAIM_ROLES, List.class);
 
         TokenType tokenType = TokenType.valueOf(claims.get(CLAIM_TOKEN_TYPE, String.class));
+        String branch = claims.get(CLAIM_BRANCH, String.class);
+        String grade  = claims.get(CLAIM_GRADE,  String.class);
 
-        return new JwtClaims(customerId, email, roles != null ? roles : List.of(), tokenType);
+        return new JwtClaims(customerId, email, roles != null ? roles : List.of(), tokenType, branch, grade);
     }
 
     /**
