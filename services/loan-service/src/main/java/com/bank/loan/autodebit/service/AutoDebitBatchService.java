@@ -59,7 +59,9 @@ public class AutoDebitBatchService {
 
     private static final Logger log = LoggerFactory.getLogger(AutoDebitBatchService.class);
 
-    private static final String CHANNEL_AUTO_DEBIT = "AUTO_DEBIT";
+    // payment-service channel CHECK: WEB/MOBILE/BRANCH/ATM/OPEN_BANKING/INBOUND
+    // 자동이체 = INBOUND (은행 내부 시스템 발신)
+    private static final String CHANNEL_AUTO_DEBIT = "INBOUND";
 
     private final RepaymentScheduleRepository scheduleRepository;
     private final RepaymentAccountRepository repaymentAccountRepository;
