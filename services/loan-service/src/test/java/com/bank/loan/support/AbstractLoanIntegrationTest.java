@@ -48,6 +48,7 @@ public abstract class AbstractLoanIntegrationTest {
     protected static final WireMockServer DOC_AGENT_MOCK;
     protected static final WireMockServer AUTO_REVIEW_MOCK;
     protected static final WireMockServer ADVISORY_MOCK;
+    protected static final WireMockServer PAYMENT_MOCK;
 
     static {
         POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16");
@@ -75,6 +76,18 @@ public abstract class AbstractLoanIntegrationTest {
                 .willReturn(WireMock.aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("[]")));
+
+        // 기본 stub: POST /api/v1/payments → COMPLETED
+        // 개별 테스트에서 priority=1 스텁으로 특정 X-Idempotency-Key 에 대해 FAILED 등을 오버라이드 가능
+        PAYMENT_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        PAYMENT_MOCK.start();
+        PAYMENT_MOCK.stubFor(WireMock.post(WireMock.urlEqualTo("/api/v1/payments"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"paymentInstructionId\":\"PI-TEST-001\"," +
+                                  "\"transactionNo\":\"TXN-TEST-001\"," +
+                                  "\"status\":\"COMPLETED\"," +
+                                  "\"failureCategory\":null}")));
     }
 
     @DynamicPropertySource
@@ -93,6 +106,7 @@ public abstract class AbstractLoanIntegrationTest {
         r.add("doc-agent.base-url", () -> "http://localhost:" + DOC_AGENT_MOCK.port());
         r.add("auto-review.base-url", () -> "http://localhost:" + AUTO_REVIEW_MOCK.port());
         r.add("advisory.service.base-url", () -> "http://localhost:" + ADVISORY_MOCK.port());
+        r.add("payment.url", () -> "http://localhost:" + PAYMENT_MOCK.port());
     }
 
     @Autowired private WebApplicationContext wac;
