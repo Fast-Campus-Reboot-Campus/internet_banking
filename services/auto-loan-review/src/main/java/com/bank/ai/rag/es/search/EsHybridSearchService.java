@@ -11,6 +11,7 @@ import com.bank.ai.metrics.AgentMetricsRecorder;
 import com.bank.ai.rag.embedding.EmbeddingClient;
 import com.bank.ai.rag.es.config.EsProperties;
 import com.bank.ai.rag.search.Chunk;
+import com.bank.ai.rag.search.RagSearchBackend;
 import com.bank.ai.rag.search.RagSearchProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +42,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "ai.rag", name = "backend", havingValue = "es")
-public class EsHybridSearchService {
+public class EsHybridSearchService implements RagSearchBackend {
 
     private final ElasticsearchClient esClient;
     private final EmbeddingClient embeddingClient;

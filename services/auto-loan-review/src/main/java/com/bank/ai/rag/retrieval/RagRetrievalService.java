@@ -3,8 +3,8 @@ package com.bank.ai.rag.retrieval;
 import com.bank.ai.agent.guard.AgentLoopGuard;
 import com.bank.ai.rag.RagProperties;
 import com.bank.ai.rag.search.Chunk;
+import com.bank.ai.rag.search.RagSearchBackend;
 import com.bank.ai.rag.search.RagSearchProperties;
-import com.bank.ai.rag.search.RagSearchService;
 import com.bank.ai.rule.domain.Track;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +30,7 @@ public class RagRetrievalService {
 
     static final String POLICY_CORPUS = "policy_regulation";
 
-    private final RagSearchService ragSearchService;
+    private final RagSearchBackend ragSearchBackend;
     private final RagSearchProperties searchProps;
     private final RagProperties ragProps;
 
@@ -59,7 +59,7 @@ public class RagRetrievalService {
                 log.warn("RagRetrievalService: LOOP_GUARD_HIT before policy search track={}", track);
                 return result;
             }
-            var chunks = ragSearchService.search(
+            var chunks = ragSearchBackend.search(
                     POLICY_CORPUS, policyQuery, null, searchProps.defaultK());
             result.addAll(chunks);
             log.debug("RagRetrievalService: policy search track={} hits={}", track, chunks.size());
