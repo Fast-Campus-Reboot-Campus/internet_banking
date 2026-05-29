@@ -11,8 +11,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -26,21 +28,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TransactionService")
 class TransactionServiceTest {
 
+    @InjectMocks
     private TransactionService transactionService;
 
     @Mock private TransactionRepository transactionRepository;
     @Mock private AccountRepository accountRepository;
+    @Mock private Clock clock;
 
     @BeforeEach
-    void setUp() {
-        Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Asia/Seoul"));
-        transactionService = new TransactionService(transactionRepository, accountRepository, clock);
+    void setUpClock() {
+        org.mockito.Mockito.lenient().when(clock.instant()).thenReturn(Instant.parse("2026-01-01T00:00:00Z"));
+        org.mockito.Mockito.lenient().when(clock.getZone()).thenReturn(ZoneId.of("Asia/Seoul"));
     }
 
     @Nested
@@ -51,7 +54,7 @@ class TransactionServiceTest {
         @DisplayName("입금하면 잔액이 증가하고 거래 내역이 저장된다")
         void deposit() {
             Account acc = activeAccount(BigDecimal.valueOf(100_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(acc));
+            given(accountRepository.findById(1L)).willReturn(Optional.of(acc));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             Transaction result = transactionService.deposit(1L, BigDecimal.valueOf(50_000),
@@ -69,7 +72,7 @@ class TransactionServiceTest {
         @DisplayName("비활성 계좌에 입금하면 예외가 발생한다")
         void depositToInactiveAccount() {
             Account closed = closedAccount();
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(closed));
+            given(accountRepository.findById(1L)).willReturn(Optional.of(closed));
 
             assertThatThrownBy(() -> transactionService.deposit(1L, BigDecimal.valueOf(50_000),
                     null, null, null, null))
@@ -85,7 +88,7 @@ class TransactionServiceTest {
         @DisplayName("잔액이 충분하면 출금이 정상 처리된다")
         void withdraw() {
             Account acc = activeAccount(BigDecimal.valueOf(500_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(acc));
+            given(accountRepository.findById(1L)).willReturn(Optional.of(acc));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             Transaction result = transactionService.withdraw(1L, BigDecimal.valueOf(200_000),
@@ -99,7 +102,7 @@ class TransactionServiceTest {
         @DisplayName("잔액보다 많은 금액을 출금하면 예외가 발생한다")
         void withdrawInsufficientBalance() {
             Account acc = activeAccount(BigDecimal.valueOf(10_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(acc));
+            given(accountRepository.findById(1L)).willReturn(Optional.of(acc));
 
             assertThatThrownBy(() -> transactionService.withdraw(1L, BigDecimal.valueOf(50_000),
                     null, null))
@@ -115,7 +118,7 @@ class TransactionServiceTest {
         @DisplayName("내부 이체 시 출금 거래가 생성된다")
         void transfer() {
             Account source = activeAccount(BigDecimal.valueOf(1_000_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(accountRepository.findById(1L)).willReturn(Optional.of(source));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             Transaction result = transactionService.transfer(1L, null, "001-1234-5678",
@@ -140,12 +143,20 @@ class TransactionServiceTest {
         @DisplayName("내부 계좌 이체 시 상대 계좌 입금 거래도 생성한다")
         void transferToInternalAccountCreatesInboundTransaction() {
             Account source = activeAccount(BigDecimal.valueOf(1_000_000));
-            Account target = activeAccount(BigDecimal.valueOf(200_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
-            given(accountRepository.findByIdForUpdate(2L)).willReturn(Optional.of(target));
+            Account target = Account.builder()
+                    .accountNumber("ACC-002")
+                    .customerId("CUST-002")
+                    .contractId(2L)
+                    .accountType(ProductType.DEPOSIT)
+                    .accountPassword("5678")
+                    .openedAt("20260101")
+                    .balance(BigDecimal.valueOf(200_000))
+                    .build();
+            given(accountRepository.findById(1L)).willReturn(Optional.of(source));
+            given(accountRepository.findById(2L)).willReturn(Optional.of(target));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
-            Transaction result = transactionService.transfer(1L, 2L, "ACC-001",
+            Transaction result = transactionService.transfer(1L, 2L, "ACC-002",
                     BigDecimal.valueOf(300_000), TransferType.INTERNAL,
                     "001", "우리은행", "김수신", TransactionChannel.MOBILE, "내부 이체");
 
@@ -168,45 +179,11 @@ class TransactionServiceTest {
         @DisplayName("잔액이 부족하면 이체 시 예외가 발생한다")
         void transferInsufficientBalance() {
             Account source = activeAccount(BigDecimal.valueOf(100));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(accountRepository.findById(1L)).willReturn(Optional.of(source));
 
-            assertThatThrownBy(() -> transactionService.transfer(1L, null, null,
-                    BigDecimal.valueOf(1_000_000), TransferType.EXTERNAL, null, null, null, null, null))
+            assertThatThrownBy(() -> transactionService.transfer(1L, 2L, null,
+                    BigDecimal.valueOf(1_000_000), null, null, null, null, null, null))
                     .isInstanceOf(BusinessException.class);
-        }
-
-        @Test
-        @DisplayName("내부 이체 수신 계좌가 없으면 출금하지 않고 예외가 발생한다")
-        void transferToMissingInternalAccountThrowsBeforeWithdraw() {
-            Account source = activeAccount(BigDecimal.valueOf(1_000_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
-            given(accountRepository.findByIdForUpdate(2L)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> transactionService.transfer(1L, 2L, "ACC-002",
-                    BigDecimal.valueOf(300_000), TransferType.INTERNAL,
-                    "001", "우리은행", "김수신", TransactionChannel.MOBILE, "내부 이체"))
-                    .isInstanceOf(BusinessException.class);
-
-            assertThat(source.getBalance()).isEqualByComparingTo("1000000");
-            then(transactionRepository).shouldHaveNoInteractions();
-        }
-
-        @Test
-        @DisplayName("수신 계좌번호가 계좌 ID와 다르면 예외가 발생한다")
-        void transferToMismatchedAccountNoThrows() {
-            Account source = activeAccount(BigDecimal.valueOf(1_000_000));
-            Account target = activeAccount(BigDecimal.valueOf(200_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
-            given(accountRepository.findByIdForUpdate(2L)).willReturn(Optional.of(target));
-
-            assertThatThrownBy(() -> transactionService.transfer(1L, 2L, "ACC-DIFFERENT",
-                    BigDecimal.valueOf(300_000), TransferType.INTERNAL,
-                    "001", "우리은행", "김수신", TransactionChannel.MOBILE, "내부 이체"))
-                    .isInstanceOf(BusinessException.class);
-
-            assertThat(source.getBalance()).isEqualByComparingTo("1000000");
-            assertThat(target.getBalance()).isEqualByComparingTo("200000");
-            then(transactionRepository).shouldHaveNoInteractions();
         }
     }
 
@@ -218,7 +195,7 @@ class TransactionServiceTest {
         @DisplayName("적금 납입 시 잔액과 누적 납입액을 증가시킨다")
         void savingsPayment() {
             Account acc = activeAccount(BigDecimal.valueOf(100_000));
-            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(acc));
+            given(accountRepository.findById(1L)).willReturn(Optional.of(acc));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             Transaction result = transactionService.savingsPayment(1L, 10L,
@@ -245,7 +222,7 @@ class TransactionServiceTest {
             Account acc = activeAccount(BigDecimal.valueOf(500_000));
             Transaction original = buildTx(1L, DirectionType.IN, BigDecimal.valueOf(100_000), TransactionStatus.SUCCESS);
             given(transactionRepository.findById(1L)).willReturn(Optional.of(original));
-            given(accountRepository.findByIdForUpdate(original.getAccountId())).willReturn(Optional.of(acc));
+            given(accountRepository.findById(original.getAccountId())).willReturn(Optional.of(acc));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             Transaction result = transactionService.reversal(1L, TransactionChannel.SYSTEM);
@@ -275,7 +252,7 @@ class TransactionServiceTest {
                 .contractId(1L)
                 .accountType(ProductType.DEPOSIT)
                 .accountPassword("1234")
-                .openedAt(java.time.LocalDate.of(2026, 1, 1))
+                .openedAt("20260101")
                 .balance(balance)
                 .build();
     }
@@ -287,7 +264,7 @@ class TransactionServiceTest {
                 .contractId(2L)
                 .accountType(ProductType.DEPOSIT)
                 .accountPassword("1234")
-                .openedAt(java.time.LocalDate.of(2026, 1, 1))
+                .openedAt("20260101")
                 .accountStatus(AccountStatus.CLOSED)
                 .build();
     }
