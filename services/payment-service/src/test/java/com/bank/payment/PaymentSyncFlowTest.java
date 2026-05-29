@@ -85,6 +85,18 @@ class PaymentSyncFlowTest extends AbstractPaymentIntegrationTest {
                 "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?",
                 Integer.class, piId);
         assertThat(ledgerCount).isEqualTo(0);
+
+        String prevStatusSelf = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'BALANCE_CHECK_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusSelf).isEqualTo("DRAFT");
+
+        String prevStatusFailed = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusFailed).isEqualTo("DRAFT");
     }
 
     @Test
@@ -114,5 +126,11 @@ class PaymentSyncFlowTest extends AbstractPaymentIntegrationTest {
                 "WHERE payment_instruction_id = ? AND event_type = 'ACCOUNT_CHECK_FAILED'",
                 Integer.class, piId);
         assertThat(eventCount).isEqualTo(1);
+
+        String prevStatusFailed = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusFailed).isEqualTo("DRAFT");
     }
 }

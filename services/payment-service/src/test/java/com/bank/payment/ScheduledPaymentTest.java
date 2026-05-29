@@ -2,7 +2,9 @@ package com.bank.payment;
 
 import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.domain.mapper.PaymentInstructionMapper;
+import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.bank.payment.domain.service.PaymentTransactionService;
+import com.bank.payment.scheduler.ScheduledPaymentWorker;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +36,8 @@ class ScheduledPaymentTest extends AbstractPaymentIntegrationTest {
 
     @Autowired private PaymentTransactionService txService;
     @Autowired private PaymentInstructionMapper paymentInstructionMapper;
+    @Autowired private PaymentOrchestrator orchestrator;
+    @Autowired private ScheduledPaymentWorker scheduledPaymentWorker;
 
     private static final String BANK_CODE_A      = "004";
     private static final String SENDER_S1        = "12345678901234";
@@ -179,6 +183,12 @@ class ScheduledPaymentTest extends AbstractPaymentIntegrationTest {
                 "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?",
                 Integer.class, piId);
         assertThat(ledgerCount).isZero();
+
+        String prevStatusFailed = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusFailed).isEqualTo("DRAFT");
     }
 
     // ── claim 단계 테스트 (단계 2) ─────────────────────────────────────────
@@ -310,5 +320,128 @@ class ScheduledPaymentTest extends AbstractPaymentIntegrationTest {
                 "SELECT status FROM payment_instruction WHERE payment_instruction_id = ?",
                 String.class, piId);
         assertThat(status).isEqualTo("SCHEDULED");
+    }
+
+    // ── 실행 단계 테스트 (단계 3) ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("sched_execute_intra_completed — 자행 예약 정상 실행 e2e: COMPLETED, ledger 2건, outbox 1건, 이력 시퀀스")
+    void sched_execute_intra_completed() throws Exception {
+        // 1. 예약 등록 (SCHEDULED)
+        String piId = registerScheduled("SCHED-EXEC-001-1", "USER-EXEC-001", "AUTH-EXEC-001",
+                LocalDateTime.now().plusHours(1));
+
+        // 2. scheduled_execution_at 과거로 설정 → 워커 폴링 대상
+        jdbc.update("UPDATE payment_instruction SET scheduled_execution_at = ? " +
+                    "WHERE payment_instruction_id = ?",
+                LocalDateTime.now().minusMinutes(1), piId);
+
+        // 3. selectDueScheduled → pi 획득 (version=V, DB=V)
+        PaymentInstruction pi = paymentInstructionMapper.selectDueScheduled().stream()
+                .filter(p -> piId.equals(p.getPaymentInstructionId()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("selectDueScheduled 에 PI 없음: " + piId));
+        int versionAtScheduled = pi.getVersion();
+        String snapBeforeExecution = pi.getReceiverHolderNameSnap(); // 등록 시 박제값 — 실행 후에도 불변 확인용
+
+        // 4. claim (SCHEDULED→PROCESSING, DB version=V+1)
+        boolean claimed = txService.claimScheduled(pi);
+        assertThat(claimed).isTrue();
+
+        // 5. executeScheduledIntraBank (정상 실행 경로)
+        orchestrator.executeScheduledIntraBank(pi);
+
+        // ── 단언 ──
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT status, version, completed_at, receiver_holder_name_snap " +
+                "FROM payment_instruction WHERE payment_instruction_id = ?", piId);
+
+        // status=COMPLETED
+        assertThat(row.get("status")).isEqualTo("COMPLETED");
+
+        // version = 등록후(V) + claim(+1) + COMPLETED(+1) = V+2
+        assertThat(((Number) row.get("version")).intValue()).isEqualTo(versionAtScheduled + 2);
+
+        // completed_at 세팅됨
+        assertThat(row.get("completed_at")).isNotNull();
+
+        // receiver_holder_name_snap 보존 — 실행 후에도 등록 시점 값과 동일 (재조회/덮어쓰기 없음)
+        assertThat(row.get("receiver_holder_name_snap")).isNotNull();
+        assertThat(row.get("receiver_holder_name_snap")).isEqualTo(snapBeforeExecution);
+
+        // 실행 경로 external_call 에 ACCOUNT_OWNER_INQUIRY-RECEIVER attempt=2 가 없음
+        // (sender 만 attempt=2 재검증, receiver 재조회 없음 — Option B)
+        int receiverOwnerInquiry2Count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM external_call " +
+                "WHERE call_idempotency_key = ?",
+                Integer.class, piId + "-ACCOUNT_OWNER_INQUIRY-RECEIVER-2");
+        assertThat(receiverOwnerInquiry2Count).isZero();
+
+        // ledger 2건 (TRANSFER_OUT + TRANSFER_IN)
+        int ledgerCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?",
+                Integer.class, piId);
+        assertThat(ledgerCount).isEqualTo(2);
+
+        int outCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger " +
+                "WHERE payment_instruction_id = ? AND journal_type = 'TRANSFER_OUT'",
+                Integer.class, piId);
+        assertThat(outCount).isEqualTo(1);
+
+        int inCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger " +
+                "WHERE payment_instruction_id = ? AND journal_type = 'TRANSFER_IN'",
+                Integer.class, piId);
+        assertThat(inCount).isEqualTo(1);
+
+        // outbox PAYMENT_COMPLETED 1건
+        int outboxCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_message " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_COMPLETED'",
+                Integer.class, piId);
+        assertThat(outboxCount).isEqualTo(1);
+
+        // 이력 시퀀스: SCHEDULED_TRIGGERED → PROCESSING_STARTED → PAYMENT_COMPLETED
+        List<String> events = jdbc.queryForList(
+                "SELECT event_type FROM status_history " +
+                "WHERE payment_instruction_id = ? " +
+                "ORDER BY sequence_in_payment ASC", String.class, piId);
+        int trigIdx  = events.indexOf("SCHEDULED_TRIGGERED");
+        int startIdx = events.indexOf("PROCESSING_STARTED");
+        int compIdx  = events.indexOf("PAYMENT_COMPLETED");
+        assertThat(trigIdx).isGreaterThanOrEqualTo(0);
+        assertThat(startIdx).isGreaterThan(trigIdx);
+        assertThat(compIdx).isGreaterThan(startIdx);
+
+        // PROCESSING_STARTED 정확히 1건
+        long procStartedCount = events.stream()
+                .filter("PROCESSING_STARTED"::equals).count();
+        assertThat(procStartedCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("sched_worker_intra_completed — 워커 triggerDueScheduled 직접 호출 → COMPLETED (배선 확인)")
+    void sched_worker_intra_completed() throws Exception {
+        // 1. 예약 등록 후 과거 시각 설정
+        String piId = registerScheduled("SCHED-WRK-001-1", "USER-WRK-001", "AUTH-WRK-001",
+                LocalDateTime.now().plusHours(1));
+        jdbc.update("UPDATE payment_instruction SET scheduled_execution_at = ? " +
+                    "WHERE payment_instruction_id = ?",
+                LocalDateTime.now().minusMinutes(1), piId);
+
+        // 2. 워커 폴링 1회 직접 호출 (claim + executeScheduledIntraBank 배선 검증)
+        scheduledPaymentWorker.triggerDueScheduled();
+
+        // 3. COMPLETED 검증
+        String status = jdbc.queryForObject(
+                "SELECT status FROM payment_instruction WHERE payment_instruction_id = ?",
+                String.class, piId);
+        assertThat(status).isEqualTo("COMPLETED");
+
+        int ledgerCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?",
+                Integer.class, piId);
+        assertThat(ledgerCount).isEqualTo(2);
     }
 }
