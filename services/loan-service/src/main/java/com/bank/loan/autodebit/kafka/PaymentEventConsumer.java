@@ -41,15 +41,14 @@ public class PaymentEventConsumer {
             String status = node.path("status").asText("");
 
             // piId 없음(역분개 등 다른 스키마) 또는 status 없음(KFTC_SETTLED/BOK_CONFIRMED) → 무시
+            // (ack 는 finally 에서 일괄 처리)
             if (piId.isBlank() || status.isBlank()) {
-                ack.acknowledge();
                 return;
             }
 
             boolean completed = "COMPLETED".equals(status);
             boolean failed = "FAILED".equals(status);
             if (!completed && !failed) {
-                ack.acknowledge();
                 return;
             }
 
