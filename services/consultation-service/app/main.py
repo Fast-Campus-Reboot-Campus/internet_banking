@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -33,6 +34,8 @@ from app.schemas import (
     ChatbotMessageResponse,
     ChatbotStartRequest,
     ChatbotStartResponse,
+    ChatbotTransferRequest,
+    ChatbotTransferResponse,
     ChatConsultationResponse,
     ChatEndRequest,
     ChatMessageHistoryResponse,
@@ -203,9 +206,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 
+_origins = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:3001",
+    ).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -332,6 +343,14 @@ async def send_chatbot_message(
         return response
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/chatbot/transfer", response_model=ChatbotTransferResponse)
+def chatbot_transfer(
+    request: ChatbotTransferRequest,
+    service: ChatbotService = Depends(get_chatbot_service),
+) -> ChatbotTransferResponse:
+    return service.execute_transfer(request)
 
 
 # ── 상담사 채팅 ───────────────────────────────────────────────────────────────

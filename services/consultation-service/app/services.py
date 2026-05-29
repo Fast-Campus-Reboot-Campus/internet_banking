@@ -29,6 +29,8 @@ from app.schemas import (
     ChatbotFeatureResponse,
     ChatbotMessageResponse,
     ChatbotStartResponse,
+    ChatbotTransferRequest,
+    ChatbotTransferResponse,
 )
 
 CODE_RECEPTION_METHOD_CHATBOT = 1
@@ -373,6 +375,14 @@ class ChatbotService:
                 api_status="AUTH_REQUIRED",
             ),
             ChatbotFeatureResponse(
+                code="MY_TRANSFERS",
+                category_code="USER_FINANCE",
+                name="최근 이체 내역",
+                summary="고객 본인의 최근 이체 거래 내역을 조회합니다.",
+                sample_questions=["이체 내역 보여줘", "최근 이체 확인해줘"],
+                api_status="AUTH_REQUIRED",
+            ),
+            ChatbotFeatureResponse(
                 code="CASH_FLOW_RECOMMEND",
                 category_code="USER_FINANCE",
                 name="현금흐름 분석 기반 상품 추천",
@@ -460,6 +470,7 @@ class ChatbotService:
             "MATURITY_SCHEDULE": self._execute_maturity_schedule,
             "INTEREST_HISTORY": self._execute_interest_history,
             "MY_CASH_FLOW": self._execute_my_cash_flow,
+            "MY_TRANSFERS": self._execute_my_transfers,
             "CASH_FLOW_RECOMMEND": self._execute_cash_flow_recommend,
             "STAFF_CASH_FLOW": self._execute_staff_cash_flow,
             "STAFF_CUSTOMER": self._execute_staff_customer,
@@ -794,6 +805,155 @@ class ChatbotService:
         return self._data_response(
             "MY_CASH_FLOW", rows, "현금 흐름 조회를 완료했습니다.", "조회된 거래 내역이 없습니다.", requires_auth=True
         )
+
+    def _execute_my_transfers(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("MY_TRANSFERS", "이체 내역 조회에는 고객번호가 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT t.transaction_id,
+                   a.account_number,
+                   t.transaction_type,
+                   t.amount,
+                   t.status AS transaction_status,
+                   t.created_at
+              FROM deposit_transactions t
+              JOIN deposit_accounts a ON a.account_id = t.account_id
+             WHERE a.customer_id = :customer_no
+               AND t.transaction_type = 'TRANSFER'
+             ORDER BY t.transaction_id DESC
+             LIMIT 10
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "MY_TRANSFERS", rows, "최근 이체 내역입니다.", "조회된 이체 내역이 없습니다.", requires_auth=True
+        )
+
+    def execute_transfer(self, req: ChatbotTransferRequest) -> ChatbotTransferResponse:
+        try:
+            # 출금 계좌 검증
+            src = self.db.execute(
+                text("SELECT account_id, account_number, balance, is_withdrawable FROM deposit_accounts WHERE account_id = :aid AND customer_id = :cno"),
+                {"aid": req.from_account_id, "cno": req.customer_no},
+            ).mappings().first()
+            if not src:
+                return ChatbotTransferResponse(status="ERROR", message="출금 계좌를 찾을 수 없습니다.")
+            if not src["is_withdrawable"]:
+                return ChatbotTransferResponse(status="ERROR", message="출금이 불가능한 계좌입니다.")
+            if src["balance"] < req.amount:
+                return ChatbotTransferResponse(status="ERROR", message=f"잔액이 부족합니다. (현재 잔액: {int(src['balance']):,}원)")
+            if req.amount <= 0:
+                return ChatbotTransferResponse(status="ERROR", message="이체 금액은 0원보다 커야 합니다.")
+
+            # 수취 계좌 조회
+            dst = self.db.execute(
+                text("SELECT account_id, account_number, customer_id FROM deposit_accounts WHERE account_number = :ano AND account_status = 'ACTIVE'"),
+                {"ano": req.to_account_number},
+            ).mappings().first()
+            if not dst:
+                return ChatbotTransferResponse(status="ERROR", message="수취 계좌를 찾을 수 없습니다.")
+            if dst["account_id"] == req.from_account_id:
+                return ChatbotTransferResponse(status="ERROR", message="출금 계좌와 수취 계좌가 동일합니다.")
+
+            now = datetime.now(timezone.utc)
+            tx_no = f"TXN{now.strftime('%Y%m%d%H%M%S')}{req.from_account_id}"
+
+            # 출금 트랜잭션
+            src_balance_after = int(src["balance"]) - req.amount
+            result = self.db.execute(
+                text("""
+                    INSERT INTO deposit_transactions
+                        (transaction_number, account_id, transaction_type, direction_type,
+                         amount, balance_before, balance_after, available_balance_after,
+                         fee_amount, currency, status, channel_type,
+                         transaction_memo, transaction_summary, transaction_at,
+                         counterparty_account_no, counterparty_account_id,
+                         counterparty_customer_id, created_at, updated_at)
+                    VALUES
+                        (:tx_no, :account_id, 'TRANSFER', 'OUT',
+                         :amount, :bal_before, :bal_after, :bal_after,
+                         0, 'W', 'SUCCESS', 'CHATBOT',
+                         :memo, :summary, :now,
+                         :to_acc_no, :to_acc_id,
+                         :to_cust_id, :now, :now)
+                    RETURNING transaction_id
+                """),
+                {
+                    "tx_no": tx_no + "_OUT",
+                    "account_id": req.from_account_id,
+                    "amount": req.amount,
+                    "bal_before": int(src["balance"]),
+                    "bal_after": src_balance_after,
+                    "memo": req.memo,
+                    "summary": f"{req.to_account_number}으로 이체",
+                    "now": now,
+                    "to_acc_no": dst["account_number"],
+                    "to_acc_id": dst["account_id"],
+                    "to_cust_id": dst["customer_id"],
+                },
+            )
+            transaction_id = result.scalar()
+
+            # 수취 트랜잭션
+            dst_balance = self.db.execute(
+                text("SELECT balance FROM deposit_accounts WHERE account_id = :aid"),
+                {"aid": dst["account_id"]},
+            ).scalar() or 0
+            dst_balance_after = int(dst_balance) + req.amount
+            self.db.execute(
+                text("""
+                    INSERT INTO deposit_transactions
+                        (transaction_number, account_id, transaction_type, direction_type,
+                         amount, balance_before, balance_after, available_balance_after,
+                         fee_amount, currency, status, channel_type,
+                         transaction_memo, transaction_summary, transaction_at,
+                         counterparty_account_no, counterparty_account_id,
+                         counterparty_customer_id, created_at, updated_at)
+                    VALUES
+                        (:tx_no, :account_id, 'TRANSFER', 'IN',
+                         :amount, :bal_before, :bal_after, :bal_after,
+                         0, 'W', 'SUCCESS', 'CHATBOT',
+                         :memo, :summary, :now,
+                         :from_acc_no, :from_acc_id,
+                         :cno, :now, :now)
+                """),
+                {
+                    "tx_no": tx_no + "_IN",
+                    "account_id": dst["account_id"],
+                    "amount": req.amount,
+                    "bal_before": int(dst_balance),
+                    "bal_after": dst_balance_after,
+                    "memo": req.memo,
+                    "summary": f"{src['account_number']}에서 이체",
+                    "now": now,
+                    "from_acc_no": src["account_number"],
+                    "from_acc_id": req.from_account_id,
+                    "cno": req.customer_no,
+                },
+            )
+
+            # 잔액 업데이트
+            self.db.execute(
+                text("UPDATE deposit_accounts SET balance = :bal, updated_at = :now WHERE account_id = :aid"),
+                {"bal": src_balance_after, "now": now, "aid": req.from_account_id},
+            )
+            self.db.execute(
+                text("UPDATE deposit_accounts SET balance = :bal, updated_at = :now WHERE account_id = :aid"),
+                {"bal": dst_balance_after, "now": now, "aid": dst["account_id"]},
+            )
+            self.db.commit()
+
+            return ChatbotTransferResponse(
+                status="OK",
+                message=f"{req.amount:,}원이 {req.to_account_number}으로 이체되었습니다.",
+                transaction_id=transaction_id,
+                balance_after=src_balance_after,
+            )
+        except Exception as exc:
+            self.db.rollback()
+            logger.exception("이체 처리 오류: %s", exc)
+            return ChatbotTransferResponse(status="ERROR", message="이체 처리 중 오류가 발생했습니다.")
 
     def _execute_cash_flow_recommend(
         self, request: ChatbotFeatureExecuteRequest
@@ -1243,20 +1403,28 @@ class ChatbotService:
     def _contract_rows(self, customer_no: str) -> list[dict[str, Any]]:
         return self._rows(
             """
-            SELECT c.contract_id,
+            SELECT a.account_id,
+                   a.account_number,
+                   a.account_type,
+                   a.account_status,
+                   a.balance,
+                   a.is_withdrawable,
+                   a.opened_at AS started_at,
+                   a.maturity_at,
+                   c.contract_id,
                    c.contract_number AS contract_no,
-                   c.customer_id AS customer_no,
-                   c.banking_product_id AS product_id,
-                   p.deposit_product_name AS product_name,
                    c.join_amount,
                    c.contract_interest_rate,
-                   c.started_at,
-                   c.maturity_at,
-                   c.contract_status
-              FROM deposit_contracts c
+                   c.contract_status,
+                   p.banking_product_id AS product_id,
+                   p.deposit_product_name AS product_name,
+                   p.deposit_product_type AS product_type
+              FROM deposit_accounts a
+              LEFT JOIN deposit_contracts c ON c.contract_id = a.contract_id
               LEFT JOIN deposit_banking_products p ON p.banking_product_id = c.banking_product_id
-             WHERE c.customer_id = :customer_no
-             ORDER BY c.contract_id
+             WHERE a.customer_id = :customer_no
+               AND a.account_status != 'CLOSED'
+             ORDER BY a.account_id
              LIMIT 20
             """,
             {"customer_no": customer_no},

@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,7 @@ public class ContractService {
     private final ProductRepository productRepository;
     private final ContractAppliedRateRepository appliedRateRepository;
     private final ContractSpecialTermAgreementRepository agreementRepository;
+    private final TransactionRepository transactionRepository;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
 
@@ -137,9 +139,61 @@ public class ContractService {
             throw new BusinessException(ErrorCode.INVALID_STATUS, "활성 계약만 해지할 수 있습니다.");
         }
         LocalDate today = LocalDate.now(clock);
+        OffsetDateTime now = OffsetDateTime.now(clock);
         contract.terminate(today, reason);
-        accountRepository.findByContractId(id)
-                .ifPresent(account -> account.changeStatus(AccountStatus.CLOSED, today));
+
+        accountRepository.findByContractId(id).ifPresent(savingsAccount -> {
+            BigDecimal terminationAmount = savingsAccount.getBalance();
+
+            if (terminationAmount.compareTo(BigDecimal.ZERO) > 0) {
+                // 해지 잔액 출금 트랜잭션
+                BigDecimal beforeBalance = savingsAccount.getBalance();
+                savingsAccount.withdraw(terminationAmount);
+                transactionRepository.save(Transaction.builder()
+                        .transactionNumber("TRM-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16))
+                        .accountId(savingsAccount.getAccountId())
+                        .contractId(id)
+                        .transactionType(TransactionType.WITHDRAW)
+                        .directionType(DirectionType.OUT)
+                        .amount(terminationAmount)
+                        .balanceBefore(beforeBalance)
+                        .balanceAfter(savingsAccount.getBalance())
+                        .availableBalanceAfter(savingsAccount.getBalance())
+                        .channelType(TransactionChannel.INTERNET)
+                        .transactionAt(now)
+                        .postedAt(now)
+                        .transactionSummary("해지 출금")
+                        .build());
+
+                // 고객의 DEPOSIT 타입 입출금 계좌로 입금
+                accountRepository.findByCustomerIdAndAccountStatus(contract.getCustomerId(), AccountStatus.ACTIVE)
+                        .stream()
+                        .filter(a -> a.getAccountType() == ProductType.DEPOSIT && Boolean.TRUE.equals(a.getIsWithdrawable()))
+                        .findFirst()
+                        .ifPresent(depositAccount -> {
+                            BigDecimal depositBefore = depositAccount.getBalance();
+                            depositAccount.deposit(terminationAmount);
+                            transactionRepository.save(Transaction.builder()
+                                    .transactionNumber("TRM-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16))
+                                    .accountId(depositAccount.getAccountId())
+                                    .transactionType(TransactionType.DEPOSIT)
+                                    .directionType(DirectionType.IN)
+                                    .amount(terminationAmount)
+                                    .balanceBefore(depositBefore)
+                                    .balanceAfter(depositAccount.getBalance())
+                                    .availableBalanceAfter(depositAccount.getBalance())
+                                    .channelType(TransactionChannel.SYSTEM)
+                                    .transactionAt(now)
+                                    .postedAt(now)
+                                    .transactionSummary("해지 입금")
+                                    .counterpartyAccountId(savingsAccount.getAccountId())
+                                    .build());
+                        });
+            }
+
+            savingsAccount.changeStatus(AccountStatus.CLOSED, today);
+        });
+
         return contract;
     }
 

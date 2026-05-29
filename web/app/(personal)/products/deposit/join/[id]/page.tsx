@@ -236,7 +236,7 @@ export default function DepositJoinPage() {
       if (!enlistDate) { alert('입대일을 입력해주세요.'); return }
       if (!dischargeDate) { alert('전역예정일을 입력해주세요.'); return }
     }
-    if (!isChecking) {
+    {
       const m = parseInt(period)
       if (!m || m < periodRange.min || m > periodRange.max) {
         alert(`가입기간을 올바르게 입력해주세요. (${periodRange.label})`)
@@ -503,8 +503,8 @@ export default function DepositJoinPage() {
                   </>
                 )}
 
-                {/* 가입기간 - 입출금 상품은 숨김 */}
-                {!isChecking && (
+                {/* 가입기간 */}
+                {true && (
                   <FormRow label="가입기간">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-[12px] text-kb-text-muted mr-2">{periodRange.label}</p>
