@@ -5,12 +5,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
-import { executeChatbotTransfer } from '@/lib/consultation-api'
-import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 
 type PendingTransfer = {
-  fromAccountId?: number
-  fromAccountViewId?: string
   fromNumber: string
   fromName: string
   toBank: string
@@ -51,26 +47,8 @@ export default function TransferConfirmPage() {
       const next = [...pin, key]
       setPin(next)
       if (next.length === 6) {
-        setTimeout(async () => {
+        setTimeout(() => {
           setShowCertModal(false)
-          if (data) {
-            try {
-              const customerId = getCurrentDepositCustomerId()
-              const fromAccountId = data.fromAccountId ?? (
-                await fetchDepositAccountViewModels(customerId)
-              ).find(a => a.number === data.fromNumber || a.id === data.fromAccountViewId)?.apiAccountId
-
-              if (fromAccountId) {
-                await executeChatbotTransfer({
-                  customer_no: customerId,
-                  from_account_id: fromAccountId,
-                  to_account_number: data.toAccount,
-                  amount: data.amount,
-                  memo: '인터넷이체',
-                })
-              }
-            } catch (e) { console.error('이체 실패:', e) }
-          }
           router.push('/transfer/result')
         }, 400)
       }
