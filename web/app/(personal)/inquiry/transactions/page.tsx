@@ -470,7 +470,7 @@ export default function TransactionsPage() {
                               {btn}
                             </button>
                           ))}
-                          <Link href={`/transfer/account?from=${selectedAcc.id}`}
+                          <Link href="/transfer/account"
                             className="bg-kb-yellow px-4 py-1 text-[12px] font-bold text-kb-text hover:brightness-95">
                             이체
                           </Link>

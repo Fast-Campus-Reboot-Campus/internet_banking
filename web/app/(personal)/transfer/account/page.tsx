@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { MOCK_BANKS, formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, DepositViewAccount, fetchTransactions, DepositTransaction } from '@/lib/deposit-api'
@@ -11,8 +11,6 @@ const AMOUNT_SHORTCUTS = ['100만', '50만', '10만', '5만', '1만', '전액', 
 
 export default function TransferAccountPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const requestedFromAccount = searchParams.get('from') || ''
   const [activeRecipientTab, setActiveRecipientTab] = useState('최근입금계좌')
   const [fromAccount, setFromAccount] = useState('')
   const [toBank, setToBank] = useState('AXful')
@@ -27,34 +25,14 @@ export default function TransferAccountPage() {
 
   useEffect(() => {
     async function loadAccounts() {
-      let loadedAccounts: DepositViewAccount[] = []
       try {
         const customerId = getCurrentDepositCustomerId()
         const accs = await fetchDepositAccountViewModels(customerId)
-        loadedAccounts = accs
         setAccounts(accs)
-        if (accs.length > 0) {
-          const requestedAccountKey = requestedFromAccount || fromAccount
-          const requestedAccount = accs.find(a =>
-            a.id === requestedAccountKey ||
-            a.number === requestedAccountKey ||
-            String(a.apiAccountId) === requestedAccountKey
-          )
-          if (requestedAccount?.type === '입출금') {
-            setFromAccount(requestedAccount.id)
-          } else if (!fromAccount && !requestedFromAccount) {
-            setFromAccount(accs[0].id)
-          }
+        if (accs.length > 0 && !fromAccount) {
+          setFromAccount(accs[0].id)
         }
-      } catch {
-        setAccounts([])
-      }
-      try {
-        const recentSourceAccount =
-          loadedAccounts.find(a => a.id === fromAccount) ?? loadedAccounts[0]
-        const firstAccId = recentSourceAccount?.apiAccountId
-        if (!firstAccId) return
-        const txs = await fetchTransactions({ accountId: firstAccId })
+        const txs = await fetchTransactions({ customerId })
         const seen = new Set<string>()
         const recent = txs
           .filter((t: DepositTransaction) => t.transactionType === 'TRANSFER' && t.directionType === 'OUT' && t.counterpartyAccountNo)
@@ -67,18 +45,14 @@ export default function TransferAccountPage() {
           }, [])
           .slice(0, 5)
         setRecentAccounts(recent)
-      } catch {}
+      } catch {
+        setAccounts([])
+      }
     }
     loadAccounts()
-  }, [fromAccount, requestedFromAccount])
+  }, [])
 
-  const transferableAccounts = accounts.filter(a => a.type === '입출금')
-  const fromAcc = transferableAccounts.find(a => a.id === fromAccount) ?? (requestedFromAccount ? undefined : transferableAccounts[0])
-  const isFromAccountLocked = Boolean(requestedFromAccount)
-  const withdrawalAccounts =
-    isFromAccountLocked && fromAcc
-      ? [fromAcc]
-      : transferableAccounts.filter(a => a.id === fromAccount || a.availableBalance > 0 || a.balance > 0)
+  const fromAcc = accounts.find(a => a.id === fromAccount) ?? accounts[0]
 
   function handleAmountShortcut(label: string) {
     const map: Record<string, number> = {
@@ -107,8 +81,6 @@ export default function TransferAccountPage() {
     if (!toAccount || amountNum === 0) return
     const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
     const data = {
-      fromAccountId: fromAcc?.apiAccountId,
-      fromAccountViewId: fromAcc?.id ?? '',
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
@@ -252,24 +224,15 @@ export default function TransferAccountPage() {
                   <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[140px] whitespace-nowrap">출금계좌번호</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      {isFromAccountLocked && fromAcc ? (
-                        <input
-                          type="text"
-                          readOnly
-                          value={`${fromAcc.number} (${fromAcc.name}) - ${fromAcc.balance.toLocaleString()}원`}
-                          className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px] bg-kb-beige-light"
-                        />
-                      ) : (
-                        <select
-                          value={fromAccount}
-                          onChange={e => setFromAccount(e.target.value)}
-                          className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px]"
-                        >
-                          {withdrawalAccounts.map(a => (
-                            <option key={a.id} value={a.id}>{a.number} ({a.name}) - {a.balance.toLocaleString()}원</option>
-                          ))}
-                        </select>
-                      )}
+                      <select
+                        value={fromAccount}
+                        onChange={e => setFromAccount(e.target.value)}
+                        className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px]"
+                      >
+                        {accounts.filter(a => a.availableBalance > 0 || a.balance > 0).map(a => (
+                          <option key={a.id} value={a.id}>{a.number}</option>
+                        ))}
+                      </select>
                       <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
                         출금가능금액
                       </button>

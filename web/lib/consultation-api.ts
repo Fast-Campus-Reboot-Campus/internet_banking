@@ -26,10 +26,6 @@ export type ChatbotFeatureExecuteRequest = {
   compare_product_ids?: number[]
   staff_id?: string
   chatbot_consultation_id?: number
-  amount?: number
-  period?: number
-  product_type?: string
-  purpose?: string
 }
 
 export type ChatbotFeatureExecuteResponse = {
