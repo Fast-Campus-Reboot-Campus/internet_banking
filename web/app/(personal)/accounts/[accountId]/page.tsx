@@ -9,6 +9,10 @@ import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, fetchTransa
 const DATE_PRESETS = ['1개월', '3개월', '6개월', '1년', '직접입력']
 const TX_TYPE_OPTS = ['전체', '입금', '출금']
 
+function canTransferFrom(account: DepositViewAccount) {
+  return account.type === '입출금'
+}
+
 export default function AccountDetailPage({ params }: { params: Promise<{ accountId: string }> }) {
   const { accountId } = use(params)
   const [account, setAccount] = useState<DepositViewAccount | null>(null)
@@ -116,9 +120,11 @@ export default function AccountDetailPage({ params }: { params: Promise<{ accoun
 
         {/* 계좌 액션 버튼 */}
         <div className="flex gap-2 mt-4 pt-4 border-t border-kb-border">
-          <Link href="/transfer/account" className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-white transition-colors">
-            이체
-          </Link>
+          {canTransferFrom(account) && (
+            <Link href={`/transfer/account?from=${account.id}`} className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-white transition-colors">
+              이체
+            </Link>
+          )}
           <button className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-white transition-colors">
             계좌관리
           </button>
