@@ -11,7 +11,9 @@ function LogoutContent() {
 
   useEffect(() => {
     localStorage.removeItem('access_token')
+    localStorage.removeItem('accessToken')
     localStorage.removeItem('user')
+    localStorage.removeItem('customerId')
   }, [])
 
   return (

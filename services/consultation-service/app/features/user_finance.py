@@ -108,13 +108,13 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
         # ── 1. 현금흐름 분석 ──────────────────────────────────────────────────
         cf = self._analyze_customer_cash_flow(request.customer_no)
         if cf is None:
-            return self._data_response(
-                "CASH_FLOW_RECOMMEND",
-                [],
-                "",
-                "등록된 계좌 정보가 없어 현금흐름 분석을 진행할 수 없습니다.",
-                requires_auth=True,
-            )
+            # 계좌 정보 없을 때 기본 현금흐름 값으로 대체
+            cf = {
+                "total_balance": 0,
+                "monthly_surplus": 0,
+                "monthly_tx_count": 0,
+                "has_data": False,
+            }
 
         # ── 2. 판매 중인 수신 상품 목록 (LLM 컨텍스트용) ──────────────────────
         products = self._rows(
@@ -158,17 +158,27 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
         else:
             recommendation = self._rule_based_recommend(cf, products)
 
+        # 상위 3개 상품을 recommended_product 형식으로 data에 포함
+        top3 = products[:3]
+        product_data = [
+            {
+                "row_type":          "recommended_product",
+                "rank":              i + 1,
+                "product_name":      p.get("deposit_product_name", ""),
+                "product_type":      p.get("deposit_product_type", ""),
+                "base_interest_rate": p.get("base_interest_rate"),
+                "min_period_month":  p.get("min_period_month"),
+                "max_period_month":  p.get("max_period_month"),
+                "target_groups":     "개인고객",
+            }
+            for i, p in enumerate(top3)
+        ]
+
         return ChatbotFeatureExecuteResponse(
             feature_code="CASH_FLOW_RECOMMEND",
             status="OK",
             message=recommendation,
-            data=[{
-                "total_balance":    cf["total_balance"],
-                "monthly_surplus":  cf["monthly_surplus"],
-                "monthly_tx_count": cf["monthly_tx_count"],
-                "has_data":         cf["has_data"],
-                "product_count":    len(products),
-            }],
+            data=product_data,
             requires_auth=True,
         )
 
@@ -182,12 +192,11 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
         monthly_surplus = float(cf.get("monthly_surplus", 0))
         has_data        = cf.get("has_data", False)
 
-        lines: list[str] = ["[현금흐름 분석 기반 상품 추천]\n"]
+        lines: list[str] = ["[상품 추천]\n"]
 
         if not has_data:
             lines.append(
-                "거래 내역이 부족해 정확한 패턴 분석이 어렵습니다. "
-                "아래 상품 목록을 참고해 주세요."
+                "현재 인기 있는 수신 상품을 순위대로 추천해 드립니다."
             )
         elif total_balance >= 10_000_000:
             lines.append(
@@ -220,11 +229,12 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
         ][:3]
 
         if top:
-            lines.append("\n[추천 상품]")
-            for p in top:
+            for i, p in enumerate(top, 1):
                 name = p.get("deposit_product_name") or p.get("product_name", "")
                 rate = p.get("base_interest_rate", "")
-                lines.append(f"- {name}: 기본금리 {rate}%")
+                ptype = p.get("deposit_product_type", "")
+                type_label = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}.get(ptype, ptype)
+                lines.append(f"{i}위. {name} ({type_label}) — 기본금리 {rate}%")
 
-        lines.append("\n더 자세한 상담은 '상담사 연결'을 이용해 주세요.")
+        lines.append("\n더 자세한 상담은 '상담원 연결'을 이용해 주세요.")
         return "\n".join(lines)

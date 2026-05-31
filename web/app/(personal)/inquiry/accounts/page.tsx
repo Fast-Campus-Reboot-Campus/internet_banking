@@ -90,14 +90,16 @@ function normalizeAccountType(account: Account): Account['type'] {
   return '예금'
 }
 
+function canTransferFrom(account: Account) {
+  return normalizeAccountType(account) === '입출금'
+}
+
 export default function AccountsPage() {
   const [activeTab, setActiveTab] = useState('예금')
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [mgmtOpen, setMgmtOpen] = useState<string | null>(null)
   const [userName, setUserName] = useState<string | null>(null)
   const [checkingOpen, setCheckingOpen] = useState(true)
-  const [savingsOpen, setSavingsOpen] = useState(true)
-  const [depositOpen, setDepositOpen] = useState(true)
   const [loanOpen, setLoanOpen] = useState(true)
   const [allDepOpen, setAllDepOpen] = useState(true)
   const [allFundOpen, setAllFundOpen] = useState(true)
@@ -158,9 +160,6 @@ export default function AccountsPage() {
     balance: account.balance + (accountOverrides[account.id] || 0),
     availableBalance: account.availableBalance + (accountOverrides[account.id] || 0),
   }))
-  const checkingAccounts  = allAccounts.filter(a => a.type === '입출금')
-  const savingsAccounts   = allAccounts.filter(a => a.type === '적금')
-  const pureDepositAccounts = allAccounts.filter(a => a.type === '예금' || a.type === '청약')
   const depositTabAccounts = allAccounts.filter(a => ['입출금', '적금', '예금', '청약'].includes(a.type))
   const depositTabBalance  = depositTabAccounts.reduce((s, a) => s + a.balance, 0)
   const depositTabCount    = depositTabAccounts.length
@@ -265,15 +264,15 @@ export default function AccountsPage() {
                 </button>
               </div>
 
-              {/* 입출금 섹션 */}
+              {/* 전체 계좌 섹션 */}
               <div className="mb-6">
                 <SectionHeader
-                  dotColor="bg-orange-400" label="입출금"
-                  count={checkingAccounts.length}
-                  balance={bal(checkingAccounts.reduce((s, a) => s + a.balance, 0))}
+                  dotColor="bg-orange-400" label="예금"
+                  count={depositTabAccounts.length}
+                  balance={bal(depositTabBalance)}
                   open={checkingOpen} onToggle={() => setCheckingOpen(v => !v)}
                 />
-                {checkingOpen && checkingAccounts.map((account) => (
+                {checkingOpen && depositTabAccounts.map((account) => (
                   <div key={account.id} className="border border-[#D5D5D5] rounded-lg p-5 mb-3 bg-white">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
@@ -299,12 +298,14 @@ export default function AccountsPage() {
                             className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">
                             조회
                           </Link>
-                          <Link href="/transfer/account"
-                            className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">
-                            이체
-                          </Link>
+                          {canTransferFrom(account) && (
+                            <Link href={`/transfer/account?from=${account.id}`}
+                              className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">
+                              이체
+                            </Link>
+                          )}
                         </div>
-                        <div className="relative">
+                        <div className="relative mb-1">
                           <button
                             onClick={() => setMgmtOpen(mgmtOpen === account.id ? null : account.id)}
                             className="w-full border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center"
@@ -322,109 +323,16 @@ export default function AccountsPage() {
                             </div>
                           )}
                         </div>
+                        <Link href={`/products/deposit/inquiry/terminate?accountId=${account.apiAccountId ?? account.id}`}
+                          className="block w-full border border-[#E05555] px-3 py-1.5 text-[12px] text-[#E05555] hover:bg-red-50 text-center">
+                          해지
+                        </Link>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* 적금 섹션 */}
-              <div className="mb-6">
-                <SectionHeader
-                  dotColor="bg-blue-400" label="적금"
-                  count={savingsAccounts.length}
-                  balance={bal(savingsAccounts.reduce((s, a) => s + a.balance, 0))}
-                  open={savingsOpen} onToggle={() => setSavingsOpen(v => !v)}
-                />
-                {savingsOpen && (
-                  savingsAccounts.length === 0 ? (
-                    <EmptyState
-                      message="조회 내용이 없습니다."
-                      subMessage="아직 가입된 적금 계좌가 없습니다. 목돈 마련의 첫걸음, 적금을 시작해보세요."
-                    />
-                  ) : (
-                    savingsAccounts.map((account) => (
-                      <div key={account.id} className="border border-[#D5D5D5] rounded-lg p-5 mb-3 bg-white">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-bold text-kb-text mb-1">{account.number}</p>
-                            <p className="text-[12px] text-kb-text-muted mb-1">{account.name}</p>
-                            <div className="flex gap-4 text-[12px] text-kb-text-muted mb-2">
-                              <span>신규일 {account.createdAt}</span>
-                              {account.maturityDate && <span>납입월차 {account.maturityDate}</span>}
-                            </div>
-                            <p className="text-[13px] text-kb-text">
-                              잔액 <span className="font-bold text-[16px]">{bal(account.balance)}</span>원
-                            </p>
-                          </div>
-                          <div className="flex-shrink-0">
-                            <div className="grid grid-cols-2 gap-1">
-                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">조회</button>
-                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">해지예상조회</button>
-                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">입금</button>
-                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">계좌관리</button>
-                              <Link href="/products/deposit/inquiry/terminate"
-                                className="col-span-2 border border-[#E05555] px-3 py-1.5 text-[12px] text-[#E05555] hover:bg-red-50 text-center">
-                                해지
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )
-                )}
-              </div>
-
-              {/* 예금/시장성계좌 섹션 */}
-              <div className="mb-8">
-                <SectionHeader
-                  dotColor="bg-orange-300" label="예금/시장성계좌"
-                  count={pureDepositAccounts.length}
-                  balance={bal(pureDepositAccounts.reduce((s, a) => s + a.balance, 0))}
-                  open={depositOpen} onToggle={() => setDepositOpen(v => !v)}
-                  showOrder={false}
-                />
-                {depositOpen && (
-                  pureDepositAccounts.length === 0 ? (
-                    <EmptyState
-                      message="조회 내용이 없습니다."
-                      subMessage="재테크 고수는 놀지 않는 예금이자, 단 한달이라도 여유자금을 예금에 맡겨보세요."
-                      actionHref="/products/deposit"
-                      actionLabel="가입하기"
-                    />
-                  ) : (
-                    pureDepositAccounts.map((account) => (
-                      <div key={account.id} className="border border-[#D5D5D5] rounded-lg p-5 mb-3 bg-white">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-bold text-kb-text mb-1">{account.number}</p>
-                            <p className="text-[12px] text-kb-text-muted mb-1">{account.name}</p>
-                            <div className="flex gap-4 text-[12px] text-kb-text-muted mb-2">
-                              <span>신규일 {account.createdAt}</span>
-                              {account.maturityDate && <span>만기일 {account.maturityDate}</span>}
-                            </div>
-                            <p className="text-[13px] text-kb-text">
-                              잔액 <span className="font-bold text-[16px]">{bal(account.balance)}</span>원
-                            </p>
-                          </div>
-                          <div className="flex-shrink-0">
-                            <div className="grid grid-cols-2 gap-1">
-                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">조회</button>
-                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">해지예상조회</button>
-                              <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">계좌관리</button>
-                              <Link href="/products/deposit/inquiry/terminate"
-                                className="border border-[#E05555] px-3 py-1.5 text-[12px] text-[#E05555] hover:bg-red-50 text-center">
-                                해지
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )
-                )}
-              </div>
 
               {/* 하단 버튼 */}
               <div className="flex justify-center gap-2 pt-5 border-t border-kb-border">
