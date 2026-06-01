@@ -86,7 +86,7 @@ export default function FinCertIssuePage() {
                   href={item.href}
                   className={`block px-5 py-2.5 text-caption border-b border-kb-border transition-colors
                     ${item.active
-                      ? 'bg-kb-yellow font-bold text-kb-text'
+                      ? 'bg-[#0D5C47] font-bold text-white'
                       : 'text-kb-text-body hover:bg-kb-beige-light'
                     }`}
                 >
@@ -111,7 +111,7 @@ export default function FinCertIssuePage() {
         </div>
 
         {/* 페이지 제목 */}
-        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-kb-text pb-3">
+        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-[#0D5C47] pb-3">
           인증서 발급/재발급
         </h2>
 
@@ -140,7 +140,7 @@ export default function FinCertIssuePage() {
               <div key={term.label}>
                 <div className="flex items-center px-4 py-3 gap-3">
                   <CheckBox checked={checkedTerms.has(i)} onChange={() => checkTerm(i)} />
-                  <span className="text-caption text-kb-blue font-medium mr-1">[필수]</span>
+                  <span className="text-caption text-[#0D5C47] font-medium mr-1">[필수]</span>
                   <span className="flex-1 text-caption text-kb-text">{term.label}</span>
                   <button
                     onClick={() => toggleTerm(i)}
@@ -178,7 +178,7 @@ export default function FinCertIssuePage() {
                   className="flex-1 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe"
                   placeholder="사용자 ID 입력"
                 />
-                <Link href="#" className="text-caption text-kb-blue hover:underline whitespace-nowrap">
+                <Link href="#" className="text-caption text-[#0D5C47] hover:underline whitespace-nowrap">
                   ID를 모르시는 경우
                 </Link>
               </div>
@@ -227,7 +227,7 @@ export default function FinCertIssuePage() {
           >
             취소
           </Link>
-          <button className="px-14 py-3 bg-kb-yellow text-body font-bold text-kb-text hover:brightness-95 transition-all">
+          <button className="px-14 py-3 text-body font-bold text-white hover:opacity-90 transition-all" style={{ backgroundColor: '#0D5C47' }}>
             확인
           </button>
         </div>
@@ -242,7 +242,7 @@ export default function FinCertIssuePage() {
             <p className="text-caption text-kb-text-muted leading-relaxed">
               AXful인증서(기업)를 이용하시면 OTP 없이도 안전하게 금융거래를 하실 수 있습니다.
             </p>
-            <Link href="/cert-biz" className="text-caption text-kb-blue hover:underline">
+            <Link href="/cert-biz" className="text-caption text-[#0D5C47] hover:underline">
               AXful인증서(기업) 발급받기 &gt;
             </Link>
           </div>
@@ -259,11 +259,11 @@ function CheckBox({ checked, onChange }: { checked: boolean; onChange: () => voi
       type="button"
       onClick={onChange}
       className={`w-4 h-4 border flex-shrink-0 flex items-center justify-center transition-colors
-        ${checked ? 'bg-kb-yellow border-kb-taupe' : 'bg-white border-kb-border'}`}
+        ${checked ? 'bg-[#0D5C47] border-[#0D5C47]' : 'bg-white border-kb-border'}`}
     >
       {checked && (
         <svg viewBox="0 0 12 10" fill="none" className="w-3 h-3">
-          <path d="M1 5l3 3 7-7" stroke="#333" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M1 5l3 3 7-7" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       )}
     </button>

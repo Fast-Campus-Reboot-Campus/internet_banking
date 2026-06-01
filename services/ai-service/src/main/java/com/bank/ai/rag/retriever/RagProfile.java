@@ -31,7 +31,14 @@ public enum RagProfile {
             List.of(RagDocument.DOC_TYPE_LAW,
                     RagDocument.DOC_TYPE_SUPERVISION_GUIDE,
                     RagDocument.DOC_TYPE_FAIR_LENDING,
-                    RagDocument.DOC_TYPE_BIAS_CASE));
+                    RagDocument.DOC_TYPE_BIAS_CASE)),
+
+    /**
+     * 유사 심사 사례 검색 전용.
+     * advisory_case_index → rag_chunk(REVIEW_CASE) 이전 후 사용.
+     */
+    SIMILAR_CASE("similar-case",
+            List.of(RagDocument.DOC_TYPE_REVIEW_CASE));
 
     private final String code;
     private final List<String> docTypes;

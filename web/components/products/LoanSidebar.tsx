@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -9,73 +9,20 @@ type SidebarItem = { label: string; expandable?: boolean; href?: string; childre
 
 const NAV: SidebarItem[] = [
   {
-    label: '대출상품/신청',
+    label: '대출 상품/신청',
     expandable: true,
     children: [
-      { label: '신용대출',              href: '/products/loan/credit' },
-      { label: '담보대출',              href: '#' },
-      { label: '전월세/반환보증',        href: '#' },
-      { label: '자동차대출',            href: '#' },
-      { label: '집단중도금/이주비대출',  href: '#' },
-      { label: '주택도시기금대출',       href: '#' },
-      { label: '개인사업자대출',         href: '#' },
+      { label: '신용대출', href: '/products/loan/credit' },
     ],
   },
   {
     label: '대출진행현황',
     expandable: true,
     children: [
-      { label: '진행현황조회/실행/예약',   href: '/products/loan/status' },
-      { label: '사후서류제출',             href: '#' },
-      { label: '배우자정보제공동의',       href: '#' },
-      { label: '세대원정보제공동의',       href: '#' },
-      { label: '제3자담보정보제공동의',     href: '#' },
-      { label: '부동산담보대출 전자서명',   href: '#' },
-    ],
-  },
-  {
-    label: '대출관리',
-    expandable: true,
-    children: [
-      { label: '적용금리조회',                         href: '#' },
-      { label: '이자/월부금입금',                       href: '#' },
-      { label: '대출상환',                             href: '#' },
-      { label: '대출계약철회 예상조회/완제',             href: '#' },
-      { label: '대출한도변경/해지',                     href: '#' },
-      { label: '기한연장',                             href: '#' },
-      { label: '개인대출 금리인하요구권',               href: '#' },
-      { label: '해지계좌조회',                         href: '#' },
-      { label: '금리산정내역서 조회',                   href: '#' },
-      { label: '소멸시효완성에 따른 채무면제 결과조회', href: '#' },
-      { label: '통장자동대출 이자납입내역 조회',         href: '#' },
-      { label: '개인대출 통지서비스 변경',               href: '#' },
-      { label: '개인대출 할부금(이자) 납입방법 변경',   href: '#' },
-    ],
-  },
-  {
-    label: '대출 가이드',
-    expandable: true,
-    children: [
-      { label: '가계대출금리',                         href: '#' },
-      { label: '대출관련 수수료',                       href: '#' },
-      { label: '금리인하요구권',                        href: '#' },
-      { label: '대출연체시 지연배상금액 예시',           href: '#' },
-      { label: '부가서비스',                           href: '#' },
-      { label: '내용증명 우편미수신 주요정보 안내',      href: '#' },
-      { label: '추심관련 권리의무 및 권리구제방법 안내', href: '#' },
-    ],
-  },
-  {
-    label: '신용평가 및 여신심사 자료제출',
-    expandable: true,
-    children: [
-      { label: '「업체현황 및 사업계획서」조회 및 작성', href: '#' },
-      { label: '「FATI (재무 및 세무자료)」제출',       href: '#' },
-      { label: '「FATI (재무 및 세무자료)」제출내역조회', href: '#' },
+      { label: '진행현황조회/실행/예약', href: '/products/loan/status' },
     ],
   },
   { label: '🔒 인증센터', href: '/cert' },
-  { label: '신규상담',    href: '#' },
 ]
 
 export default function LoanSidebar() {
@@ -85,7 +32,7 @@ export default function LoanSidebar() {
     NAV.filter(item => item.children?.some(c => c.href !== '#' && pathname.startsWith(c.href)))
        .map(item => item.label)
   )
-  if (defaultOpen.size === 0) defaultOpen.add('대출상품/신청')
+  if (defaultOpen.size === 0) defaultOpen.add('대출 상품/신청')
 
   const [openSections, setOpenSections] = useState<Set<string>>(defaultOpen)
 
@@ -98,34 +45,34 @@ export default function LoanSidebar() {
   }
 
   return (
-    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-base font-bold text-kb-text mb-3 px-1">대출</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2 bg-white">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: "#0D5C47" }}>대출</h2>
       <nav>
         {NAV.map((item) => (
-          <div key={item.label}>
+          <div key={item.label} className="border-b border-kb-border last:border-b-0">
             {item.expandable ? (
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text"
+                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] rounded-sm transition-colors duration-150"
                 >
                   <span className="text-left leading-tight">{item.label}</span>
                   <span className="text-[10px] text-kb-text-muted ml-1 flex-shrink-0">
-                    {openSections.has(item.label) ? '˄' : '˅'}
+                    {openSections.has(item.label) ? '▴' : '▾'}
                   </span>
                 </button>
                 {openSections.has(item.label) && item.children && (
-                  <ul className="mb-1">
+                  <ul className="mb-2 pl-1">
                     {item.children.map((child) => {
                       const active = child.href !== '#' && pathname.startsWith(child.href)
                       return (
                         <li key={child.label}>
                           <Link
                             href={child.href}
-                            className={`block px-3 py-1.5 text-[12px] leading-snug ${
+                            className={`block py-1.5 text-[12px] leading-snug transition-colors duration-150 ${
                               active
-                                ? 'bg-kb-yellow font-semibold text-kb-text'
-                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                                ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
+                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
                             }`}
                           >
                             {child.label}
@@ -139,7 +86,7 @@ export default function LoanSidebar() {
             ) : (
               <Link
                 href={item.href ?? '#'}
-                className="block px-2 py-2 text-[13px] text-kb-text-muted hover:text-kb-text"
+                className="block px-2 py-2.5 text-[13px] text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7] transition-colors duration-150"
               >
                 {item.label}
               </Link>

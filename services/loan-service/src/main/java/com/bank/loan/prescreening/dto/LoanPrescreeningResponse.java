@@ -15,7 +15,8 @@ public record LoanPrescreeningResponse(
         String rejectReasonCd,
         String prescRemark,
         OffsetDateTime prescreenedAt,
-        String prescEngineVersion
+        String prescEngineVersion,
+        String aiTrackCd
 ) {
     public static LoanPrescreeningResponse of(LoanPrescreening p) {
         return new LoanPrescreeningResponse(
@@ -24,7 +25,8 @@ public record LoanPrescreeningResponse(
                 p.getEstimatedLimitAmt(), p.getEstimatedRateBps(),
                 p.getEstimatedGrade(), p.getEstimatedScore(),
                 p.getRejectReasonCd(), p.getPrescRemark(),
-                p.getPrescreenedAt(), p.getPrescEngineVersion()
+                p.getPrescreenedAt(), p.getPrescEngineVersion(),
+                p.getAiTrackCd()
         );
     }
 }

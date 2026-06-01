@@ -48,7 +48,7 @@ class AuditAnalysisServiceTest {
         AuditAnalysisRequest req = biasRequest();
         LlmResponse llmResp = new LlmResponse("{}", 100, 80);
         AuditResponseParser.ParsedAuditResult parsed =
-                new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "편향 의심", 0.85);
+                new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "편향 의심", 0.85, List.of());
         when(llmClient.complete(any())).thenReturn(llmResp);
         when(parser.parse(any())).thenReturn(parsed);
 
@@ -66,7 +66,7 @@ class AuditAnalysisServiceTest {
         AuditAnalysisRequest req = complianceRequest();
         LlmResponse llmResp = new LlmResponse("{}", 120, 90);
         AuditResponseParser.ParsedAuditResult parsed =
-                new AuditResponseParser.ParsedAuditResult("COMPLIANT", "규정 준수", 0.93);
+                new AuditResponseParser.ParsedAuditResult("COMPLIANT", "규정 준수", 0.93, List.of());
         when(llmClient.complete(any())).thenReturn(llmResp);
         when(parser.parse(any())).thenReturn(parsed);
 
@@ -83,7 +83,7 @@ class AuditAnalysisServiceTest {
     void LLM_응답_토큰_메트릭_기록() {
         AuditAnalysisRequest req = biasRequest();
         when(llmClient.complete(any())).thenReturn(new LlmResponse("{}", 200, 150));
-        when(parser.parse(any())).thenReturn(new AuditResponseParser.ParsedAuditResult("NO_BIAS_DETECTED", "", 0.9));
+        when(parser.parse(any())).thenReturn(new AuditResponseParser.ParsedAuditResult("NO_BIAS_DETECTED", "", 0.9, List.of()));
 
         service.analyze(req);
 
@@ -96,7 +96,7 @@ class AuditAnalysisServiceTest {
         AuditAnalysisRequest req = biasRequest();
         when(llmClient.complete(any())).thenReturn(new LlmResponse("{}", 100, 80));
         when(parser.parse(any())).thenReturn(
-                new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "근거 요약", 0.77));
+                new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "근거 요약", 0.77, List.of()));
 
         AuditAnalysisResponse resp = service.analyze(req);
 
@@ -125,7 +125,7 @@ class AuditAnalysisServiceTest {
         );
         when(llmClient.complete(any())).thenReturn(new LlmResponse("{}", 300, 100));
         when(parser.parse(any())).thenReturn(
-                new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "", 0.8));
+                new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "", 0.8, List.of()));
 
         service.analyze(req);
 

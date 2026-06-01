@@ -3,30 +3,6 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
-const SUPPORT_TABS = [
-  { label: '고객상담', href: '#', active: true },
-  { label: '고객정보관리', href: '#' },
-  { label: '사고신고', href: '#' },
-  { label: '소비자보호', href: '#' },
-  { label: '금융서비스', href: '#' },
-  { label: '서식/약관/설명서', href: '#' },
-  { label: '상품공시실', href: '#' },
-]
-
-const LEFT_MENU = [
-  { label: '자주찾는 질문', href: '#', sub: [] },
-  {
-    label: '상담신청',
-    href: '#',
-    open: true,
-    sub: [
-      { label: '챗봇/채팅/이메일상담', href: '#' },
-      { label: '나의상담내역', href: '#' },
-      { label: '지점 상담 예약서비스', href: '/support/consultation/branch', active: true },
-    ],
-  },
-  { label: '고객의 소리', href: '#', sub: [] },
-]
 
 const CONTENT_TYPES = [
   '선택',
@@ -81,131 +57,103 @@ export default function BranchConsultationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* 고객센터 탭 */}
-      <div className="bg-[#5D3D2B]">
-        <div className="max-w-kb-container mx-auto px-6">
-          <div className="flex">
-            {SUPPORT_TABS.map(tab => (
-              <Link key={tab.label} href={tab.href}
-                className={`px-6 py-3 text-[14px] font-medium transition-colors ${
-                  tab.active
-                    ? 'bg-[#5BC9A8] text-kb-text font-bold'
-                    : 'text-white hover:bg-white/10'
-                }`}>
-                {tab.label}
-              </Link>
+    <div className="min-h-screen" style={{ backgroundColor: '#F8FDFB' }}>
+      <div className="max-w-kb-container mx-auto px-6 py-8">
+        {/* 브레드크럼 */}
+        <div className="flex items-center gap-1 text-[12px] text-kb-text-muted mb-6">
+          <Link href="/" className="hover:underline">홈</Link>
+          <span>›</span>
+          <span>고객센터</span>
+          <span>›</span>
+          <span>고객상담</span>
+          <span>›</span>
+          <span className="font-semibold text-kb-text">지점 상담 예약서비스</span>
+        </div>
+
+        <main className="w-full">
+          <h1 className="text-[22px] font-bold text-kb-text mb-2">지점 상담 예약서비스</h1>
+          <p className="text-[13px] text-kb-text-muted mb-6">원하는 지점에 방문 상담을 미리 예약하세요.</p>
+
+          {/* 서브 탭 */}
+          <div className="flex gap-0 mb-7 border-b-2 border-[#E2F5EF]">
+            {[{ key: 'apply', label: '예약 신청' }, { key: 'history', label: '예약 현황 조회' }].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setPageTab(t.key as 'apply' | 'history')}
+                className={`px-6 py-3 text-[14px] font-semibold transition-colors relative ${
+                  pageTab === t.key
+                    ? 'text-[#0D5C47] font-bold'
+                    : 'text-kb-text-muted hover:text-kb-text'
+                }`}
+              >
+                {t.label}
+                {pageTab === t.key && (
+                  <span className="absolute bottom-[-2px] left-0 right-0 h-[2px]" style={{ backgroundColor: '#0D5C47' }} />
+                )}
+              </button>
             ))}
           </div>
-        </div>
-      </div>
 
-      {/* 본문 */}
-      <div className="max-w-kb-container mx-auto px-6 py-6">
-        {/* 브레드크럼 */}
-        <div className="flex justify-end mb-3 text-[12px] text-kb-text-muted gap-1 items-center">
-          <Link href="#" className="hover:underline">고객센터</Link><span>&gt;</span>
-          <Link href="#" className="hover:underline">고객상담</Link><span>&gt;</span>
-          <Link href="#" className="hover:underline">상담신청</Link><span>&gt;</span>
-          <Link href="#" className="hover:underline">지점 상담 예약서비스</Link><span>&gt;</span>
-          <span className="text-kb-blue">예약 신청</span>
-        </div>
+          {pageTab === 'apply' && (
+            <>
+              {/* 상담예약 절차 */}
+              <div className="bg-white rounded-2xl p-6 mb-6 shadow-sm" style={{ border: '1px solid #5BC9A820' }}>
+                <p className="text-[14px] font-bold text-kb-text mb-5">상담예약 절차</p>
+                <div className="flex items-center gap-3 flex-wrap">
 
-        <div className="flex gap-6">
-          {/* 왼쪽 사이드바 */}
-          <aside className="w-[200px] flex-shrink-0">
-            <div className="border border-kb-border">
-              <div className="bg-[#5D3D2B] px-4 py-3">
-                <span className="text-white font-bold text-[14px]">고객상담</span>
-              </div>
-              {LEFT_MENU.map(item => (
-                <div key={item.label}>
-                  <Link href={item.href}
-                    className="flex items-center justify-between px-4 py-3 text-[13px] border-t border-kb-border hover:bg-kb-beige-light text-kb-text-body">
-                    {item.label}
-                    {item.sub.length > 0 && <span className="text-xs text-kb-text-muted">{item.open ? '▼' : '▶'}</span>}
-                  </Link>
-                  {item.open && item.sub.map(sub => (
-                    <Link key={sub.label} href={sub.href}
-                      className={`block pl-6 pr-4 py-2.5 text-[12px] border-t border-kb-border transition-colors ${
-                        sub.active
-                          ? 'bg-[#5BC9A8] text-kb-text font-bold'
-                          : 'hover:bg-kb-beige-light text-kb-text-muted hover:text-kb-text'
-                      }`}>
-                      {sub.label}
-                    </Link>
-                  ))}
-                </div>
-              ))}
-              <div className="border-t border-kb-border">
-                <Link href="#"
-                  className="flex items-center justify-between px-4 py-3 text-[13px] hover:bg-kb-beige-light text-kb-text-body">
-                  인증센터 <span className="text-kb-blue text-xs">▶</span>
-                </Link>
-              </div>
-            </div>
-          </aside>
-
-          {/* 메인 콘텐츠 */}
-          <main className="flex-1 min-w-0">
-            <h1 className="text-[20px] font-bold text-kb-text mb-4">지점 상담 예약서비스</h1>
-
-            {/* 서브 탭 */}
-            <div className="flex gap-0 mb-5">
-              {[{ key: 'apply', label: '예약 신청' }, { key: 'history', label: '예약 현황 조회' }].map(t => (
-                <button key={t.key}
-                  onClick={() => setPageTab(t.key as 'apply' | 'history')}
-                  className={`flex items-center gap-1.5 px-5 py-2 text-[13px] border transition-colors ${
-                    pageTab === t.key
-                      ? 'border-kb-text bg-white font-bold text-kb-text'
-                      : 'border-kb-border bg-kb-beige-light text-kb-text-muted hover:text-kb-text'
-                  }`}>
-                  <span className="text-[#5BC9A8] font-bold">▶</span> {t.label}
-                </button>
-              ))}
-            </div>
-
-            {pageTab === 'apply' && (
-              <>
-                {/* 상담예약 절차 */}
-                <div className="border border-kb-border bg-[#FAFAFA] p-5 mb-6">
-                  <p className="text-[13px] font-bold text-kb-text mb-4">상담예약 절차</p>
-                  <div className="flex items-start gap-3">
-                    {/* Step 1 */}
-                    <div className="flex flex-col items-center">
-                      <div className="bg-[#5D3D2B] text-white text-[12px] px-4 py-2.5 font-bold whitespace-nowrap">
-                        <span className="text-[#5BC9A8] mr-1">1</span> 상담예약 신청
-                      </div>
+                  {/* Step 1 — active */}
+                  <div className="flex flex-col items-center gap-2 min-w-[100px]">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#0D5C47' }}>
+                      1
                     </div>
-                    <div className="text-[#999] text-xl mt-1">→</div>
-                    {/* Step 2 */}
-                    <div className="flex flex-col items-center">
-                      <div className="bg-kb-beige-light border border-kb-border text-kb-text-muted text-[12px] px-4 py-2.5 font-medium whitespace-nowrap mb-2">
-                        <span className="mr-1">2</span> 상담직원 선택
-                      </div>
-                      <div className="flex gap-2">
-                        <div className="border border-kb-border bg-white px-3 py-2 text-[11px] text-center">
-                          <p className="font-semibold text-kb-text">직원 자동배정</p>
-                          <p className="text-kb-text-muted mt-0.5">예약 즉시 확정</p>
-                        </div>
-                        <div className="border border-kb-border bg-white px-3 py-2 text-[11px] text-center">
-                          <p className="font-semibold text-kb-text">직원 직접 선택</p>
-                          <p className="text-kb-text-muted mt-0.5">직원 확인 후 확정</p>
-                        </div>
-                      </div>
+                    <div className="bg-[#F0FAF7] rounded-xl px-4 py-2.5 text-center" style={{ border: '1px solid #5BC9A820' }}>
+                      <p className="text-[12px] font-bold text-[#0D5C47] whitespace-nowrap">상담예약 신청</p>
                     </div>
-                    <div className="text-[#999] text-xl mt-1">→</div>
-                    {/* Step 3 */}
-                    <div className="flex flex-col items-center">
-                      <div className="bg-kb-beige-light border border-kb-border text-kb-text-muted text-[12px] px-4 py-2.5 font-medium whitespace-nowrap">
-                        <span className="mr-1">3</span> 예약지점 방문
+                  </div>
+
+                  <span className="text-[#5BC9A8] text-xl font-bold">→</span>
+
+                  {/* Step 2 */}
+                  <div className="flex flex-col items-center gap-2 min-w-[100px]">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#E2F5EF', color: '#0D5C47' }}>
+                      2
+                    </div>
+                    <div className="rounded-xl px-4 py-2.5 text-center" style={{ border: '1px solid #5BC9A840', backgroundColor: '#FAFAFA' }}>
+                      <p className="text-[12px] font-semibold text-kb-text whitespace-nowrap">상담직원 선택</p>
+                    </div>
+                    <div className="flex gap-2 mt-1">
+                      <div className="bg-white rounded-xl px-3 py-2 text-[11px] text-center shadow-sm" style={{ border: '1px solid #5BC9A820' }}>
+                        <p className="font-semibold text-kb-text">직원 자동배정</p>
+                        <p className="text-kb-text-muted mt-0.5">예약 즉시 확정</p>
+                      </div>
+                      <div className="bg-white rounded-xl px-3 py-2 text-[11px] text-center shadow-sm" style={{ border: '1px solid #5BC9A820' }}>
+                        <p className="font-semibold text-kb-text">직원 직접 선택</p>
+                        <p className="text-kb-text-muted mt-0.5">직원 확인 후 확정</p>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* 안내 사항 */}
-                <ul className="space-y-1.5 mb-6 text-[12px] text-kb-text-muted">
+                  <span className="text-[#5BC9A8] text-xl font-bold">→</span>
+
+                  {/* Step 3 */}
+                  <div className="flex flex-col items-center gap-2 min-w-[100px]">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
+                      style={{ backgroundColor: '#E2F5EF', color: '#0D5C47' }}>
+                      3
+                    </div>
+                    <div className="rounded-xl px-4 py-2.5 text-center" style={{ border: '1px solid #5BC9A840', backgroundColor: '#FAFAFA' }}>
+                      <p className="text-[12px] font-semibold text-kb-text whitespace-nowrap">예약지점 방문</p>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* 안내 사항 */}
+              <div className="bg-[#F0FAF7] rounded-xl px-5 py-4 mb-6" style={{ border: '1px solid #5BC9A830' }}>
+                <ul className="space-y-1.5 text-[12px] text-kb-text-muted">
                   {[
                     '상담 직원을 선택하면 직원 확인 후 예약이 확정돼요.',
                     '직원 선택으로 예약 시, 영업일 16시 이전 신청 건은 당일 19시까지, 영업일 16시 이후 또는 휴일 신청 건은 다음 영업일 19시까지 결과를 알려드려요.',
@@ -220,30 +168,35 @@ export default function BranchConsultationPage() {
                     </li>
                   ))}
                 </ul>
+              </div>
 
-                {/* 상담 예약 정보 입력 */}
-                <h2 className="text-[16px] font-bold text-kb-text mb-2">상담 예약 정보 입력</h2>
-                <p className="text-[12px] text-[#E05555] mb-3">
-                  <span className="text-[#5BC9A8] font-bold">★</span> 표시가 있는 항목은 반드시 입력해주세요.
-                </p>
+              {/* 상담 예약 정보 입력 */}
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-5" style={{ border: '1px solid #5BC9A820' }}>
+                <div className="px-6 py-4 border-b" style={{ borderColor: '#E2F5EF', backgroundColor: '#F8FDFB' }}>
+                  <h2 className="text-[16px] font-bold text-kb-text">상담 예약 정보 입력</h2>
+                  <p className="text-[12px] text-[#E05555] mt-1">
+                    <span className="text-[#5BC9A8] font-bold">★</span> 표시가 있는 항목은 반드시 입력해주세요.
+                  </p>
+                </div>
 
-                <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text">
+                <table className="w-full border-collapse text-[13px] border-t-2 border-[#0D5C47]">
                   <tbody>
                     {/* 상담 지점 */}
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text w-[120px] whitespace-nowrap align-middle">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text w-[130px] whitespace-nowrap align-middle">
                         상담 지점<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-kb-border px-4 py-3">
+                      <td className="border border-[#E2F5EF] px-4 py-3.5">
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
                             value={branch}
                             onChange={e => setBranch(e.target.value)}
-                            placeholder=""
-                            className="border border-kb-border px-3 py-1.5 text-[13px] w-48 outline-none focus:border-kb-blue"
+                            placeholder="지점명 입력"
+                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] w-48 outline-none focus:border-[#5BC9A8] transition-colors"
                           />
-                          <button className="border border-kb-border px-4 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light flex items-center gap-1">
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors flex items-center gap-1"
+                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
                             지점검색
                             <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="2">
                               <path d="M7 1h7v7M14 1L7 8" /><rect x="1" y="5" width="7" height="9" />
@@ -255,19 +208,22 @@ export default function BranchConsultationPage() {
 
                     {/* 상담 내용 */}
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text align-middle whitespace-nowrap">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-middle whitespace-nowrap">
                         상담 내용<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-kb-border px-4 py-3">
-                        <div className="flex items-center gap-2 mb-1.5">
+                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                        <div className="flex items-center gap-2 mb-2">
                           <select
                             value={contentType}
                             onChange={e => setContentType(e.target.value)}
-                            className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white"
+                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors"
                           >
                             {CONTENT_TYPES.map(c => <option key={c}>{c}</option>)}
                           </select>
-                          <button className="border border-kb-border px-4 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">선택</button>
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors"
+                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                            선택
+                          </button>
                         </div>
                         <p className="text-[12px] text-[#E05555] flex items-start gap-1">
                           <span className="bg-[#E05555] text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">ⓘ</span>
@@ -278,22 +234,28 @@ export default function BranchConsultationPage() {
 
                     {/* 상담 일시 */}
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
                         상담 일시<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-kb-border px-4 py-3">
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <select value={month} onChange={e => setMonth(e.target.value)}
-                            className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white">
+                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors">
                             <option>선택</option>
                             {MONTHS.map(m => <option key={m}>{m}</option>)}
                           </select>
-                          <button className="border border-kb-border px-4 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">선택</button>
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors"
+                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                            선택
+                          </button>
                           <select value={time} onChange={e => setTime(e.target.value)}
-                            className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white">
+                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors">
                             {TIMES.map(t => <option key={t}>{t}</option>)}
                           </select>
-                          <button className="border border-kb-border px-4 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">선택</button>
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors"
+                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                            선택
+                          </button>
                         </div>
                         <p className="text-[12px] text-kb-text-muted flex items-start gap-1">
                           <span className="bg-kb-text-muted text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">ⓘ</span>
@@ -304,12 +266,12 @@ export default function BranchConsultationPage() {
 
                     {/* 예약 방법 */}
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
                         예약 방법<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-kb-border px-4 py-3 space-y-3">
+                      <td className="border border-[#E2F5EF] px-4 py-3.5 space-y-3">
                         {/* 자동배정 */}
-                        <label className="flex items-start gap-2 cursor-pointer">
+                        <label className="flex items-start gap-3 cursor-pointer">
                           <input type="radio" name="reserveType" checked={reserveType === 'auto'}
                             onChange={() => setReserveType('auto')}
                             className="mt-0.5 accent-[#5BC9A8]" />
@@ -323,7 +285,7 @@ export default function BranchConsultationPage() {
                           </div>
                         </label>
                         {/* 직접 선택 */}
-                        <label className="flex items-start gap-2 cursor-pointer">
+                        <label className="flex items-start gap-3 cursor-pointer">
                           <input type="radio" name="reserveType" checked={reserveType === 'manual'}
                             onChange={() => setReserveType('manual')}
                             className="mt-0.5 accent-[#5BC9A8]" />
@@ -335,12 +297,13 @@ export default function BranchConsultationPage() {
                               </div>
                               {reserveType === 'manual' && (
                                 <select value={staffSelect} onChange={e => setStaffSelect(e.target.value)}
-                                  className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white">
+                                  className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors">
                                   <option>선택</option>
                                 </select>
                               )}
                               {reserveType !== 'manual' && (
-                                <select disabled className="border border-kb-border px-3 py-1.5 text-[13px] bg-[#f5f5f5] text-kb-text-muted">
+                                <select disabled
+                                  className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] bg-[#f5f5f5] text-kb-text-muted">
                                   <option>선택</option>
                                 </select>
                               )}
@@ -356,56 +319,59 @@ export default function BranchConsultationPage() {
 
                     {/* 상담 희망 내용 */}
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text align-top whitespace-nowrap">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap">
                         상담 희망 내용
                       </td>
-                      <td className="border border-kb-border px-4 py-3">
-                        <p className="text-[12px] text-kb-text-muted mb-1">{memo.length}/200자</p>
+                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                        <p className="text-[12px] text-kb-text-muted mb-1.5">{memo.length}/200자</p>
                         <textarea
                           value={memo}
                           onChange={e => { if (e.target.value.length <= 200) setMemo(e.target.value) }}
                           placeholder={`상담받고 싶은 내용을 입력하시면 원활한 상담을 받으실 수 있어요.\n예) 상담 상품, 상담 문의사항, 추가 상담 필요업무 등`}
-                          className="w-full h-24 border border-kb-border px-3 py-2 text-[13px] resize-none outline-none leading-relaxed text-kb-text-body placeholder:text-kb-text-muted"
+                          className="w-full h-24 border border-[#E2F5EF] rounded-lg px-3 py-2.5 text-[13px] resize-none outline-none leading-relaxed text-kb-text-body placeholder:text-kb-text-muted focus:border-[#5BC9A8] transition-colors"
                         />
                       </td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
 
-                {/* 주의사항 */}
-                <ul className="space-y-1 mt-4 mb-5 text-[12px] text-kb-text-muted">
+              {/* 주의사항 */}
+              <div className="bg-[#F0FAF7] rounded-xl px-5 py-4 mb-6" style={{ border: '1px solid #5BC9A830' }}>
+                <ul className="space-y-1 text-[12px] text-kb-text-muted">
                   {[
                     '상담 예약을 신청하면 카카오톡 또는 문자 메시지로 내역이 발송됩니다.',
                     '스팸 차단을 했거나 SMS 수신에 동의하지 않은 경우, 예약 안내를 받을 수 없습니다.',
                     '연락처 변경이나 휴대폰 번호 등록은 [내 정보 수정]에서 할 수 있습니다',
                   ].map((n, i) => (
-                    <li key={i} className="flex gap-1.5"><span className="flex-shrink-0">*</span>{n}</li>
+                    <li key={i} className="flex gap-1.5"><span className="flex-shrink-0 text-[#5BC9A8] font-bold">*</span>{n}</li>
                   ))}
                 </ul>
-
-                {/* 버튼 */}
-                <div className="flex items-center gap-3">
-                  <button className="border border-kb-border px-5 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light transition-colors">
-                    내 정보 수정
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    className="px-10 py-2.5 text-[14px] font-bold hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: '#5BC9A8', color: '#000' }}
-                  >
-                    상담 예약
-                  </button>
-                </div>
-              </>
-            )}
-
-            {pageTab === 'history' && (
-              <div className="py-16 text-center text-[14px] text-kb-text-muted border border-kb-border">
-                예약 현황이 없습니다.
               </div>
-            )}
-          </main>
-        </div>
+
+              {/* 버튼 */}
+              <div className="flex items-center gap-3">
+                <button className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 hover:bg-[#F0FAF7] transition-colors"
+                  style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                  내 정보 수정
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
+                  style={{ backgroundColor: '#0D5C47' }}
+                >
+                  상담 예약
+                </button>
+              </div>
+            </>
+          )}
+
+          {pageTab === 'history' && (
+            <div className="bg-white rounded-2xl shadow-sm py-16 text-center text-[14px] text-kb-text-muted" style={{ border: '1px solid #5BC9A820' }}>
+              예약 현황이 없습니다.
+            </div>
+          )}
+        </main>
       </div>
     </div>
   )

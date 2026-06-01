@@ -16,7 +16,7 @@ CREATE TABLE agent_audit_log (
     fallback_reason     VARCHAR(64),
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT now(),
     retention_until     DATE            NOT NULL
-        GENERATED ALWAYS AS (CAST(created_at AS DATE) + INTERVAL '5 years') STORED,
+        GENERATED ALWAYS AS (timezone('UTC', created_at)::DATE + '5 years'::INTERVAL) STORED,
 
     CONSTRAINT chk_aal_schema_version CHECK (schema_version IN ('v1')),
     CONSTRAINT chk_aal_track          CHECK (track IN ('TRACK_1','TRACK_2','TRACK_3')),

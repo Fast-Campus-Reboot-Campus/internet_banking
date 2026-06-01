@@ -13,30 +13,6 @@ import {
 } from '@/lib/consultation-api'
 import type { ChatMessage } from '@/lib/consultation-api'
 
-const SUPPORT_TABS = [
-  { label: '고객상담', href: '#', active: true },
-  { label: '고객정보관리', href: '#' },
-  { label: '사고신고', href: '#' },
-  { label: '소비자보호', href: '#' },
-  { label: '금융서비스', href: '#' },
-  { label: '서식/약관/설명서', href: '#' },
-  { label: '상품공시실', href: '#' },
-]
-
-const LEFT_MENU = [
-  { label: '자주찾는 질문', href: '#', sub: [] },
-  {
-    label: '상담신청',
-    href: '#',
-    open: true,
-    sub: [
-      { label: '챗봇/채팅/이메일상담', href: '/support/consultation/live-chat', active: true },
-      { label: '나의상담내역', href: '#' },
-      { label: '지점 상담 예약서비스', href: '/support/consultation/branch' },
-    ],
-  },
-  { label: '고객의 소리', href: '#', sub: [] },
-]
 
 type Step = 'form' | 'waiting' | 'chat' | 'ended'
 
@@ -235,89 +211,52 @@ export default function LiveChatPage() {
   const isConnectedToAgent = !!chatIdRef.current
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* 고객센터 탭 */}
-      <div className="bg-[#5D3D2B]">
-        <div className="max-w-kb-container mx-auto px-6">
-          <div className="flex">
-            {SUPPORT_TABS.map(tab => (
-              <Link key={tab.label} href={tab.href}
-                className={`px-6 py-3 text-[14px] font-medium transition-colors ${
-                  tab.active ? 'bg-[#5BC9A8] text-kb-text font-bold' : 'text-white hover:bg-white/10'
-                }`}>
-                {tab.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 본문 */}
-      <div className="max-w-kb-container mx-auto px-6 py-6">
-        <div className="flex justify-end mb-3 text-[12px] text-kb-text-muted gap-1 items-center">
-          <Link href="#" className="hover:underline">고객센터</Link><span>&gt;</span>
-          <Link href="#" className="hover:underline">고객상담</Link><span>&gt;</span>
-          <span className="text-kb-blue">채팅상담</span>
+    <div className="min-h-screen" style={{ backgroundColor: '#F8FDFB' }}>
+      <div className="max-w-kb-container mx-auto px-6 py-8">
+        {/* 브레드크럼 */}
+        <div className="flex items-center gap-1 text-[12px] text-kb-text-muted mb-6">
+          <Link href="/" className="hover:underline">홈</Link>
+          <span>›</span>
+          <span>고객센터</span>
+          <span>›</span>
+          <span>고객상담</span>
+          <span>›</span>
+          <span className="font-semibold text-kb-text">채팅 상담</span>
         </div>
 
-        <div className="flex gap-6">
-          {/* 사이드바 */}
-          <aside className="w-[200px] flex-shrink-0">
-            <div className="border border-kb-border">
-              <div className="bg-[#5D3D2B] px-4 py-3">
-                <span className="text-white font-bold text-[14px]">고객상담</span>
-              </div>
-              {LEFT_MENU.map(item => (
-                <div key={item.label}>
-                  <Link href={item.href}
-                    className="flex items-center justify-between px-4 py-3 text-[13px] border-t border-kb-border hover:bg-kb-beige-light text-kb-text-body">
-                    {item.label}
-                    {item.sub.length > 0 && <span className="text-xs text-kb-text-muted">▼</span>}
-                  </Link>
-                  {item.open && item.sub.map(sub => (
-                    <Link key={sub.label} href={sub.href}
-                      className={`block pl-6 pr-4 py-2.5 text-[12px] border-t border-kb-border transition-colors ${
-                        sub.active
-                          ? 'bg-[#5BC9A8] text-kb-text font-bold'
-                          : 'hover:bg-kb-beige-light text-kb-text-muted hover:text-kb-text'
-                      }`}>
-                      {sub.label}
-                    </Link>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </aside>
+        <main className="w-full">
+          <h1 className="text-[22px] font-bold text-kb-text mb-2">채팅 상담</h1>
+          <p className="text-[13px] text-kb-text-muted mb-7">실시간으로 상담원과 채팅 상담을 진행하세요.</p>
 
-          {/* 메인 */}
-          <main className="flex-1 min-w-0">
-            <h1 className="text-[20px] font-bold text-kb-text mb-4">채팅 상담</h1>
-
-            {/* 상담 신청 폼 */}
-            {step === 'form' && (
-              <div className="border border-kb-border p-6 max-w-xl">
-                <p className="text-[13px] text-kb-text-muted mb-5">
-                  상담 유형을 선택하고 상담원 연결을 신청하세요.<br />
+          {/* 상담 신청 폼 */}
+          {step === 'form' && (
+            <div className="bg-white rounded-2xl shadow-sm max-w-xl overflow-hidden" style={{ border: '1px solid #5BC9A820' }}>
+              <div className="px-6 py-4 border-b" style={{ borderColor: '#E2F5EF', backgroundColor: '#F8FDFB' }}>
+                <p className="text-[14px] font-bold text-kb-text">상담 신청</p>
+                <p className="text-[12px] text-kb-text-muted mt-0.5">
                   운영시간: 평일 09:00~18:00 (토·일·공휴일 제외)
                 </p>
-                <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text mb-5">
+              </div>
+
+              <div className="p-6">
+                <table className="w-full border-collapse text-[13px] border-t-2 border-[#0D5C47] mb-6">
                   <tbody>
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text w-[120px] whitespace-nowrap">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text w-[120px] whitespace-nowrap">
                         고객번호
                       </td>
-                      <td className="border border-kb-border px-4 py-3">
+                      <td className="border border-[#E2F5EF] px-4 py-3.5">
                         <input value={customerNo} onChange={e => setCustomerNo(e.target.value)}
-                          className="border border-kb-border px-3 py-1.5 text-[13px] outline-none w-48" />
+                          className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none w-48 focus:border-[#5BC9A8] transition-colors" />
                       </td>
                     </tr>
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text whitespace-nowrap">
                         상담 유형<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-kb-border px-4 py-3">
+                      <td className="border border-[#E2F5EF] px-4 py-3.5">
                         <select value={topic} onChange={e => setTopic(e.target.value)}
-                          className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white w-full">
+                          className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white w-full focus:border-[#5BC9A8] transition-colors">
                           {['선택', '예금/적금', '대출', '이체/송금', '카드', '분실/도난', '기타'].map(t => (
                             <option key={t}>{t}</option>
                           ))}
@@ -325,135 +264,160 @@ export default function LiveChatPage() {
                       </td>
                     </tr>
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text align-top whitespace-nowrap">
+                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap">
                         문의 내용
                       </td>
-                      <td className="border border-kb-border px-4 py-3">
-                        <p className="text-[12px] text-kb-text-muted mb-1">{inquiry.length}/200자</p>
+                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                        <p className="text-[12px] text-kb-text-muted mb-1.5">{inquiry.length}/200자</p>
                         <textarea value={inquiry}
                           onChange={e => { if (e.target.value.length <= 200) setInquiry(e.target.value) }}
                           placeholder="문의 내용을 미리 입력하시면 빠른 상담이 가능합니다."
-                          className="w-full h-20 border border-kb-border px-3 py-2 text-[13px] resize-none outline-none placeholder:text-kb-text-muted" />
+                          className="w-full h-20 border border-[#E2F5EF] rounded-lg px-3 py-2.5 text-[13px] resize-none outline-none placeholder:text-kb-text-muted focus:border-[#5BC9A8] transition-colors" />
                       </td>
                     </tr>
                   </tbody>
                 </table>
+
                 <button onClick={startChat}
-                  className="px-10 py-2.5 text-[14px] font-bold hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: '#5BC9A8', color: '#000' }}>
+                  className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
+                  style={{ backgroundColor: '#0D5C47' }}>
                   상담원 연결
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* 대기 */}
-            {step === 'waiting' && (
-              <div className="border border-kb-border p-12 max-w-xl flex flex-col items-center gap-4 text-center">
-                <div className="w-12 h-12 border-4 border-[#5BC9A8] border-t-transparent rounded-full animate-spin" />
-                <p className="text-[15px] font-bold text-kb-text">상담원 연결 중입니다...</p>
-                <p className="text-[13px] text-kb-text-muted">잠시만 기다려 주세요.</p>
-              </div>
-            )}
+          {/* 대기 */}
+          {step === 'waiting' && (
+            <div className="bg-white rounded-2xl shadow-sm max-w-xl flex flex-col items-center gap-4 py-14 text-center" style={{ border: '1px solid #5BC9A820' }}>
+              <div className="w-12 h-12 border-4 border-[#5BC9A8] border-t-transparent rounded-full animate-spin" />
+              <p className="text-[15px] font-bold text-kb-text">상담원 연결 중입니다...</p>
+              <p className="text-[13px] text-kb-text-muted">잠시만 기다려 주세요.</p>
+            </div>
+          )}
 
-            {/* 채팅 */}
-            {step === 'chat' && (
-              <div className="border border-kb-border max-w-xl flex flex-col" style={{ height: 500 }}>
-                <div className="px-4 py-3 border-b border-kb-border flex items-center justify-between"
-                  style={{ backgroundColor: isConnectedToAgent ? '#5BC9A8' : '#e9e9e9' }}>
-                  <span className="text-[14px] font-bold text-kb-text">
+          {/* 채팅 */}
+          {step === 'chat' && (
+            <div className="bg-white rounded-2xl shadow-sm max-w-xl flex flex-col overflow-hidden" style={{ height: 520, border: '1px solid #5BC9A820' }}>
+              {/* 채팅 헤더 */}
+              <div className="px-5 py-3.5 flex items-center justify-between rounded-t-2xl"
+                style={{ backgroundColor: isConnectedToAgent ? '#0D5C47' : '#94A3B8' }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#5BC9A8] animate-pulse" />
+                  <span className="text-[14px] font-bold text-white">
                     {isConnectedToAgent ? '상담원 연결됨' : '상담 중 (봇)'}
                   </span>
-                  <button onClick={handleEnd}
-                    className="text-[12px] text-kb-text border border-kb-text px-3 py-1 hover:bg-white/30 transition-colors">
-                    상담 종료
-                  </button>
                 </div>
+                <button onClick={handleEnd}
+                  className="text-[12px] font-semibold text-white border border-white/40 rounded-lg px-3 py-1 hover:bg-white/20 transition-colors">
+                  상담 종료
+                </button>
+              </div>
 
-                <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#FAFAF7]">
-                  {messages.map(msg => {
-                    if (msg.from === 'system') {
-                      return (
-                        <div key={msg.id} className="text-center text-[12px] text-kb-text-muted py-1">
-                          {msg.text}
-                        </div>
-                      )
-                    }
+              {/* 메시지 영역 */}
+              <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#F8FDFB]">
+                {messages.map(msg => {
+                  if (msg.from === 'system') {
                     return (
-                      <div key={msg.id} className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-                        {msg.from !== 'user' && (
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-1 ${
-                            msg.from === 'agent' ? 'bg-[#5BC9A8]' : 'bg-kb-text-muted'
-                          }`}>
-                            {msg.from === 'agent' ? '상담' : '봇'}
-                          </div>
-                        )}
-                        <div className={`max-w-[75%] flex flex-col gap-1 ${msg.from === 'user' ? 'items-end' : 'items-start'}`}>
-                          <div className={`px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap rounded-lg ${
-                            msg.from === 'user'
-                              ? 'bg-[#5D3D2B] text-white'
-                              : 'bg-white border border-kb-border text-kb-text'
-                          }`}>
-                            {msg.text}
-                          </div>
-                          <span className="text-[11px] text-kb-text-muted">{msg.time}</span>
-                        </div>
+                      <div key={msg.id} className="text-center">
+                        <span className="inline-block bg-white text-[12px] text-kb-text-muted px-3 py-1 rounded-full shadow-sm" style={{ border: '1px solid #E2F5EF' }}>
+                          {msg.text}
+                        </span>
                       </div>
                     )
-                  })}
-                  {sending && (
-                    <div className="flex justify-start gap-2">
-                      <div className="w-8 h-8 rounded-full bg-kb-text-muted flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">봇</div>
-                      <div className="bg-white border border-kb-border px-3 py-2 rounded-lg text-[13px] text-kb-text-muted">입력 중...</div>
+                  }
+                  return (
+                    <div key={msg.id} className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
+                      {msg.from !== 'user' && (
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-1 ${
+                          msg.from === 'agent' ? '' : 'bg-[#94A3B8]'
+                        }`} style={msg.from === 'agent' ? { backgroundColor: '#0D5C47' } : {}}>
+                          {msg.from === 'agent' ? '상담' : '봇'}
+                        </div>
+                      )}
+                      <div className={`max-w-[75%] flex flex-col gap-1 ${msg.from === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap rounded-2xl ${
+                          msg.from === 'user'
+                            ? 'text-white rounded-br-sm'
+                            : 'bg-white text-kb-text rounded-bl-sm shadow-sm'
+                        }`}
+                          style={msg.from === 'user'
+                            ? { backgroundColor: '#0D5C47' }
+                            : { border: '1px solid #E2F5EF' }
+                          }>
+                          {msg.text}
+                        </div>
+                        <span className="text-[11px] text-kb-text-muted">{msg.time}</span>
+                      </div>
                     </div>
-                  )}
-                </div>
-
-                <div className="border-t border-kb-border px-3 py-2 flex gap-2 bg-white">
-                  <input value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-                    placeholder="메시지를 입력하세요"
-                    className="flex-1 text-[13px] outline-none px-2 py-1" />
-                  <button onClick={sendMessage} disabled={!input.trim() || sending}
-                    className="flex h-9 w-9 items-center justify-center rounded bg-[#5D3D2B] text-white disabled:bg-gray-300 transition-colors">
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* 종료 */}
-            {step === 'ended' && (
-              <div className="border border-kb-border p-12 max-w-xl flex flex-col items-center gap-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-[#5BC9A8] flex items-center justify-center text-white text-2xl font-bold">✓</div>
-                <p className="text-[15px] font-bold text-kb-text">상담이 종료되었습니다.</p>
-                {isConnectedToAgent && (
-                  <div className="flex gap-2 mt-1">
-                    <p className="text-[13px] text-kb-text-muted self-center">만족도:</p>
-                    {[1, 2, 3, 4, 5].map(s => (
-                      <button key={s} onClick={() => setScore(s)}
-                        className={`w-8 h-8 rounded-full border text-[13px] font-bold transition-colors ${
-                          score === s ? 'bg-[#5BC9A8] border-[#5BC9A8] text-white' : 'border-kb-border text-kb-text-muted hover:border-[#5BC9A8]'
-                        }`}>{s}</button>
-                    ))}
+                  )
+                })}
+                {sending && (
+                  <div className="flex justify-start gap-2">
+                    <div className="w-8 h-8 rounded-full bg-[#94A3B8] flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">봇</div>
+                    <div className="bg-white px-3.5 py-2.5 rounded-2xl rounded-bl-sm text-[13px] text-kb-text-muted shadow-sm" style={{ border: '1px solid #E2F5EF' }}>
+                      입력 중...
+                    </div>
                   </div>
                 )}
-                <p className="text-[13px] text-kb-text-muted">이용해 주셔서 감사합니다.</p>
-                <div className="flex gap-3 mt-2">
-                  <button onClick={reset}
-                    className="border border-kb-border px-5 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light transition-colors">
-                    재상담 신청
-                  </button>
-                  <Link href="/"
-                    className="px-5 py-2 text-[13px] font-bold hover:opacity-90 transition-opacity"
-                    style={{ backgroundColor: '#5BC9A8', color: '#000' }}>
-                    메인으로
-                  </Link>
-                </div>
               </div>
-            )}
-          </main>
-        </div>
+
+              {/* 입력 영역 */}
+              <div className="border-t px-3 py-2.5 flex gap-2 bg-white rounded-b-2xl" style={{ borderColor: '#E2F5EF' }}>
+                <input value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+                  placeholder="메시지를 입력하세요"
+                  className="flex-1 text-[13px] outline-none px-3 py-1.5 rounded-lg border border-[#E2F5EF] focus:border-[#5BC9A8] transition-colors" />
+                <button onClick={sendMessage} disabled={!input.trim() || sending}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-white transition-colors disabled:opacity-40"
+                  style={{ backgroundColor: '#0D5C47' }}>
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 종료 */}
+          {step === 'ended' && (
+            <div className="bg-white rounded-2xl shadow-sm max-w-xl flex flex-col items-center gap-4 py-14 text-center" style={{ border: '1px solid #5BC9A820' }}>
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-sm"
+                style={{ backgroundColor: '#0D5C47' }}>
+                ✓
+              </div>
+              <p className="text-[16px] font-bold text-kb-text">상담이 종료되었습니다.</p>
+              {isConnectedToAgent && (
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[13px] text-kb-text-muted">만족도:</p>
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <button key={s} onClick={() => setScore(s)}
+                      className={`w-9 h-9 rounded-full border-2 text-[13px] font-bold transition-colors ${
+                        score === s
+                          ? 'text-white border-transparent'
+                          : 'text-kb-text-muted hover:border-[#5BC9A8] border-[#E2F5EF]'
+                      }`}
+                      style={score === s ? { backgroundColor: '#0D5C47', borderColor: '#0D5C47' } : {}}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-[13px] text-kb-text-muted">이용해 주셔서 감사합니다.</p>
+              <div className="flex gap-3 mt-2">
+                <button onClick={reset}
+                  className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 hover:bg-[#F0FAF7] transition-colors"
+                  style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                  재상담 신청
+                </button>
+                <Link href="/"
+                  className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
+                  style={{ backgroundColor: '#0D5C47' }}>
+                  메인으로
+                </Link>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   )

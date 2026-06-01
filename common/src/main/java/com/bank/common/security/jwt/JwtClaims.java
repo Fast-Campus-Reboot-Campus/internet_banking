@@ -6,5 +6,7 @@ public record JwtClaims(
         Long customerId,
         String email,
         List<String> roles,
-        TokenType tokenType
+        TokenType tokenType,
+        String branch,
+        String grade
 ) {}

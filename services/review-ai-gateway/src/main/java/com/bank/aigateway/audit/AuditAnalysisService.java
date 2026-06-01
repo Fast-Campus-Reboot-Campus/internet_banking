@@ -10,6 +10,7 @@ import com.bank.aigateway.parser.AuditResponseParser;
 import com.bank.aigateway.prompt.bias.BiasDetectionPromptBuilder;
 import com.bank.aigateway.prompt.compliance.ComplianceVerificationPromptBuilder;
 import io.micrometer.core.instrument.Timer;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,7 +46,8 @@ public class AuditAnalysisService {
                     parsed.reasoningSummary(),
                     parsed.confidenceScore(),
                     llmResp.inputTokens(),
-                    llmResp.outputTokens()
+                    llmResp.outputTokens(),
+                    List.of()
             );
         } finally {
             metrics.recordAnalysisDuration(timer, req.analysisType());

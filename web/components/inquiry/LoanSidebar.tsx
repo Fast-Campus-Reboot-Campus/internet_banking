@@ -50,6 +50,7 @@ const NAV: SidebarItem[] = [
       { label: '통장자동대출 이자납입내역 조회',         href: '/products/loan/manage/auto-interest' },
       { label: '개인대출 통지서비스 변경',               href: '/products/loan/manage/notify' },
       { label: '개인대출 할부금(이자) 납입방법 변경',   href: '/products/loan/manage/payment-method' },
+      { label: '연체정보조회',                           href: '/products/loan/manage/delinquency' },
     ],
   },
   {

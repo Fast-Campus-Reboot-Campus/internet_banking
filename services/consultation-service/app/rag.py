@@ -20,6 +20,8 @@
 import math
 from typing import Any, Protocol, runtime_checkable
 
+from langfuse.decorators import observe
+
 
 # ── 임베딩 프로바이더 인터페이스 ─────────────────────────────────────────────────
 
@@ -95,6 +97,7 @@ class ProductRagEngine:
 
     # ── 검색 ──────────────────────────────────────────────────────────────────
 
+    @observe(name="rag-search")
     def search(
         self,
         query: str,

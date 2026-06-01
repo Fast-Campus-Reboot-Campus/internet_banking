@@ -13,6 +13,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 /**
@@ -120,6 +121,15 @@ public class LoanReview extends BaseEntity {
     @Column(name = "pending_approver_since")
     private OffsetDateTime pendingApproverSince;
 
+    @Column(name = "rev_ai_track_cd", length = 20)
+    private String revAiTrackCd;
+
+    @Column(name = "rev_ai_pd", precision = 10, scale = 6)
+    private BigDecimal revAiPd;
+
+    @Column(name = "rev_ai_rationale", columnDefinition = "TEXT")
+    private String revAiRationale;
+
     public boolean isApproved() {
         return DECISION_APPROVED.equals(revDecisionCd);
     }
@@ -218,6 +228,10 @@ public class LoanReview extends BaseEntity {
         // APPROVE_AS_IS: revDecisionCd 그대로
 
         this.approvedAt = DECISION_APPROVED.equals(this.revDecisionCd) ? decidedAt : null;
+    }
+
+    public void markCompleted() {
+        this.revStatusCd = STATUS_COMPLETED;
     }
 
     /**

@@ -1,0 +1,35 @@
+name: Deploy api-gateway
+
+# 주의: docker-compose.prod.yml 에서 api-gateway 는 profiles: [alt-gateway] 로
+# 기본 비활성. 이미지는 항상 push 하되, 배포는 사용자가 수동 활성화 필요.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/api-gateway/**'
+      - 'common/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/deploy-api-gateway.yml'
+      - '.github/workflows/reusable-*.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/api-gateway/**'
+      - 'common/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-java-build.yml
+    with:
+      service-name: api-gateway
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: api-gateway
+  # 배포 단계 생략: profile 비활성 상태에서 deploy 호출시 compose 가 무시함.
+  # 활성화 결정 후 deploy 잡 추가.

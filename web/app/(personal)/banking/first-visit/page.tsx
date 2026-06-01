@@ -2,221 +2,193 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import ManageSidebar from '@/components/inquiry/ManageSidebar'
 
 type MainTab = '인터넷뱅킹 이용안내' | '개인용인증서 발급안내' | '타인증서 등록안내'
-type SubTab = '지점에서 뱅킹 가입하신 분' | '신규 시 필요서류 안내'
+type CertSubTab = '개인 범용 발급안내' | '개인 은행/신용카드/보험용 발급안내'
 
-const CERT_STEPS_ROW1 = [
-  { num: 1, label: '약관동의 및\n사용자 본인 확인' },
-  { num: 2, label: '발급대상\n인증서 선택' },
-  { num: 3, label: '출금계좌번호 및\n보안카드번호 입력' },
-  { num: 4, label: '수수료출금\n예약 확인' },
+// ── 스텝 목록 ──
+const CERT_STEPS_PERSONAL: { num: string; title: string; desc: string }[] = [
+  { num: '01', title: '개인고객 로그인', desc: 'AXful Bank 지점에서 인터넷뱅킹 신청 시 지정한 사용자 아이디(ID)와 사용자 암호를 입력합니다.' },
+  { num: '02', title: '약관동의 및 사용자 본인 확인', desc: '전자금융거래 기본약관, 전자금융서비스 이용약관, 인증서비스 약관을 확인하고 동의합니다.' },
+  { num: '03', title: '발급대상 유료 인증서 선택', desc: '발급하고자 하는 개인용 인증서의 종류와 그 사용범위를 확인하고 선택합니다.\n개인 범용을 선택하는 경우 인증기관을 선택하고 약관에 동의해야 합니다.' },
+  { num: '04', title: '전자금융사기 예방서비스', desc: '본인 확인용 추가 인증을 위하여 전자금융사기예방 서비스를 선택합니다.' },
+  { num: '05', title: '출금계좌 및 보안카드 입력', desc: '고객님 인터넷뱅킹에 등록된 출금계좌번호와 계좌비밀번호, 지점에서 수령한 보안카드의 지정된 번호를 입력합니다.' },
+  { num: '06', title: '수수료 출금 예약확인', desc: '개인 범용 인증서 발급수수료 유료화에 따른 수수료 금액 및 출금계좌번호를 확인합니다.\n(개인 범용: 1년 4,400원, 유효기간 내 재발급 시 면제)' },
+  { num: '07', title: '고객 세부 정보 입력', desc: '고객님의 주소, 전화번호 등 세부 정보를 입력합니다.\n입력한 고객 정보는 인증서 발급용으로만 사용됩니다.' },
+  { num: '08', title: '인증서 암호 및 저장위치 선정', desc: '인증서 저장 위치를 선택한 후, 앞으로 인증서 로그인 시 사용할 암호를 10~56자리(영문, 숫자, 특수문자 조합)로 입력합니다.' },
+  { num: '09', title: '인증서 발급 완료', desc: '고객님의 인증서가 발급되었습니다.\n인증서 암호를 입력하고 로그인하면 AXful Bank 인터넷뱅킹을 편리하게 이용하실 수 있습니다.' },
 ]
 
-const CERT_STEPS_ROW2 = [
-  { num: 5, label: '고객세부정보\n입력' },
-  { num: 6, label: '인증서암호 및\n저장위치 선택' },
-  { num: 7, label: '인증서 발급\n완료' },
+const CERT_STEPS_BANK: { num: string; title: string; desc: string }[] = [
+  { num: '01', title: '개인고객 로그인', desc: 'AXful Bank 지점에서 인터넷뱅킹 신청 시 지정한 사용자 아이디(ID)와 사용자 암호를 입력합니다.' },
+  { num: '02', title: '약관동의 및 사용자 본인 확인', desc: '전자금융거래 기본약관, 전자금융서비스 이용약관, 인증서비스 약관을 확인하고 동의합니다.' },
+  { num: '03', title: '발급대상 인증서 선택', desc: '발급하고자 하는 은행/신용카드/보험용 인증서를 선택합니다.' },
+  { num: '04', title: '출금계좌 및 보안카드 입력', desc: '고객님 인터넷뱅킹에 등록된 출금계좌번호와 계좌비밀번호, 보안카드의 지정된 번호를 입력합니다.' },
+  { num: '05', title: '고객 세부 정보 입력', desc: '고객님의 주소, 전화번호 등 세부 정보를 입력합니다.' },
+  { num: '06', title: '인증서 암호 및 저장위치 선정', desc: '인증서 저장 위치를 선택한 후, 인증서 로그인 시 사용할 암호를 입력합니다.' },
+  { num: '07', title: '인증서 발급 완료', desc: '고객님의 은행/신용카드/보험용 인증서가 발급되었습니다.\n인증서 암호를 입력하고 로그인하면 AXful Bank 인터넷뱅킹을 이용하실 수 있습니다.' },
+]
+
+const OTHER_CERT_STEPS: { num: string; title: string; desc: string }[] = [
+  { num: '01', title: '로그인', desc: 'AXful Bank 지점에서 인터넷뱅킹 신청 시 지정한 사용자 아이디(ID)와 사용자 암호를 입력합니다.' },
+  { num: '02', title: '사용자 본인확인', desc: '본인확인 정보를 입력하고 [확인]을 클릭합니다.' },
+  { num: '03', title: '인증서 암호 입력', desc: '[인증서 선택]을 클릭하고, 인증서 암호를 입력합니다.' },
+  { num: '04', title: '전자금융사기 예방서비스', desc: '본인 확인용 추가 인증을 위하여 전자금융사기예방 서비스를 선택합니다.' },
+  { num: '05', title: '출금계좌 및 보안카드 입력', desc: '고객님 인터넷뱅킹에 등록된 출금계좌번호와 계좌비밀번호, 지점에서 수령한 보안카드의 지정된 번호를 입력합니다.' },
+  { num: '06', title: '타행·타기관 인증서 등록 내역확인', desc: '타행·타기관 인증서 등록 내역을 확인합니다.' },
+  { num: '07', title: '인증서 등록 완료', desc: '타행·타기관에서 발급된 고객님의 인증서가 AXful Bank에 등록되었습니다.\n인증서 암호를 입력하고 로그인하면 AXful Bank 인터넷뱅킹을 편리하게 이용하실 수 있습니다.' },
+]
+
+function StepList({ steps }: { steps: { num: string; title: string; desc: string }[] }) {
+  return (
+    <div className="border border-kb-border rounded-xl overflow-hidden">
+      {steps.map((step, i) => (
+        <div key={step.num}
+          className={`px-6 py-5 ${i < steps.length - 1 ? 'border-b border-kb-border' : ''}`}>
+          <div className="flex items-start gap-4">
+            <span className="text-[18px] font-bold flex-shrink-0 w-8" style={{ color: '#0D5C47' }}>
+              {step.num}
+            </span>
+            <div>
+              <p className="text-[15px] font-semibold text-kb-text mb-1">{step.title}</p>
+              <p className="text-[13px] text-kb-text-muted whitespace-pre-line leading-relaxed">{step.desc}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const INTERNET_STEPS = [
+  { num: '01', title: '보안프로그램 설치', desc: '인터넷뱅킹 이용을 위해 보안프로그램을 설치합니다.\n키보드 보안, 백신, 방화벽 프로그램이 자동으로 설치됩니다.' },
+  { num: '02', title: '인증서 발급', desc: 'AXful 금융인증서 또는 공동인증서를 발급받습니다.\n이미 인증서가 있는 경우 타행인증서 등록을 진행합니다.' },
+  { num: '03', title: '로그인', desc: '발급받은 인증서와 사용자 아이디(ID)/암호로 로그인합니다.' },
+  { num: '04', title: '서비스 이용', desc: '조회·이체·예금·대출 등 다양한 금융서비스를 이용합니다.\n이체 서비스는 평일 00:30 ~ 23:30, 주말·공휴일 동일하게 운영됩니다.' },
 ]
 
 export default function FirstVisitPage() {
   const [mainTab, setMainTab] = useState<MainTab>('인터넷뱅킹 이용안내')
-  const [subTab, setSubTab] = useState<SubTab>('지점에서 뱅킹 가입하신 분')
+  const [certSubTab, setCertSubTab] = useState<CertSubTab>('개인 범용 발급안내')
 
   return (
-    <div className="max-w-kb-container mx-auto px-6 py-6 flex">
+    <div className="max-w-kb-container mx-auto px-6 py-8">
 
-      <ManageSidebar />
+      {/* 브레드크럼 */}
+      <div className="flex items-center gap-1 text-[12px] text-kb-text-muted mb-6">
+        <Link href="/" className="hover:underline">홈</Link>
+        <span>›</span>
+        <span>뱅킹관리</span>
+        <span>›</span>
+        <span>이용안내</span>
+        <span>›</span>
+        <span className="font-semibold text-kb-text">첫 방문 고객을 위한 안내</span>
+      </div>
 
-      {/* 우측 메인 */}
-      <main className="flex-1 min-w-0">
+      <h1 className="text-[24px] font-bold text-kb-text mb-2">첫 방문 고객을 위한 안내</h1>
+      <p className="text-[14px] text-kb-text-muted mb-8">
+        AXful Bank 인터넷뱅킹을 처음 이용하시는 고객님을 위한 안내입니다.
+      </p>
 
-        {/* 브레드크럼 */}
-        <div className="flex items-center gap-2 text-sm text-kb-text-muted mb-4 flex-wrap">
-          <span>개인뱅킹</span>
-          <span>&gt;</span>
-          <span>뱅킹관리</span>
-          <span>&gt;</span>
-          <span>이용안내</span>
-          <span>&gt;</span>
-          <span>첫 방문 고객을 위한 안내</span>
-          {mainTab === '인터넷뱅킹 이용안내' && (
-            <>
-              <span>&gt;</span>
-              <span>인터넷뱅킹 이용안내</span>
-              <span>&gt;</span>
-              <span className="text-kb-text font-medium">{subTab}</span>
-            </>
-          )}
+      {/* 메인 탭 */}
+      <div className="flex border-b border-kb-border mb-6">
+        {(['인터넷뱅킹 이용안내', '개인용인증서 발급안내', '타인증서 등록안내'] as MainTab[]).map((tab) => (
+          <button key={tab} onClick={() => setMainTab(tab)}
+            className={`px-6 py-3 text-[14px] whitespace-nowrap transition-colors
+              ${mainTab === tab ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
+            style={mainTab === tab ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* ── 인터넷뱅킹 이용안내 ── */}
+      {mainTab === '인터넷뱅킹 이용안내' && (
+        <div className="space-y-6">
+          <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-6 py-4 text-[14px] text-kb-text-body space-y-1.5">
+            <p>· 인터넷뱅킹은 은행이 정한 인증서를 발급받아야 이용이 가능합니다.</p>
+            <p>· 이미 다른 은행에서 발급받은 인증서가 있다면 [타행인증서등록]을 통해 이용하실 수 있습니다.</p>
+            <p>· 만 14세 미만 고객은 온라인 가입이 제한되며, 가까운 영업점을 방문해 주시기 바랍니다.</p>
+          </div>
+          <StepList steps={INTERNET_STEPS} />
+          <div className="flex gap-3 pt-2">
+            <Link href="/cert/fin-cert-issue"
+              className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
+              style={{ backgroundColor: '#0D5C47' }}>
+              인증서 발급하기
+            </Link>
+            <Link href="/login"
+              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
+              style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+              로그인하기
+            </Link>
+          </div>
         </div>
+      )}
 
-        {/* 페이지 제목 */}
-        <h2 className="text-2xl font-bold text-kb-text border-b-2 border-kb-text pb-3 mb-6">
-          첫 방문 고객을 위한 안내
-        </h2>
+      {/* ── 개인용인증서 발급안내 ── */}
+      {mainTab === '개인용인증서 발급안내' && (
+        <div className="space-y-5">
+          {/* 서브탭 */}
+          <div className="flex gap-1 border-b border-kb-border">
+            {(['개인 범용 발급안내', '개인 은행/신용카드/보험용 발급안내'] as CertSubTab[]).map((tab) => (
+              <button key={tab} onClick={() => setCertSubTab(tab)}
+                className={`px-4 py-2.5 text-[13px] whitespace-nowrap transition-colors
+                  ${certSubTab === tab ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
+                style={certSubTab === tab ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
+                ▶ {tab}
+              </button>
+            ))}
+          </div>
 
-        {/* 메인 탭 3개 */}
-        <div className="flex border-b border-kb-border mb-6">
-          {(['인터넷뱅킹 이용안내', '개인용인증서 발급안내', '타인증서 등록안내'] as MainTab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setMainTab(tab)}
-              className={`px-6 py-3 text-sm whitespace-nowrap transition-colors
-                ${mainTab === tab
-                  ? 'border-b-2 border-kb-text font-bold text-kb-text -mb-px'
-                  : 'text-kb-text-muted hover:text-kb-text'
-                }`}
-            >
-              {tab}
+          <StepList steps={certSubTab === '개인 범용 발급안내' ? CERT_STEPS_PERSONAL : CERT_STEPS_BANK} />
+
+          <div className="flex gap-3 pt-2">
+            <Link href="/cert/fin-cert-issue"
+              className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
+              style={{ backgroundColor: '#0D5C47' }}>
+              개인용인증서발급 바로가기
+            </Link>
+            <button onClick={() => setMainTab('타인증서 등록안내')}
+              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
+              style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+              타인증서 등록안내
             </button>
-          ))}
+          </div>
         </div>
+      )}
 
-        {mainTab === '인터넷뱅킹 이용안내' && (
-          <div className="space-y-6">
-
-            {/* 서브 탭 */}
-            <div className="flex gap-1">
-              {(['지점에서 뱅킹 가입하신 분', '신규 시 필요서류 안내'] as SubTab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setSubTab(tab)}
-                  className={`px-2 py-1 text-sm transition-colors
-                    ${subTab === tab
-                      ? 'text-kb-taupe font-bold underline underline-offset-2'
-                      : 'text-kb-text-muted hover:text-kb-text'
-                    }`}
-                >
-                  ▶ {tab}
-                </button>
-              ))}
+      {/* ── 타인증서 등록안내 ── */}
+      {mainTab === '타인증서 등록안내' && (
+        <div className="space-y-5">
+          {/* 인증서 종류 안내 */}
+          <div className="border border-kb-border rounded-xl overflow-hidden">
+            <div className="px-6 py-3 font-semibold text-[14px] text-white" style={{ backgroundColor: '#0D5C47' }}>
+              등록 가능한 인증서 종류
             </div>
-
-            {subTab === '지점에서 뱅킹 가입하신 분' && (
-              <div className="space-y-6">
-                {/* 안내 문구 */}
-                <div className="space-y-2">
-                  <p className="text-sm text-kb-text-body leading-relaxed">
-                    · 인터넷뱅킹은 은행이 정한 인증서를 발급받아야 이용이 가능합니다. 아래 이용절차에 따라 은행이 정한 인증서를 발급받으시기 바랍니다.
-                  </p>
-                  <p className="text-sm text-kb-text-body leading-relaxed">
-                    · 이미 다른 은행에서 발급받은 인증서를 사용하고 있다면 [타행인증서등록]을 해야 AX풀뱅크 인터넷뱅킹을 이용하실 수 있습니다.
-                  </p>
-                  <Link href="#" className="text-sm text-kb-taupe font-medium underline underline-offset-2">
-                    타행인증서 등록안내 바로가기
-                  </Link>
-                </div>
-
-                {/* 서비스 이용절차 */}
-                <div>
-                  <h3 className="text-base font-bold text-kb-text mb-5">서비스 이용절차</h3>
-
-                  {/* 01 — 개인용 인증서 발급 */}
-                  <div className="border border-kb-border p-6 mb-4 space-y-4">
-                    <p className="text-sm font-bold text-kb-taupe">01&nbsp; 개인용 인증서 발급</p>
-
-                    {/* 스텝 Row 1 */}
-                    <div className="flex items-stretch gap-1">
-                      {CERT_STEPS_ROW1.map((step, i) => (
-                        <div key={step.num} className="flex items-center flex-1">
-                          <div className="flex-1 border border-kb-border px-3 py-3 bg-white">
-                            <p className="text-[11px] font-bold text-kb-taupe mb-1">{step.num}</p>
-                            <p className="text-[11px] text-kb-text whitespace-pre-line leading-snug">{step.label}</p>
-                          </div>
-                          {i < CERT_STEPS_ROW1.length - 1 && (
-                            <span className="text-kb-yellow font-bold px-0.5">▶</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* 스텝 Row 2 */}
-                    <div className="flex items-stretch gap-1">
-                      {CERT_STEPS_ROW2.map((step, i) => (
-                        <div key={step.num} className="flex items-center flex-1">
-                          <div className="flex-1 border border-kb-border px-3 py-3 bg-white">
-                            <p className="text-[11px] font-bold text-kb-taupe mb-1">{step.num}</p>
-                            <p className="text-[11px] text-kb-text whitespace-pre-line leading-snug">{step.label}</p>
-                          </div>
-                          {i < CERT_STEPS_ROW2.length - 1 && (
-                            <span className="text-kb-yellow font-bold px-0.5">▶</span>
-                          )}
-                        </div>
-                      ))}
-                      {/* 빈 칸 채우기 */}
-                      <div className="flex-1" />
-                    </div>
-
-                    {/* 안내 사항 */}
-                    <div className="space-y-1.5 border-t border-kb-border pt-4">
-                      <p className="text-sm text-kb-text-body leading-relaxed">
-                        &gt; 인증서를 발급 시, 고객님이 지점에서 신청한 사용자 아이디(ID), 인터넷뱅킹 신청 시 수령한 보안카드의 지정번호, 출금계좌번호, 계좌비밀번호 등의 정보를 입력해야 합니다.
-                      </p>
-                      <p className="text-sm text-kb-text-body leading-relaxed">
-                        * 2020년 12월 10일부터 시행된 전자서명법 개정으로 인해 기존 공인인증서 제도는 폐지되었습니다. AX풀뱅크에서 인정한 인증서를 통해 개인 법인 공동인증서 이용을 부탁드립니다.(유료 개인 범용인증서는 현행과 동일)
-                      </p>
-                      <p className="text-sm text-kb-text-body leading-relaxed">
-                        &gt; 아래 [개인용인증서발급 바로가기] 버튼을 클릭하고 순서에 따라 인증서를 발급받으세요.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 02 — 인터넷뱅킹 로그인 */}
-                  <div className="border border-kb-border p-6 space-y-2">
-                    <p className="text-sm font-bold text-kb-taupe">02&nbsp; 인터넷뱅킹 로그인</p>
-                    <p className="text-sm text-kb-text-body leading-relaxed">
-                      인증서 암호를 입력하고 로그인하면 AX풀뱅크 인터넷뱅킹을 편리하게 이용하실 수 있습니다.
-                    </p>
-                  </div>
-                </div>
-
-                {/* CTA 버튼 */}
-                <div className="flex justify-center pt-2">
-                  <Link
-                    href="/cert/fin-cert-issue"
-                    className="px-10 py-3 bg-kb-yellow text-base font-bold text-kb-text hover:brightness-95 transition-all"
-                  >
-                    개인용인증서발급 바로가기
-                  </Link>
-                </div>
+            <div className="divide-y divide-kb-border">
+              <div className="px-6 py-4">
+                <p className="text-[14px] font-semibold text-kb-text mb-1">타행 인증서</p>
+                <p className="text-[13px] text-kb-text-muted">다른 은행에서 이미 발급받은 인증서로서 인증서 발급기관이 금융결제원(YessignCA)인 인증서</p>
               </div>
-            )}
-
-            {subTab === '신규 시 필요서류 안내' && (
-              <div className="border border-kb-border p-6 space-y-3">
-                <p className="text-base font-bold text-kb-text">신규 시 필요서류 안내</p>
-                <ul className="space-y-2 text-sm text-kb-text-body list-disc list-inside">
-                  <li>신분증 (주민등록증, 운전면허증 등)</li>
-                  <li>도장 또는 서명</li>
-                  <li>초기 입금용 현금 또는 이체 가능한 계좌</li>
-                </ul>
+              <div className="px-6 py-4">
+                <p className="text-[14px] font-semibold text-kb-text mb-1">타기관 인증서</p>
+                <p className="text-[13px] text-kb-text-muted">은행 외 증권사, 공공기관에서 발급받은 인증서로서 인증서 발급기관이 (주)코스콤(Signkorea), 한국정보인증(kica), 한국전자인증(crosscert), 한국무역정보통신(TradeSign)인 인증서</p>
               </div>
-            )}
+            </div>
           </div>
-        )}
 
-        {mainTab === '개인용인증서 발급안내' && (
-          <div className="border border-kb-border p-8 text-center space-y-3">
-            <p className="text-base font-bold text-kb-text">개인용 인증서 발급 안내</p>
-            <p className="text-sm text-kb-text-muted">AXful인증서 또는 금융인증서를 발급받아 이용하세요.</p>
-            <Link href="/cert" className="inline-block mt-2 px-8 py-2.5 bg-kb-yellow text-sm font-bold text-kb-text hover:brightness-95 transition-all">
-              인증센터 바로가기
+          <StepList steps={OTHER_CERT_STEPS} />
+
+          <div className="flex gap-3 pt-2">
+            <Link href="/cert/joint-cert-issue"
+              className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
+              style={{ backgroundColor: '#0D5C47' }}>
+              타행/타기관 인증서등록 바로가기
             </Link>
           </div>
-        )}
-
-        {mainTab === '타인증서 등록안내' && (
-          <div className="border border-kb-border p-8 text-center space-y-3">
-            <p className="text-base font-bold text-kb-text">타인증서 등록 안내</p>
-            <p className="text-sm text-kb-text-muted">타행·타기관에서 발급한 인증서를 등록하여 AX풀뱅크 인터넷뱅킹을 이용하실 수 있습니다.</p>
-            <Link href="/cert" className="inline-block mt-2 px-8 py-2.5 bg-kb-yellow text-sm font-bold text-kb-text hover:brightness-95 transition-all">
-              타행인증서 등록하기
-            </Link>
-          </div>
-        )}
-
-      </main>
+        </div>
+      )}
     </div>
   )
 }

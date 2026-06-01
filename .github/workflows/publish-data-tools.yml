@@ -1,0 +1,21 @@
+name: Publish data-tools
+
+# data-tools 는 상주 서비스가 아닌 일회성 배치 이미지.
+# 빌드/push 만 수행하고 자동 배포는 하지 않는다.
+# 운영에서는 docker compose run --rm data-tools python scripts/<name>.py 로 수동 실행.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/data-tools/**'
+      - '.github/workflows/publish-data-tools.yml'
+      - '.github/workflows/reusable-docker-publish.yml'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: data-tools
+      build-context: services/data-tools
+      dockerfile-path: services/data-tools/Dockerfile

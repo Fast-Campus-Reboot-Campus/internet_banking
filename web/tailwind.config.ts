@@ -1,4 +1,4 @@
-import type { Config } from "tailwindcss";
+﻿import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: "class",
@@ -11,7 +11,7 @@ const config: Config = {
     extend: {
       // ============ KB 컬러 토큰 ============
       colors: {
-        // Primary — AX풀뱅크 진한 민트
+        // Primary — AXful Bank 진한 민트
         "kb-yellow":      "#5BC9A8",   // 메인 (진한 민트)
         "kb-yellow-dark": "#3FA889",   // 호버·강조
         "kb-yellow-light":"#A8E5D4",   // 옅은 강조

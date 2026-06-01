@@ -338,22 +338,21 @@ export default function DepositListPage() {
             <span>예금</span><span>&gt;</span>
             <span className="font-semibold text-kb-text">예금 상품/가입</span>
             <span>&gt;</span>
-            <Link href="#" className="text-kb-blue hover:underline">도움말</Link>
+            <Link href="#" className="font-medium hover:underline" style={{ color: '#0D5C47' }}>도움말</Link>
           </div>
 
-          <h1 className="text-[20px] font-bold text-kb-text mb-4">예금 상품/가입</h1>
+          <h1 className="text-[22px] font-bold text-kb-text mb-5">예금 상품/가입</h1>
 
           {/* 탭 */}
-          <div className="flex border-b border-kb-border mb-5">
+          <div className="flex border-b mb-5" style={{ borderColor: '#E2F5EF' }}>
             {TABS.map(t => (
               <button
                 key={t}
                 onClick={() => handleTabChange(t)}
-                className={`px-8 py-3 text-[14px] font-medium transition-colors
-                  ${tab === t
-                    ? 'border-b-2 border-kb-text text-kb-text bg-white -mb-px'
-                    : 'text-kb-text-muted hover:text-kb-text'
-                  }`}
+                className="px-8 py-3 text-[14px] font-medium transition-colors border-b-2 -mb-px"
+                style={tab === t
+                  ? { borderColor: '#0D5C47', color: '#0D5C47', fontWeight: 700, backgroundColor: 'white' }
+                  : { borderColor: 'transparent', color: '#9CA3AF', backgroundColor: '#F8FFFE' }}
               >
                 {t}
               </button>
@@ -361,24 +360,25 @@ export default function DepositListPage() {
           </div>
 
           {/* 필터 */}
-          <div className="border border-kb-border p-5 mb-5 bg-kb-beige-light">
+          <div className="rounded-xl p-5 mb-5" style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
             <div className="grid grid-cols-[100px_1fr] gap-y-3 text-[13px] items-center">
-              <span className="text-kb-text font-semibold">• 상품명</span>
+              <span className="font-semibold text-kb-text">• 상품명</span>
               <input
                 type="text"
                 value={searchName}
                 onChange={e => setSearchName(e.target.value)}
-                className="border border-kb-border px-3 py-1.5 text-[13px] w-64 bg-white"
+                className="border rounded-lg px-3 py-1.5 text-[13px] w-64 outline-none bg-white"
+                style={{ borderColor: '#D1D5DB' }}
               />
 
               {showProductTypeFilter && (
                 <>
-                  <span className="text-kb-text font-semibold">• 상품유형</span>
+                  <span className="font-semibold text-kb-text">• 상품유형</span>
                   <div className="flex items-center gap-5">
                     {DEPOSIT_PRODUCT_TYPES.map(v => (
-                      <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+                      <label key={v} className="flex items-center gap-1.5 cursor-pointer text-kb-text-body">
                         <input type="radio" name="productType" checked={productType === v}
-                          onChange={() => setProductType(v)} className="accent-kb-yellow" />
+                          onChange={() => setProductType(v)} style={{ accentColor: '#0D5C47' }} />
                         {v}
                       </label>
                     ))}
@@ -386,12 +386,12 @@ export default function DepositListPage() {
                 </>
               )}
 
-              <span className="text-kb-text font-semibold">• 가입방법</span>
+              <span className="font-semibold text-kb-text">• 가입방법</span>
               <div className="flex items-center gap-5">
                 {JOIN_METHODS.map(v => (
-                  <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+                  <label key={v} className="flex items-center gap-1.5 cursor-pointer text-kb-text-body">
                     <input type="radio" name="joinMethod" checked={joinMethod === v}
-                      onChange={() => setJoinMethod(v)} className="accent-kb-yellow" />
+                      onChange={() => setJoinMethod(v)} style={{ accentColor: '#0D5C47' }} />
                     {v}
                   </label>
                 ))}
@@ -399,12 +399,12 @@ export default function DepositListPage() {
 
               {showPeriodFilter && (
                 <>
-                  <span className="text-kb-text font-semibold">• 가입기간</span>
+                  <span className="font-semibold text-kb-text">• 가입기간</span>
                   <div className="flex items-center gap-4 flex-wrap">
                     {JOIN_PERIODS.map(v => (
-                      <label key={v} className="flex items-center gap-1.5 cursor-pointer">
+                      <label key={v} className="flex items-center gap-1.5 cursor-pointer text-kb-text-body">
                         <input type="radio" name="joinPeriod" checked={joinPeriod === v}
-                          onChange={() => setJoinPeriod(v)} className="accent-kb-yellow" />
+                          onChange={() => setJoinPeriod(v)} style={{ accentColor: '#0D5C47' }} />
                         {v}
                       </label>
                     ))}
@@ -413,16 +413,19 @@ export default function DepositListPage() {
               )}
             </div>
             <div className="flex justify-center mt-4">
-              <button className="bg-kb-text text-white px-12 py-2 text-[14px] font-bold hover:bg-kb-taupe">조회</button>
+              <button className="px-16 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
+                style={{ backgroundColor: '#0D5C47' }}>
+                조회
+              </button>
             </div>
           </div>
 
           {/* 목록 헤더 */}
           <div className="flex justify-between items-center mb-2">
             <p className="text-[13px] text-kb-text">
-              상품목록 <span className="text-kb-red font-bold">{products.length}</span>건
+              상품목록 <span className="font-bold" style={{ color: '#0D5C47' }}>{products.length}</span>건
             </p>
-            <select className="border border-kb-border px-2 py-1 text-[12px]">
+            <select className="border rounded-lg px-2 py-1 text-[12px] outline-none" style={{ borderColor: '#E2F5EF' }}>
               <option>금리순</option>
               <option>기간순</option>
               <option>상품명순</option>
@@ -430,17 +433,21 @@ export default function DepositListPage() {
           </div>
 
           {/* 상품 목록 */}
-          <div className="divide-y divide-kb-border border-t border-kb-border-dark">
-            {products.map(product => (
-              <div key={product.id} className="py-5 hover:bg-kb-beige-light transition-colors px-2">
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+            {products.map((product, idx) => (
+              <div key={product.id}
+                className="py-5 px-5 hover:bg-[#F8FFFE] transition-colors"
+                style={{ borderBottom: idx < products.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] border border-kb-border px-1.5 py-0.5 text-kb-text-muted">
+                      <span className="text-[11px] rounded px-1.5 py-0.5 text-kb-text-muted"
+                        style={{ border: '1px solid #E2F5EF', backgroundColor: '#F0FAF7' }}>
                         {product.channel}
                       </span>
                       {product.isNew && (
-                        <span className="text-[11px] bg-kb-red text-white px-1.5 py-0.5 font-bold">NEW</span>
+                        <span className="text-[11px] rounded px-1.5 py-0.5 font-bold text-white"
+                          style={{ backgroundColor: '#5BC9A8' }}>NEW</span>
                       )}
                     </div>
                     <Link href={`/products/deposit/${product.id}`}
@@ -453,23 +460,26 @@ export default function DepositListPage() {
                     {(product.period || product.rate) && (
                       <p className="text-[13px] mt-1">
                         {product.period && <span className="text-kb-text-muted">{product.period}, </span>}
-                        {product.rate && <span className="font-bold text-orange-600">{product.rate}</span>}
+                        {product.rate && <span className="font-bold" style={{ color: '#0D5C47' }}>{product.rate}</span>}
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => setCartProduct(product.name)}
-                      className="border border-kb-border px-3 py-1.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light"
+                      className="border rounded-lg px-3 py-1.5 text-[13px] hover:bg-[#F0FAF7] transition-colors"
+                      style={{ borderColor: '#E2F5EF' }}
                     >
                       🛒
                     </button>
-                    <button className="border border-kb-border px-4 py-1.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
+                    <button className="border rounded-lg px-4 py-1.5 text-[13px] font-medium hover:bg-[#F0FAF7] transition-colors"
+                      style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
                       비교하기
                     </button>
                     {product.canApply && (
                       <Link href={`/products/deposit/join/${product.id}`}
-                        className="bg-kb-yellow px-5 py-1.5 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark">
+                        className="rounded-xl px-5 py-1.5 text-[13px] font-bold text-white hover:opacity-85 transition-opacity"
+                        style={{ backgroundColor: '#0D5C47' }}>
                         가입하기
                       </Link>
                     )}
@@ -488,7 +498,8 @@ export default function DepositListPage() {
 
           {/* 페이지네이션 */}
           <div className="flex justify-center mt-8 gap-1">
-            <button className="w-7 h-7 text-[13px] border border-kb-yellow bg-kb-yellow text-kb-text font-bold">1</button>
+            <button className="w-8 h-8 text-[13px] rounded-lg font-bold text-white"
+              style={{ backgroundColor: '#0D5C47' }}>1</button>
           </div>
         </main>
       </div>

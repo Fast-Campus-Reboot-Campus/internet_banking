@@ -4,6 +4,7 @@ import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.ApiResponse;
 import com.bank.loan.advisory.dto.DocumentRegisterRequest;
 import com.bank.loan.advisory.dto.DocumentRegisterResponse;
+import com.bank.loan.advisory.rag.CaseIndexBackfillService;
 import com.bank.loan.advisory.rag.CaseIndexingService;
 import com.bank.loan.advisory.rag.DocumentIngestionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,9 +35,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class InternalAdvisoryRagController {
 
-    private final DocumentIngestionService ingestionService;
-    private final CaseIndexingService      caseIndexingService;
-    private final CurrentActorProvider     currentActor;
+    private final DocumentIngestionService   ingestionService;
+    private final CaseIndexingService        caseIndexingService;
+    private final CaseIndexBackfillService   backfillService;
+    private final CurrentActorProvider       currentActor;
 
     @Operation(summary = "정책문서 등록 및 인입",
             description = "정책문서를 등록하고 청크 분할·임베딩·적재 후 자동 활성화한다. " +
@@ -82,4 +84,26 @@ public class InternalAdvisoryRagController {
     }
 
     public record IndexCasesResult(int indexedCount, Long lastCaseIdxId) {}
+
+    @Operation(summary = "완료 심사 케이스 일괄 백필",
+            description = "COMPLETED 심사를 ADVISORY_CASE_INDEX 에 적재한다. " +
+                          "from/to 생략 시 전체 대상. dryRun=true 면 INSERT 없이 대상 건수만 반환. " +
+                          "revId 당 1건만 적재 (멱등).")
+    @PostMapping("/rag/case-index/backfill")
+    public ApiResponse<BackfillResultResponse> backfill(
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "false") boolean dryRun) {
+        Long actorId = currentActor.currentActorId();
+        CaseIndexBackfillService.BackfillResult result =
+                backfillService.backfill(from, to, dryRun, actorId);
+        return ApiResponse.ok(BackfillResultResponse.from(result));
+    }
+
+    public record BackfillResultResponse(
+            int processed, int skipped, int failed, boolean dryRun) {
+        static BackfillResultResponse from(CaseIndexBackfillService.BackfillResult r) {
+            return new BackfillResultResponse(r.processed(), r.skipped(), r.failed(), r.dryRun());
+        }
+    }
 }

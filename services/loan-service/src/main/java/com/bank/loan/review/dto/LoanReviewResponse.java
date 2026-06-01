@@ -2,6 +2,7 @@ package com.bank.loan.review.dto;
 
 import com.bank.loan.review.domain.LoanReview;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 public record LoanReviewResponse(
@@ -22,7 +23,10 @@ public record LoanReviewResponse(
         String approvedDecisionCd,
         String overrideReasonCd,
         String biasSeverityCd,
-        Long biasOverrideBy
+        Long biasOverrideBy,
+        String revAiTrackCd,
+        BigDecimal revAiPd,
+        String revAiRationale
 ) {
     public static LoanReviewResponse of(LoanReview r) {
         return new LoanReviewResponse(
@@ -32,7 +36,8 @@ public record LoanReviewResponse(
                 r.getRejectReasonCd(), r.getRevRemark(),
                 r.getReviewerId(), r.getReviewedAt(), r.getApprovedAt(),
                 r.getApproverId(), r.getApprovedDecisionCd(), r.getOverrideReasonCd(),
-                r.getBiasSeverityCd(), r.getBiasOverrideBy()
+                r.getBiasSeverityCd(), r.getBiasOverrideBy(),
+                r.getRevAiTrackCd(), r.getRevAiPd(), r.getRevAiRationale()
         );
     }
 }

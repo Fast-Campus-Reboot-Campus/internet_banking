@@ -16,6 +16,10 @@ public interface LoanApplicationRepository extends JpaRepository<LoanApplication
 
     Optional<LoanApplication> findByApplIdAndDeletedAtIsNull(Long applId);
 
+    Optional<LoanApplication> findByApplNoAndDeletedAtIsNull(String applNo);
+
+    List<LoanApplication> findByCustomerIdAndDeletedAtIsNullOrderByApplIdDesc(Long customerId);
+
     /**
      * 승인 유효기간이 지난 APPROVED 신청 목록.
      * LoanReview.approvedAt < threshold 이고 아직 APPROVED 상태인 건 (즉 약정/취소 미진행).

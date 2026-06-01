@@ -1,6 +1,23 @@
 server:
   port: ${AI_APP_PORT:8086}
 
+logging:
+  file:
+    name: ${LOG_DIR:C:/logs/internet-banking}/ai-service.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+langfuse:
+  enabled: ${LANGFUSE_ENABLED:false}
+  secret-key: ${LANGFUSE_SECRET_KEY:}
+  public-key: ${LANGFUSE_PUBLIC_KEY:}
+  host: ${LANGFUSE_HOST:http://localhost:3001}
+
+# Phoenix OTel 설정 — JVM 실행 시 아래 시스템 프로퍼티로 활성화
+# -javaagent:opentelemetry-javaagent.jar
+# -Dotel.exporter.otlp.endpoint=http://localhost:4317
+# -Dotel.service.name=ai-service
+
 spring:
   application:
     name: ai-service

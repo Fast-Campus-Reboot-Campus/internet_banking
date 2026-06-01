@@ -61,6 +61,9 @@ public class RepaymentAccount extends BaseEntity {
     @Column(name = "holder_name_masked", length = 50)
     private String holderNameMasked;
 
+    @Column(name = "holder_name_enc")
+    private byte[] holderNameEnc;
+
     @Column(name = "racct_status_cd", nullable = false, length = 50)
     private String racctStatusCd;
 
