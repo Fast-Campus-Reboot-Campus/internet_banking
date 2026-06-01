@@ -107,6 +107,18 @@ public class SecurityConfig {
                         "/api/loan-applications/*/review/approver-approve"
                 ).hasRole(LoanRole.BRANCH_MANAGER.spring())
 
+                // break-glass 긴급 접근 — 직원 역할만 (CUSTOMER 제외)
+                .requestMatchers(HttpMethod.POST, "/api/break-glass")
+                .hasAnyRole(
+                        LoanRole.TELLER.spring(), LoanRole.DEPUTY_MANAGER.spring(),
+                        LoanRole.BRANCH_MANAGER.spring(), LoanRole.HQ_REVIEWER.spring(),
+                        LoanRole.COMPLIANCE.spring(), LoanRole.OPS.spring(),
+                        LoanRole.ADMIN.spring()
+                )
+
+                // 감사로그 조회 — COMPLIANCE 전용
+                .requestMatchers("/api/audit/**").hasRole(LoanRole.COMPLIANCE.spring())
+
                 .anyRequest().authenticated()
             );
 

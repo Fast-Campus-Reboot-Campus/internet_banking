@@ -9,4 +9,8 @@ public interface AccessAuditLogRepository extends JpaRepository<AccessAuditLog, 
     List<AccessAuditLog> findByActorIdOrderByLoggedAtDesc(Long actorId);
 
     List<AccessAuditLog> findByTargetTypeAndTargetIdOrderByLoggedAtDesc(String targetType, Long targetId);
+
+    List<AccessAuditLog> findByActionCdOrderByLoggedAtDesc(String actionCd);
+
+    List<AccessAuditLog> findByActorIdAndActionCdOrderByLoggedAtDesc(Long actorId, String actionCd);
 }

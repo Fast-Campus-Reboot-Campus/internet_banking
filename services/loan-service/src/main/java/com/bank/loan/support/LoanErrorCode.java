@@ -159,6 +159,10 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_203(HttpStatus.CONFLICT, "이미 본사에 상신된 건입니다."),
     LOAN_204(HttpStatus.UNPROCESSABLE_ENTITY, "현재 상태에서는 본사 상신이 불가합니다. 심사 진행 중인 건만 상신할 수 있습니다."),
 
+    // break-glass 긴급 접근 (205-206)
+    LOAN_205(HttpStatus.BAD_REQUEST, "break-glass 사유는 10자 이상이어야 합니다."),
+    LOAN_206(HttpStatus.NOT_FOUND,   "break-glass 대상 건을 찾을 수 없습니다."),
+
     // RAG (210-219)
     LOAN_210(HttpStatus.SERVICE_UNAVAILABLE,  "임베딩 API 호출에 실패했습니다. 잠시 후 재시도하세요."),
     LOAN_211(HttpStatus.BAD_GATEWAY,          "임베딩 API 응답이 유효하지 않습니다. (차원 불일치 또는 빈 응답)");

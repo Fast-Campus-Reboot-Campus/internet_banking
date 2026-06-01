@@ -25,6 +25,8 @@ import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviewStatsResponse;
 import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
+import com.bank.loan.audit.domain.AccessAuditLog;
+import com.bank.loan.audit.store.BreakGlassGrantStore;
 import com.bank.loan.security.LoanActorContext;
 import com.bank.loan.security.LoanRole;
 import com.bank.loan.security.PiiLevel;
@@ -82,6 +84,7 @@ public class LoanReviewService {
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationOutboxAppender outboxAppender;
     private final ObjectMapper objectMapper;
+    private final BreakGlassGrantStore breakGlassGrantStore;
 
     @Value("${loan.review.bias-check.enabled:true}")
     private boolean biasCheckEnabled;
@@ -279,9 +282,9 @@ public class LoanReviewService {
         LoanReview review = repository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
 
-        checkScope(application, review, actor);
+        boolean isBreakGlass = checkScope(application, review, actor);
 
-        PiiLevel level = actor.piiLevel(application, review);
+        PiiLevel level = isBreakGlass ? PiiLevel.MASKED : actor.piiLevel(application, review);
         return LoanReviewResponse.of(review, application, level);
     }
 
@@ -293,39 +296,49 @@ public class LoanReviewService {
      *  4. 본사 담당자 — 상신(ESCALATED) 건만
      * OPS/INTERNAL/ADMIN 은 별도 차단 없이 통과.
      */
-    private void checkScope(LoanApplication application, LoanReview review, LoanActorContext actor) {
+    /**
+     * 접근 판정 — true 반환 시 break-glass 임시 접근, false 는 정상 접근.
+     * 접근 불가 시 LOAN_202 예외.
+     */
+    private boolean checkScope(LoanApplication application, LoanReview review, LoanActorContext actor) {
         Long actorId = actor.actorId();
 
         // OPS·INTERNAL·ADMIN — 전체 접근 허용
         if (actor.hasRole(LoanRole.OPS)
                 || actor.hasRole(LoanRole.INTERNAL)
                 || actor.hasRole(LoanRole.ADMIN)) {
-            return;
+            return false;
         }
 
         // 라인 참여자 (담당자·심사자·승인자)
         if (actorId != null && (actorId.equals(review.getOwnerId())
                 || actorId.equals(review.getReviewerId())
                 || actorId.equals(review.getApproverId()))) {
-            return;
+            return false;
         }
 
         // 고객 — 본인 신청 건
         if (actor.hasRole(LoanRole.CUSTOMER)
                 && actorId != null && actorId.equals(application.getCustomerId())) {
-            return;
+            return false;
         }
 
         // 같은 지점 지점장
         if (actor.hasRole(LoanRole.BRANCH_MANAGER)
                 && actor.branch() != null
                 && actor.branch().equals(application.getBranchId())) {
-            return;
+            return false;
         }
 
         // 본사 담당자 — 상신 건만
         if (actor.hasRole(LoanRole.HQ_REVIEWER) && review.isEscalated()) {
-            return;
+            return false;
+        }
+
+        // break-glass 임시 접근 (1시간 TTL, 사유 기록 필수)
+        if (actorId != null && breakGlassGrantStore.hasGrant(
+                actorId, AccessAuditLog.TARGET_LOAN_APPLICATION, application.getApplId())) {
+            return true;
         }
 
         throw new BusinessException(LoanErrorCode.LOAN_202);
