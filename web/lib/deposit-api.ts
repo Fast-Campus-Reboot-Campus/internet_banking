@@ -331,8 +331,9 @@ export type DepositTransaction = {
 }
 
 export async function fetchTransactions(params: { customerId?: string; accountId?: number }): Promise<DepositTransaction[]> {
-  const { data } = await depositApi.get<DepositTransaction[]>('/transactions', { params })
-  return data
+  const { data } = await depositApi.get<DepositTransaction[] | { content?: DepositTransaction[] }>('/transactions', { params })
+  if (Array.isArray(data)) return data
+  return Array.isArray(data.content) ? data.content : []
 }
 
 export async function fetchTransaction(transactionId: number): Promise<DepositTransaction> {

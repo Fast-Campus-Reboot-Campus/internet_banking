@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
@@ -19,6 +19,7 @@ type PendingTransfer = {
 
 export default function TransferResultPage() {
   const router = useRouter()
+  const loadedTransferRef = useRef(false)
   const [data, setData] = useState<PendingTransfer | null>(null)
   const [accounts, setAccounts] = useState<{ number: string; balance: number }[]>([])
 
@@ -29,6 +30,8 @@ export default function TransferResultPage() {
   }, [])
 
   useEffect(() => {
+    if (loadedTransferRef.current) return
+    loadedTransferRef.current = true
     const raw = sessionStorage.getItem('pendingTransfer')
     if (!raw) { router.push('/transfer/account'); return }
     const transfer = JSON.parse(raw)
