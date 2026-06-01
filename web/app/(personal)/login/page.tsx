@@ -287,7 +287,6 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
       })
       if (res.ok) {
         const data = await res.json()
-        localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         window.location.href = '/personal'
@@ -439,9 +438,13 @@ function IdLoginTab() {
     setLoading(true)
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
+      localStorage.removeItem('sessionExpiry')
       localStorage.setItem('accessToken', data.data.accessToken)
       localStorage.setItem('access_token', data.data.accessToken)
       localStorage.setItem('customerId', String(data.data.customerId))
+      if (data.data.refreshToken) {
+        localStorage.setItem('refreshToken', data.data.refreshToken)
+      }
 
       // 이름 표시를 위해 내 정보 조회
       try {
@@ -451,8 +454,8 @@ function IdLoginTab() {
 
       window.location.href = '/personal'
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } }
-      setError(e.response?.data?.message ?? '로그인에 실패했습니다.')
+      const axiosErr = err as { response?: { data?: { message?: string } } }
+      setError(axiosErr.response?.data?.message ?? '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -713,7 +716,6 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
       })
       if (res.ok) {
         const data = await res.json()
-        localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         window.location.href = '/personal'

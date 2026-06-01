@@ -19,7 +19,7 @@ function MainHeader() {
           <Link href="/personal" className="px-3 text-kb-text font-medium hover:text-kb-yellow transition-colors">개인</Link>
           <Link href="/biz" className="px-3 text-kb-text-muted hover:text-kb-text transition-colors">기업</Link>
           <span className="text-kb-border mx-1">|</span>
-          <Link href="#" className="px-3 text-kb-text-muted hover:text-kb-text transition-colors">금융상품</Link>
+          <Link href="/products/deposit" className="px-3 text-kb-text-muted hover:text-kb-text transition-colors">금융상품</Link>
           <span className="text-kb-border mx-1">|</span>
           {['자산관리', '부동산', '퇴직연금', '카드'].map((item) => (
             <Link key={item} href="#" className="px-3 text-kb-text-muted hover:text-kb-text transition-colors">{item}</Link>
@@ -298,14 +298,14 @@ function IconForeignDeposit() {
 
 // ── 금융상품 ──
 const PRODUCTS = [
-  { label: '예금', icon: <IconDeposit /> },
-  { label: '펀드', icon: <IconFund /> },
-  { label: '대출', icon: <IconLoan /> },
-  { label: '신탁', icon: <IconTrust /> },
-  { label: 'ISA', icon: <IconISA /> },
-  { label: '보험/공제', icon: <IconInsurance /> },
-  { label: '골드', icon: <IconGold /> },
-  { label: '외화예금', icon: <IconForeignDeposit /> },
+  { label: '예금',    icon: <IconDeposit />,        href: '/products/deposit' },
+  { label: '펀드',    icon: <IconFund />,            href: '/products/fund' },
+  { label: '대출',    icon: <IconLoan />,            href: '/products/loan' },
+  { label: '신탁',    icon: <IconTrust />,           href: '/products/trust' },
+  { label: 'ISA',    icon: <IconISA />,             href: '/products/isa' },
+  { label: '보험/공제', icon: <IconInsurance />,    href: '/products/insurance' },
+  { label: '골드',    icon: <IconGold />,            href: '/products/gold' },
+  { label: '외화예금', icon: <IconForeignDeposit />, href: '/products/fx-deposit' },
 ]
 
 // ── KB 앱 ──
@@ -401,11 +401,11 @@ export default function MainHomePage() {
           <div className="max-w-kb-container mx-auto px-6 flex items-start gap-8">
             <div className="flex-shrink-0 w-36">
               <h2 className="text-xl font-bold text-kb-text">금융상품</h2>
-              <Link href="#" className="text-sm text-kb-text-muted hover:text-kb-text hover:underline flex items-center gap-0.5 mt-1">바로가기 ›</Link>
+              <Link href="/products/deposit" className="text-sm text-kb-text-muted hover:text-kb-text hover:underline flex items-center gap-0.5 mt-1">바로가기 ›</Link>
             </div>
             <div className="flex flex-1 justify-evenly">
               {PRODUCTS.map((p) => (
-                <Link key={p.label} href="#"
+                <Link key={p.label} href={p.href}
                   className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity">
                   {p.icon}
                   <span className="text-sm text-kb-text">{p.label}</span>

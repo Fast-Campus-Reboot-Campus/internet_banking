@@ -145,7 +145,7 @@ class FeatureExecutorBase:
               FROM deposit_transactions
              WHERE account_id IN :account_ids
                AND transaction_status = 'COMPLETED'
-               AND created_at >= :cutoff
+               AND transaction_at >= :cutoff
             """,
             {"account_ids": account_ids, "cutoff": cutoff},
             expanding_params=("account_ids",),

@@ -60,7 +60,8 @@ public class MyPageService {
                 partyPerson.getGenderCode(),
                 customer.getCustomerGradeCode(),
                 customer.getCustomerStatusCode(),
-                customer.getJoinedAt()
+                customer.getJoinedAt(),
+                credential.getPasswordLastLoginAt()
         );
     }
 }

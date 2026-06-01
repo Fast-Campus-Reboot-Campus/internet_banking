@@ -1,0 +1,44 @@
+name: Deploy loan-service
+
+# loan-service 는 advisory-service 소스를 같은 JVM 으로 컴파일하므로
+# advisory-service/** 변경도 트리거에 포함.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/loan-service/**'
+      - 'services/advisory-service/**'
+      - 'common/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/deploy-loan-service.yml'
+      - '.github/workflows/reusable-*.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/loan-service/**'
+      - 'services/advisory-service/**'
+      - 'common/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-java-build.yml
+    with:
+      service-name: loan-service
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: loan-service
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: publish
+    uses: ./.github/workflows/reusable-deploy-oracle.yml
+    with:
+      service-name: loan-service
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+    secrets: inherit

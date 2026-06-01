@@ -25,6 +25,7 @@ Thumbs.db
 # Env / Secrets
 .env
 .env.local
+.env.prod
 *.local
 *.bak
 .venv/

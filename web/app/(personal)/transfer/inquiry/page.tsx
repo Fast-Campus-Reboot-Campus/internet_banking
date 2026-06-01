@@ -59,11 +59,7 @@ export default function TransferInquiryPage() {
   function toggleRow(id: string) {
     setCheckedRows(prev => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
       return next
     })
   }
@@ -144,7 +140,7 @@ export default function TransferInquiryPage() {
                       onChange={e => setFromAccount(e.target.value)}
                       className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px] outline-none bg-white"
                     >
-                      {accounts.map(a => (
+                      {MOCK_ACCOUNTS.map(a => (
                         <option key={a.id} value={a.number}>{a.number}</option>
                       ))}
                     </select>

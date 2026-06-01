@@ -2,15 +2,14 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { use } from 'react'
 import { formatNumber } from '@/lib/mock-data'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, fetchTransactions, DepositViewAccount, DepositTransaction } from '@/lib/deposit-api'
 
 const DATE_PRESETS = ['1개월', '3개월', '6개월', '1년', '직접입력']
 const TX_TYPE_OPTS = ['전체', '입금', '출금']
 
-export default function AccountDetailPage({ params }: { params: Promise<{ accountId: string }> }) {
-  const { accountId } = use(params)
+export default function AccountDetailPage({ params }: { params: { accountId: string } }) {
+  const { accountId } = params
   const [account, setAccount] = useState<DepositViewAccount | null>(null)
   const [transactions, setTransactions] = useState<DepositTransaction[]>([])
   const [loading, setLoading] = useState(true)

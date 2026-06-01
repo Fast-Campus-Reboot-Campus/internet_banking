@@ -2,8 +2,8 @@ package com.bank.loan.rag;
 
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
-import com.bank.loan.rag.domain.LoanReview;
-import com.bank.loan.rag.domain.LoanReviewRepository;
+import com.bank.loan.review.domain.LoanReview;
+import com.bank.loan.review.repository.LoanReviewRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

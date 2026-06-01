@@ -9,6 +9,9 @@ import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.prescreening.domain.LoanPrescreening;
 import com.bank.loan.prescreening.dto.LoanPrescreeningResponse;
 import com.bank.loan.prescreening.dto.RunPrescreeningRequest;
+import com.bank.loan.prescreening.client.AutoReviewEvaluateClient;
+import com.bank.loan.prescreening.client.AutoReviewEvaluateRequest;
+import com.bank.loan.prescreening.client.AutoReviewEvaluateResult;
 import com.bank.loan.prescreening.engine.CreditScoreEngine;
 import com.bank.loan.prescreening.engine.CreditScoreEngineException;
 import com.bank.loan.prescreening.engine.CreditScoreRequest;
@@ -16,8 +19,11 @@ import com.bank.loan.prescreening.engine.CreditScoreResult;
 import com.bank.loan.prescreening.repository.LoanPrescreeningRepository;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
+import com.bank.loan.prescreening.event.PrescreeningPassedEvent;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +48,7 @@ import java.time.OffsetDateTime;
  *        신청 → REJECTED
  *   6) status_history 양쪽 (LOAN_PRESCREENING null→결과, LOAN_APPLICATION SUBMITTED→다음)
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LoanPrescreeningService {
@@ -58,6 +65,8 @@ public class LoanPrescreeningService {
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final CreditScoreEngine creditScoreEngine;
+    private final AutoReviewEvaluateClient autoReviewEvaluateClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public LoanPrescreeningResponse run(Long applId, RunPrescreeningRequest req) {
@@ -91,17 +100,26 @@ public class LoanPrescreeningService {
 
         Long estimatedLimit = null;
         Integer estimatedRate = null;
+        LoanProduct product = null;
+        String aiTrackCd = null;
         if (pass) {
             estimatedLimit = req.estimatedLimitAmt() != null
                     ? req.estimatedLimitAmt()
                     : (engineResult != null && engineResult.estimatedLimitAmt() != null
                             ? engineResult.estimatedLimitAmt()
                             : application.getRequestedAmount());
+            product = productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
+                    .orElse(null);
             estimatedRate = req.estimatedRateBps() != null
                     ? req.estimatedRateBps()
-                    : productRepository.findByProdIdAndDeletedAtIsNull(application.getProdId())
-                            .map(LoanProduct::getBaseRateBps)
-                            .orElse(null);
+                    : (product != null ? product.getBaseRateBps() : null);
+            try {
+                AutoReviewEvaluateResult aiResult = autoReviewEvaluateClient.evaluate(
+                        AutoReviewEvaluateRequest.of(application, engineResult, product));
+                aiTrackCd = aiResult != null ? aiResult.track() : null;
+            } catch (Exception e) {
+                log.warn("auto-review evaluate 실패 applId={}", applId, e);
+            }
         }
 
         Integer estimatedScore = req.estimatedScore() != null
@@ -129,6 +147,7 @@ public class LoanPrescreeningService {
                 .prescRemark(req.prescRemark())
                 .prescreenedAt(now)
                 .prescEngineVersion(engineVersion)
+                .aiTrackCd(aiTrackCd)
                 .build());
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
@@ -152,6 +171,18 @@ public class LoanPrescreeningService {
                 "prescId=" + saved.getPrescId(),
                 actorId
         ));
+
+        // PASS 시 신용평가 자동 실행 트리거
+        if (pass) {
+            eventPublisher.publishEvent(new PrescreeningPassedEvent(
+                    applId,
+                    saved.getEstimatedScore(),
+                    saved.getEstimatedGrade(),
+                    saved.getEstimatedLimitAmt(),
+                    estimatedRate,
+                    saved.getPrescEngineVersion()
+            ));
+        }
 
         return LoanPrescreeningResponse.of(saved);
     }

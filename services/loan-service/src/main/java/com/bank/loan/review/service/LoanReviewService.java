@@ -27,6 +27,7 @@ import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -79,6 +80,9 @@ public class LoanReviewService {
     private final NotificationOutboxAppender outboxAppender;
     private final ObjectMapper objectMapper;
 
+    @Value("${loan.review.bias-check.enabled:true}")
+    private boolean biasCheckEnabled;
+
     @Transactional
     public LoanReviewResponse run(Long applId, RunReviewRequest req) {
         LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
@@ -127,6 +131,9 @@ public class LoanReviewService {
             throw new BusinessException(LoanErrorCode.LOAN_038,
                     "guarantorRequired: signedCount < minGuarantorCount=" + product.getMinGuarantorCount());
         }
+
+        // 사전조건 7: doc-agent 서류 검증 미해결 없음 (AUTO_PASS 또는 REVIEWER_PASS 만 허용)
+        preconditions.requireDocumentsCleared(applId);
 
         boolean approved = LoanReview.DECISION_APPROVED.equals(req.revDecisionCd());
         OffsetDateTime now = OffsetDateTime.now();
@@ -179,15 +186,44 @@ public class LoanReviewService {
                 actorId
         ));
 
-        // 편향 검증 단계 진입
-        saved.markBiasReviewing();
-        statusHistoryPublisher.publish(StatusChangeEvent.of(
-                DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
-                LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
-                REASON_BIAS_CHECK_TRIGGERED, null, actorId
-        ));
+        if (biasCheckEnabled) {
+            // 편향 검증 단계 진입
+            saved.markBiasReviewing();
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
+                    LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_BIAS_REVIEWING,
+                    REASON_BIAS_CHECK_TRIGGERED, null, actorId
+            ));
+            enqueueBiasCheck(saved, ceval, dsr, null, product);
+        } else {
+            saved.markCompleted();
+            String applBefore = application.currentStatus();
+            if (approved) {
+                application.markApproved();
+            } else {
+                application.markRejected();
+            }
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_REVIEW, saved.getRevId(),
+                    LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_COMPLETED,
+                    approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                    null, actorId
+            ));
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_APPLICATION, applId,
+                    applBefore, application.currentStatus(),
+                    approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                    null, actorId
+            ));
+        }
 
-        enqueueBiasCheck(saved, ceval, dsr, null, product);
+        eventPublisher.publishEvent(new LoanReviewCompletedEvent(
+                saved.getRevId(),
+                saved.getApplId(),
+                saved.getReviewerId(),
+                saved.getRevDecisionCd(),
+                saved.getRevTypeCd()
+        ));
 
         return LoanReviewResponse.of(saved);
     }

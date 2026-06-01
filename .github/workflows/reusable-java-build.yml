@@ -1,0 +1,58 @@
+# =============================================================================
+# Reusable Workflow — Java 서비스 테스트 + 빌드 검증
+#
+# 호출 워크플로우에서 변경된 서비스의 단위테스트를 먼저 돌려 fail-fast.
+# 실제 jar 빌드는 Dockerfile 내부 multi-stage 에서 수행하므로 여기서는
+# 컴파일/테스트만 검증한다.
+# =============================================================================
+name: Reusable Java Build
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: 'Gradle 모듈 이름 (예: customer-service)'
+        required: true
+        type: string
+      skip-tests:
+        description: '테스트 건너뛰기 (긴급 배포용)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Test ${{ inputs.service-name }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Compile
+        run: ./gradlew :services:${{ inputs.service-name }}:compileJava --no-daemon
+
+      - name: Test
+        if: ${{ inputs.skip-tests == false }}
+        run: ./gradlew :services:${{ inputs.service-name }}:test --no-daemon
+
+      - name: Upload test report on failure
+        if: failure() && inputs.skip-tests == false
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ inputs.service-name }}
+          path: services/${{ inputs.service-name }}/build/reports/tests/
+          retention-days: 7

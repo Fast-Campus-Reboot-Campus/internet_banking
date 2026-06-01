@@ -67,6 +67,18 @@ jwt:
   access-token-validity: 600000   # 10분 (밀리초)
   refresh-token-validity: 3600000 # 1시간 (밀리초)
 
+employee-directory:
+  enabled: true
+  employees:
+    - customer-id: 9001
+      branch: "0001"
+      grade: BRANCH_MANAGER
+      roles: [ROLE_BRANCH_MANAGER]
+    - customer-id: 9002
+      branch: "0001"
+      grade: DEPUTY_MANAGER
+      roles: [ROLE_DEPUTY_MANAGER]
+
 logging:
   file:
     name: ${LOG_DIR:C:/logs/internet-banking}/customer-service.log

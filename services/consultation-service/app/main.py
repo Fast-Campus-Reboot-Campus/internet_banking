@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()  # .env → os.environ 주입 (_setup_phoenix 등 os.getenv 사용 전에 실행)
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -36,6 +37,8 @@ from app.schemas import (
     ChatbotMessageResponse,
     ChatbotStartRequest,
     ChatbotStartResponse,
+    ChatbotTransferRequest,
+    ChatbotTransferResponse,
     ChatConsultationResponse,
     ChatEndRequest,
     ChatMessageHistoryResponse,
@@ -271,6 +274,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 
+_origins = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:3001",
+    ).split(",")
+    if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 Instrumentator(excluded_handlers=["/metrics", "/health"]).instrument(app).expose(app)
 
 if static_dir.exists():
@@ -393,6 +411,14 @@ async def send_chatbot_message(
         return response
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/chatbot/transfer", response_model=ChatbotTransferResponse)
+def chatbot_transfer(
+    request: ChatbotTransferRequest,
+    service: ChatbotService = Depends(get_chatbot_service),
+) -> ChatbotTransferResponse:
+    return service.execute_transfer(request)
 
 
 # ── 상담사 채팅 ───────────────────────────────────────────────────────────────

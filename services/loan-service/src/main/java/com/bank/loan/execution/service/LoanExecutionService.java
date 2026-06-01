@@ -3,6 +3,7 @@ package com.bank.loan.execution.service;
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
+import com.bank.common.security.crypto.CryptoService;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.application.repository.LoanApplicationRepository;
 import com.bank.loan.contract.domain.LoanContract;
@@ -19,6 +20,10 @@ import com.bank.loan.notification.channel.StubEmailAdapter;
 import com.bank.loan.notification.channel.StubKakaoAdapter;
 import com.bank.loan.notification.channel.StubSmsAdapter;
 import com.bank.loan.notification.outbox.NotificationOutboxAppender;
+import com.bank.loan.payment.client.PaymentServiceClient;
+import com.bank.loan.payment.client.PaymentServiceProperties;
+import com.bank.loan.payment.client.dto.PaymentRequest;
+import com.bank.loan.payment.client.dto.PaymentResponse;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
 import com.bank.loan.repaymentaccount.repository.RepaymentAccountRepository;
@@ -28,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -38,13 +43,13 @@ import java.util.UUID;
  *   1) 멱등성 키가 이미 처리됐으면 기존 응답 그대로 반환
  *   2) 계약 활성 검증 (LOAN_062 / LOAN_063)
  *   2-1) 상환계좌 VERIFIED 검증 (LOAN_080/LOAN_083)
- *   2-2) 보증보험 등록된 계약이면 활성 ISSUED 1건 필요 (LOAN_184) — flows §1.1
- *        보증보험 row 가 한 건도 없는 신용대출은 통과.
+ *   2-2) 보증보험 등록된 계약이면 활성 ISSUED 1건 필요 (LOAN_184)
  *   3) 누적 인출 + 신청 ≤ contracted_amount 검증 (LOAN_064)
- *   4) loan_execution INSERT (status=DONE, executed_at=now, journal_entry_no 자체 채번)
- *   5) 최초 인출이면 계약 상태 SIGNED → ACTIVE 전이 + status_history + 상환스케줄 일괄 생성
- *
- * journal_entry_no 및 transaction_id 자체 채번 — 결제·회계 도메인 도입 시 외부 거래 ID 로 교체.
+ *   4) loan_execution INSERT (status=REQUESTED)
+ *   5) payment-service 출금 호출 (흐름 1 — loan-payment-integration-spec)
+ *        COMPLETED → markDone, (최초 인출) 계약 ACTIVE + 스케줄 생성 + outbox
+ *        FAILED    → markFailed, LOAN_185 예외 (트랜잭션 커밋 보장)
+ *        CLEARING  → markFailed, LOAN_185 예외 (미지원)
  */
 @Service
 @RequiredArgsConstructor
@@ -55,6 +60,7 @@ public class LoanExecutionService {
     private static final String DEFAULT_CURRENCY = "KRW";
     private static final String REASON_FIRST_DRAWDOWN = "FIRST_DRAWDOWN";
     private static final String EVENT_LOAN_DISBURSED  = "LOAN_DISBURSED";
+    private static final String CHANNEL_INBOUND = "INBOUND";
 
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
@@ -67,8 +73,12 @@ public class LoanExecutionService {
     private final NotificationOutboxAppender outboxAppender;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final CryptoService cryptoService;
+    private final PaymentServiceClient paymentServiceClient;
+    private final PaymentServiceProperties paymentProps;
 
-    @Transactional
+    // FAILED 기록을 유지하기 위해 BusinessException 발생 시에도 커밋
+    @Transactional(noRollbackFor = BusinessException.class)
     public LoanExecutionResponse drawdown(Long cntrId, DrawdownRequest req, String idempotencyKey) {
         // 1) 멱등성
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -86,7 +96,7 @@ public class LoanExecutionService {
             throw new BusinessException(LoanErrorCode.LOAN_063);
         }
 
-        // 2-1) 상환계좌 사전조건 — flows §1.1 CONTRACTED→DISBURSED
+        // 2-1) 상환계좌 사전조건
         RepaymentAccount racct = repaymentAccountRepository.findByCntrIdAndDeletedAtIsNull(cntrId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_080));
         if (!racct.isVerified()) {
@@ -94,11 +104,10 @@ public class LoanExecutionService {
                     "racctStatusCd=" + racct.currentStatus());
         }
 
-        // 2-2) 보증보험 사전조건 (필요시) — flows §1.1
-        // row 가 한 건도 없으면 신용대출로 보고 통과. 발급 이력이 있다면 활성 ISSUED 1건 필요.
+        // 2-2) 보증보험 사전조건
         validateGuaranteeInsuranceIfApplicable(cntrId);
 
-        // 2-3) 보증 필수 상품이면 활성 SIGNED 보증인 재검증 — 약정 후 보증 취소 케이스 대응
+        // 2-3) 보증 필수 상품이면 활성 SIGNED 보증인 재검증
         applicationRepository.findByApplIdAndDeletedAtIsNull(contract.getApplId()).ifPresent(appl ->
                 productRepository.findByProdIdAndDeletedAtIsNull(appl.getProdId()).ifPresent(prod -> {
                     if (!guarantorPolicyValidator.satisfies(appl, prod)) {
@@ -117,55 +126,75 @@ public class LoanExecutionService {
                             + ") > contracted(" + contract.getContractedAmount() + ")");
         }
 
-        // 4) 실행 INSERT
-        OffsetDateTime now = OffsetDateTime.now();
+        // 4) 실행 INSERT (REQUESTED) — 이후 payment 결과에 따라 DONE/FAILED 전이
+        boolean isFirstDrawdown = LoanContract.STATUS_SIGNED.equals(contract.currentStatus());
         LoanExecution saved = repository.save(LoanExecution.builder()
                 .cntrId(contract.getCntrId())
-                .transactionId(null) // 공통 거래원장 미구현 — 추후 결제 도메인 도입 시 채움
+                .transactionId(null)
                 .executedAmount(requested)
                 .currencyCd(req.currencyCd() == null ? DEFAULT_CURRENCY : req.currencyCd())
-                .execStatusCd(LoanExecution.STATUS_DONE)
+                .execStatusCd(LoanExecution.STATUS_REQUESTED)
                 .disbursementBankCd(req.disbursementBankCd())
                 .disbursementAccountMasked(req.maskedAccount())
-                .executedAt(now)
+                .disbursementAccountEnc(cryptoService.encrypt(req.disbursementAccountNo()))
                 .valueDate(req.valueDate())
                 .feeAmount(req.feeAmount() == null ? 0L : req.feeAmount())
                 .idempotencyKey(idempotencyKey)
-                .journalEntryNo("JE-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase())
                 .build());
 
-        // 5) 최초 인출 시 계약 상태 전이 + 상환스케줄 일괄 생성 (flows §1.1 부수효과)
-        if (LoanContract.STATUS_SIGNED.equals(contract.currentStatus())) {
-            String before = contract.currentStatus();
-            contract.markActiveOnFirstDrawdown();
-            statusHistoryPublisher.publish(StatusChangeEvent.of(
-                    DOMAIN_CD, TARGET_CONTRACT, contract.getCntrId(),
-                    before, LoanContract.STATUS_ACTIVE,
-                    REASON_FIRST_DRAWDOWN, "execId=" + saved.getExecId(),
-                    currentActor.currentActorId()
-            ));
-            repaymentScheduleService.generateForFirstDrawdown(contract);
+        // 5) payment-service 출금 호출
+        String payIdemKey = "EXEC-" + contract.getCntrId() + "-"
+                + (idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : saved.getExecId());
+        PaymentRequest payReq = new PaymentRequest(
+                paymentProps.disbursement().accountId(),
+                req.disbursementBankCd(),
+                req.disbursementAccountNo(),
+                contract.getCntrNo(),
+                BigDecimal.valueOf(requested),
+                "대출실행 " + contract.getCntrNo(),
+                "대출실행",
+                CHANNEL_INBOUND,
+                contract.getCntrNo()
+        );
+        PaymentResponse payResp = paymentServiceClient.pay(payIdemKey, payReq);
 
-            // 순수 Outbox 패턴: 도메인 저장과 동일 트랜잭션 안에서 outbox INSERT.
-            // 서버 크래시 시에도 loan_execution row 와 outbox row 가 함께 commit/rollback 된다.
-            // idempotencyKey = "LOAN_DISBURSED:{cntrId}:{channelCd}" — DB UNIQUE 제약으로 중복 차단.
-            String payload = String.format(
-                    "{\"cntrId\":%d,\"cntrNo\":\"%s\",\"customerId\":%d,\"executedAmount\":%d}",
-                    contract.getCntrId(), contract.getCntrNo(), contract.getCustomerId(), requested);
-            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), KafkaChannelAdapter.CHANNEL_CD, payload);
-            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubSmsAdapter.CHANNEL_CD, payload);
-            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubKakaoAdapter.CHANNEL_CD, payload);
-            outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubEmailAdapter.CHANNEL_CD, payload);
+        if (PaymentResponse.STATUS_COMPLETED.equals(payResp != null ? payResp.status() : null)) {
+            String journalEntryNo = "JE-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
+            saved.markDone(payResp.paymentInstructionId(), journalEntryNo);
+
+            if (isFirstDrawdown) {
+                String before = contract.currentStatus();
+                contract.markActiveOnFirstDrawdown();
+                statusHistoryPublisher.publish(StatusChangeEvent.of(
+                        DOMAIN_CD, TARGET_CONTRACT, contract.getCntrId(),
+                        before, LoanContract.STATUS_ACTIVE,
+                        REASON_FIRST_DRAWDOWN, "execId=" + saved.getExecId(),
+                        currentActor.currentActorId()
+                ));
+                repaymentScheduleService.generateForFirstDrawdown(contract);
+
+                String payload = String.format(
+                        "{\"cntrId\":%d,\"cntrNo\":\"%s\",\"customerId\":%d,\"executedAmount\":%d}",
+                        contract.getCntrId(), contract.getCntrNo(), contract.getCustomerId(), requested);
+                outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), KafkaChannelAdapter.CHANNEL_CD, payload);
+                outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubSmsAdapter.CHANNEL_CD, payload);
+                outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubKakaoAdapter.CHANNEL_CD, payload);
+                outboxAppender.enqueueInCurrentTx(EVENT_LOAN_DISBURSED, contract.getCntrId(), StubEmailAdapter.CHANNEL_CD, payload);
+            }
+
+            long cumul = drawnSoFar + requested;
+            return LoanExecutionResponse.of(saved, cumul);
         }
 
-        long cumul = drawnSoFar + requested;
-        return LoanExecutionResponse.of(saved, cumul);
+        // FAILED 또는 CLEARING — FAILED 기록 후 예외 (noRollbackFor 로 커밋됨)
+        String piId = payResp != null ? payResp.paymentInstructionId() : null;
+        String failDetail = payResp != null
+                ? "status=" + payResp.status() + ", failureCategory=" + payResp.failureCategory()
+                : "payment-service 응답 없음";
+        saved.markFailed(piId);
+        throw new BusinessException(LoanErrorCode.LOAN_185, failDetail);
     }
 
-    /**
-     * 보증보험 사전조건. 계약에 보증보험 row 가 한 건도 없으면 통과(신용대출).
-     * 어떤 상태든 row 가 한 번이라도 등록됐다면 그 중 ISSUED 1건이 있어야 drawdown 가능.
-     */
     private void validateGuaranteeInsuranceIfApplicable(Long cntrId) {
         if (!guaranteeInsuranceRepository.existsByCntrIdAndDeletedAtIsNull(cntrId)) {
             return;

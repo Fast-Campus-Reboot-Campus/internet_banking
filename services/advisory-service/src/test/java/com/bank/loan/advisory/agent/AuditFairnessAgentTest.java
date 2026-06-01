@@ -4,18 +4,19 @@ import com.bank.loan.advisory.domain.ReviewAdvisoryReport;
 import com.bank.loan.advisory.domain.ReviewAdvisorySignal;
 import com.bank.loan.advisory.domain.audit.AiAuditOpinion;
 import com.bank.loan.advisory.domain.audit.ReviewerRiskScore;
-import com.bank.loan.advisory.dto.PolicyCitationResponse;
 import com.bank.loan.advisory.event.QuarantineTriggeredEvent;
 import com.bank.loan.advisory.gateway.AiGatewayClient;
+import com.bank.loan.advisory.gateway.AiGatewayProperties;
 import com.bank.loan.advisory.gateway.GatewayAnalysisRequest;
+import com.bank.loan.advisory.gateway.GatewayAnalysisRequest.GatewayRagChunk;
 import com.bank.loan.advisory.gateway.GatewayAnalysisResponse;
-import com.bank.loan.advisory.rag.PolicyCitationRetriever;
 import com.bank.loan.advisory.repository.ReviewAdvisoryReportRepository;
 import com.bank.loan.advisory.repository.ReviewAdvisorySignalRepository;
 import com.bank.loan.advisory.repository.audit.AiAuditOpinionRepository;
 import com.bank.loan.advisory.repository.audit.ReviewerRiskScoreRepository;
 import com.bank.loan.review.domain.LoanReview;
 import com.bank.loan.review.repository.LoanReviewRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -38,17 +39,19 @@ class AuditFairnessAgentTest {
     ReviewAdvisorySignalRepository  signalRepo     = mock(ReviewAdvisorySignalRepository.class);
     LoanReviewRepository            reviewRepo     = mock(LoanReviewRepository.class);
     AiGatewayClient                 gateway        = mock(AiGatewayClient.class);
-    PolicyCitationRetriever         citations      = mock(PolicyCitationRetriever.class);
     AiAuditOpinionRepository        opinionRepo    = mock(AiAuditOpinionRepository.class);
     ReviewerRiskScoreRepository     riskRepo       = mock(ReviewerRiskScoreRepository.class);
     ApplicationEventPublisher       eventPublisher = mock(ApplicationEventPublisher.class);
+    ObjectMapper                    objectMapper   = new ObjectMapper();
+    AiGatewayProperties             properties     = new AiGatewayProperties();
 
     AuditFairnessAgent agent;
 
     @BeforeEach
     void setUp() {
         agent = new AuditFairnessAgent(
-                reportRepo, signalRepo, reviewRepo, gateway, opinionRepo, riskRepo, eventPublisher);
+                reportRepo, signalRepo, reviewRepo, gateway,
+                opinionRepo, riskRepo, eventPublisher, objectMapper, properties);
         when(riskRepo.findByReviewerId(anyLong())).thenReturn(Optional.empty());
         when(riskRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(opinionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -59,7 +62,7 @@ class AuditFairnessAgentTest {
     void BIAS_신호_있으면_BIAS_DETECTION_타입으로_게이트웨이_호출() {
         Long revId = 1001L;
         Long reviewerId = 501L;
-        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN");
+        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN", null);
         setupLoanReview(revId, reviewerId, "주관적 판단에 의존한 거절");
         when(gateway.analyze(any())).thenReturn(biasResponse("BIAS_SUSPECTED", 0.85));
 
@@ -75,7 +78,7 @@ class AuditFairnessAgentTest {
     void COMPLIANCE_신호_있으면_COMPLIANCE_VERIFICATION_타입으로_게이트웨이_호출() {
         Long revId = 1002L;
         Long reviewerId = 502L;
-        setupReportAndSignal(revId, reviewerId, "REREVIEW_RECOMMEND", "CRITICAL");
+        setupReportAndSignal(revId, reviewerId, "REREVIEW_RECOMMEND", "CRITICAL", null);
         setupLoanReview(revId, reviewerId, null);
         when(gateway.analyze(any())).thenReturn(complianceResponse("VIOLATION_SUSPECTED", 0.9));
 
@@ -90,7 +93,7 @@ class AuditFairnessAgentTest {
     void 게이트웨이_실패해도_예외_전파_안함() {
         Long revId = 1003L;
         Long reviewerId = 503L;
-        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN");
+        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN", null);
         setupLoanReview(revId, reviewerId, null);
         when(gateway.analyze(any())).thenThrow(new RuntimeException("timeout"));
 
@@ -102,7 +105,7 @@ class AuditFairnessAgentTest {
     void BIAS_SUSPECTED_결론이면_biasScore_증가() {
         Long revId = 1004L;
         Long reviewerId = 504L;
-        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN");
+        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN", null);
         setupLoanReview(revId, reviewerId, null);
         when(gateway.analyze(any())).thenReturn(biasResponse("BIAS_SUSPECTED", 0.8));
 
@@ -117,7 +120,7 @@ class AuditFairnessAgentTest {
     void BIAS_SUSPECTED_결론이면_리포트_격리_및_이벤트_발행() {
         Long revId = 1005L;
         Long reviewerId = 505L;
-        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN");
+        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN", null);
         setupLoanReview(revId, reviewerId, null);
         when(gateway.analyze(any())).thenReturn(biasResponse("BIAS_SUSPECTED", 0.88));
 
@@ -138,7 +141,7 @@ class AuditFairnessAgentTest {
     void NO_BIAS_결론이면_격리_없음() {
         Long revId = 1006L;
         Long reviewerId = 506L;
-        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN");
+        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN", null);
         setupLoanReview(revId, reviewerId, null);
         when(gateway.analyze(any())).thenReturn(biasResponse("NO_BIAS_DETECTED", 0.91));
 
@@ -152,7 +155,7 @@ class AuditFairnessAgentTest {
     void VIOLATION_SUSPECTED_결론이면_격리_및_이벤트_발행() {
         Long revId = 1007L;
         Long reviewerId = 507L;
-        setupReportAndSignal(revId, reviewerId, "REREVIEW_RECOMMEND", "CRITICAL");
+        setupReportAndSignal(revId, reviewerId, "REREVIEW_RECOMMEND", "CRITICAL", null);
         setupLoanReview(revId, reviewerId, null);
         when(gateway.analyze(any())).thenReturn(complianceResponse("VIOLATION_SUSPECTED", 0.93));
 
@@ -168,7 +171,7 @@ class AuditFairnessAgentTest {
     @Test
     void INFO_심각도_리포트는_분석_대상_아님() {
         ReviewAdvisoryReport infoReport = mockReport(9L, 2001L, 601L, "INFO",
-                AuditFairnessAgent.ADVISORY_TYPE_BIAS);
+                AuditFairnessAgent.ADVISORY_TYPE_BIAS, null);
         when(reportRepo.findAllById(List.of(9L))).thenReturn(List.of(infoReport));
 
         agent.analyzeReports(List.of(9L));
@@ -182,14 +185,126 @@ class AuditFairnessAgentTest {
         verifyNoInteractions(gateway, opinionRepo, riskRepo);
     }
 
+    // ── RAG 청크 주입 시나리오 ──────────────────────────────────
+
+    @Test
+    void CRITICAL_리포트_citations_있으면_ragChunks_채워서_게이트웨이_호출() {
+        Long revId = 2001L;
+        Long reviewerId = 601L;
+        String payload = """
+                {"citations":[
+                  {"chunkId":101,"docId":1,"docCd":"KDB-2024","docTitle":"여신심사 가이드",
+                   "sectionPath":"3.2","chunkText":"심사 기준 내용","score":0.95}
+                ]}""";
+        setupReportAndSignal(revId, reviewerId, "REREVIEW_RECOMMEND", "CRITICAL", payload);
+        setupLoanReview(revId, reviewerId, null);
+        when(gateway.analyze(any())).thenReturn(complianceResponse("NO_VIOLATION", 0.7));
+
+        agent.analyzeReports(List.of(11L));
+
+        ArgumentCaptor<GatewayAnalysisRequest> captor = ArgumentCaptor.forClass(GatewayAnalysisRequest.class);
+        verify(gateway).analyze(captor.capture());
+        List<GatewayRagChunk> chunks = captor.getValue().ragChunks();
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0).source()).isEqualTo("KDB-2024 §3.2");
+        assertThat(chunks.get(0).content()).isEqualTo("심사 기준 내용");
+    }
+
+    @Test
+    void WARN_리포트_citations_없으면_ragChunks_비어서_게이트웨이_호출() {
+        Long revId = 2002L;
+        Long reviewerId = 602L;
+        setupReportAndSignal(revId, reviewerId, AuditFairnessAgent.ADVISORY_TYPE_BIAS, "WARN", null);
+        setupLoanReview(revId, reviewerId, null);
+        when(gateway.analyze(any())).thenReturn(biasResponse("NO_BIAS_DETECTED", 0.7));
+
+        agent.analyzeReports(List.of(12L));
+
+        ArgumentCaptor<GatewayAnalysisRequest> captor = ArgumentCaptor.forClass(GatewayAnalysisRequest.class);
+        verify(gateway).analyze(captor.capture());
+        assertThat(captor.getValue().ragChunks()).isEmpty();
+    }
+
+    @Test
+    void 잘못된_JSON_payload_이면_예외_없이_ragChunks_빈채로_진행() {
+        Long revId = 2003L;
+        Long reviewerId = 603L;
+        setupReportAndSignal(revId, reviewerId, "REREVIEW_RECOMMEND", "CRITICAL", "NOT_VALID_JSON{{");
+        setupLoanReview(revId, reviewerId, null);
+        when(gateway.analyze(any())).thenReturn(complianceResponse("NO_VIOLATION", 0.6));
+
+        assertThatNoException().isThrownBy(() -> agent.analyzeReports(List.of(13L)));
+
+        ArgumentCaptor<GatewayAnalysisRequest> captor = ArgumentCaptor.forClass(GatewayAnalysisRequest.class);
+        verify(gateway).analyze(captor.capture());
+        assertThat(captor.getValue().ragChunks()).isEmpty();
+    }
+
+    @Test
+    void 동일_chunkId_중복이면_중복_제거_후_전달() {
+        Long revId = 2004L;
+        Long reviewerId = 604L;
+        // 두 리포트가 같은 chunkId=101 을 가짐 → 점수 높은 것 하나만 남아야 함
+        String payload1 = """
+                {"citations":[
+                  {"chunkId":101,"docId":1,"docCd":"KDB-2024","docTitle":"T","sectionPath":"1",
+                   "chunkText":"내용A","score":0.80}
+                ]}""";
+        String payload2 = """
+                {"citations":[
+                  {"chunkId":101,"docId":1,"docCd":"KDB-2024","docTitle":"T","sectionPath":"1",
+                   "chunkText":"내용A","score":0.90}
+                ]}""";
+
+        ReviewAdvisoryReport r1 = mockReport(14L, revId, reviewerId, "CRITICAL", "REREVIEW_RECOMMEND", payload1);
+        ReviewAdvisoryReport r2 = mockReport(15L, revId, reviewerId, "CRITICAL", "REREVIEW_RECOMMEND", payload2);
+        when(reportRepo.findAllById(any())).thenReturn(List.of(r1, r2));
+        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(14L)).thenReturn(List.of(mockSignal(14L)));
+        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(15L)).thenReturn(List.of());
+        setupLoanReview(revId, reviewerId, null);
+        when(gateway.analyze(any())).thenReturn(complianceResponse("NO_VIOLATION", 0.7));
+
+        agent.analyzeReports(List.of(14L, 15L));
+
+        ArgumentCaptor<GatewayAnalysisRequest> captor = ArgumentCaptor.forClass(GatewayAnalysisRequest.class);
+        verify(gateway).analyze(captor.capture());
+        assertThat(captor.getValue().ragChunks()).hasSize(1);
+    }
+
+    @Test
+    void max_chunks_초과시_상한_적용() {
+        Long revId = 2005L;
+        Long reviewerId = 605L;
+        // 기본 maxChunks=5, 7개 citations → 5개만 전달
+        String payload = """
+                {"citations":[
+                  {"chunkId":1,"docId":1,"docCd":"D","docTitle":"T","sectionPath":"1","chunkText":"c","score":0.91},
+                  {"chunkId":2,"docId":1,"docCd":"D","docTitle":"T","sectionPath":"2","chunkText":"c","score":0.90},
+                  {"chunkId":3,"docId":1,"docCd":"D","docTitle":"T","sectionPath":"3","chunkText":"c","score":0.89},
+                  {"chunkId":4,"docId":1,"docCd":"D","docTitle":"T","sectionPath":"4","chunkText":"c","score":0.88},
+                  {"chunkId":5,"docId":1,"docCd":"D","docTitle":"T","sectionPath":"5","chunkText":"c","score":0.87},
+                  {"chunkId":6,"docId":1,"docCd":"D","docTitle":"T","sectionPath":"6","chunkText":"c","score":0.86},
+                  {"chunkId":7,"docId":1,"docCd":"D","docTitle":"T","sectionPath":"7","chunkText":"c","score":0.85}
+                ]}""";
+        setupReportAndSignal(revId, reviewerId, "REREVIEW_RECOMMEND", "CRITICAL", payload);
+        setupLoanReview(revId, reviewerId, null);
+        when(gateway.analyze(any())).thenReturn(complianceResponse("NO_VIOLATION", 0.7));
+
+        agent.analyzeReports(List.of(16L));
+
+        ArgumentCaptor<GatewayAnalysisRequest> captor = ArgumentCaptor.forClass(GatewayAnalysisRequest.class);
+        verify(gateway).analyze(captor.capture());
+        assertThat(captor.getValue().ragChunks()).hasSize(5);
+    }
+
     // ── helpers ──────────────────────────────────────────────────
 
-    private void setupReportAndSignal(Long revId, Long reviewerId, String advisoryTypeCd, String severity) {
+    private void setupReportAndSignal(Long revId, Long reviewerId, String advisoryTypeCd,
+                                      String severity, String payload) {
         long advrId = Math.abs(revId % 1000) + 1;
-        ReviewAdvisoryReport report = mockReport(advrId, revId, reviewerId, severity, advisoryTypeCd);
-        ReviewAdvisorySignal signal = mockSignal(advrId);
+        ReviewAdvisoryReport report = mockReport(advrId, revId, reviewerId, severity, advisoryTypeCd, payload);
         when(reportRepo.findAllById(any())).thenReturn(List.of(report));
-        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(advrId)).thenReturn(List.of(signal));
+        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(advrId)).thenReturn(List.of(mockSignal(advrId)));
     }
 
     private void setupLoanReview(Long revId, Long reviewerId, String remark) {
@@ -206,13 +321,14 @@ class AuditFairnessAgentTest {
     }
 
     private ReviewAdvisoryReport mockReport(Long advrId, Long revId, Long reviewerId,
-                                            String severity, String advisoryTypeCd) {
+                                            String severity, String advisoryTypeCd, String payload) {
         ReviewAdvisoryReport r = mock(ReviewAdvisoryReport.class);
         when(r.getAdvrId()).thenReturn(advrId);
         when(r.getRevId()).thenReturn(revId);
         when(r.getTargetReviewerId()).thenReturn(reviewerId);
         when(r.getSeverityCd()).thenReturn(severity);
         when(r.getAdvisoryTypeCd()).thenReturn(advisoryTypeCd);
+        when(r.getAdvrPayload()).thenReturn(payload);
         return r;
     }
 
@@ -226,10 +342,10 @@ class AuditFairnessAgentTest {
     }
 
     private GatewayAnalysisResponse biasResponse(String conclusion, double confidence) {
-        return new GatewayAnalysisResponse("BIAS_DETECTION", conclusion, "편향 의심 의견", confidence, 100, 80);
+        return new GatewayAnalysisResponse("BIAS_DETECTION", conclusion, "편향 의심 의견", confidence, 100, 80, List.of());
     }
 
     private GatewayAnalysisResponse complianceResponse(String conclusion, double confidence) {
-        return new GatewayAnalysisResponse("COMPLIANCE_VERIFICATION", conclusion, "규정 위반 의심", confidence, 120, 90);
+        return new GatewayAnalysisResponse("COMPLIANCE_VERIFICATION", conclusion, "규정 위반 의심", confidence, 120, 90, List.of());
     }
 }

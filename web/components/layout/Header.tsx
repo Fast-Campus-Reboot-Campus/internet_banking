@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import { api } from '@/lib/api'
 
 // ============================================================
 // GNB 메뉴 데이터
@@ -879,32 +880,36 @@ export default function Header() {
   useEffect(() => {
     if (!user) return
 
-    let seconds = SESSION_SECONDS
+    const stored = localStorage.getItem('sessionExpiry')
+    const expiry = stored ? parseInt(stored) : Date.now() + SESSION_SECONDS * 1000
+    if (!stored) localStorage.setItem('sessionExpiry', String(expiry))
+
+    let seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
     setRemaining(seconds)
 
     const tick = setInterval(() => {
-      seconds -= 1
-      setRemaining(seconds)
-      if (seconds <= 0) {
+      const storedExpiry = localStorage.getItem('sessionExpiry')
+      if (!storedExpiry) {
         clearInterval(tick)
+        window.location.href = '/logout'
+        return
+      }
+      const remaining = Math.max(0, Math.round((parseInt(storedExpiry) - Date.now()) / 1000))
+      setRemaining(remaining)
+      if (remaining <= 0) {
+        clearInterval(tick)
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('sessionExpiry')
+        localStorage.removeItem('user')
+        localStorage.removeItem('customerId')
         window.location.href = '/logout'
       }
     }, 1000)
 
-    // 마우스/키보드 활동 시 타이머 리셋
-    const reset = () => {
-      seconds = SESSION_SECONDS
-      setRemaining(seconds)
-    }
-    window.addEventListener('mousemove', reset)
-    window.addEventListener('keydown', reset)
-    window.addEventListener('click', reset)
-
     return () => {
       clearInterval(tick)
-      window.removeEventListener('mousemove', reset)
-      window.removeEventListener('keydown', reset)
-      window.removeEventListener('click', reset)
     }
   }, [user])
 
@@ -933,13 +938,32 @@ export default function Header() {
   function handleLogout() {
     localStorage.removeItem('access_token')
     localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('sessionExpiry')
     localStorage.removeItem('user')
     localStorage.removeItem('customerId')
     window.location.href = '/logout?reason=manual'
   }
 
-  function handleExtend() {
-    setRemaining(SESSION_SECONDS)
+  async function handleExtend() {
+    const refreshToken = localStorage.getItem('refreshToken')
+    if (!refreshToken) {
+      window.location.href = '/logout'
+      return
+    }
+    try {
+      const { data } = await api.post('/api/v1/auth/refresh', { refreshToken })
+      localStorage.setItem('accessToken', data.data.accessToken)
+      localStorage.setItem('access_token', data.data.accessToken)
+      if (data.data.refreshToken) {
+        localStorage.setItem('refreshToken', data.data.refreshToken)
+      }
+      const newExpiry = Date.now() + SESSION_SECONDS * 1000
+      localStorage.setItem('sessionExpiry', String(newExpiry))
+      setRemaining(SESSION_SECONDS)
+    } catch {
+      window.location.href = '/logout'
+    }
   }
 
   const currentMenu = GNB_MENUS.find((m) => m.id === activeMenu)
