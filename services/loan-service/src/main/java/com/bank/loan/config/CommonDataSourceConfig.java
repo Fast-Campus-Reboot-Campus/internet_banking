@@ -29,7 +29,9 @@ import javax.sql.DataSource;
  */
 @Configuration
 @EnableJpaRepositories(
-        basePackages = "com.bank.commonaccount.repository",
+        // 루트 스캔 — common_account 외 공통 부모(product/contract/transaction) 서브패키지 리포지토리 포함.
+        // com.bank.loan / com.bank.common (Primary EMF 스캔) 과 겹치지 않음.
+        basePackages = "com.bank.commonaccount",
         entityManagerFactoryRef = "commonEntityManagerFactory",
         transactionManagerRef = "commonTransactionManager"
 )
@@ -72,7 +74,8 @@ public class CommonDataSourceConfig {
             EntityManagerFactoryBuilder builder,
             @Qualifier("commonDataSource") DataSource commonDataSource) {
         return builder.dataSource(commonDataSource)
-                .packages("com.bank.commonaccount.domain")
+                // 루트 스캔 — .domain(account) 외 product/contract/transaction 서브패키지 엔티티 포함.
+                .packages("com.bank.commonaccount")
                 .persistenceUnit("common")
                 .build();
     }
