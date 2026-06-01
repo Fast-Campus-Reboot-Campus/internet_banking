@@ -80,6 +80,7 @@ export default function TransferAccountPage() {
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
+      toBankCode: MOCK_BANKS.find(b => b.name === toBank)?.code ?? 'KB',
       toAccount,
       amount: amountNum,
       receiverName: recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인',
