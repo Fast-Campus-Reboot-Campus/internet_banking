@@ -45,6 +45,9 @@ public class CommonAccount {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
+    @Column(name = "contract_id")
+    private Long contractId;
+
     @Column(name = "account_type_cd", length = 30)
     private String accountTypeCd;
 
