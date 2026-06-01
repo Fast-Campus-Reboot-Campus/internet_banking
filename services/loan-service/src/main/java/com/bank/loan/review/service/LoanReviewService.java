@@ -27,6 +27,7 @@ import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.security.LoanActorContext;
 import com.bank.loan.security.LoanRole;
+import com.bank.loan.security.PiiLevel;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -280,7 +281,8 @@ public class LoanReviewService {
 
         checkScope(application, review, actor);
 
-        return LoanReviewResponse.of(review);
+        PiiLevel level = actor.piiLevel(application, review);
+        return LoanReviewResponse.of(review, application, level);
     }
 
     /**
