@@ -8,6 +8,10 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 @Profile("mock")
 @Primary
 @Component
@@ -35,8 +39,22 @@ public class DepositAccountClientMock implements DepositAccountClient {
     // 케이스 4: 수신계좌 예금주 불일치 트리거 — getHolder에서 "홍길동" 반환
     private static final String HOLDER_MISMATCH_RECEIVER = "99990000000002";
 
+    // 테스트 전용: 동적 CLOSED 상태 (closeAccount/openAccount/resetAllClosed 으로 제어)
+    private final Set<String> closedAccounts = Collections.synchronizedSet(new HashSet<>());
+
+    public void closeAccount(String accountNo) { closedAccounts.add(accountNo); }
+    public void openAccount(String accountNo)  { closedAccounts.remove(accountNo); }
+    public void resetAllClosed()               { closedAccounts.clear(); }
+
     @Override
     public DepositResponse<AccountInquiryData> getAccount(String accountNo) {
+        // 동적 CLOSED 우선 처리 (테스트에서 closeAccount 호출 시 CLOSED 반환)
+        if (closedAccounts.contains(accountNo)) {
+            AccountInquiryData data = new AccountInquiryData(
+                    accountNo, "DEMAND", "CLOSED", "DP-2025-001",
+                    "2024-03-15T09:00:00Z", "2026-01-01T00:00:00Z", "0001", false, 1);
+            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
+        }
         if (IN03_FROZEN_RECEIVER.equals(accountNo)) {
             AccountInquiryData data = new AccountInquiryData(
                     accountNo, "DEMAND", "FROZEN", "DP-2025-001",

@@ -2,8 +2,11 @@ package com.bank.loan;
 
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.application.repository.LoanApplicationRepository;
+import com.bank.loan.execution.domain.LoanExecution;
+import com.bank.loan.execution.repository.LoanExecutionRepository;
 import com.bank.loan.support.AbstractLoanIntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -38,6 +41,8 @@ class LoanExecutionFlowTest extends AbstractLoanIntegrationTest {
 
     @Autowired
     private LoanApplicationRepository applicationRepository;
+    @Autowired
+    private LoanExecutionRepository executionRepository;
 
     private static final long CONTRACTED_AMOUNT = 10_000_000L;
     private static final int PERIOD_MONTHS = 24;
@@ -157,6 +162,57 @@ class LoanExecutionFlowTest extends AbstractLoanIntegrationTest {
                 .andReturn();
         JsonNode data = extractData(result);
         assertThat(data.get("execId").asLong()).isEqualTo(firstExecId);
+    }
+
+    // ============================================================
+    // payment-service 실패 시나리오
+    // ============================================================
+
+    /**
+     * payment-service 가 FAILED 를 반환하면 LOAN_185(422) 가 응답되고,
+     * loan_execution row 는 STATUS_FAILED + pi_id 로 커밋되어야 한다.
+     */
+    @Test @Order(40)
+    void payment_실패시_LOAN_185_반환_FAILED_row_저장() throws Exception {
+        String idemKey = "exec-fail-test";
+        // 이 키를 포함하는 X-Idempotency-Key 에 대해서만 FAILED 반환 (priority=1 > 기본 stub)
+        PAYMENT_MOCK.stubFor(WireMock.post(WireMock.urlEqualTo("/api/v1/payments"))
+                .atPriority(1)
+                .withHeader("X-Idempotency-Key", WireMock.containing("exec-fail-test"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"paymentInstructionId\":\"PI-FAIL-001\"," +
+                                  "\"transactionNo\":\"TXN-FAIL\"," +
+                                  "\"status\":\"FAILED\"," +
+                                  "\"failureCategory\":\"INSUFFICIENT_BALANCE\"}")));
+
+        mockMvc.perform(post("/api/loan-contracts/{cntrId}/executions", cntrId)
+                        .header("Idempotency-Key", idemKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(drawdownBody(1_000_000L)))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("LOAN_185"));
+
+        LoanExecution failed = executionRepository.findByIdempotencyKey(idemKey).orElseThrow();
+        assertThat(failed.getExecStatusCd()).isEqualTo(LoanExecution.STATUS_FAILED);
+        assertThat(failed.getPiId()).isEqualTo("PI-FAIL-001");
+    }
+
+    /**
+     * FAILED 로 기록된 row 에 동일 멱등키로 재호출하면 새 row 없이 기존 FAILED 응답을 반환한다.
+     */
+    @Test @Order(41)
+    void payment_실패후_동일키_재호출_FAILED_응답_반환() throws Exception {
+        long countBefore = executionRepository.count();
+        MvcResult result = mockMvc.perform(post("/api/loan-contracts/{cntrId}/executions", cntrId)
+                        .header("Idempotency-Key", "exec-fail-test")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(drawdownBody(9_999_999L)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.execStatusCd").value("FAILED"))
+                .andReturn();
+
+        assertThat(executionRepository.count()).isEqualTo(countBefore);
     }
 
     // ============================================================

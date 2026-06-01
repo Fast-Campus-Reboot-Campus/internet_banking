@@ -78,4 +78,19 @@ public class LoanExecution extends BaseEntity {
 
     @Column(name = "journal_entry_no", length = 50)
     private String journalEntryNo;
+
+    @Column(name = "pi_id", length = 100)
+    private String piId;
+
+    public void markDone(String piId, String journalEntryNo) {
+        this.execStatusCd = STATUS_DONE;
+        this.piId = piId;
+        this.journalEntryNo = journalEntryNo;
+        this.executedAt = OffsetDateTime.now();
+    }
+
+    public void markFailed(String piId) {
+        this.execStatusCd = STATUS_FAILED;
+        this.piId = piId;
+    }
 }

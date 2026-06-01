@@ -1,5 +1,6 @@
 package com.bank.ai.llm.client;
 
+import com.bank.ai.langfuse.LangfuseService;
 import com.bank.ai.llm.support.LlmRequestRateMeter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,10 +11,13 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Google AI Studio Gemini OpenAI-compat 엔드포인트 LLM 클라이언트.
@@ -37,6 +41,9 @@ public class GeminiOpenAiCompatLlmClient implements LlmClient {
     private final OpenAiChatModel chatModel;
     private final LlmRequestRateMeter rateMeter;
 
+    @Autowired(required = false)
+    private LangfuseService langfuse;
+
     @Override
     public <T> T call(LlmRequest request, Class<T> outputSchema) {
         if (!rateMeter.tryAcquire()) {
@@ -58,10 +65,23 @@ public class GeminiOpenAiCompatLlmClient implements LlmClient {
                         .build()
         );
 
+        Instant llmStart = Instant.now();
         ChatResponse response = chatModel.call(prompt);
+        Instant llmEnd = Instant.now();
         String content = response.getResult().getOutput().getText();
         log.debug("GeminiOpenAiCompatLlmClient: promptId={} chars={}", request.promptId(),
                 content != null ? content.length() : 0);
+
+        if (langfuse != null) {
+            String traceId = langfuse.newTraceId();
+            langfuse.trace(traceId, "auto-loan-review", null);
+            var usage = response.getMetadata().getUsage();
+            langfuse.generation(traceId, request.promptId(), "gemini",
+                    request.userContent(), content,
+                    usage != null ? (int) usage.getPromptTokens() : null,
+                    usage != null ? (int) usage.getCompletionTokens() : null,
+                    llmStart, llmEnd);
+        }
 
         try {
             return converter.convert(content);

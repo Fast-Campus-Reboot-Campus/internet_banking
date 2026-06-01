@@ -4,6 +4,8 @@ import com.bank.loan.review.domain.LoanReview;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -40,4 +42,13 @@ public interface LoanReviewRepository extends JpaRepository<LoanReview, Long> {
 
     List<LoanReview> findByReviewerIdAndReviewedAtGreaterThanEqualAndDeletedAtIsNull(
             Long reviewerId, OffsetDateTime since);
+
+    @Query("""
+            SELECT lr FROM LoanReview lr
+            WHERE lr.updatedAt >= :since
+              AND lr.revDecisionCd IS NOT NULL
+              AND lr.deletedAt IS NULL
+            ORDER BY lr.updatedAt ASC
+            """)
+    List<LoanReview> findExportable(@Param("since") OffsetDateTime since);
 }

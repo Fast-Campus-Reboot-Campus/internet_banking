@@ -35,7 +35,7 @@ public class LoanDocumentController {
     }
 
     @Operation(summary = "신청서류 업로드",
-            description = "multipart/form-data. docTypeCd 필수, file 필수. 파일은 로컬 스토리지에 저장 후 메타데이터 INSERT.")
+            description = "multipart/form-data. docTypeCd 필수, file 필수. doc-agent에 서류를 제출하고 검증 결과(AUTO_PASS/NEEDS_RESUBMIT/HOLD)를 반영한다.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<LoanDocumentResponse>> upload(
             @PathVariable Long applId,

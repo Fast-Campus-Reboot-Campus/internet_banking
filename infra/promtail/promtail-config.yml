@@ -3,10 +3,10 @@ server:
   grpc_listen_port: 0
 
 positions:
-  filename: ${LOKI_DATA_DIR:-C:/loki-data}/positions.yaml
+  filename: /tmp/positions.yaml
 
 clients:
-  - url: http://${LOKI_HOST:-127.0.0.1}:${LOKI_PORT:-3100}/loki/api/v1/push
+  - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
   - job_name: customer-service
@@ -16,7 +16,49 @@ scrape_configs:
         labels:
           job: customer-service
           application: customer-service
-          __path__: ${LOG_DIR:-C:/logs/internet-banking}/customer-service.log
+          __path__: /logs/customer-service.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
+
+  - job_name: consultation-service
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: consultation-service
+          application: consultation-service
+          __path__: /logs/consultation-service.log
+    pipeline_stages:
+      - regex:
+          expression: '(?P<level>INFO|WARNING|ERROR|DEBUG)'
+      - labels:
+          level:
+
+  - job_name: auto-loan-review
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: auto-loan-review
+          application: auto-loan-review
+          __path__: /logs/auto-loan-review.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
+
+  - job_name: ai-service
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: ai-service
+          application: ai-service
+          __path__: /logs/ai-service.log
     pipeline_stages:
       - regex:
           expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'

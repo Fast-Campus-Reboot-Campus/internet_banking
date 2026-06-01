@@ -160,6 +160,8 @@ class FeatureAnswerFormatter:
 
 import time
 
+from langfuse.decorators import observe
+
 from app.metrics import (
     chatbot_fallback_total,
     chatbot_llm_completion_tokens,
@@ -188,6 +190,7 @@ class LlmAdapter:
         self.api_key = api_key
         self.model = model
 
+    @observe(name="llm-answer")
     def answer(self, message: str, context: str = "") -> tuple[str, bool]:
         """LLM 응답을 반환한다.
 
@@ -195,10 +198,15 @@ class LlmAdapter:
             (response_text, is_error) — is_error=True 이면 LLM 호출 실패를 의미하며
             호출자가 상담사 이관 등 fallback 처리를 수행해야 한다.
         """
+        from langfuse.decorators import langfuse_context
+        langfuse_context.update_current_trace(
+            tags=["consultation-service"],
+            metadata={"service": "consultation-service"},
+        )
         start = time.perf_counter()
         is_error = False
         try:
-            from openai import OpenAI
+            from langfuse.openai import OpenAI
             client = OpenAI(api_key=self.api_key)
 
             messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
@@ -227,6 +235,7 @@ class LlmAdapter:
             if is_error:
                 chatbot_llm_error_total.labels(method="answer").inc()
 
+    @observe(name="llm-recommend")
     def recommend(
         self,
         cash_flow: dict,
@@ -242,10 +251,15 @@ class LlmAdapter:
             user_query  : 고객 질문 텍스트
             history_ctx : _build_history_context() 반환값 (없으면 빈 문자열)
         """
+        from langfuse.decorators import langfuse_context
+        langfuse_context.update_current_trace(
+            tags=["consultation-service"],
+            metadata={"service": "consultation-service"},
+        )
         start = time.perf_counter()
         is_error = False
         try:
-            from openai import OpenAI
+            from langfuse.openai import OpenAI
             client = OpenAI(api_key=self.api_key)
 
             # ── 현금흐름 요약 텍스트 ─────────────────────────────────────────────

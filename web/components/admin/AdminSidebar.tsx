@@ -64,6 +64,21 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    section: '대출', dot: 'bg-green-400',
+    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
+    items: [
+      { label: '본심사 목록',    href: '/admin/loan/review' },
+      { label: '담보 관리',      href: '/admin/loan/collateral' },
+      { label: '서류 관리',      href: '/admin/loan/documents' },
+      { label: '우대금리 정책',  href: '/admin/loan/rate-policy' },
+      { label: '상품 관리',      href: '/admin/loan/products' },
+      { label: '영업일 캘린더',  href: '/admin/loan/calendar' },
+      { label: '신용정보 보고서',href: '/admin/loan/credit-report' },
+      { label: '알림 발송함',    href: '/admin/loan/notification' },
+      { label: '본인인증 조회',  href: '/admin/loan/identity' },
+    ],
+  },
+  {
     section: '마케팅', dot: 'bg-pink-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_MARKETING'],
     items: [

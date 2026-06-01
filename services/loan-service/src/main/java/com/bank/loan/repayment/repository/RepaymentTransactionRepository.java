@@ -12,6 +12,8 @@ public interface RepaymentTransactionRepository extends JpaRepository<RepaymentT
 
     Optional<RepaymentTransaction> findByIdempotencyKey(String idempotencyKey);
 
+    Optional<RepaymentTransaction> findByPiId(String piId);
+
     Optional<RepaymentTransaction> findByRtxIdAndDeletedAtIsNull(Long rtxId);
 
     List<RepaymentTransaction> findByCntrIdAndDeletedAtIsNullOrderByPaidAtAsc(Long cntrId);

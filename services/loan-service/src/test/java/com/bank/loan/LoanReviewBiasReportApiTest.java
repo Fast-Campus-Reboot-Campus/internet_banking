@@ -1,6 +1,7 @@
 package com.bank.loan;
 
 import com.bank.loan.support.AbstractLoanIntegrationTest;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -120,6 +121,42 @@ class LoanReviewBiasReportApiTest extends AbstractLoanIntegrationTest {
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].severityCd").value("MEDIUM"))
                 .andExpect(jsonPath("$.data[1].severityCd").value("HIGH"));
+    }
+
+    @Test @Order(50)
+    void advisory_리포트_목록_빈_배열_반환() throws Exception {
+        mockMvc.perform(get("/api/loan-reviews/{revId}/advisory-reports", revId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test @Order(51)
+    void advisory_리포트_목록_항목_반환() throws Exception {
+        ADVISORY_MOCK.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/advisory/reports"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                [{"advrId":1,"revId":%d,"advisoryTypeCd":"RISK","severityCd":"HIGH",
+                                  "advrStatusCd":"OPEN","advrTitle":"고위험 감지","advrSummary":"요약","targetReviewerId":null}]
+                                """.formatted(revId))));
+
+        mockMvc.perform(get("/api/loan-reviews/{revId}/advisory-reports", revId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].severityCd").value("HIGH"))
+                .andExpect(jsonPath("$.data[0].advrTitle").value("고위험 감지"));
+    }
+
+    @Test @Order(52)
+    void advisory_서비스_장애_시_빈_목록_반환_fail_open() throws Exception {
+        ADVISORY_MOCK.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/advisory/reports"))
+                .willReturn(WireMock.aResponse().withStatus(500)));
+
+        mockMvc.perform(get("/api/loan-reviews/{revId}/advisory-reports", revId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test @Order(40)

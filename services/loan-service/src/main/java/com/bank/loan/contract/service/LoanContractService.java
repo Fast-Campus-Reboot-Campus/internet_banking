@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * 약정한도 설정 서비스.
@@ -149,6 +150,14 @@ public class LoanContractService {
         ));
 
         return LoanContractResponse.of(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LoanContractResponse> list(Long customerId) {
+        return repository.findByCustomerIdAndDeletedAtIsNullOrderByCntrIdDesc(customerId)
+                .stream()
+                .map(LoanContractResponse::of)
+                .toList();
     }
 
     @Transactional(readOnly = true)

@@ -1,14 +1,16 @@
 package com.bank.loan.support;
 
-import com.bank.common.security.jwt.JwtProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -22,9 +24,6 @@ import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 
 /**
  * 통합 테스트 베이스. 컨테이너(Postgres / Redis) 와 MockMvc / ObjectMapper 를 공유한다.
@@ -46,6 +45,10 @@ public abstract class AbstractLoanIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES;
     static final GenericContainer<?> REDIS;
     static final KafkaContainer KAFKA;
+    protected static final WireMockServer DOC_AGENT_MOCK;
+    protected static final WireMockServer AUTO_REVIEW_MOCK;
+    protected static final WireMockServer ADVISORY_MOCK;
+    protected static final WireMockServer PAYMENT_MOCK;
 
     static {
         POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:pg16");
@@ -56,6 +59,35 @@ public abstract class AbstractLoanIntegrationTest {
 
         KAFKA = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"));
         KAFKA.start();
+
+        DOC_AGENT_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        DOC_AGENT_MOCK.start();
+
+        AUTO_REVIEW_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        AUTO_REVIEW_MOCK.start();
+        AUTO_REVIEW_MOCK.stubFor(WireMock.post(WireMock.urlEqualTo("/api/ai/auto-review/evaluate"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"track\":\"TRACK_3\",\"pd\":0.120000,\"rationale\":\"통합테스트 기본 stub\"}")));
+
+        ADVISORY_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        ADVISORY_MOCK.start();
+        ADVISORY_MOCK.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/advisory/reports"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("[]")));
+
+        // 기본 stub: POST /api/v1/payments → COMPLETED
+        // 개별 테스트에서 priority=1 스텁으로 특정 X-Idempotency-Key 에 대해 FAILED 등을 오버라이드 가능
+        PAYMENT_MOCK = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        PAYMENT_MOCK.start();
+        PAYMENT_MOCK.stubFor(WireMock.post(WireMock.urlEqualTo("/api/v1/payments"))
+                .willReturn(WireMock.aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"paymentInstructionId\":\"PI-TEST-001\"," +
+                                  "\"transactionNo\":\"TXN-TEST-001\"," +
+                                  "\"status\":\"COMPLETED\"," +
+                                  "\"failureCategory\":null}")));
     }
 
     @DynamicPropertySource
@@ -70,26 +102,25 @@ public abstract class AbstractLoanIntegrationTest {
 
         r.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
 
-        Path storage = Paths.get(System.getProperty("java.io.tmpdir"), "loan-test-docs");
-        r.add("loan.document.storage-dir", storage::toString);
+        r.add("loan.review.bias-check.enabled", () -> "false");
+        r.add("doc-agent.base-url", () -> "http://localhost:" + DOC_AGENT_MOCK.port());
+        r.add("auto-review.base-url", () -> "http://localhost:" + AUTO_REVIEW_MOCK.port());
+        r.add("advisory.service.base-url", () -> "http://localhost:" + ADVISORY_MOCK.port());
+        r.add("payment.url", () -> "http://localhost:" + PAYMENT_MOCK.port());
     }
 
     @Autowired private WebApplicationContext wac;
-    @Autowired private JwtProvider jwtProvider;
 
     @Autowired protected MockMvc mockMvc;
     @Autowired protected ObjectMapper om;
 
     @BeforeAll
     void initTestAuth() {
-        String token = jwtProvider.generateAccessToken(
-                1L, "test@bank.com",
-                List.of("ROLE_STAFF", "ROLE_OPS", "ROLE_SENIOR_REVIEWER", "ROLE_INTERNAL")
-        );
         mockMvc = MockMvcBuilders.webAppContextSetup(wac)
                 .apply(SecurityMockMvcConfigurers.springSecurity())
                 .defaultRequest(MockMvcRequestBuilders.get("/")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                        .with(SecurityMockMvcRequestPostProcessors.user("test@bank.com")
+                                .roles("STAFF", "OPS", "SENIOR_REVIEWER", "INTERNAL")))
                 .build();
     }
 

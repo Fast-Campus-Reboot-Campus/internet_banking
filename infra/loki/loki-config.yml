@@ -1,15 +1,15 @@
 auth_enabled: false
 
 server:
-  http_listen_port: ${LOKI_PORT:-3100}
+  http_listen_port: 3100
 
 common:
   instance_addr: 127.0.0.1
-  path_prefix: ${LOKI_DATA_DIR:-C:/loki-data}
+  path_prefix: /loki
   storage:
     filesystem:
-      chunks_directory: ${LOKI_DATA_DIR:-C:/loki-data}/chunks
-      rules_directory: ${LOKI_DATA_DIR:-C:/loki-data}/rules
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
   replication_factor: 1
   ring:
     kvstore:

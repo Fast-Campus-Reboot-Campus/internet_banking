@@ -2,6 +2,14 @@ package com.bank.loan.autodebit.service;
 
 import com.bank.loan.autodebit.dto.AutoDebitRunResponse;
 import com.bank.loan.calendar.service.BusinessDayService;
+import com.bank.loan.contract.domain.LoanContract;
+import com.bank.loan.contract.repository.LoanContractRepository;
+import com.bank.common.security.crypto.CryptoService;
+import com.bank.loan.payment.client.PaymentServiceClient;
+import com.bank.loan.payment.client.PaymentServiceProperties;
+import com.bank.loan.payment.client.dto.PaymentRequest;
+import com.bank.loan.payment.client.dto.PaymentResponse;
+import com.bank.loan.repayment.domain.RepaymentTransaction;
 import com.bank.loan.repayment.dto.RepayInstallmentRequest;
 import com.bank.loan.repayment.service.RepaymentService;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
@@ -13,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,7 +39,13 @@ import java.util.Optional;
  * 구약정의 비영업일 dueDate (예: 토/일 회차) 는 직전 영업일 다음날부터 baseDate 까지의 구간으로 흡수되어
  * 익영업일 배치에서 처리된다 (plan 05).
  *
- * 본 단계는 외부 출금 stub — 항상 SUCCESS 가정. 실패 시뮬레이션·OVERDUE 전이는 후속(#6 연체).
+ * 흐름:
+ *   1. 출금 대상 회차 조회 (DUE/OVERDUE, auto_debit_yn=Y, racct_status=VERIFIED)
+ *   2. repayment_account.account_no_enc 복호화 → 실제 계좌번호
+ *   3. payment-service POST /api/v1/payments 호출
+ *       COMPLETED → repaymentService.repayInstallment() → STATUS_SUCCESS
+ *       FAILED    → RepaymentTransaction STATUS_FAILED 기록
+ *       CLEARING  → 별도 협의 필요, skipped 처리
  *
  * 멱등성: 회차당 idempotency_key = "AUTO-{cntrId}-{rschId}-{baseDate}" 자체 채번.
  * 같은 baseDate 재실행 시 RepaymentTransaction.idempotency_key UNIQUE 제약으로 중복 출금 차단.
@@ -44,11 +59,17 @@ public class AutoDebitBatchService {
 
     private static final Logger log = LoggerFactory.getLogger(AutoDebitBatchService.class);
 
-    private static final String CHANNEL_AUTO_DEBIT = "AUTO_DEBIT";
+    // payment-service channel CHECK: WEB/MOBILE/BRANCH/ATM/OPEN_BANKING/INBOUND
+    // 자동이체 = INBOUND (은행 내부 시스템 발신)
+    private static final String CHANNEL_AUTO_DEBIT = "INBOUND";
 
     private final RepaymentScheduleRepository scheduleRepository;
     private final RepaymentAccountRepository repaymentAccountRepository;
+    private final LoanContractRepository contractRepository;
     private final RepaymentService repaymentService;
+    private final PaymentServiceClient paymentServiceClient;
+    private final PaymentServiceProperties paymentProps;
+    private final CryptoService cryptoService;
     private final BusinessDayService businessDayService;
 
     public AutoDebitRunResponse run(String baseDate) {
@@ -67,16 +88,56 @@ public class AutoDebitBatchService {
         int skipped = 0;
 
         for (RepaymentSchedule schedule : candidates) {
-            if (!isAutoDebitEligible(schedule.getCntrId())) {
+            Optional<RepaymentAccount> accountOpt = findEligibleAccount(schedule.getCntrId());
+            if (accountOpt.isEmpty()) {
                 skipped++;
                 continue;
             }
+            RepaymentAccount account = accountOpt.get();
+
+            Optional<LoanContract> contractOpt = contractRepository
+                    .findByCntrIdAndDeletedAtIsNull(schedule.getCntrId());
+            if (contractOpt.isEmpty()) {
+                log.warn("auto-debit: contract not found for cntrId={}", schedule.getCntrId());
+                skipped++;
+                continue;
+            }
+            LoanContract contract = contractOpt.get();
+
             String idemKey = buildIdempotencyKey(schedule, baseDate);
             RepayInstallmentRequest req = new RepayInstallmentRequest(
                     schedule.getInstallmentNo(), CHANNEL_AUTO_DEBIT, baseDate);
+
             try {
-                repaymentService.repayInstallment(schedule.getCntrId(), req, idemKey);
-                processed++;
+                PaymentRequest payReq = buildPaymentRequest(schedule, account, contract);
+                PaymentResponse payResp = paymentServiceClient.pay(idemKey, payReq);
+
+                if (payResp == null) {
+                    log.warn("auto-debit: null response from payment-service cntrId={}", schedule.getCntrId());
+                    skipped++;
+                    continue;
+                }
+
+                String piId = payResp.paymentInstructionId();
+                if (PaymentResponse.STATUS_COMPLETED.equals(payResp.status())) {
+                    repaymentService.repayInstallment(schedule.getCntrId(), req, idemKey, null, piId);
+                    processed++;
+                } else if (PaymentResponse.STATUS_FAILED.equals(payResp.status())) {
+                    log.warn("auto-debit: payment failed cntrId={} installmentNo={} failureCategory={}",
+                            schedule.getCntrId(), schedule.getInstallmentNo(), payResp.failureCategory());
+                    repaymentService.repayInstallment(schedule.getCntrId(), req, idemKey,
+                            RepaymentTransaction.STATUS_FAILED, piId);
+                    skipped++;
+                } else if (PaymentResponse.STATUS_CLEARING.equals(payResp.status())) {
+                    // 타행 청산 대기: payment-service가 KFTC 정산 완료 후 /api/internal/auto-debit/payment-result 콜백
+                    log.info("auto-debit: CLEARING 대기 cntrId={} installmentNo={} piId={}",
+                            schedule.getCntrId(), schedule.getInstallmentNo(), piId);
+                    skipped++;
+                } else {
+                    log.warn("auto-debit: unknown payment status={} cntrId={} piId={}",
+                            payResp.status(), schedule.getCntrId(), piId);
+                    skipped++;
+                }
             } catch (RuntimeException e) {
                 log.warn("auto-debit failed for cntrId={} installmentNo={} baseDate={}: {}",
                         schedule.getCntrId(), schedule.getInstallmentNo(), baseDate, e.toString());
@@ -87,11 +148,27 @@ public class AutoDebitBatchService {
         return AutoDebitRunResponse.of(baseDate, candidates.size(), processed, skipped);
     }
 
-    private boolean isAutoDebitEligible(Long cntrId) {
-        Optional<RepaymentAccount> opt = repaymentAccountRepository.findByCntrIdAndDeletedAtIsNull(cntrId);
-        if (opt.isEmpty()) return false;
-        RepaymentAccount account = opt.get();
-        return account.isVerified() && RepaymentAccount.YN_Y.equals(account.getAutoDebitYn());
+    private Optional<RepaymentAccount> findEligibleAccount(Long cntrId) {
+        return repaymentAccountRepository.findByCntrIdAndDeletedAtIsNull(cntrId)
+                .filter(a -> a.isVerified() && RepaymentAccount.YN_Y.equals(a.getAutoDebitYn()));
+    }
+
+    private PaymentRequest buildPaymentRequest(RepaymentSchedule schedule,
+                                               RepaymentAccount account,
+                                               LoanContract contract) {
+        String senderAccountNo = cryptoService.decrypt(account.getAccountNoEnc());
+        PaymentServiceProperties.Collection coll = paymentProps.collection();
+        return new PaymentRequest(
+                senderAccountNo,
+                coll.bankCode(),
+                coll.accountNo(),
+                coll.holderName(),
+                BigDecimal.valueOf(schedule.getScheduledTotal()),
+                "대출상환 " + schedule.getInstallmentNo() + "회차",
+                "대출상환",
+                CHANNEL_AUTO_DEBIT,
+                contract.getCntrNo()
+        );
     }
 
     private String buildIdempotencyKey(RepaymentSchedule schedule, String baseDate) {

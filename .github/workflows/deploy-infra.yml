@@ -1,0 +1,60 @@
+name: Deploy infra
+
+# infra/docker/docker-compose.prod.yml 변경시 Oracle 서버에 동기화 + 전체 재기동.
+# .env.prod 는 서버에만 존재하므로 건드리지 않는다.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/docker/docker-compose.prod.yml'
+      - 'infra/prometheus/**'
+      - 'infra/grafana/**'
+      - 'infra/ai-db/**'
+      - '.github/workflows/deploy-infra.yml'
+  workflow_dispatch:
+    inputs:
+      restart-all:
+        description: '전체 서비스 재시작 (true) / pull 만 (false)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    name: Sync compose & infra files to Oracle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy infra files via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ORACLE_SSH_HOST }}
+          username: ${{ secrets.ORACLE_SSH_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          source: "infra/docker/docker-compose.prod.yml,infra/prometheus/**,infra/grafana/**,infra/ai-db/**"
+          target: "~/app/"
+          overwrite: true
+
+      - name: Reload compose
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ORACLE_SSH_HOST }}
+          username: ${{ secrets.ORACLE_SSH_USER }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/app
+
+            # compose 설정 변경분 적용. 컨테이너 정의가 바뀐 것만 재생성.
+            if [ "${{ github.event.inputs.restart-all }}" = "true" ]; then
+              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod down
+              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d
+            else
+              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod pull
+              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d
+            fi
+
+            docker image prune -f
+            echo "✅ Infra synced"

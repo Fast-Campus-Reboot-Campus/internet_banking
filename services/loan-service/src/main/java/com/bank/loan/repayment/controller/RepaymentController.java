@@ -4,6 +4,7 @@ import com.bank.common.web.ApiResponse;
 import com.bank.loan.repayment.dto.RepayInstallmentRequest;
 import com.bank.loan.repayment.dto.RepaymentTransactionListResponse;
 import com.bank.loan.repayment.dto.RepaymentTransactionResponse;
+import com.bank.loan.repayment.service.OnlineRepaymentService;
 import com.bank.loan.repayment.service.RepaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RepaymentController {
 
     private final RepaymentService service;
+    private final OnlineRepaymentService onlineRepaymentService;
 
     @Operation(summary = "회차 상환",
             description = "지정된 회차(installmentNo)의 예정 금액을 정확히 상환한다. Idempotency-Key 헤더 권장. " +
@@ -38,6 +40,20 @@ public class RepaymentController {
             @Valid @RequestBody RepayInstallmentRequest req,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         RepaymentTransactionResponse saved = service.repayInstallment(cntrId, req, idempotencyKey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(saved));
+    }
+
+    @Operation(summary = "온라인 회차 상환",
+            description = "WEB·MOBILE 채널에서 고객이 직접 상환 — payment-service 를 통해 이체 후 원장 기록. " +
+                          "Idempotency-Key 헤더 필수(금융 거래 중복 방지). " +
+                          "창구 수납 기록은 POST /repayments 사용.")
+    @PostMapping("/online")
+    public ResponseEntity<ApiResponse<RepaymentTransactionResponse>> repayOnline(
+            @PathVariable Long cntrId,
+            @Valid @RequestBody RepayInstallmentRequest req,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        RepaymentTransactionResponse saved =
+                onlineRepaymentService.repayOnline(cntrId, req, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(saved));
     }
 
