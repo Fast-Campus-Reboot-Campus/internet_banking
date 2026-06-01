@@ -2,6 +2,7 @@ package com.bank.loan.config;
 
 import com.bank.loan.security.GatewayHeaderAuthFilter;
 import com.bank.loan.security.InternalTokenFilter;
+import com.bank.loan.security.LoanRole;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,12 +23,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *                                (API Gateway 가 JWT 검증 후 주입한 헤더를 신뢰)
  *   2. InternalTokenFilter     — Gateway 헤더 인증이 없는 경우에만 X-Internal-Token 검증 → ROLE_INTERNAL 등록
  *
- * 엔드포인트 권한 정책:
- *   /api/internal/{id}/bias-ops-note  ROLE_OPS        (운영팀)
- *   /api/internal/eod/...             ROLE_OPS        (운영팀)
- *   /api/internal/...                 ROLE_INTERNAL   (서비스 간 X-Internal-Token)
- *   /api/loan-reviews/{id}/bias-override ROLE_SENIOR_REVIEWER (상급 심사원)
- *   그 외                              authenticated
+ * 엔드포인트 권한 매트릭스 (LoanRole 기준):
+ *   /api/internal/loan-reviews/{id}/bias-ops-note  POST  ROLE_OPS           운영팀 편향 메모
+ *   /api/internal/eod/**                                 ROLE_OPS           일배치(EOD)
+ *   /api/internal/**                                     ROLE_INTERNAL      서비스 간 X-Internal-Token
+ *   /api/loan-reviews/{id}/bias-override           POST  ROLE_HQ_REVIEWER   이상거래 본사 담당자 우회 승인
+ *   그 외                                                authenticated       조회 스코프는 Stage 4에서 추가
  */
 @Configuration
 @EnableWebSecurity
@@ -66,18 +67,18 @@ public class SecurityConfig {
                 // 운영팀 전용 내부 엔드포인트 — ROLE_OPS
                 .requestMatchers(HttpMethod.POST,
                         "/api/internal/loan-reviews/*/bias-ops-note"
-                ).hasRole("OPS")
+                ).hasRole(LoanRole.OPS.spring())
                 .requestMatchers(
                         "/api/internal/eod/**"
-                ).hasRole("OPS")
+                ).hasRole(LoanRole.OPS.spring())
 
                 // 서비스 간 내부 엔드포인트 — ROLE_INTERNAL (X-Internal-Token)
-                .requestMatchers("/api/internal/**").hasRole("INTERNAL")
+                .requestMatchers("/api/internal/**").hasRole(LoanRole.INTERNAL.spring())
 
-                // 편향 우회 승인 — ROLE_SENIOR_REVIEWER
+                // 이상거래 본사 담당자 편향 우회 승인 — ROLE_HQ_REVIEWER
                 .requestMatchers(HttpMethod.POST,
                         "/api/loan-reviews/*/bias-override"
-                ).hasRole("SENIOR_REVIEWER")
+                ).hasRole(LoanRole.HQ_REVIEWER.spring())
 
                 .anyRequest().authenticated()
             );
