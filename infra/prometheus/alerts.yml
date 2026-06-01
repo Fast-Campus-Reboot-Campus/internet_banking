@@ -311,6 +311,16 @@ groups:
   - name: monitoring-infrastructure
     interval: 30s
     rules:
+      - alert: Watchdog
+        expr: vector(1)
+        for: 0m
+        labels:
+          severity: info
+          component: monitoring-stack
+        annotations:
+          summary: "Prometheus heartbeat"
+          description: "Prometheus is alive and sending heartbeat to healthchecks.io"
+
       - alert: PrometheusDown
         expr: up{job="prometheus"} == 0
         for: 1m

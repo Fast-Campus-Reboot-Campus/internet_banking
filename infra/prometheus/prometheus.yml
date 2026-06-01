@@ -5,6 +5,11 @@ global:
 rule_files:
   - "alerts.yml"
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
@@ -78,6 +83,13 @@ scrape_configs:
       - targets: ['host.docker.internal:8089']
 
   # --- 모니터링 스택 직접 메트릭 ---
+
+  - job_name: 'alertmanager'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          component: monitoring-stack
 
   - job_name: 'grafana'
     metrics_path: /metrics
