@@ -597,7 +597,7 @@ export default function ChatbotWidget() {
 
   const panel = open && mounted
     ? createPortal(
-        <div className="fixed inset-0 z-[260] bg-black/20">
+        <div className="fixed inset-0 z-[260] bg-black/20" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false) }}>
           <section
             className="fixed flex w-[420px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-lg border border-kb-border bg-white shadow-2xl relative"
             style={{

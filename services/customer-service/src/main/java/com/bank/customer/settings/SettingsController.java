@@ -5,10 +5,12 @@ import com.bank.customer.settings.dto.ChangePasswordRequest;
 import com.bank.customer.settings.dto.SettingsResponse;
 import com.bank.customer.settings.dto.UpdateNotificationRequest;
 import com.bank.customer.settings.dto.UpdateProfileRequest;
+import com.bank.customer.settings.dto.WithdrawRequest;
 import com.bank.customer.settings.service.SettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -49,6 +51,14 @@ public class SettingsController {
             @RequestHeader("X-Customer-Id") Long customerId,
             @RequestBody ChangePasswordRequest request) {
         settingsService.changePassword(customerId, request);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @PostMapping("/withdraw")
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            @RequestHeader("X-Customer-Id") Long customerId,
+            @RequestBody WithdrawRequest request) {
+        settingsService.withdraw(customerId, request);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

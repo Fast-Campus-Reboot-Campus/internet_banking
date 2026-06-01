@@ -178,30 +178,30 @@ export default function HomePage() {
             <div className="flex gap-6 items-stretch">
 
               {/* ===== 좌측 ===== */}
-              <div className="flex-1 min-w-0 relative">
+              <div className="flex-1 min-w-0">
 
-                {/* 인사말 */}
-                <div className="pr-[340px] mb-5">
-                  <p className="text-[28px] font-bold text-kb-text mb-2">{user.name} 고객님,</p>
-                  <p className="text-[14px] font-semibold" style={{ color: '#0D5C47' }}>AXful은 항상 곁에 있습니다.</p>
-                  <p className="text-[14px] font-semibold mb-4" style={{ color: '#0D5C47' }}>24시간, 365일 늘 환영합니다.</p>
-                  <div className="flex items-center gap-3">
-                    <span className="border border-kb-border rounded-full px-3 py-1 text-[13px] text-kb-text-body inline-flex items-center gap-1 hover:bg-kb-beige-light cursor-pointer">
-                      패밀리 <span className="text-[11px]">›</span>
-                    </span>
-                    <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-full px-3 py-1.5">
-                      <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5 text-kb-text-muted" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M10 2a6 6 0 016 6c0 3 1 4 2 5H2c1-1 2-2 2-5a6 6 0 016-6z"/>
-                        <path d="M8 17a2 2 0 004 0"/>
-                      </svg>
-                      <span className="text-[13px] text-kb-text-muted">알람이 없습니다.</span>
+                {/* 인사말 + 이미지 */}
+                <div className="flex items-end mb-5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[28px] font-bold text-kb-text mb-2">{user.name} 고객님,</p>
+                    <p className="text-[14px] font-semibold" style={{ color: '#0D5C47' }}>AXful은 항상 곁에 있습니다.</p>
+                    <p className="text-[14px] font-semibold mb-4" style={{ color: '#0D5C47' }}>24시간, 365일 늘 환영합니다.</p>
+                    <div className="flex items-center gap-3">
+                      <span className="border border-kb-border rounded-full px-3 py-1 text-[13px] text-kb-text-body inline-flex items-center gap-1 hover:bg-kb-beige-light cursor-pointer">
+                        패밀리 <span className="text-[11px]">›</span>
+                      </span>
+                      <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-full px-3 py-1.5">
+                        <svg viewBox="0 0 20 20" fill="none" className="w-3.5 h-3.5 text-kb-text-muted" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M10 2a6 6 0 016 6c0 3 1 4 2 5H2c1-1 2-2 2-5a6 6 0 016-6z"/>
+                          <path d="M8 17a2 2 0 004 0"/>
+                        </svg>
+                        <span className="text-[13px] text-kb-text-muted">알람이 없습니다.</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* 히어로 이미지 — 우상단 고정 */}
-                <div className="absolute top-[-30px] right-0 z-0 pointer-events-none">
-                  <img src="/images/personal-login-hero1.png" alt="" className="w-[350px] h-auto" />
+                  <div className="flex-shrink-0 pointer-events-none">
+                    <img src="/images/personal-login-hero1.png" alt="" className="w-[420px] h-auto" />
+                  </div>
                 </div>
 
                 {/* 계좌 카드 */}

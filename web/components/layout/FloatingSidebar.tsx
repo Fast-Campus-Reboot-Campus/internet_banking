@@ -5,10 +5,6 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import ConsultModal from '@/components/layout/ConsultModal'
 
-const MY_MENUS = [
-  { label: '전체계좌조회', href: '/inquiry/accounts' },
-  { label: '계좌이체', href: '/transfer/account' },
-]
 
 function IconHome() {
   return (
@@ -53,19 +49,24 @@ export default function FloatingSidebar() {
         <span className="text-[10px] font-semibold tracking-wide">HOME</span>
       </Link>
 
-      {/* MY MENU */}
-      <div className="w-full border-b border-kb-border">
-        <p className="text-[10px] text-kb-text-muted text-center py-1.5 bg-kb-beige-light font-bold tracking-widest uppercase">My</p>
-        {MY_MENUS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="block text-kb-text-body text-[12px] text-center py-2 px-1 hover:bg-kb-beige hover:text-kb-text transition-colors duration-150 border-t border-kb-border leading-tight font-medium"
-          >
-            {item.label}
-          </Link>
-        ))}
-      </div>
+
+      {/* 전체계좌조회 · 계좌이체 */}
+      <Link href="/inquiry/accounts" className={itemCls}>
+        <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <line x1="2" y1="10" x2="22" y2="10"/>
+          <line x1="6" y1="15" x2="10" y2="15"/>
+        </svg>
+        <span className={labelCls}>전체계좌조회</span>
+      </Link>
+      <Link href="/transfer/account" className={itemCls}>
+        <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="22" y1="12" x2="2" y2="12"/>
+          <polyline points="16 6 22 12 16 18"/>
+          <polyline points="8 6 2 12 8 18" opacity="0.4"/>
+        </svg>
+        <span className={labelCls}>계좌이체</span>
+      </Link>
 
       {/* 계산기 */}
       <Link href="/calculator/deposit" className={itemCls}>
@@ -94,11 +95,14 @@ export default function FloatingSidebar() {
         <span className={labelCls}>상담신청</span>
       </button>
 
-      {/* 고객센터 */}
-      <Link href="tel:15880000" className={itemCls}>
-        <IconPhone />
-        <span className={labelCls}>고객센터</span>
-        <span className="text-[10px] leading-tight text-center font-bold" style={{ color: '#0D5C47' }}>1588-0000</span>
+      {/* 이용안내 */}
+      <Link href="/support/internet-banking-guide" className={itemCls}>
+        <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span className={labelCls}>이용안내</span>
       </Link>
 
       {/* 글자 크기 */}

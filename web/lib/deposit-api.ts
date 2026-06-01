@@ -304,9 +304,17 @@ export async function createDepositContract(customerId: string, input: CreateDep
 }
 
 function accountTypeLabel(account: DepositAccount, product?: DepositProduct): Account['type'] {
+  // 1순위: account.accountType
   if (account.accountType === 'SAVINGS') return '적금'
   if (account.accountType === 'SUBSCRIPTION') return '청약'
-  if (product?.productName?.includes('통장')) return '입출금'
+  // 2순위: product.productType (accountType이 DEPOSIT으로 잘못 반환된 경우 보완)
+  if (product?.productType === 'SAVINGS') return '적금'
+  if (product?.productType === 'SUBSCRIPTION') return '청약'
+  // 3순위: 상품명 키워드
+  const name = product?.productName ?? ''
+  if (name.includes('적금')) return '적금'
+  if (name.includes('청약')) return '청약'
+  if (name.includes('통장') || name.includes('자유')) return '입출금'
   return '예금'
 }
 

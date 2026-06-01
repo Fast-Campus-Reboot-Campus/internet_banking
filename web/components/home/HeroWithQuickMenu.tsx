@@ -1,90 +1,65 @@
-'use client'
+﻿'use client'
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import HeroCarousel, { HERO_SLIDES } from './HeroCarousel'
 
-function IconInquiry() {
-  return (
-    <svg viewBox="0 0 56 56" fill="none" className="w-14 h-14" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="8" y="4" width="32" height="26" rx="2" fill="white" stroke="currentColor" strokeWidth="2.2" />
-      <rect x="12" y="8" width="24" height="18" rx="1" fill="white" stroke="currentColor" strokeWidth="1.3" />
-      <line x1="16" y1="13" x2="32" y2="13" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="16" y1="18" x2="26" y2="18" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="4" y="32" width="40" height="10" rx="1" fill="white" stroke="currentColor" strokeWidth="2" />
-      <rect x="16" y="35" width="16" height="4" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="37" cy="37" r="10" fill="#5BC9A8" stroke="currentColor" strokeWidth="2.2" />
-      <line x1="44.1" y1="44.1" x2="51" y2="51" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function IconTransfer() {
-  return (
-    <svg viewBox="0 0 56 56" fill="none" className="w-14 h-14" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="22" cy="28" r="18" fill="white" stroke="currentColor" strokeWidth="2.2" />
-      <circle cx="22" cy="28" r="13" fill="#5BC9A8" stroke="none" />
-      <text x="22" y="33" textAnchor="middle" fontSize="13" fontWeight="bold" stroke="none" fill="currentColor" fontFamily="sans-serif">W</text>
-      <line x1="42" y1="28" x2="54" y2="28" stroke="currentColor" strokeWidth="2.2" />
-      <polyline points="50,23 54,28 50,33" stroke="currentColor" strokeWidth="2.2" fill="none" />
-    </svg>
-  )
-}
-
-function IconAutoTransfer() {
-  return (
-    <svg viewBox="0 0 56 56" fill="none" className="w-14 h-14" strokeLinecap="round" strokeLinejoin="round">
-      {/* 메인: 시계 */}
-      <circle cx="22" cy="27" r="18" fill="white" stroke="currentColor" strokeWidth="2.2" />
-      {/* 시침 (10시 방향) */}
-      <line x1="22" y1="27" x2="14" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      {/* 분침 (2시 방향) */}
-      <line x1="22" y1="27" x2="30" y2="19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      {/* 중심점 */}
-      <circle cx="22" cy="27" r="1.5" fill="currentColor" stroke="none" />
-      {/* 배지: 계좌이체 W 원 */}
-      <circle cx="39" cy="43" r="10" fill="white" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="39" cy="43" r="7" fill="#5BC9A8" stroke="none" />
-      <text x="39" y="47" textAnchor="middle" fontSize="9" fontWeight="bold" stroke="none" fill="currentColor" fontFamily="sans-serif">W</text>
-    </svg>
-  )
-}
-
-function IconAsset() {
-  return (
-    <svg viewBox="0 0 56 56" fill="none" className="w-14 h-14" strokeLinecap="round" strokeLinejoin="round">
-      {/* 졸업모 - 민트 */}
-      <path d="M14 23 l14 -7 l14 7 -14 7 Z" fill="#5BC9A8" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="42" y1="23" x2="42" y2="31" stroke="currentColor" strokeWidth="2" />
-      <circle cx="42" cy="33" r="2" fill="currentColor" stroke="none" />
-      {/* 올빼미 몸통 - 흰색 */}
-      <ellipse cx="28" cy="40" rx="12" ry="9" fill="white" stroke="currentColor" strokeWidth="2" />
-      {/* 안경 */}
-      <circle cx="23" cy="38" r="4" fill="white" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="33" cy="38" r="4" fill="white" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="27" y1="38" x2="29" y2="38" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="17" y1="38" x2="19" y2="38" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="37" y1="38" x2="39" y2="38" stroke="currentColor" strokeWidth="1.5" />
-      {/* 눈동자 */}
-      <circle cx="23" cy="38" r="1.5" fill="currentColor" stroke="none" />
-      <circle cx="33" cy="38" r="1.5" fill="currentColor" stroke="none" />
-      {/* 부리 */}
-      <path d="M26.5 43 L28 45.5 L29.5 43 Z" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
-
 const QUICK_MENUS = [
-  { label: '전체계좌조회', href: '/inquiry/accounts', Icon: IconInquiry },
-  { label: '계좌이체', href: '/transfer/account', Icon: IconTransfer },
-  { label: '자동이체', href: '/transfer/auto', Icon: IconAutoTransfer },
-  { label: '자산관리', href: '/products', Icon: IconAsset },
+  {
+    label: 'AI 상품 추천', href: '/products/deposit',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="#1F2937" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'AI 대출 심사', href: '/loans/apply',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="#1F2937" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <polyline points="9 15 11 17 15 13"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'AI 음성 어시스턴트', href: '/products/loan/status',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="#1F2937" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+        <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'AI 자산분석', href: '/inquiry/accounts',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="#1F2937" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+        <polyline points="2 20 22 20"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'AI 24시간 상담', href: '/support/consultation/live-chat',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="#1F2937" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        <line x1="9" y1="10" x2="15" y2="10"/>
+        <line x1="9" y1="14" x2="12" y2="14"/>
+      </svg>
+    ),
+  },
 ]
 
 export default function HeroWithQuickMenu() {
   const [current, setCurrent] = useState(0)
   const [paused, setPaused] = useState(false)
-  const topColor = HERO_SLIDES[current]?.bg ?? HERO_SLIDES[0].bg
 
   return (
     <>
@@ -95,33 +70,21 @@ export default function HeroWithQuickMenu() {
         onPausedChange={setPaused}
       />
 
-      {/* stacked div로 gradient 구현 — backgroundColor은 transition-colors 적용 가능 */}
-      <section className="py-5 relative">
-        <div
-          className="absolute inset-x-0 top-0 bottom-1/2"
-          style={{ backgroundColor: topColor }}
-        />
-        <div className="absolute inset-x-0 top-1/2 bottom-0" style={{ backgroundColor: '#EDE0D4' }} />
-        <div className="relative z-10 max-w-kb-container mx-auto px-6">
-          <div className="bg-white overflow-hidden flex">
+      {/* 퀵메뉴 */}
+      <section className="relative z-10 bg-white shadow-sm border-b border-gray-100">
+        <div className="max-w-kb-container mx-auto">
+          <div className="grid grid-cols-5">
             {QUICK_MENUS.map((menu, idx) => (
-              <React.Fragment key={menu.href}>
+              <Link key={menu.href} href={menu.href}
+                className="flex flex-col items-center justify-center gap-3 px-4 py-6 hover:bg-[#F0FAF7] transition-colors duration-150 group relative">
                 {idx > 0 && (
-                  <div className="self-center h-12 w-px bg-[#E0E0E0] flex-shrink-0" />
+                  <div className="absolute left-0 top-1/4 bottom-1/4 w-px bg-gray-100" />
                 )}
-                <Link
-                  href={menu.href}
-                  className="flex-1 flex items-center gap-4 py-[38px] px-6"
-                >
-                  <menu.Icon />
-                  <div>
-                    <p className="text-lg text-kb-text-body">{menu.label}</p>
-                    <p className="text-sm text-kb-text font-medium mt-0.5">
-                      바로가기 &gt;
-                    </p>
-                  </div>
-                </Link>
-              </React.Fragment>
+                <div className="w-14 h-14 flex items-center justify-center group-hover:scale-110 transition-transform duration-150">
+                  {menu.icon}
+                </div>
+                <p className="text-[18px] font-semibold text-kb-text group-hover:text-[#0D5C47] transition-colors whitespace-nowrap">{menu.label}</p>
+              </Link>
             ))}
           </div>
         </div>

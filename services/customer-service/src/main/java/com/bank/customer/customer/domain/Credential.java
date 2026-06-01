@@ -77,6 +77,10 @@ public class Credential extends BaseEntity {
         this.passwordLoginFailureCount = 0;
     }
 
+    public void close() {
+        this.accountStatusCode = STATUS_CLOSED;
+    }
+
     // -------------------------------------------------------------------------
     // 로그인 성공 / 실패
     // -------------------------------------------------------------------------

@@ -32,7 +32,7 @@ function LoanResultContent() {
         <span className="font-semibold text-kb-text">신청 결과</span>
       </div>
 
-      <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-text">대출 신청 결과</h1>
+      <h1 className="text-[20px] font-bold text-kb-text mb-5">대출 신청 결과</h1>
 
       {/* 결과 배너 */}
       <div className={`p-8 mb-6 text-center border rounded-xl ${
@@ -97,7 +97,7 @@ function LoanResultContent() {
           </section>
 
           {/* 안내 */}
-          <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 space-y-1">
+          <div className="border border-kb-border bg-kb-beige-light p-4 mb-6 space-y-1">
             <p className="text-[13px] text-kb-text-body leading-relaxed">· 실제 대출 실행은 영업점 방문 또는 전화 확인 후 진행됩니다.</p>
             <p className="text-[13px] text-kb-text-body leading-relaxed">· 승인 결과는 7일간 유효하며, 이후에는 재신청이 필요합니다.</p>
             <p className="text-[13px] text-kb-text-body leading-relaxed">· 실제 금리는 심사 결과에 따라 달라질 수 있습니다.</p>
