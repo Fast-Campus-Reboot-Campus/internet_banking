@@ -107,6 +107,18 @@ public interface PaymentOrchestrator {
     PaymentResult processBokSettlementFailure(String bokReferenceNo, String responseCode, String rejectMessage);
 
     /**
+     * 사용자 예약취소. SCHEDULED 상태만 허용. 본인(senderUserId) 검증 선행.
+     * SCHEDULED→CANCELED + SCHEDULED_CANCELED 이력. 외부 API 호출 없음.
+     * @param piId 결제지시번호
+     * @param requesterUserId 요청자 사용자ID (X-User-Id 헤더)
+     * @param reason 취소 사유 (nullable, 이력 reason_message 박제)
+     * @throws com.bank.payment.common.exception.PaymentNotFoundException PI 미존재 시 (→ 404)
+     * @throws com.bank.payment.common.exception.PaymentUnauthorizedException 본인 불일치 시 (→ 403)
+     * @throws com.bank.payment.common.exception.PaymentCancelConflictException SCHEDULED 아닌 상태 또는 claim 경합 시 (→ 409)
+     */
+    PaymentResult cancelScheduledPayment(String piId, String requesterUserId, String reason);
+
+    /**
      * F6-Ⅱ-2 운영자 강제취소. CLEARING 상태만 허용. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 + CT REJECTED.
      * reversal_reason=OPERATOR / failure_category=SYSTEM_ERROR / triggered_by=OPERATOR / operator_id 박제.
      * @param piId 결제지시번호

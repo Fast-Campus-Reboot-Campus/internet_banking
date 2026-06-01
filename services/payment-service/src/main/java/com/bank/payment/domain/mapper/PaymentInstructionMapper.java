@@ -32,6 +32,9 @@ public interface PaymentInstructionMapper {
     int claimScheduledForExecution(@Param("paymentInstructionId") String paymentInstructionId,
                                    @Param("version") Integer version);
 
+    int cancelScheduledForUser(@Param("paymentInstructionId") String paymentInstructionId,
+                               @Param("version") Integer version);
+
     int countIncomplete();
 
     int updateScheduled(@Param("paymentInstructionId") String paymentInstructionId,

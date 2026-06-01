@@ -30,12 +30,9 @@ export default function TransferConfirmPage() {
   const [showCertModal, setShowCertModal] = useState(false)
   const [certStep, setCertStep] = useState<'info' | 'pin'>('info')
   const [pin, setPin] = useState<number[]>([])
-<<<<<<< HEAD
-=======
   const [idemKey] = useState(() => crypto.randomUUID())
   const [authTokenId] = useState(() => crypto.randomUUID())
   const [isSubmitting, setIsSubmitting] = useState(false)
->>>>>>> fdd0eea2117b6ec92dbe3c5ed5ccf099c712793a
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')

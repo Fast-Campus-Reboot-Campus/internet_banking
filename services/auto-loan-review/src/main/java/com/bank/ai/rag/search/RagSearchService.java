@@ -85,7 +85,7 @@ public class RagSearchService {
             }
             if (langfuse != null) {
                 String traceId = langfuse.newTraceId();
-                langfuse.trace(traceId, "auto-loan-review", null);
+                langfuse.trace(traceId, "auto-loan-review", null, List.of("auto-loan-review"));
                 langfuse.span(traceId, "rag-search",
                         java.util.Map.of("corpus", corpus, "query", query),
                         java.util.Map.of("chunkCount", results.size()),

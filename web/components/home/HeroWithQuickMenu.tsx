@@ -2,11 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-<<<<<<< HEAD
 import HeroCarousel from './HeroCarousel'
-=======
-import HeroCarousel, { HERO_SLIDES } from './HeroCarousel'
->>>>>>> fdd0eea2117b6ec92dbe3c5ed5ccf099c712793a
 
 const QUICK_MENUS = [
   {
