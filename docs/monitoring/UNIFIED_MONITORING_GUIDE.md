@@ -110,7 +110,9 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 |------|------|------|
 | UP/DOWN | UP (초록) | DOWN (빨강) → 메트릭 수집 전체 중단 |
 | Scrape 성공률 추이 | 90% 이상 유지 | 급격히 하락 → 다수 서비스 장애 |
-| 수집 중인 시계열 수 | 일정하게 유지 | 급격히 감소 → scrape target 소실 |
+| 수집 중인 시계열 수 | 15,000~20,000개 수준 유지 | 급격히 감소 → scrape target 소실 / 급격히 증가 → 카디널리티 폭발 |
+
+> **시계열 수**는 Prometheus가 현재 추적 중인 메트릭 데이터 포인트 수입니다. 서비스가 많아질수록 자연스럽게 증가하며, 급격한 변동이 없으면 정상입니다.
 
 ### Grafana
 
@@ -138,12 +140,25 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 | 알림 전송 건수 | Alert 발생 시 증가 | 0 지속 → Prometheus 연결 확인 |
 | 알림 전송 실패 | 0 | 증가 → Slack Webhook URL 유효성 확인 필요 |
 
+> 알림 전송 패널은 **slack**, **webhook**(healthchecks.io) 두 채널만 표시합니다. slack은 일반 Alert 발송, webhook은 Watchdog heartbeat 전송에 사용됩니다.
+
 ### Langfuse
 
 | 패널 | 정상 | 주의 |
 |------|------|------|
 | UP/DOWN | UP (초록) | DOWN → LLM 추적 데이터 유실 |
 | 프로브 응답시간 | 500ms 이하 | 3초 이상 → Langfuse 컨테이너 부하 또는 DB 문제 |
+
+> Langfuse는 Prometheus 형식 메트릭을 제공하지 않으므로 **Blackbox Exporter**가 HTTP 헬스체크(`/api/public/health`)로 생존 여부를 확인합니다. UP/DOWN은 이 프로브 결과입니다.
+
+### Blackbox Exporter
+
+Langfuse처럼 Prometheus 메트릭을 직접 노출하지 않는 서비스의 HTTP 엔드포인트를 주기적으로 호출해 응답 여부를 확인하는 도구입니다.
+
+| 확인 항목 | 방법 |
+|----------|------|
+| 정상 작동 확인 | `http://localhost:9115` 접속 → 상태 페이지 표시 여부 |
+| 프로브 직접 테스트 | `http://localhost:9115/probe?target=http://langfuse:3000/api/public/health&module=http_2xx` |
 
 ---
 
@@ -157,6 +172,7 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 | PrometheusDown | `up{job="prometheus"} == 0` 1분 | critical | Prometheus 다운 |
 | GrafanaDown | `up{job="grafana"} == 0` 1분 | critical | Grafana 다운 |
 | LokiDown | `up{job="loki"} == 0` 1분 | critical | Loki 다운 |
+| AlertmanagerDown | `up{job="alertmanager"} == 0` 1분 | critical | Alertmanager 다운 → Alert Slack 전송 불가 |
 | LangfuseDown | probe_success == 0 2분 | warning | Langfuse 응답 없음 |
 | LokiNoLogsIngested | 수집량 == 0 5분 | warning | 로그 수집 중단 |
 | PrometheusScrapeFailing | 실패율 > 30% 5분 | warning | 다수 scrape target 응답 없음 |

@@ -351,6 +351,16 @@ groups:
           summary: "Loki 다운"
           description: "로그 수집 중단."
 
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: monitoring-stack
+        annotations:
+          summary: "Alertmanager 다운"
+          description: "Alert가 Slack으로 전송되지 않습니다."
+
       - alert: LangfuseDown
         expr: probe_success{job="monitoring-stack-probe",instance=~".*langfuse.*"} == 0
         for: 2m
