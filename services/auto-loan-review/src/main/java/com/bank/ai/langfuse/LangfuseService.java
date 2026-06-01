@@ -45,15 +45,23 @@ public class LangfuseService {
 
     /** 트레이스 생성 */
     public void trace(String traceId, String name, Map<String, Object> metadata) {
+        trace(traceId, name, metadata, List.of());
+    }
+
+    /** 트레이스 생성 (태그 포함) */
+    public void trace(String traceId, String name, Map<String, Object> metadata, List<String> tags) {
+        var body = new java.util.HashMap<String, Object>();
+        body.put("id", traceId);
+        body.put("name", name);
+        body.put("metadata", metadata != null ? metadata : Map.of());
+        if (!tags.isEmpty()) {
+            body.put("tags", tags);
+        }
         send(Map.of(
                 "id", UUID.randomUUID().toString(),
                 "type", "trace-create",
                 "timestamp", Instant.now().toString(),
-                "body", Map.of(
-                        "id", traceId,
-                        "name", name,
-                        "metadata", metadata != null ? metadata : Map.of()
-                )
+                "body", body
         ));
     }
 
