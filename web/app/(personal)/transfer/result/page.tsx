@@ -1,13 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 type PendingTransfer = {
+  fromAccountId?: number
+  fromAccountViewId?: string
   fromNumber: string
   fromName: string
   toBank: string
@@ -21,17 +23,20 @@ export default function TransferResultPage() {
   const router = useRouter()
   const loadedTransferRef = useRef(false)
   const [data, setData] = useState<PendingTransfer | null>(null)
-  const [accounts, setAccounts] = useState<{ number: string; balance: number }[]>([])
+  const [accounts, setAccounts] = useState<{ id: string; apiAccountId?: number; number: string; balance: number }[]>([])
 
   useEffect(() => {
     fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-      .then(accs => setAccounts(accs.map(a => ({ number: a.number, balance: Number(a.balance) }))))
+      .then(accs => setAccounts(accs.map(a => ({
+        id: a.id,
+        apiAccountId: a.apiAccountId,
+        number: a.number,
+        balance: Number(a.balance),
+      }))))
       .catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (loadedTransferRef.current) return
-    loadedTransferRef.current = true
     const raw = sessionStorage.getItem('pendingTransfer')
     if (!raw) { router.push('/transfer/account'); return }
     const transfer = JSON.parse(raw)
@@ -61,7 +66,11 @@ export default function TransferResultPage() {
 
   if (!data) return null
 
-  const fromAcc = accounts.find(a => a.number === data?.fromNumber)
+  const fromAcc = accounts.find(a =>
+    a.apiAccountId === data?.fromAccountId ||
+    a.id === data?.fromAccountViewId ||
+    a.number === data?.fromNumber
+  )
   const remainingBalance = (fromAcc?.balance ?? 0) - (data?.amount ?? 0)
 
   return (

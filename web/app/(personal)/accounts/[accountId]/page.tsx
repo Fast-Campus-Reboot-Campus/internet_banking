@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import { use } from 'react'
 import { formatNumber } from '@/lib/mock-data'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, fetchTransactions, DepositViewAccount, DepositTransaction } from '@/lib/deposit-api'
 
@@ -12,8 +13,8 @@ function canTransferFrom(account: DepositViewAccount) {
   return account.type === '입출금'
 }
 
-export default function AccountDetailPage({ params }: { params: { accountId: string } }) {
-  const { accountId } = params
+export default function AccountDetailPage({ params }: { params: Promise<{ accountId: string }> }) {
+  const { accountId } = use(params)
   const [account, setAccount] = useState<DepositViewAccount | null>(null)
   const [transactions, setTransactions] = useState<DepositTransaction[]>([])
   const [loading, setLoading] = useState(true)

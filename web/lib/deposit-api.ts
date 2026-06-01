@@ -122,32 +122,43 @@ export type CreateDepositContractInput = {
 }
 
 const PRODUCT_ID_BY_SLUG: Record<string, number> = {
-  'axful-regular': 1,
-  'axful-super': 2,
-  regular: 3,
-  'axful-youth': 4,
-  'axful-free': 5,
-  'axful-dollar': 6,
-  'axful-green': 7,
-  'axful-soldier': 8,
-  'axful-star-savings': 9,
-  'housing-savings': 10,
-  'youth-housing': 11,
-  'axful-sok': 12,
-  election: 13,
-  'axful-living': 14,
-  'axful-gs': 15,
-  'monimo-daily': 16,
-  'axful-moim': 17,
-  'axful-star-account': 18,
-  'axful-wallet': 19,
-  'axful-free-account': 20,
-  'axful-youth-account': 21,
+  'axful-regular': 6,
+  'axful-super': 7,
+  regular: 8,
+  'axful-youth': 9,
+  'axful-free': 10,
+  'axful-dollar': 11,
+  'axful-green': 12,
+  'axful-soldier': 13,
+  'axful-star-savings': 14,
+  'housing-savings': 15,
+  'youth-housing': 16,
+  'axful-sok': 17,
+  election: 18,
+  'axful-living': 19,
+  'axful-gs': 20,
+  'monimo-daily': 21,
+  'axful-moim': 22,
+  'axful-star-account': 23,
+  'axful-wallet': 24,
+  'axful-free-account': 25,
+  'axful-youth-account': 26,
+  'axful-work': 9004,
+  'axful-dream': 9005,
+  'axful-together': 9006,
 }
 
 const SLUG_BY_PRODUCT_ID = Object.fromEntries(
   Object.entries(PRODUCT_ID_BY_SLUG).map(([slug, productId]) => [productId, slug])
 ) as Record<number, string>
+
+const CHECKING_PRODUCT_SLUGS = new Set([
+  'axful-moim',
+  'axful-star-account',
+  'axful-wallet',
+  'axful-free-account',
+  'axful-youth-account',
+])
 
 const SAVING_TYPE_BY_SLUG: Record<string, SavingType> = {
   'axful-free': 'FREE',
@@ -250,9 +261,10 @@ export async function fetchDepositAccounts(customerId: string) {
   return data
 }
 
-export async function terminateDepositContract(contractId: number, reason = 'ONLINE_TERMINATION') {
+export async function terminateDepositContract(contractId: number, reason = 'ONLINE_TERMINATION', targetAccountId?: number) {
   const { data } = await depositApi.patch<DepositContract>(`/contracts/${contractId}/terminate`, {
     terminationReason: reason,
+    targetAccountId: targetAccountId ?? null,
   })
   return data
 }
@@ -305,6 +317,7 @@ export async function createDepositContract(customerId: string, input: CreateDep
 function accountTypeLabel(account: DepositAccount, product?: DepositProduct): Account['type'] {
   if (account.accountType === 'SAVINGS') return '적금'
   if (account.accountType === 'SUBSCRIPTION') return '청약'
+  if (product && CHECKING_PRODUCT_SLUGS.has(getDepositSlugByProductId(product.productId))) return '입출금'
   if (product?.productName?.includes('통장')) return '입출금'
   return '예금'
 }

@@ -307,6 +307,7 @@ export default function DepositJoinPage() {
       })
       localStorage.removeItem('joinedAccounts')
       router.push('/inquiry/accounts')
+      router.refresh()
     } catch {
       alert('가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       setSubmitting(false)
