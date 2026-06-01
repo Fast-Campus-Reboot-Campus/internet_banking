@@ -35,6 +35,7 @@ logs/
 
 # Local service launchers
 services/consultation-service/start-*.bat
+start-*.bat
 
 # Java
 *.class
