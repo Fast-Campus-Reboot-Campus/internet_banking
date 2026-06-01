@@ -363,4 +363,42 @@ public class LoanReviewService {
                 byTypeDecision, byStatus, byRejectReason);
     }
 
+    /**
+     * 이상거래 본사 상신.
+     * 지점장이 심사 진행 중인 건에서 의심 거래를 발견했을 때 호출한다.
+     * 상신 후 ROLE_HQ_REVIEWER 만 해당 건을 조회할 수 있다.
+     */
+    @Transactional
+    public LoanReviewResponse escalateToHq(Long applId, LoanActorContext actor, String escalateReason) {
+        LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+        LoanReview review = repository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+
+        if (review.isEscalated()) {
+            throw new BusinessException(LoanErrorCode.LOAN_203);
+        }
+        if (LoanReview.STATUS_COMPLETED.equals(review.getRevStatusCd())
+                || LoanReview.STATUS_EXPIRED.equals(review.getRevStatusCd())) {
+            throw new BusinessException(LoanErrorCode.LOAN_204);
+        }
+
+        review.escalateToHq(OffsetDateTime.now(ZoneOffset.UTC));
+        repository.save(review);
+
+        PiiLevel level = actor.piiLevel(application, review);
+        return LoanReviewResponse.of(review, application, level);
+    }
+
+    /**
+     * 본사 담당자 상신 건 목록 조회.
+     * ROLE_HQ_REVIEWER 전용 — SecurityConfig 에서 선제 차단.
+     */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<LoanReviewResponse> listEscalated(
+            org.springframework.data.domain.Pageable pageable) {
+        return repository.findByEscalatedAtIsNotNullAndDeletedAtIsNull(pageable)
+                .map(LoanReviewResponse::of);
+    }
+
 }

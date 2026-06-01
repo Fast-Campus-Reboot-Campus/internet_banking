@@ -28,6 +28,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   /api/internal/eod/**                                 ROLE_OPS           일배치(EOD)
  *   /api/internal/**                                     ROLE_INTERNAL      서비스 간 X-Internal-Token
  *   /api/loan-reviews/{id}/bias-override           POST  ROLE_HQ_REVIEWER   이상거래 본사 담당자 우회 승인
+ *   /api/loan-applications/{id}/review/escalate-to-hq POST ROLE_BRANCH_MANAGER 이상거래 본사 상신
+ *   /api/loan-reviews/escalated                   GET   ROLE_HQ_REVIEWER   상신 건 목록
  *   그 외                                                authenticated       조회 스코프는 Stage 4에서 추가
  */
 @Configuration
@@ -75,10 +77,18 @@ public class SecurityConfig {
                 // 서비스 간 내부 엔드포인트 — ROLE_INTERNAL (X-Internal-Token)
                 .requestMatchers("/api/internal/**").hasRole(LoanRole.INTERNAL.spring())
 
-                // 이상거래 본사 담당자 편향 우회 승인 — ROLE_HQ_REVIEWER
+                // 이상거래 본사 담당자 편향 우회 승인 + 상신 건 목록 — ROLE_HQ_REVIEWER
                 .requestMatchers(HttpMethod.POST,
                         "/api/loan-reviews/*/bias-override"
                 ).hasRole(LoanRole.HQ_REVIEWER.spring())
+                .requestMatchers(HttpMethod.GET,
+                        "/api/loan-reviews/escalated"
+                ).hasRole(LoanRole.HQ_REVIEWER.spring())
+
+                // 이상거래 본사 상신 — ROLE_BRANCH_MANAGER
+                .requestMatchers(HttpMethod.POST,
+                        "/api/loan-applications/*/review/escalate-to-hq"
+                ).hasRole(LoanRole.BRANCH_MANAGER.spring())
 
                 // 자동 심사 (배치/운영) — ROLE_OPS
                 .requestMatchers(HttpMethod.POST,

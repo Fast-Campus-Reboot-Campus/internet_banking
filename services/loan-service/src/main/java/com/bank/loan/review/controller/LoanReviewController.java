@@ -4,6 +4,7 @@ import com.bank.common.web.ApiResponse;
 import com.bank.loan.review.dto.AcknowledgeBiasRequest;
 import com.bank.loan.review.dto.ApproverApproveRequest;
 import com.bank.loan.review.dto.ConfirmReviewRequest;
+import com.bank.loan.review.dto.EscalateToHqRequest;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
@@ -114,5 +115,18 @@ public class LoanReviewController {
             @PathVariable Long applId,
             @Valid @RequestBody ApproverApproveRequest req) {
         return ApiResponse.ok(approverService.approverApprove(applId, req));
+    }
+
+    @Operation(summary = "이상거래 본사 상신",
+            description = "지점장이 심사 진행 중인 건을 이상거래로 판단해 본사에 상신. "
+                    + "이미 상신된 건은 LOAN_203, COMPLETED/EXPIRED 건은 LOAN_204. "
+                    + "상신 후 ROLE_HQ_REVIEWER 만 해당 건을 조회할 수 있다.")
+    @PostMapping("/escalate-to-hq")
+    public ApiResponse<LoanReviewResponse> escalateToHq(
+            @PathVariable Long applId,
+            @Valid @RequestBody EscalateToHqRequest req,
+            Authentication auth) {
+        return ApiResponse.ok(
+                service.escalateToHq(applId, LoanActorContext.from(auth), req.escalateReason()));
     }
 }

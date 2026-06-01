@@ -51,4 +51,7 @@ public interface LoanReviewRepository extends JpaRepository<LoanReview, Long> {
             ORDER BY lr.updatedAt ASC
             """)
     List<LoanReview> findExportable(@Param("since") OffsetDateTime since);
+
+    /** 본사 담당자(HQ_REVIEWER) 상신 건 목록 — escalatedAt IS NOT NULL. */
+    Page<LoanReview> findByEscalatedAtIsNotNullAndDeletedAtIsNull(Pageable pageable);
 }
