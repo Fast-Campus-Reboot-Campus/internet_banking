@@ -108,6 +108,7 @@ ai:
     diverge-score-threshold: 0.10
     sampling-rate: 1.0
     timeout-seconds: 45
+    rag-backend: ${AI_SHADOW_RAG_BACKEND:inline}   # shadow run 이 사용할 RAG 백엔드 (inline / es)
 
   # ---- 사전 심사 에이전트 (pre-review-agent-plan.md) ----
   agent:

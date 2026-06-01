@@ -26,12 +26,12 @@ public class ShadowResultRepository {
             INSERT INTO shadow_run_result
                 (rev_id, prod_opinion_json, shadow_opinion_json, diverged, diverge_reasons,
                  prod_track, shadow_track, prod_decision_score, shadow_decision_score,
-                 shadow_model, shadow_prompt_version, rag_enabled)
+                 shadow_model, shadow_prompt_version, rag_enabled, rag_backend)
             VALUES
                 (:revId, CAST(:prodOpinionJson AS VARCHAR), CAST(:shadowOpinionJson AS VARCHAR),
                  :diverged, :divergeReasons,
                  :prodTrack, :shadowTrack, :prodDecisionScore, :shadowDecisionScore,
-                 :shadowModel, :shadowPromptVersion, :ragEnabled)
+                 :shadowModel, :shadowPromptVersion, :ragEnabled, :ragBackend)
             """;
 
     private static final String COUNT_DIVERGED_SQL = """
@@ -63,7 +63,8 @@ public class ShadowResultRepository {
                     .addValue("shadowDecisionScore", decisionScore(result.shadowOpinion()))
                     .addValue("shadowModel",         result.shadowModel())
                     .addValue("shadowPromptVersion", result.shadowPromptVersion())
-                    .addValue("ragEnabled",          result.ragEnabled());
+                    .addValue("ragEnabled",          result.ragEnabled())
+                    .addValue("ragBackend",          result.ragBackend());
 
             jdbc.update(INSERT_SQL, params);
         } catch (JsonProcessingException e) {
