@@ -79,7 +79,7 @@ public class GeminiOpenAiCompatLlmClient implements LlmClient {
             langfuse.generation(traceId, request.promptId(), "gemini",
                     request.userContent(), content,
                     usage != null ? (int) usage.getPromptTokens() : null,
-                    usage != null ? (int) usage.getGenerationTokens() : null,
+                    usage != null ? (int) usage.getCompletionTokens() : null,
                     llmStart, llmEnd);
         }
 
