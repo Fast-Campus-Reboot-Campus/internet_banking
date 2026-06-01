@@ -43,22 +43,26 @@ export default function TransactionsPage() {
       } finally {
         setLoadingAccounts(false)
       }
+    }
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedAccount) return
+    const acc = accounts.find(a => a.id === selectedAccount)
+    if (!acc?.apiAccountId) return
+    async function loadTxs() {
       try {
-        const txs = await fetchTransactions({ customerId })
+        const txs = await fetchTransactions({ accountId: acc!.apiAccountId })
         setAllTransactions(txs)
       } catch {
         setAllTransactions([])
       }
     }
-    loadData()
-  }, [])
+    loadTxs()
+  }, [selectedAccount, accounts])
 
-  const txs = selectedAccount
-    ? allTransactions.filter(t => {
-        const acc = accounts.find(a => a.id === selectedAccount)
-        return acc?.number === t.accountNumber
-      })
-    : []
+  const txs = selectedAccount ? allTransactions : []
 
   const totalDeposit  = txs.filter(t => t.directionType === 'IN').reduce((s, t) => s + Number(t.amount), 0)
   const totalWithdraw = txs.filter(t => t.directionType === 'OUT').reduce((s, t) => s + Number(t.amount), 0)
@@ -86,7 +90,7 @@ export default function TransactionsPage() {
     if (!calSearched || !calAccount) return []
     const acc = accounts.find(a => a.id === calAccount)
     const prefix = `${year}-${month}`
-    return allTransactions.filter(t => acc?.number === t.accountNumber && t.transactionAt.startsWith(prefix))
+    return allTransactions.filter(t => t.transactionAt.startsWith(prefix))
   })()
 
   /* 달력 그리드 계산 */
