@@ -61,8 +61,12 @@ public class CommonDataSourceConfig {
                 .locations("classpath:db/common-migration")
                 // 전용 이력 테이블 — 같은 물리 DB 를 공유하는 통합 테스트에서 loan Flyway 와 충돌 방지
                 .table("common_flyway_schema_history")
-                // 기존 스키마(테스트 공유 DB 등)가 비어있지 않아도 최초 마이그레이션 허용
+                // baselineOnMigrate: 이력 테이블이 없는 기존 DB 에서 첫 마이그레이션 허용.
+                // baselineVersion("0"): 기본값 "1" 이면 V1 이 베이스라인으로 건너뛰어져
+                // V1(common_account DDL) 이 실행되지 않은 채 V2(seed) 가 실패한다.
+                // "0" 으로 설정해 V1 부터 모두 실행되도록 한다.
                 .baselineOnMigrate(true)
+                .baselineVersion("0")
                 .load()
                 .migrate();
         return new CommonFlywayInitialized();
