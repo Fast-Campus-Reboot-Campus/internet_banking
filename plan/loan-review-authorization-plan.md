@@ -178,7 +178,7 @@
 | --- | --- | --- |
 | 0 | 완료 | 현황 조사 및 권한 모델 설계 합의 (본 문서) |
 | 1 | 완료 | `LoanRole` enum 9종 신설, `SecurityConfig` 권한 매트릭스 코드화(`SENIOR_REVIEWER`→`HQ_REVIEWER`). 직원 디렉터리·로그인 처리 = **customer-service** (config 시드 방식, §9) |
-| 2 | 진행 예정 | `branch`·`employee` 테이블, `loan` `branch_id`/`owner_id`/`escalated` 마이그레이션 |
+| 2 | 완료 | `branch` 테이블(V28) + `loan_application.branch_id`(V29) + `loan_review.owner_id`/`escalated_at`(V30) + `access_audit_log`(V31). `LoanReview.escalateToHq()` 메서드 추가 |
 | 3 | 진행 예정 | API Gateway `X-User-Role` 주입 + `GatewayHeaderAuthFilter` 멀티롤 + 직원 로그인 역할 발급 |
 | 4 | 진행 예정 | `SecurityConfig` 정비 + 본심사 조회 스코프 판정 로직 |
 | 5 | 진행 예정 | PII 마스킹 유틸 + 응답 DTO 차등 노출 |
