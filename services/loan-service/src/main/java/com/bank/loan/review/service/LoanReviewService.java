@@ -25,6 +25,8 @@ import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviewStatsResponse;
 import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
+import com.bank.loan.security.LoanActorContext;
+import com.bank.loan.security.LoanRole;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -270,12 +272,61 @@ public class LoanReviewService {
     }
 
     @Transactional(readOnly = true)
-    public LoanReviewResponse get(Long applId) {
-        applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+    public LoanReviewResponse get(Long applId, LoanActorContext actor) {
+        LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
-        return repository.findByApplIdAndDeletedAtIsNull(applId)
-                .map(LoanReviewResponse::of)
+        LoanReview review = repository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+
+        checkScope(application, review, actor);
+
+        return LoanReviewResponse.of(review);
+    }
+
+    /**
+     * 접근 판정식.
+     *  1. 라인 참여자 (담당·심사·승인자) — 본인 건
+     *  2. 고객 — 본인 신청 건
+     *  3. 같은 지점 지점장 — 지점 전체 조회
+     *  4. 본사 담당자 — 상신(ESCALATED) 건만
+     * OPS/INTERNAL/ADMIN 은 별도 차단 없이 통과.
+     */
+    private void checkScope(LoanApplication application, LoanReview review, LoanActorContext actor) {
+        Long actorId = actor.actorId();
+
+        // OPS·INTERNAL·ADMIN — 전체 접근 허용
+        if (actor.hasRole(LoanRole.OPS)
+                || actor.hasRole(LoanRole.INTERNAL)
+                || actor.hasRole(LoanRole.ADMIN)) {
+            return;
+        }
+
+        // 라인 참여자 (담당자·심사자·승인자)
+        if (actorId != null && (actorId.equals(review.getOwnerId())
+                || actorId.equals(review.getReviewerId())
+                || actorId.equals(review.getApproverId()))) {
+            return;
+        }
+
+        // 고객 — 본인 신청 건
+        if (actor.hasRole(LoanRole.CUSTOMER)
+                && actorId != null && actorId.equals(application.getCustomerId())) {
+            return;
+        }
+
+        // 같은 지점 지점장
+        if (actor.hasRole(LoanRole.BRANCH_MANAGER)
+                && actor.branch() != null
+                && actor.branch().equals(application.getBranchId())) {
+            return;
+        }
+
+        // 본사 담당자 — 상신 건만
+        if (actor.hasRole(LoanRole.HQ_REVIEWER) && review.isEscalated()) {
+            return;
+        }
+
+        throw new BusinessException(LoanErrorCode.LOAN_202);
     }
 
     /**

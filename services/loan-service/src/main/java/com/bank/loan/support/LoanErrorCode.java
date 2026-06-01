@@ -152,6 +152,9 @@ public enum LoanErrorCode implements ErrorCode {
     // Advisory (201)
     LOAN_201(HttpStatus.UNPROCESSABLE_ENTITY, "CRITICAL Advisory 리포트를 먼저 확인(ACK)해야 합니다."),
 
+    // 접근 제어 (202)
+    LOAN_202(HttpStatus.FORBIDDEN, "해당 대출 건에 대한 조회 권한이 없습니다."),
+
     // RAG (210-219)
     LOAN_210(HttpStatus.SERVICE_UNAVAILABLE,  "임베딩 API 호출에 실패했습니다. 잠시 후 재시도하세요."),
     LOAN_211(HttpStatus.BAD_GATEWAY,          "임베딩 API 응답이 유효하지 않습니다. (차원 불일치 또는 빈 응답)");

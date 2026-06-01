@@ -80,6 +80,23 @@ public class SecurityConfig {
                         "/api/loan-reviews/*/bias-override"
                 ).hasRole(LoanRole.HQ_REVIEWER.spring())
 
+                // 자동 심사 (배치/운영) — ROLE_OPS
+                .requestMatchers(HttpMethod.POST,
+                        "/api/loan-applications/*/review/auto-decide"
+                ).hasRole(LoanRole.OPS.spring())
+
+                // 수동 심사 실행·확정·편향확인 — ROLE_DEPUTY_MANAGER 또는 ROLE_OPS
+                .requestMatchers(HttpMethod.POST,
+                        "/api/loan-applications/*/review",
+                        "/api/loan-applications/*/review/confirm",
+                        "/api/loan-applications/*/review/acknowledge-bias"
+                ).hasAnyRole(LoanRole.DEPUTY_MANAGER.spring(), LoanRole.OPS.spring())
+
+                // 승인자 최종 결재 — ROLE_BRANCH_MANAGER
+                .requestMatchers(HttpMethod.POST,
+                        "/api/loan-applications/*/review/approver-approve"
+                ).hasRole(LoanRole.BRANCH_MANAGER.spring())
+
                 .anyRequest().authenticated()
             );
 

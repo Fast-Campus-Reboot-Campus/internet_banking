@@ -12,12 +12,14 @@ import com.bank.loan.review.service.LoanReviewApproverService;
 import com.bank.loan.review.service.LoanReviewAutoDecideService;
 import com.bank.loan.review.service.LoanReviewReviseService;
 import com.bank.loan.review.service.LoanReviewService;
+import com.bank.loan.security.LoanActorContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,8 +54,8 @@ public class LoanReviewController {
 
     @Operation(summary = "본심사 결과 조회")
     @GetMapping
-    public ApiResponse<LoanReviewResponse> get(@PathVariable Long applId) {
-        return ApiResponse.ok(service.get(applId));
+    public ApiResponse<LoanReviewResponse> get(@PathVariable Long applId, Authentication auth) {
+        return ApiResponse.ok(service.get(applId, LoanActorContext.from(auth)));
     }
 
     @Operation(summary = "본심사 결정 정정(재심사)",
