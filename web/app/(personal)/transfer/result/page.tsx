@@ -98,55 +98,6 @@ export default function TransferResultPage() {
         <main className="flex-1 pl-8 pt-6 pb-12">
           <h1 className="text-[22px] font-bold text-kb-text mb-6">계좌이체</h1>
 
-<<<<<<< HEAD
-          {/* 완료 배너 */}
-          <div className="rounded-xl p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>즉시이체가 완료되었습니다.</p>
-              <p className="text-[12px] text-kb-text-muted">타행계좌로의 이체는 해당 은행 사정에 따라 입금이 다소 지연될 수 있습니다.</p>
-            </div>
-          </div>
-
-          {/* 이체결과 테이블 */}
-          <div className="mb-6">
-            <p className="text-[15px] font-bold text-kb-text mb-3">이체결과</p>
-            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
-              <table className="w-full border-collapse text-[13px]">
-                <thead>
-                  <tr style={{ backgroundColor: '#F0FAF7' }}>
-                    {['출금계좌번호', '입금계좌번호', '이체금액', '수수료', '받는분', '결과'].map(h => (
-                      <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]"
-                        style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="px-4 py-4 text-center text-kb-text">{data.fromNumber}</td>
-                    <td className="px-4 py-4 text-center">
-                      <p className="font-medium text-kb-text">{data.toBank}</p>
-                      <p className="text-kb-text-muted text-[12px]">{data.toAccount}</p>
-                    </td>
-                    <td className="px-4 py-4 text-right font-bold text-[15px]" style={{ color: '#0D5C47' }}>
-                      {formatNumber(Number(data.amount))}원
-                    </td>
-                    <td className="px-4 py-4 text-center text-kb-text-muted">
-                      {data.fee === 0 ? '면제' : `${formatNumber(data.fee)}원`}
-                    </td>
-                    <td className="px-4 py-4 text-center text-kb-text">{data.receiverName}</td>
-                    <td className="px-4 py-4 text-center font-bold" style={{ color: '#5BC9A8' }}>완료</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-=======
           {/* 완료/실패 배너 */}
           {(!paymentResult || paymentResult.status === 'COMPLETED' || paymentResult.status === 'CLEARING') ? (
             <div className="rounded-xl p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
@@ -229,7 +180,6 @@ export default function TransferResultPage() {
                 </tbody>
               </table>
             </div>
->>>>>>> fdd0eea2117b6ec92dbe3c5ed5ccf099c712793a
             {remainingBalance !== null && (
               <p className="text-right text-[12px] text-kb-text-muted mt-2">
                 이체 후 잔액 : <span className="font-semibold" style={{ color: '#0D5C47' }}>{formatNumber(remainingBalance)}원</span>
