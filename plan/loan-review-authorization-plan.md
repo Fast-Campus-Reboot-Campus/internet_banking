@@ -180,7 +180,7 @@
 | 1 | 완료 | `LoanRole` enum 9종 신설, `SecurityConfig` 권한 매트릭스 코드화(`SENIOR_REVIEWER`→`HQ_REVIEWER`). 직원 디렉터리·로그인 처리 = **customer-service** (config 시드 방식, §9) |
 | 2 | 완료 | `branch` 테이블(V28) + `loan_application.branch_id`(V29) + `loan_review.owner_id`/`escalated_at`(V30) + `access_audit_log`(V31). `LoanReview.escalateToHq()` 메서드 추가 |
 | 3 | 완료 | `JwtClaims` branch/grade 필드 추가, `JwtProvider` 직원용 오버로드, Gateway `X-User-Id/Role/Branch/Grade` 헤더 주입, `EmployeeDirectoryProperties` config 시드(직원 3명), `LoginService` 직원 분기, `GatewayHeaderAuthFilter` 멀티롤+`GatewayAuthDetails` |
-| 4 | 진행 예정 | `SecurityConfig` 정비 + 본심사 조회 스코프 판정 로직 |
+| 4 | 완료 | `LoanActorContext` 신설, `SecurityConfig` 역할 매트릭스(심사/확정/acknowledge-bias/approver-approve/auto-decide), `LoanReviewService.get()` 4조건 스코프 판정 + `LOAN_202` |
 | 5 | 진행 예정 | PII 마스킹 유틸 + 응답 DTO 차등 노출 |
 | 6 | 진행 예정 | 이상거래 상신(`ESCALATED`) + 본사 담당자 접근 |
 | 7 | 진행 예정 | break-glass 예외 접근 + 불변 감사로그 |
