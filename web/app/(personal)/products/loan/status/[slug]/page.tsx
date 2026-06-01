@@ -133,7 +133,7 @@ function ExecutePage({ applId }: { applId: string }) {
     if (!account) { setError('입금 계좌를 입력해주세요.'); return }
     setError(''); setLoading(true)
     try {
-      await api.post(`/api/loan-applications/${applId}/execute`, { depositAccountNo: account })
+      await api.post(`/api/loan-contracts/${applId}/executions`, { depositAccountNo: account })
       setStep('done')
     } catch {
       setError('대출 실행에 실패했습니다. 고객센터(1588-9999)로 문의해주세요.')

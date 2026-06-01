@@ -315,7 +315,7 @@ function ExtendPage({ cntrId }: { cntrId: string }) {
   async function handleSubmit() {
     setError(''); setLoading(true)
     try {
-      await api.post(`/api/loan-contracts/${cntrId}/maturity`, { extensionMonths: Number(months) })
+      await api.post(`/api/loan-contracts/${cntrId}/maturity/extend`, { extensionMonths: Number(months) })
       setDone(true)
     } catch { setError('기한연장 처리에 실패했습니다.') }
     finally { setLoading(false) }
@@ -408,7 +408,7 @@ function DelinquencyPage({ cntrId }: { cntrId: string }) {
 
   async function handleSearch() {
     try {
-      const res = await api.get(`/api/loan-contracts/${cntrId}/delinquencies`)
+      const res = await api.get(`/api/loan-contracts/${cntrId}/delinquency`)
       setRows(res.data.data?.items ?? [])
     } catch { setRows([]) }
     setSearched(true)

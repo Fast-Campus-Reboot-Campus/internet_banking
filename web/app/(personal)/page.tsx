@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 /* eslint-disable @typescript-eslint/no-explicit-any */
+=======
+>>>>>>> fdd0eea2117b6ec92dbe3c5ed5ccf099c712793a
 ﻿'use client'
 
 import Link from 'next/link'
