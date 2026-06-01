@@ -80,10 +80,12 @@ export default function TransferAccountPage() {
     const amountNum = parseInt(amount.replace(/,/g, '')) || 0
     if (!toAccount || amountNum === 0) return
     const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
+    const toBankCode = MOCK_BANKS.find(b => b.name === toBank)?.code ?? 'KB'
     const data = {
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
+      toBankCode,
       toAccount,
       amount: amountNum,
       receiverName,

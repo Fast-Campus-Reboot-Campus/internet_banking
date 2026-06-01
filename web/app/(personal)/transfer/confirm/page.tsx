@@ -5,11 +5,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
+import { createInstantTransfer } from '@/lib/payment-api'
 
 type PendingTransfer = {
   fromNumber: string
   fromName: string
   toBank: string
+  toBankCode: string
   toAccount: string
   amount: number
   receiverName: string
@@ -33,6 +35,9 @@ export default function TransferConfirmPage() {
   const [cardInput2, setCardInput2] = useState('')
   const [passwordError, setPasswordError] = useState(false)
   const [errorCount, setErrorCount] = useState(0)
+  const [idemKey] = useState(() => crypto.randomUUID())
+  const [authTokenId] = useState(() => crypto.randomUUID())
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
@@ -47,9 +52,47 @@ export default function TransferConfirmPage() {
       const next = [...pin, key]
       setPin(next)
       if (next.length === 6) {
-        setTimeout(() => {
+        if (isSubmitting) return
+        setTimeout(async () => {
+          if (!data) return
+          setIsSubmitting(true)
           setShowCertModal(false)
-          router.push('/transfer/result')
+          try {
+            const res = await createInstantTransfer(
+              {
+                senderAccountId: data.fromNumber,
+                receiverBankCode: data.toBankCode,
+                receiverAccountNo: data.toAccount,
+                receiverHolderName: data.receiverName,
+                transferAmount: data.amount,
+                receiverMemo: null,
+                senderMemo: null,
+                channel: 'MOBILE',
+                receiverPassbookSenderDisplay: data.fromName || null,
+              },
+              {
+                userId: localStorage.getItem('customerId') ?? '',
+                authTokenId,
+                idempotencyKey: idemKey,
+              }
+            )
+            sessionStorage.setItem(
+              'paymentResult',
+              JSON.stringify({
+                status: res.status,
+                piId: res.paymentInstructionId,
+                txNo: res.transactionNo,
+                failureCategory: res.failureCategory ?? null,
+              })
+            )
+          } catch (e: unknown) {
+            const axiosErr = e as { response?: { data?: { error?: string } } }
+            const message = axiosErr.response?.data?.error ?? '네트워크 오류가 발생했습니다.'
+            sessionStorage.setItem('paymentResult', JSON.stringify({ status: 'ERROR', message }))
+          } finally {
+            setIsSubmitting(false)
+            router.push('/transfer/result')
+          }
         }, 400)
       }
     }

@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const paymentApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_PAYMENT_API_URL || 'http://localhost:8087',
+  baseURL: process.env.NEXT_PUBLIC_PAYMENT_API_URL || 'http://localhost:8080',
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -12,30 +12,46 @@ paymentApi.interceptors.request.use((config) => {
   return config
 })
 
-// ── 결제 ──────────────────────────────────────────────────────────────────
-
-export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
-
-export type Payment = {
-  piId: number
-  customerId: string
-  amount: number
-  status: PaymentStatus
-  createdAt: string
+export type InstantTransferPayload = {
+  senderAccountId: string
+  receiverBankCode: string
+  receiverAccountNo: string
+  receiverHolderName: string
+  transferAmount: number
+  receiverMemo: string | null
+  senderMemo: string | null
+  channel: string
+  receiverPassbookSenderDisplay: string | null
 }
 
-export async function createPayment(payload: {
-  customerId: string
-  amount: number
-  paymentMethod: string
-  merchantId?: string
-  description?: string
-}) {
-  const { data } = await paymentApi.post<Payment>('/api/v1/payments', payload)
-  return data
+export type TransferRequestHeaders = {
+  userId: string
+  authTokenId: string
+  idempotencyKey: string
 }
 
-export async function cancelPayment(piId: number, reason?: string) {
-  const { data } = await paymentApi.post(`/api/v1/payments/${piId}/operator-cancel`, { reason })
+export type InstantTransferResult = {
+  paymentInstructionId: string
+  transactionNo: string
+  status: string
+  completedAt: string | null
+  failureCategory: string | null
+}
+
+export async function createInstantTransfer(
+  payload: InstantTransferPayload,
+  headers: TransferRequestHeaders
+): Promise<InstantTransferResult> {
+  const { data } = await paymentApi.post<InstantTransferResult>(
+    '/api/v1/payments',
+    payload,
+    {
+      headers: {
+        'X-User-Id': headers.userId,
+        'X-Auth-Token-Id': headers.authTokenId,
+        'X-Idempotency-Key': headers.idempotencyKey,
+      },
+    }
+  )
   return data
 }
