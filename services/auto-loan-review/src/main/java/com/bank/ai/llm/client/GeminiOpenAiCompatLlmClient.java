@@ -74,7 +74,7 @@ public class GeminiOpenAiCompatLlmClient implements LlmClient {
 
         if (langfuse != null) {
             String traceId = langfuse.newTraceId();
-            langfuse.trace(traceId, "auto-loan-review", null);
+            langfuse.trace(traceId, "auto-loan-review", null, List.of("auto-loan-review"));
             var usage = response.getMetadata().getUsage();
             langfuse.generation(traceId, request.promptId(), "gemini",
                     request.userContent(), content,
