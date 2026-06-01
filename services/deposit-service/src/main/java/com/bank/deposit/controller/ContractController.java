@@ -62,7 +62,7 @@ public class ContractController {
 
     @PatchMapping("/contracts/{contractId}/terminate")
     public Contract terminate(@PathVariable Long contractId, @RequestBody ContractTerminateRequest req) {
-        return contractService.terminate(contractId, req.terminationReason());
+        return contractService.terminate(contractId, req.terminationReason(), req.targetAccountId());
     }
 
     @PatchMapping("/contracts/{contractId}/maturity")
