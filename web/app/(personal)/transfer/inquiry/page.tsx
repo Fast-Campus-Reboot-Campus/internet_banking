@@ -6,7 +6,7 @@ import { formatNumber } from '@/lib/mock-data'
 import { fetchDepositAccountViewModels, fetchTransactions, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
-const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회']
+const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회', '리브마니보내기 결과조회']
 
 type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string }
 
@@ -105,21 +105,22 @@ export default function TransferInquiryPage() {
             <span>이체</span><span>›</span>
             <span>이체결과 조회</span><span>›</span>
             <span>계좌이체결과 조회</span><span>›</span>
-            <Link href="#" className="font-medium hover:underline" style={{ color: '#0D5C47' }}>? 도움말</Link>
+            <Link href="#" className="text-kb-blue hover:underline">? 도움말</Link>
           </div>
 
-          <h1 className="text-[22px] font-bold text-kb-text mb-5">계좌이체결과 조회</h1>
+          <h1 className="text-[20px] font-bold text-kb-text mb-4">계좌이체결과 조회</h1>
 
           {/* 탭 */}
-          <div className="flex border-b mb-5" style={{ borderColor: '#E2F5EF' }}>
+          <div className="flex border-b border-kb-border mb-5">
             {TABS.map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className="px-5 py-2.5 text-[13px] border-b-2 -mb-px transition-colors"
-                style={activeTab === tab
-                  ? { borderColor: '#0D5C47', color: '#0D5C47', fontWeight: 700, backgroundColor: 'white' }
-                  : { borderColor: 'transparent', backgroundColor: '#F8FFFE', color: '#9CA3AF' }}
+                className={`px-5 py-2.5 text-[13px] border-b-2 -mb-px transition-colors ${
+                  activeTab === tab
+                    ? 'border-kb-text font-bold text-kb-text bg-white'
+                    : 'border-transparent bg-kb-beige-light text-kb-text-muted hover:text-kb-text'
+                }`}
               >
                 {tab}
               </button>
@@ -127,20 +128,19 @@ export default function TransferInquiryPage() {
           </div>
 
           {/* 조회 폼 */}
-          <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
+          <div className="border border-kb-border mb-5">
             <table className="w-full text-[13px]">
               <tbody>
                 {/* 출금계좌번호 */}
-                <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                  <td className="px-4 py-3 font-semibold text-kb-text w-[140px] whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>출금계좌번호</td>
+                <tr className="border-b border-kb-border">
+                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[140px] whitespace-nowrap">출금계좌번호</td>
                   <td className="px-4 py-3">
                     <select
                       value={fromAccount}
                       onChange={e => setFromAccount(e.target.value)}
-                      className="border rounded-lg px-3 py-1.5 text-[13px] w-[280px] outline-none"
-                      style={{ borderColor: '#D1D5DB' }}
+                      className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px] outline-none bg-white"
                     >
-                      {accounts.map(a => (
+                      {MOCK_ACCOUNTS.map(a => (
                         <option key={a.id} value={a.number}>{a.number}</option>
                       ))}
                     </select>
@@ -148,24 +148,22 @@ export default function TransferInquiryPage() {
                 </tr>
 
                 {/* 조회기간 */}
-                <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                  <td className="px-4 py-3 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>조회기간</td>
+                <tr className="border-b border-kb-border">
+                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap">조회기간</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 mb-2 flex-wrap">
                       {[['당일',0],['1주일',7],['1개월',30],['3개월',90],['6개월',180]].map(([label, days]) => (
                         <button key={label as string}
                           onClick={() => applyPeriod(days as number)}
-                          className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                          className="border border-kb-border px-3 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
                           {label}
                         </button>
                       ))}
-                      <div className="w-px h-4 mx-1" style={{ backgroundColor: '#E2F5EF' }} />
+                      <div className="w-px h-4 bg-kb-border mx-1" />
                       {[5, 4, 3].map(m => (
                         <button key={m}
                           onClick={() => applyMonth(m)}
-                          className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                          className="border border-kb-border px-3 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
                           {m.toString().padStart(2,'0')}월
                         </button>
                       ))}
@@ -177,12 +175,10 @@ export default function TransferInquiryPage() {
                           value={startDate}
                           onChange={e => setStartDate(e.target.value)}
                           maxLength={8}
-                          className="border rounded-lg px-2 py-1.5 text-[13px] w-28 outline-none"
-                          style={{ borderColor: '#D1D5DB' }}
+                          className="border border-kb-border px-2 py-1.5 text-[13px] w-28 outline-none"
                           placeholder="YYYYMMDD"
                         />
-                        <button className="border rounded-lg px-2 py-1.5 text-kb-text-muted hover:bg-[#F0FAF7] transition-colors"
-                          style={{ borderColor: '#D1D5DB' }}>
+                        <button className="border border-kb-border px-2 py-1.5 text-kb-text-muted hover:bg-kb-beige-light">
                           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                             <rect x="1" y="2" width="14" height="13" rx="1"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/><line x1="1" y1="7" x2="15" y2="7"/>
                           </svg>
@@ -195,12 +191,10 @@ export default function TransferInquiryPage() {
                           value={endDate}
                           onChange={e => setEndDate(e.target.value)}
                           maxLength={8}
-                          className="border rounded-lg px-2 py-1.5 text-[13px] w-28 outline-none"
-                          style={{ borderColor: '#D1D5DB' }}
+                          className="border border-kb-border px-2 py-1.5 text-[13px] w-28 outline-none"
                           placeholder="YYYYMMDD"
                         />
-                        <button className="border rounded-lg px-2 py-1.5 text-kb-text-muted hover:bg-[#F0FAF7] transition-colors"
-                          style={{ borderColor: '#D1D5DB' }}>
+                        <button className="border border-kb-border px-2 py-1.5 text-kb-text-muted hover:bg-kb-beige-light">
                           <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                             <rect x="1" y="2" width="14" height="13" rx="1"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/><line x1="1" y1="7" x2="15" y2="7"/>
                           </svg>
@@ -212,33 +206,29 @@ export default function TransferInquiryPage() {
 
                 {/* 상대 입금계좌 */}
                 <tr>
-                  <td className="px-4 py-3 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>상대 입금계좌</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={useCounter}
-                        onChange={e => setUseCounter(e.target.checked)}
-                        className="w-4 h-4"
-                      />
-                      <input
-                        type="text"
-                        value={counterAccount}
-                        onChange={e => setCounterAccount(e.target.value)}
-                        disabled={!useCounter}
-                        className="border rounded-lg px-3 py-1.5 text-[13px] w-44 outline-none"
-                        style={{ borderColor: '#D1D5DB', backgroundColor: useCounter ? 'white' : '#F8FFFE' }}
-                      />
-                    </div>
+                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap">상대 입금계좌</td>
+                  <td className="px-4 py-3 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={useCounter}
+                      onChange={e => setUseCounter(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <input
+                      type="text"
+                      value={counterAccount}
+                      onChange={e => setCounterAccount(e.target.value)}
+                      disabled={!useCounter}
+                      className="border border-kb-border px-3 py-1.5 text-[13px] w-44 outline-none disabled:bg-kb-beige-light"
+                    />
                   </td>
                 </tr>
               </tbody>
             </table>
-            <div className="flex justify-center py-4" style={{ borderTop: '1px solid #E2F5EF' }}>
+            <div className="flex justify-center py-4 border-t border-kb-border">
               <button
                 onClick={() => setSearched(true)}
-                className="px-24 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-                style={{ backgroundColor: '#0D5C47' }}
+                className="bg-kb-yellow px-10 py-2 text-[13px] font-bold text-kb-text hover:brightness-95"
               >
                 조회
               </button>
@@ -248,49 +238,49 @@ export default function TransferInquiryPage() {
           {/* 결과 영역 */}
           {searched && (
             <>
-              <div className="rounded-xl px-4 py-3 mb-2 text-[13px]" style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
+              <div className="border border-kb-border px-4 py-3 mb-2 text-[13px]">
                 <span className="text-kb-text-muted mr-1">*</span>
                 <span className="text-kb-text-muted">계좌번호 : </span>
-                <Link href="#" className="underline font-medium" style={{ color: '#0D5C47' }}>{fromAccount}</Link>
+                <Link href="#" className="text-kb-blue underline">{fromAccount}</Link>
               </div>
 
               <div className="text-right text-[12px] text-kb-text-muted mb-1">
                 조회기간 : {displayFrom} ~ {displayTo}
               </div>
 
-              <div className="overflow-x-auto mb-1 rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
-                <table className="w-full border-collapse text-[13px]">
+              <div className="overflow-x-auto mb-1">
+                <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text">
                   <thead>
-                    <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #E2F5EF' }}>
-                      <th className="px-2 py-2 text-center w-8" style={{ borderBottom: '2px solid #0D5C47' }}>
+                    <tr className="bg-kb-beige-light">
+                      <th className="border border-kb-border px-2 py-2 text-center w-8">
                         <input type="checkbox" checked={allChecked} onChange={e => toggleAll(e.target.checked)} className="w-4 h-4" />
                       </th>
-                      {['이체일시', '입금은행', '입금계좌번호', '받는분', '이체금액', '출금통장표시내용'].map(h => (
-                        <th key={h} className="px-3 py-2 text-center font-semibold text-[12px] whitespace-nowrap"
-                          style={{ borderBottom: '2px solid #0D5C47', color: '#0D5C47' }}>
-                          {h}
-                        </th>
-                      ))}
+                      <th className="border border-kb-border px-3 py-2 text-center font-semibold whitespace-nowrap">이체일시</th>
+                      <th className="border border-kb-border px-3 py-2 text-center font-semibold whitespace-nowrap">입금은행</th>
+                      <th className="border border-kb-border px-3 py-2 text-center font-semibold whitespace-nowrap">입금계좌번호</th>
+                      <th className="border border-kb-border px-3 py-2 text-center font-semibold whitespace-nowrap">받는분</th>
+                      <th className="border border-kb-border px-3 py-2 text-center font-semibold whitespace-nowrap">이체금액</th>
+                      <th className="border border-kb-border px-3 py-2 text-center font-semibold whitespace-nowrap">출금통장표시내용</th>
                     </tr>
                   </thead>
                   <tbody>
                     {displayResults.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-3 py-8 text-center text-[13px] text-kb-text-muted">
+                        <td colSpan={7} className="border border-kb-border px-3 py-8 text-center text-[13px] text-kb-text-muted">
                           조회된 이체 내역이 없습니다.
                         </td>
                       </tr>
                     ) : displayResults.map(row => (
-                      <tr key={row.id} className="hover:bg-[#F8FFFE] transition-colors" style={{ borderBottom: '1px solid #E2F5EF' }}>
-                        <td className="px-2 py-3 text-center">
+                      <tr key={row.id} className="hover:bg-kb-beige-light">
+                        <td className="border border-kb-border px-2 py-3 text-center">
                           <input type="checkbox" checked={checkedRows.has(row.id)} onChange={() => toggleRow(row.id)} className="w-4 h-4" />
                         </td>
-                        <td className="px-3 py-3 text-center whitespace-pre-line text-[12px]">{row.datetime}</td>
-                        <td className="px-3 py-3 text-center">{row.bank}</td>
-                        <td className="px-3 py-3 text-center">{row.account}</td>
-                        <td className="px-3 py-3 text-center">{row.receiver}</td>
-                        <td className="px-3 py-3 text-right pr-4 font-semibold" style={{ color: '#0D5C47' }}>{formatNumber(row.amount)}</td>
-                        <td className="px-3 py-3 text-center text-kb-text-muted">{row.memo}</td>
+                        <td className="border border-kb-border px-3 py-3 text-center whitespace-pre-line text-[12px]">{row.datetime}</td>
+                        <td className="border border-kb-border px-3 py-3 text-center">{row.bank}</td>
+                        <td className="border border-kb-border px-3 py-3 text-center">{row.account}</td>
+                        <td className="border border-kb-border px-3 py-3 text-center">{row.receiver}</td>
+                        <td className="border border-kb-border px-3 py-3 text-right pr-4">{formatNumber(row.amount)}</td>
+                        <td className="border border-kb-border px-3 py-3 text-center text-kb-text-muted">{row.memo}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -302,8 +292,7 @@ export default function TransferInquiryPage() {
                 <div className="flex items-center gap-1">
                   {['|<', '<', '>', '>|'].map(btn => (
                     <button key={btn}
-                      className="border rounded-lg px-2 py-1 text-[12px] text-kb-text-muted hover:bg-[#F0FAF7] transition-colors"
-                      style={{ borderColor: '#E2F5EF' }}>
+                      className="border border-kb-border px-2 py-1 text-[12px] text-kb-text-muted hover:bg-kb-beige-light">
                       {btn}
                     </button>
                   ))}
@@ -315,26 +304,22 @@ export default function TransferInquiryPage() {
 
               {/* 하단 버튼 */}
               <div className="flex justify-center gap-2">
-                <button className="border rounded-xl px-5 py-2 text-[13px] font-medium hover:bg-[#F0FAF7] transition-colors flex items-center gap-1"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                <button className="border border-kb-border px-5 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light flex items-center gap-1">
                   <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="1.5">
                     <rect x="2" y="2" width="12" height="12" rx="1"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/>
                   </svg>
                   저장
                 </button>
-                <button className="border rounded-xl px-5 py-2 text-[13px] font-medium hover:bg-[#F0FAF7] transition-colors"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                <button className="border border-kb-border px-5 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
                   이체확인증 건별 출력
                 </button>
-                <button className="border rounded-xl px-5 py-2 text-[13px] font-medium hover:bg-[#F0FAF7] transition-colors flex items-center gap-1"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                <button className="border border-kb-border px-5 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light flex items-center gap-1">
                   이체확인증 일괄 출력
                   <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5">
                     <path d="M2 10L10 2M10 2H5M10 2v5"/>
                   </svg>
                 </button>
-                <button className="border rounded-xl px-5 py-2 text-[13px] font-medium hover:bg-[#F0FAF7] transition-colors"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                <button className="border border-kb-border px-5 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
                   이체결과 전송
                 </button>
               </div>

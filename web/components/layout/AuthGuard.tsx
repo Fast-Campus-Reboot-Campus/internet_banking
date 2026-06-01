@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 const PUBLIC_PREFIXES = [
   '/login',
   '/logout',
+  '/personal',
   '/banking',
   '/cert',
   '/cert-cps',
@@ -14,14 +15,13 @@ const PUBLIC_PREFIXES = [
   '/products',
   '/support',
   '/security-install',
-  '/settings',
 ]
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
 
-  const isPublic = pathname === '/' || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
   const [authorized, setAuthorized] = useState(isPublic)
 
   useEffect(() => {
