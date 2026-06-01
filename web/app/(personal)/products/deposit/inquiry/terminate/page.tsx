@@ -40,6 +40,8 @@ function DepositTerminateContent() {
   const [showCertModal, setShowCertModal] = useState(false)
   const [certStep, setCertStep] = useState<'info' | 'pin'>('info')
   const [pin, setPin] = useState<number[]>([])
+  const [cardInput1, setCardInput1] = useState('')
+  const [cardInput2, setCardInput2] = useState('')
   const [installOpen, setInstallOpen] = useState(true)
   const [depositOpen, setDepositOpen] = useState(true)
 
@@ -100,6 +102,7 @@ function DepositTerminateContent() {
   const installmentAccounts = allAccounts.filter(a => a.type === '적금' || a.type === '청약')
   const pureDepositAccounts = allAccounts.filter(a => a.type === '예금')
   const checkingAccounts    = allAccounts.filter(a => a.type === '입출금')
+  const receivableCheckingAccounts = checkingAccounts.filter(a => a.id !== selected?.id)
 
   function handleSelect(acc: DepositViewAccount) {
     setSelected(acc)
@@ -140,6 +143,7 @@ function DepositTerminateContent() {
     if (!password && !mouseInput) { alert('해지계좌 비밀번호를 입력해주세요.'); return }
     if (receiveMethod === 'own' && !depositNo) { alert('입금계좌를 선택해주세요.'); return }
     if (receiveMethod === 'other' && (!otherBank || !otherAccount)) { alert('은행명과 계좌번호를 입력해주세요.'); return }
+    if (!cardInput1 || !cardInput2) { alert('보안카드 번호를 입력해주세요.'); return }
     setShowCertModal(true)
     setCertStep('info')
     setPin([])
@@ -353,7 +357,7 @@ function DepositTerminateContent() {
                       <select value={depositNo} onChange={e => setDepositNo(e.target.value)}
                         className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white">
                         <option value="">-선택-</option>
-                        {checkingAccounts.map(a => (
+                        {receivableCheckingAccounts.map(a => (
                           <option key={a.id} value={a.id}>{a.number} ({a.name})</option>
                         ))}
                       </select>
@@ -396,6 +400,42 @@ function DepositTerminateContent() {
                   )}
                 </tbody>
               </table>
+
+              {/* 보안카드 입력 */}
+              <div className="border border-kb-border-dark rounded-xl p-6 mt-5">
+                <p className="text-[14px] font-bold text-kb-text mb-4">보안매체 비밀번호 입력</p>
+                <div className="flex items-start gap-8">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-[13px]">
+                      <span className="text-gray-400">●●</span>
+                      <input type="text" maxLength={2} value={cardInput1}
+                        onChange={e => setCardInput1(e.target.value.replace(/\D/g, ''))}
+                        className="border border-kb-border w-16 px-2 py-1 text-center text-[13px]" />
+                      <span className="text-kb-text-muted">[33] 앞의 두자리</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[13px]">
+                      <span className="text-gray-400">●●</span>
+                      <input type="text" maxLength={2} value={cardInput2}
+                        onChange={e => setCardInput2(e.target.value.replace(/\D/g, ''))}
+                        className="border border-kb-border w-16 px-2 py-1 text-center text-[13px]" />
+                      <span className="text-kb-text-muted">[10] 뒤의 두자리</span>
+                    </div>
+                  </div>
+                  <div className="border border-gray-300 p-3 text-[11px]" style={{ minWidth: 260 }}>
+                    <div className="flex justify-between items-center mb-2 pb-1 border-b border-gray-200">
+                      <span className="font-bold text-kb-text">✱ AX풀뱅크</span>
+                      <span className="text-kb-text-muted">Number. 0123456789</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 text-center text-[10px] text-gray-500">
+                      {Array.from({length:35},(_,i)=>(
+                        <div key={i} className="py-0.5">
+                          <span className="mr-0.5 text-gray-400">{i+1}</span><span>•••••</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="flex justify-center gap-2 mt-6">
                 <button onClick={() => setStep(1)}

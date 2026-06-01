@@ -24,6 +24,8 @@ export default function TransferAccountPage() {
   const [mouseInput, setMouseInput] = useState(false)
   const [accounts, setAccounts] = useState<DepositViewAccount[]>([])
   const [recentAccounts, setRecentAccounts] = useState<{ bank: string; name: string; number: string }[]>([])
+  const [validationMessage, setValidationMessage] = useState('')
+  const [innerBankTab, setInnerBankTab] = useState<'own' | 'other'>('own')
 
   useEffect(() => {
     async function loadAccounts() {
@@ -78,7 +80,7 @@ export default function TransferAccountPage() {
   const withdrawalAccounts =
     isFromAccountLocked && fromAcc
       ? [fromAcc]
-      : transferableAccounts.filter(a => a.id === fromAccount || a.availableBalance > 0 || a.balance > 0)
+      : transferableAccounts
 
   function handleAmountShortcut(label: string) {
     const map: Record<string, number> = {
@@ -104,7 +106,23 @@ export default function TransferAccountPage() {
 
   function handleConfirm() {
     const amountNum = parseInt(amount.replace(/,/g, '')) || 0
-    if (!toAccount || amountNum === 0) return
+    setValidationMessage('')
+    if (!fromAcc) {
+      setValidationMessage('출금계좌를 선택해 주세요.')
+      return
+    }
+    if (!toAccount) {
+      setValidationMessage('입금계좌번호를 입력해 주세요.')
+      return
+    }
+    if (amountNum === 0) {
+      setValidationMessage('이체금액을 입력해 주세요.')
+      return
+    }
+    if (amountNum > fromAcc.availableBalance) {
+      setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
+      return
+    }
     const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
     const data = {
       fromAccountId: fromAcc?.apiAccountId,
@@ -148,7 +166,7 @@ export default function TransferAccountPage() {
           {/* 최근입금계좌 탭 영역 */}
           <div className="border border-kb-border-dark rounded-xl mb-5 overflow-hidden">
             <div className="flex border-b border-kb-border">
-              {['최근입금계좌', '자주쓰는계좌', '내계좌', '단축이체'].map(tab => (
+              {['최근입금계좌', '자주쓰는계좌', '단축이체'].map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveRecipientTab(tab)}
@@ -209,30 +227,6 @@ export default function TransferAccountPage() {
               </div>
             )}
 
-            {/* 내계좌 */}
-            {activeRecipientTab === '내계좌' && (
-              <div className="p-4">
-                <p className="text-[12px] mb-4" style={{ color: '#2563EB' }}>
-                  * AX풀뱅크 내 계좌로 이체 시 계좌비밀번호, 보안매체, 인증서, 추가인증 없이 이체 가능합니다.
-                </p>
-                <div className="flex gap-3 flex-wrap">
-                  {accounts.map(acc => (
-                    <button
-                      key={acc.id}
-                      onClick={() => { setToBank('AXful'); setToAccount(acc.number) }}
-                      className={`border px-4 py-3 text-left text-[12px] hover:border-kb-yellow transition-colors ${
-                        toAccount === acc.number ? 'border-kb-yellow bg-yellow-50' : 'border-kb-border'
-                      }`}
-                      style={{ minWidth: 160 }}
-                    >
-                      <p className="font-semibold text-[13px]" style={{ color: '#2563EB' }}>{acc.name}</p>
-                      <p className="text-kb-text-muted mt-1">{acc.number}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* 단축이체 */}
             {activeRecipientTab === '단축이체' && (
               <div className="p-8 flex flex-col items-center gap-3">
@@ -280,39 +274,66 @@ export default function TransferAccountPage() {
                   </td>
                 </tr>
                 <tr className="border-b border-kb-border">
-                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap">입금기관</td>
+                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap align-top pt-4">입금계좌</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={toBank}
-                        readOnly
-                        className="border border-kb-border px-3 py-1.5 text-[13px] w-28 bg-kb-beige-light"
-                      />
+                    {/* 당행 / 타행 토글 */}
+                    <div className="flex border border-kb-border rounded overflow-hidden w-fit mb-3">
                       <button
-                        onClick={() => setShowBankModal(true)}
-                        className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light"
+                        type="button"
+                        onClick={() => { setInnerBankTab('own'); setToBank('AXful'); setToAccount('') }}
+                        className={`px-5 py-1.5 text-[13px] font-bold transition ${innerBankTab === 'own' ? 'bg-kb-text text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige-light'}`}
                       >
-                        기관선택
+                        당행
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setInnerBankTab('other'); setToBank(''); setToAccount('') }}
+                        className={`px-5 py-1.5 text-[13px] font-bold transition ${innerBankTab === 'other' ? 'bg-kb-text text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige-light'}`}
+                      >
+                        타행
                       </button>
                     </div>
-                  </td>
-                </tr>
-                <tr className="border-b border-kb-border">
-                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap">입금계좌번호</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={toAccount}
-                        onChange={e => setToAccount(e.target.value)}
-                        placeholder="계좌번호 입력"
-                        className="border border-kb-border px-3 py-1.5 text-[13px] w-52"
-                      />
-                      <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
-                        사기의심계좌여부 조회
-                      </button>
-                    </div>
+
+                    {/* 당행: 내 계좌 드롭다운 */}
+                    {innerBankTab === 'own' && (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={toAccount}
+                          onChange={e => { setToBank('AXful'); setToAccount(e.target.value) }}
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-[300px] outline-none bg-white"
+                        >
+                          <option value="">계좌 선택</option>
+                          {accounts.filter(acc => acc.id !== fromAcc?.id).map(acc => (
+                            <option key={acc.id} value={acc.number}>
+                              {acc.name} — {acc.number} ({acc.balance.toLocaleString()}원)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* 타행: 은행 선택 + 계좌번호 입력 */}
+                    {innerBankTab === 'other' && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowBankModal(true)}
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-28 text-left hover:bg-kb-beige-light"
+                        >
+                          {toBank || '은행 선택'}
+                        </button>
+                        <input
+                          type="text"
+                          value={toAccount}
+                          onChange={e => setToAccount(e.target.value)}
+                          placeholder="계좌번호 입력"
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-52 outline-none"
+                        />
+                        <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
+                          사기의심계좌여부 조회
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
                 <tr className="border-b border-kb-border">
@@ -379,12 +400,17 @@ export default function TransferAccountPage() {
 
           {/* 확인 버튼 */}
           <div className="flex justify-center mb-8">
-            <button
-              onClick={handleConfirm}
-              className="bg-kb-yellow px-24 py-3 text-[15px] font-bold text-kb-text hover:brightness-95"
-            >
-              확인
-            </button>
+            <div className="flex flex-col items-center gap-3">
+              {validationMessage && (
+                <p className="text-[13px] font-medium text-kb-red">{validationMessage}</p>
+              )}
+              <button
+                onClick={handleConfirm}
+                className="bg-kb-yellow px-24 py-3 text-[15px] font-bold text-kb-text hover:brightness-95"
+              >
+                확인
+              </button>
+            </div>
           </div>
 
           {/* 이체수수료 안내 */}
