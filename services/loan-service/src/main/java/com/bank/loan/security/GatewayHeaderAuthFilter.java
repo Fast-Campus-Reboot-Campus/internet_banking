@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -26,8 +25,10 @@ import java.util.List;
  */
 public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
 
-    static final String HEADER_USER_ID   = "X-User-Id";
-    static final String HEADER_USER_ROLE = "X-User-Role";
+    static final String HEADER_USER_ID     = "X-User-Id";
+    static final String HEADER_USER_ROLE   = "X-User-Role";
+    static final String HEADER_USER_BRANCH = "X-User-Branch";
+    static final String HEADER_USER_GRADE  = "X-User-Grade";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -40,17 +41,27 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
             try {
                 Long customerId = Long.parseLong(userIdHeader.trim());
 
+                // 콤마 구분 멀티롤 파싱
+                String roleHeader = request.getHeader(HEADER_USER_ROLE);
                 List<SimpleGrantedAuthority> authorities;
-                String role = request.getHeader(HEADER_USER_ROLE);
-                if (role != null && !role.isBlank()) {
-                    authorities = List.of(new SimpleGrantedAuthority(role.trim()));
+                if (roleHeader != null && !roleHeader.isBlank()) {
+                    authorities = java.util.Arrays.stream(roleHeader.split(","))
+                            .map(String::trim)
+                            .filter(r -> !r.isEmpty())
+                            .map(SimpleGrantedAuthority::new)
+                            .toList();
                 } else {
                     authorities = List.of();
                 }
 
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(customerId, null, authorities);
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                // 직원 속성(지점·직급)을 details 에 보관 — Stage 4 스코프 판정에서 사용
+                String branch = request.getHeader(HEADER_USER_BRANCH);
+                String grade  = request.getHeader(HEADER_USER_GRADE);
+                auth.setDetails(new GatewayAuthDetails(branch, grade));
+
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
             } catch (NumberFormatException ignored) {

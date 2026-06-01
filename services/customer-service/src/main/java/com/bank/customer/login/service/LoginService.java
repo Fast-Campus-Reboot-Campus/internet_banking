@@ -6,6 +6,8 @@ import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.security.jwt.TokenType;
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;
+import com.bank.customer.config.EmployeeDirectoryProperties;
+import com.bank.customer.config.EmployeeDirectoryProperties.EmployeeEntry;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
@@ -38,6 +40,7 @@ public class LoginService {
     private final JwtProvider jwtProvider;
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate redisTemplate;
+    private final EmployeeDirectoryProperties employeeDirectory;
 
     /**
      * noRollbackFor: 비밀번호 실패 카운트·잠금 상태는 예외 발생 시에도 반드시 커밋돼야 한다.
@@ -76,8 +79,7 @@ public class LoginService {
 
         credential.recordLoginSuccess();
 
-        String accessToken  = jwtProvider.generateAccessToken(
-                customer.getCustomerId(), customer.getEmail(), List.of("ROLE_CUSTOMER"));
+        String accessToken = buildAccessToken(customer);
         String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
 
         storeRefreshToken(customer.getCustomerId(), refreshToken);
@@ -113,13 +115,23 @@ public class LoginService {
                 .findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
 
-        String newAccessToken  = jwtProvider.generateAccessToken(
-                customerId, customer.getEmail(), List.of("ROLE_CUSTOMER"));
+        String newAccessToken  = buildAccessToken(customer);
         String newRefreshToken = jwtProvider.generateRefreshToken(customerId);
 
         storeRefreshToken(customerId, newRefreshToken);
 
         return new LoginResponse(customerId, newAccessToken, newRefreshToken);
+    }
+
+    /** 직원이면 직원 roles+branch+grade, 일반 고객이면 ROLE_CUSTOMER 토큰 발급. */
+    private String buildAccessToken(Customer customer) {
+        return employeeDirectory.find(customer.getCustomerId())
+                .map(emp -> jwtProvider.generateAccessToken(
+                        customer.getCustomerId(), customer.getEmail(),
+                        emp.roles(), emp.branch(), emp.grade()))
+                .orElseGet(() -> jwtProvider.generateAccessToken(
+                        customer.getCustomerId(), customer.getEmail(),
+                        List.of("ROLE_CUSTOMER")));
     }
 
     private void storeRefreshToken(Long customerId, String refreshToken) {

@@ -63,10 +63,16 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             return reject(exchange, HttpStatus.UNAUTHORIZED);
         }
 
-        ServerHttpRequest mutated = exchange.getRequest().mutate()
-                .header("X-Customer-Id", String.valueOf(claims.customerId()))
+        var requestBuilder = exchange.getRequest().mutate()
+                .header("X-Customer-Id",    String.valueOf(claims.customerId()))
                 .header("X-Customer-Email", claims.email() != null ? claims.email() : "")
-                .build();
+                .header("X-User-Id",        String.valueOf(claims.customerId()))
+                .header("X-User-Role",      String.join(",", claims.roles()));
+
+        if (claims.branch() != null) requestBuilder.header("X-User-Branch", claims.branch());
+        if (claims.grade()  != null) requestBuilder.header("X-User-Grade",  claims.grade());
+
+        ServerHttpRequest mutated = requestBuilder.build();
 
         return chain.filter(exchange.mutate().request(mutated).build());
     }
