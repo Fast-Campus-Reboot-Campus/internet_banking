@@ -1,6 +1,11 @@
 name: internet-banking
 
 services:
+
+  # =============================================================
+  # Database
+  # =============================================================
+
   customer-db:
     image: postgres:16-alpine
     container_name: ib-customer-db
@@ -104,6 +109,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # =============================================================
+  # Message Queue
+  # =============================================================
+
   kafka:
     image: apache/kafka:3.8.0
     container_name: ib-kafka
@@ -146,6 +155,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # =============================================================
+  # Cache
+  # =============================================================
+
   redis:
     image: redis:7-alpine
     container_name: ib-redis
@@ -158,6 +171,10 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+  # =============================================================
+  # Monitoring — Metrics (Prometheus + Grafana)
+  # =============================================================
 
   prometheus:
     image: prom/prometheus:latest
@@ -196,6 +213,69 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: ib-alertmanager
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    command: --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: ib-blackbox-exporter
+    ports:
+      - "${BLACKBOX_PORT:-9115}:9115"
+    command: --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./infra/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9115/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # =============================================================
+  # Monitoring — Logging (Loki + Promtail)
+  # =============================================================
+
+  loki:
+    image: grafana/loki:latest
+    container_name: ib-loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    command: -config.file=/etc/loki/config.yml
+    volumes:
+      - ./infra/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: ib-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./infra/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - C:/logs/internet-banking:/logs:ro
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  # =============================================================
+  # Monitoring — LLM Tracing (Langfuse + Phoenix)
+  # =============================================================
 
   langfuse-db:
     image: postgres:16-alpine
@@ -236,33 +316,6 @@ services:
       retries: 5
       start_period: 30s
 
-  loki:
-    image: grafana/loki:latest
-    container_name: ib-loki
-    ports:
-      - "${LOKI_PORT:-3100}:3100"
-    command: -config.file=/etc/loki/config.yml
-    volumes:
-      - ./infra/loki/loki-config.yml:/etc/loki/config.yml:ro
-      - loki-data:/loki
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: ib-promtail
-    command: -config.file=/etc/promtail/config.yml
-    volumes:
-      - ./infra/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
-      - C:/logs/internet-banking:/logs:ro
-    depends_on:
-      loki:
-        condition: service_healthy
-
   phoenix:
     image: arizephoenix/phoenix:latest
     container_name: ib-phoenix
@@ -274,33 +327,9 @@ services:
     volumes:
       - phoenix-data:/phoenix
 
-  blackbox-exporter:
-    image: prom/blackbox-exporter:latest
-    container_name: ib-blackbox-exporter
-    ports:
-      - "${BLACKBOX_PORT:-9115}:9115"
-    command: --config.file=/etc/blackbox/blackbox.yml
-    volumes:
-      - ./infra/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9115/-/healthy || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: ib-alertmanager
-    ports:
-      - "${ALERTMANAGER_PORT:-9093}:9093"
-    command: --config.file=/etc/alertmanager/alertmanager.yml
-    volumes:
-      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
+  # =============================================================
+  # Application
+  # =============================================================
 
   gateway-service:
     build:
@@ -341,7 +370,6 @@ volumes:
   loan-db-data:
   payment-db-data:
   master-db-data:
-
   ai-db-data:
   redis-data:
   prometheus-data:
