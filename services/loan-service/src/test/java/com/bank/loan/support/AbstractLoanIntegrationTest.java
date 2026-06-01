@@ -6,11 +6,11 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -122,11 +122,27 @@ public abstract class AbstractLoanIntegrationTest {
 
     @BeforeAll
     void initTestAuth() {
-        mockMvc = MockMvcBuilders.webAppContextSetup(wac)
+        mockMvc = buildAuthMockMvc();
+    }
+
+    @BeforeEach
+    void resetTestAuth() {
+        mockMvc = buildAuthMockMvc();
+    }
+
+    private MockMvc buildAuthMockMvc() {
+        // GatewayHeaderAuthFilter 가 X-User-Id / X-User-Role 헤더를 읽어 SecurityContext 를 설정한다.
+        String roles = "ROLE_STAFF,ROLE_OPS,ROLE_SENIOR_REVIEWER,ROLE_INTERNAL,"
+                + "ROLE_TELLER,ROLE_DEPUTY_MANAGER,ROLE_BRANCH_MANAGER,"
+                + "ROLE_HQ_REVIEWER,ROLE_COMPLIANCE,ROLE_ADMIN";
+        return MockMvcBuilders.webAppContextSetup(wac)
                 .apply(SecurityMockMvcConfigurers.springSecurity())
                 .defaultRequest(MockMvcRequestBuilders.get("/")
-                        .with(SecurityMockMvcRequestPostProcessors.user("test@bank.com")
-                                .roles("STAFF", "OPS", "SENIOR_REVIEWER", "INTERNAL")))
+                        .with(request -> {
+                            request.addHeader("X-User-Id", "1");
+                            request.addHeader("X-User-Role", roles);
+                            return request;
+                        }))
                 .build();
     }
 
