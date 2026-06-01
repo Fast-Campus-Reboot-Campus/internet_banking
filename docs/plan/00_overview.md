@@ -56,6 +56,7 @@
 | 11 | `11_security_pii_idempotency.md` | PII 암호화·인가·멱등 | CryptoService 적용 자리 |
 | 12 | `12_test_gaps.md` | 통합 테스트 갭 | reversal/partialrepayment/prepayment/closure 등 |
 | 13 | `13_rag_operationalization.md` | RAG 운영 전환 (모델·시드·백필·통합) | Phase 1.7 후속 |
+| 14 | `14_common_db_layer.md` | 공통 계층(common_db) 확장 + loan 연결 | common_db Phase 1 후속, deposit Phase 2 핸드오프 |
 
 ## 비-목표 (본 plan군 전체 공통)
 
