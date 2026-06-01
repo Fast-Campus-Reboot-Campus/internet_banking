@@ -302,7 +302,156 @@ Invoke-RestMethod -Method Post `
 
 ---
 
-## 6. "데이터가 안 보인다" 대처법
+## 6. 모니터링 연결 검증 방법
+
+처음 세팅하거나 환경이 바뀐 뒤에는 아래 체크리스트를 순서대로 따라가면 연결이 정상인지 확인할 수 있습니다.
+
+---
+
+### Step 1. 컨테이너 실행 확인
+
+```powershell
+docker ps | Select-String "langfuse|phoenix"
+```
+
+아래 두 컨테이너가 보여야 합니다.
+
+| 컨테이너 | 확인 포트 |
+|---------|---------|
+| `ib-langfuse` | 3001 |
+| `ib-phoenix` | 6006, 4317 |
+
+보이지 않으면 실행합니다.
+```powershell
+docker compose up -d langfuse langfuse-db phoenix
+```
+
+---
+
+### Step 2. 서비스 기동 및 연결 로그 확인
+
+consultation-service를 실행하고 터미널 로그를 확인합니다.
+
+```powershell
+cd "c:\Users\jaho3\OneDrive\바탕 화면\AX_FULL_Bank\internet_banking\services\consultation-service"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8087 --log-level info
+```
+
+기동 시 아래 두 줄이 출력되면 연결 성공입니다.
+
+```
+INFO  app.main - [Langfuse] LLM 추적 활성화 → http://localhost:3001
+INFO  app.main - [Phoenix] OTel 계측 활성화 → http://localhost:6006/v1/traces (project: consultation-service)
+```
+
+> 로그가 보이지 않으면 `.env` 파일에서 `CONSULTATION_LANGFUSE_ENABLED=true`, `PHOENIX_ENABLED=true` 설정을 확인하세요.
+
+---
+
+### Step 3. 테스트 요청 전송
+
+LLM 호출이 있어야 Langfuse/Phoenix에 데이터가 쌓입니다. 아래 순서로 테스트합니다.
+
+**핵심:** "키워드 매칭이 안 되는 자유 질문"을 보내야 합니다. 시나리오나 규칙으로 처리되는 질문은 LLM을 호출하지 않아서 트레이스가 생기지 않습니다.
+
+```powershell
+# 1단계: 상담 세션 시작
+$session = Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8087/chatbot/consultations/start" `
+  -ContentType "application/json" `
+  -Body '{"customer_no":"TEST001","entry_screen":"HOME","app_version":"1.0"}'
+
+$id = $session.chatbot_consultation_id
+Write-Host "세션 ID: $id"
+
+# 2단계: LLM을 호출하는 자유 질문 전송
+$response = Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8087/chatbot/consultations/$id/messages" `
+  -ContentType "application/json" `
+  -Body '{"message":"만기 후 이자는 어떻게 받나요?"}'
+
+Write-Host "처리 방식: $($response.process_method)"
+```
+
+응답에서 `process_method`가 `BP003_GPT`이면 LLM이 실제로 호출된 것입니다.
+
+| process_method | LLM 호출 여부 | 트레이스 생성 |
+|---------------|-------------|------------|
+| `BP003_GPT` | ✅ 호출됨 | Langfuse + Phoenix에 기록 |
+| `FEATURE_*`, `SCENARIO` | ❌ 호출 안 됨 | 기록 없음 |
+| `AGENT_TRANSFER` | ❌ LLM 오류 | Langfuse에 오류 기록 |
+
+> **LLM을 확실하게 호출하는 질문 예시**: "만기 후 이자는 어떻게 받나요?", "청약과 적금의 차이가 뭔가요?"
+
+---
+
+### Step 4. Langfuse에서 트레이스 확인
+
+1. `http://localhost:3001` 접속
+2. **Tracing → Traces** 클릭
+3. 방금 보낸 요청의 트레이스가 목록에 나타나는지 확인
+
+**확인 항목**:
+
+| 항목 | 정상 상태 |
+|------|---------|
+| 트레이스 이름 | `llm-answer` 또는 `llm-recommend` |
+| Tags | `consultation-service` |
+| Status | 성공 (오류 없음) |
+| Input | 보낸 메시지 내용 포함 |
+| Output | AI 응답 텍스트 포함 |
+
+---
+
+### Step 5. Phoenix에서 스팬 확인
+
+1. `http://localhost:6006` 접속
+2. Projects 목록에서 **consultation-service** 클릭
+3. **Spans** 탭에서 새 스팬이 생겼는지 확인
+
+**확인 항목**:
+
+| 항목 | 정상 상태 |
+|------|---------|
+| 스팬 kind | `llm` |
+| 스팬 이름 | `ChatCompletion` |
+| Status | OK |
+| Input | 프롬프트 내용 포함 |
+| Output | AI 응답 포함 |
+| Latency | 수 초 (보통 1~3초) |
+
+> **데이터가 바로 안 보일 때**: Phoenix는 배치(Batch) 방식으로 스팬을 전송하기 때문에 최대 수십 초 뒤에 나타날 수 있습니다. 잠시 기다린 뒤 새로고침하세요.
+
+---
+
+### Step 6. auto-loan-review Langfuse 확인
+
+auto-loan-review는 Langfuse만 연결됩니다.
+
+```powershell
+# 루트 디렉토리에서 실행
+cd "c:\Users\jaho3\OneDrive\바탕 화면\AX_FULL_Bank\internet_banking"
+.\gradlew :services:auto-loan-review:bootRun
+```
+
+서비스가 뜨면 실제 대출 심사 요청을 보내야 Langfuse에 트레이스가 생깁니다. Langfuse **Tracing → Traces**에서 `auto-loan-review` 트레이스를 확인합니다.
+
+---
+
+### 최종 체크리스트
+
+| 항목 | 확인 방법 | 결과 |
+|------|---------|------|
+| Langfuse 컨테이너 실행 | `docker ps` → `ib-langfuse` 확인 | ☐ |
+| Phoenix 컨테이너 실행 | `docker ps` → `ib-phoenix` 확인 | ☐ |
+| consultation-service 연결 로그 | 기동 시 `[Langfuse]`, `[Phoenix]` 로그 확인 | ☐ |
+| LLM 호출 응답 | `process_method: BP003_GPT` 확인 | ☐ |
+| Langfuse 트레이스 생성 | `llm-answer` 트레이스 + `consultation-service` 태그 | ☐ |
+| Phoenix 스팬 생성 | `consultation-service` 프로젝트에 `ChatCompletion` 스팬 | ☐ |
+
+---
+
+## 7. "데이터가 안 보인다" 대처법
 
 | 증상 | 원인 | 조치 |
 |------|------|------|
