@@ -93,6 +93,14 @@ doc-agent:
 internal:
   token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
 
+# ---- Phase E E3-8: 합성 케이스 seed (기본 비활성 — 개발 환경 1회 실행용) ----
+ai:
+  case-seed:
+    enabled: ${AI_CASE_SEED_ENABLED:false}
+    count: ${AI_CASE_SEED_COUNT:10000}
+    batch-size: 500
+    aggregate-base: 9000000  # rev_id 충돌 방지 고정 오프셋
+
 management:
   endpoints:
     web:
