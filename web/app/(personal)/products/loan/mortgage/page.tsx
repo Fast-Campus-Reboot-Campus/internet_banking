@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -44,35 +44,40 @@ export default function MortgageLoanPage() {
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
         <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/personal" className="hover:underline">개인뱅킹</Link><span>›</span>
+          <Link href="/" className="hover:underline">개인뱅킹</Link><span>›</span>
           <Link href="/products/deposit" className="hover:underline">금융상품</Link><span>›</span>
           <Link href="/products/loan" className="hover:underline">대출</Link><span>›</span>
-          <span className="text-kb-text font-medium">대출상품/신청</span><span>›</span>
+          <span className="text-kb-text font-medium">대출 상품/신청</span><span>›</span>
           <span className="text-kb-text font-medium">담보대출</span>
         </nav>
         <div className="flex gap-8">
           <LoanSidebar />
           <div className="flex-1 min-w-0">
             <h1 className="text-[26px] font-bold text-kb-text mb-5">담보대출</h1>
-            <div className="flex border-b border-kb-border mb-6">
+            <div className="flex border-b mb-6" style={{ borderColor: '#E2F5EF' }}>
               {FILTER_TABS.map(tab => (
                 <Link key={tab.href} href={tab.href}
-                  className={`px-5 py-3 text-[14px] font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${tab.href === '/products/loan/mortgage' ? 'border-kb-text text-kb-text font-bold' : 'border-transparent text-kb-text-muted hover:text-kb-text'}`}>
+                  className="px-5 py-3 text-[14px] font-medium whitespace-nowrap transition-colors border-b-2 -mb-px"
+                  style={tab.href === '/products/loan/mortgage'
+                    ? { borderColor: '#0D5C47', color: '#0D5C47', fontWeight: 700 }
+                    : { borderColor: 'transparent', color: '#9CA3AF' }}>
                   {tab.label}
                 </Link>
               ))}
             </div>
-            <div className="border border-kb-border p-5 mb-6">
+            <div className="rounded-xl p-5 mb-6" style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
               <div className="flex items-center gap-4 mb-4">
                 <label className="w-20 text-[13px] font-medium text-kb-text flex-shrink-0">상품명</label>
-                <input type="text" value={searchName} onChange={e => setSearchName(e.target.value)} placeholder="상품명을 입력하세요" className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+                <input type="text" value={searchName} onChange={e => setSearchName(e.target.value)} placeholder="상품명을 입력하세요"
+                  className="flex-1 border rounded-lg px-3 py-2 text-[13px] outline-none" style={{ borderColor: '#D1D5DB' }} />
               </div>
               <div className="flex items-start gap-4 mb-4">
                 <span className="w-20 text-[13px] font-medium text-kb-text flex-shrink-0 pt-0.5">상품유형</span>
                 <div className="flex flex-wrap gap-x-5 gap-y-2">
                   {PRODUCT_TYPES.map(type => (
                     <label key={type} className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="radio" name="productType" value={type} checked={productType === type} onChange={() => setProductType(type)} className="accent-kb-text" />
+                      <input type="radio" name="productType" value={type} checked={productType === type}
+                        onChange={() => setProductType(type)} style={{ accentColor: '#0D5C47' }} />
                       <span className="text-[13px] text-kb-text-body">{type}</span>
                     </label>
                   ))}
@@ -83,53 +88,59 @@ export default function MortgageLoanPage() {
                 <div className="flex gap-5 flex-wrap">
                   {JOIN_METHODS.map(method => (
                     <label key={method} className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="radio" name="joinMethod" value={method} checked={joinMethod === method} onChange={() => setJoinMethod(method)} className="accent-kb-text" />
+                      <input type="radio" name="joinMethod" value={method} checked={joinMethod === method}
+                        onChange={() => setJoinMethod(method)} style={{ accentColor: '#0D5C47' }} />
                       <span className="text-[13px] text-kb-text-body">{method}</span>
                     </label>
                   ))}
                 </div>
               </div>
               <div className="flex justify-center">
-                <button className="px-12 py-2.5 text-[14px] font-bold text-white" style={{ backgroundColor: '#3D3D3D' }}>조회</button>
+                <button className="px-16 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
+                  style={{ backgroundColor: '#0D5C47' }}>조회</button>
               </div>
             </div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[13px] text-kb-text">상품목록 <span className="font-bold">{MOCK_PRODUCTS.length}</span>건</p>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border border-kb-border text-[13px] px-2 py-1.5 focus:outline-none">
+              <p className="text-[13px] text-kb-text">상품목록 <span className="font-bold" style={{ color: '#0D5C47' }}>{MOCK_PRODUCTS.length}</span>건</p>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                className="border rounded-lg text-[13px] px-2 py-1.5 outline-none" style={{ borderColor: '#E2F5EF' }}>
                 <option>판매순</option><option>금리순</option><option>한도순</option>
               </select>
             </div>
-            <div className="border-t border-kb-text divide-y divide-kb-border">
-              {MOCK_PRODUCTS.map(product => (
-                <div key={product.id} className="py-5 flex items-center gap-5">
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+              {MOCK_PRODUCTS.map((product, idx) => (
+                <div key={product.id} className="py-5 px-5 flex items-center gap-5 hover:bg-[#F8FFFE] transition-colors"
+                  style={{ borderBottom: idx < MOCK_PRODUCTS.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 ${BADGE_STYLE[product.badgeColor]}`}>{product.badge}</span>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${BADGE_STYLE[product.badgeColor]}`}>{product.badge}</span>
                       <span className="text-[16px] font-bold text-kb-text">{product.name}</span>
                     </div>
                     <p className="text-[13px] text-kb-text-muted mb-2">{product.desc}</p>
                     <div className="flex items-center gap-4 text-[13px]">
-                      <span className="text-kb-text-muted">최고 <span className="font-bold text-kb-text">{product.limit}</span></span>
+                      <span className="text-kb-text-muted">최고 <span className="font-bold" style={{ color: '#0D5C47' }}>{product.limit}</span></span>
                       <span className="text-kb-text-muted">{product.rate}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <button className="border border-kb-border p-2 hover:bg-kb-beige-light transition-colors">
+                    <button className="border rounded-lg p-2 hover:bg-[#F0FAF7] transition-colors" style={{ borderColor: '#E2F5EF' }}>
                       <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5 text-kb-text-muted" stroke="currentColor" strokeWidth="1.5">
                         <path d="M1 1h2l2.4 9.6a2 2 0 0 0 2 1.4h7.2a2 2 0 0 0 2-1.4L19 5H5"/><circle cx="8" cy="18" r="1"/><circle cx="16" cy="18" r="1"/>
                       </svg>
                     </button>
-                    <Link href="#" className="px-5 py-2 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark transition-colors whitespace-nowrap">바로하기</Link>
+                    <Link href="#" className="px-5 py-2 text-[14px] font-bold rounded-xl border hover:bg-[#F0FAF7] transition-colors whitespace-nowrap"
+                      style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>바로하기</Link>
                   </div>
                 </div>
               ))}
             </div>
             <div className="flex justify-center items-center gap-1 mt-8">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} className="w-8 h-8 flex items-center justify-center border border-kb-border text-kb-text-muted hover:bg-kb-beige-light">‹</button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} className="w-8 h-8 flex items-center justify-center border rounded-lg text-kb-text-muted hover:bg-[#F0FAF7] transition-colors" style={{ borderColor: '#E2F5EF' }}>‹</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                <button key={n} onClick={() => setPage(n)} className={`w-8 h-8 flex items-center justify-center text-[13px] border transition-colors ${page === n ? 'border-kb-text bg-kb-text text-white font-bold' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>{n}</button>
+                <button key={n} onClick={() => setPage(n)} className="w-8 h-8 flex items-center justify-center text-[13px] border rounded-lg transition-colors"
+                  style={page === n ? { backgroundColor: '#0D5C47', borderColor: '#0D5C47', color: 'white', fontWeight: 700 } : { borderColor: '#E2F5EF', color: '#6B7280' }}>{n}</button>
               ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="w-8 h-8 flex items-center justify-center border border-kb-border text-kb-text-muted hover:bg-kb-beige-light">›</button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="w-8 h-8 flex items-center justify-center border rounded-lg text-kb-text-muted hover:bg-[#F0FAF7] transition-colors" style={{ borderColor: '#E2F5EF' }}>›</button>
             </div>
           </div>
         </div>

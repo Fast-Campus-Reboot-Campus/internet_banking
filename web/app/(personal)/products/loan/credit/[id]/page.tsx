@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -86,13 +86,13 @@ export default function LoanCreditDetailPage() {
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
         <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/personal" className="hover:underline">개인뱅킹</Link>
+          <Link href="/" className="hover:underline">개인뱅킹</Link>
           <span>›</span>
           <Link href="/products/loan" className="hover:underline">금융상품</Link>
           <span>›</span>
           <Link href="/products/loan" className="hover:underline">대출</Link>
           <span>›</span>
-          <Link href="/products/loan/credit" className="hover:underline">대출상품/신청</Link>
+          <Link href="/products/loan/credit" className="hover:underline">대출 상품/신청</Link>
           <span>›</span>
           <Link href="/products/loan/credit" className="hover:underline">신용대출</Link>
         </nav>
@@ -511,7 +511,7 @@ export default function LoanCreditDetailPage() {
               <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2">
                 <path d="M10 2L3 7v6c0 4 2.5 7 7 8 4.5-1 7-4 7-8V7L10 2z" fill="#1A1A1A" stroke="none" />
               </svg>
-              AX풀뱅크
+              AXful Bank
             </span>
           </div>
           {/* 카드 영역 */}
