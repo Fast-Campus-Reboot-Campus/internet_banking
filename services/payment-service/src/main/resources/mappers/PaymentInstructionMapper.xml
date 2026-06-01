@@ -131,4 +131,88 @@
         WHERE status NOT IN ('COMPLETED', 'FAILED', 'CANCELED')
     </select>
 
+    <!-- 예약이체 워커: 실행 시각이 도래한 SCHEDULED PI 폴링. selectTimedOut 대칭. -->
+    <select id="selectDueScheduled" resultType="com.bank.payment.domain.PaymentInstruction">
+        SELECT
+            payment_instruction_id,
+            idempotency_key,
+            sender_user_id,
+            sender_account_id,
+            auth_token_id,
+            original_payment_id,
+            transaction_no,
+            sender_account_no_snap,
+            sender_account_alias_snap,
+            receiver_bank_code,
+            receiver_account_no,
+            receiver_holder_name_snap,
+            holder_inquiry_at,
+            is_intra_bank,
+            routing_network_type,
+            transfer_amount,
+            fee_amount,
+            receiver_passbook_sender_display,
+            receiver_memo,
+            sender_memo,
+            status,
+            failure_category,
+            channel,
+            requested_at,
+            completed_at,
+            business_date,
+            next_retry_at,
+            next_timeout_at,
+            version,
+            trigger_source,
+            is_scheduled,
+            scheduled_execution_at,
+            first_registered_at,
+            first_registrant_id,
+            last_modified_at,
+            last_modifier_id
+        FROM payment_instruction
+        WHERE status = 'SCHEDULED'
+          AND scheduled_execution_at &lt; now()
+        ORDER BY scheduled_execution_at ASC
+        LIMIT 50
+    </select>
+
+    <!-- 예약이체 워커 선점(claim) 전용 UPDATE. status 가드(SCHEDULED) 포함. version+1. -->
+    <!-- next_timeout_at/next_retry_at 건드리지 않음(updateStatus 와 달리 NULL 세팅 없음). -->
+    <!-- scheduled_execution_at/is_scheduled 는 감사 목적으로 그대로 보존. -->
+    <update id="claimScheduledForExecution">
+        UPDATE payment_instruction
+           SET status           = 'PROCESSING',
+               version          = version + 1,
+               last_modified_at = now()
+         WHERE payment_instruction_id = #{paymentInstructionId}
+           AND status               = 'SCHEDULED'
+           AND version              = #{version}
+    </update>
+
+    <!-- 사용자 예약취소 전용 UPDATE. claim 과 대칭: status/version 가드 동일, CANCELED 전이. -->
+    <!-- next_timeout_at/next_retry_at/scheduled_execution_at 건드리지 않음(감사 보존). -->
+    <update id="cancelScheduledForUser">
+        UPDATE payment_instruction
+           SET status           = 'CANCELED',
+               version          = version + 1,
+               last_modified_at = now()
+         WHERE payment_instruction_id = #{paymentInstructionId}
+           AND status               = 'SCHEDULED'
+           AND version              = #{version}
+    </update>
+
+    <!-- AUTHORIZED→SCHEDULED 전이. is_scheduled=true + scheduled_execution_at 세팅. 낙관락 포함. -->
+    <update id="updateScheduled">
+        UPDATE payment_instruction
+           SET status                 = 'SCHEDULED',
+               is_scheduled          = true,
+               scheduled_execution_at = #{scheduledExecutionAt},
+               last_modified_at      = now(),
+               version               = version + 1
+         WHERE payment_instruction_id = #{paymentInstructionId}
+           AND status                 = 'AUTHORIZED'
+           AND version                = #{version}
+    </update>
+
 </mapper>

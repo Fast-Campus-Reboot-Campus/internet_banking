@@ -11,4 +11,6 @@ public interface LoanDocumentRepository extends JpaRepository<LoanDocument, Long
     Optional<LoanDocument> findByDocIdAndDeletedAtIsNull(Long docId);
 
     List<LoanDocument> findByApplIdAndDeletedAtIsNullOrderBySubmittedAtAsc(Long applId);
+
+    Optional<LoanDocument> findByDocUrlAndDeletedAtIsNull(String docUrl);
 }

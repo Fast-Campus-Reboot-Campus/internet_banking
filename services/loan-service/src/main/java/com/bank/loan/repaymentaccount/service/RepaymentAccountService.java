@@ -3,6 +3,7 @@ package com.bank.loan.repaymentaccount.service;
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
+import com.bank.common.security.crypto.CryptoService;
 import com.bank.common.web.BusinessException;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.repaymentaccount.domain.RepaymentAccount;
@@ -40,6 +41,7 @@ public class RepaymentAccountService {
     private final LoanContractRepository contractRepository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final CryptoService cryptoService;
 
     @Transactional
     public RepaymentAccountResponse register(Long cntrId, RegisterRepaymentAccountRequest req) {
@@ -55,7 +57,9 @@ public class RepaymentAccountService {
                 .accountId(req.accountId())
                 .bankCd(req.bankCd())
                 .accountNoMasked(req.maskedAccount())
+                .accountNoEnc(cryptoService.encrypt(req.accountNo()))
                 .holderNameMasked(req.maskedHolderName())
+                .holderNameEnc(req.holderName() != null ? cryptoService.encrypt(req.holderName()) : null)
                 .racctStatusCd(RepaymentAccount.STATUS_REGISTERED)
                 .autoDebitYn(req.autoDebitYn() == null ? RepaymentAccount.YN_N : req.autoDebitYn())
                 .debitDay(req.debitDay())

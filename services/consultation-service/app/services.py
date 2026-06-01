@@ -2,7 +2,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import bindparam, or_, select, text
 from sqlalchemy.orm import Session, aliased
 
 from app.features import ProductFeatureExecutor, StaffFeatureExecutor, UserFinanceFeatureExecutor
@@ -29,6 +29,8 @@ from app.schemas import (
     ChatbotFeatureResponse,
     ChatbotMessageResponse,
     ChatbotStartResponse,
+    ChatbotTransferRequest,
+    ChatbotTransferResponse,
 )
 
 CODE_RECEPTION_METHOD_CHATBOT = 1
@@ -42,7 +44,6 @@ CODE_PROCESS_SCENARIO = 1
 CODE_PROCESS_LLM = 2
 CODE_SENDER_USER = 1
 CODE_SENDER_BOT = 2
-CODE_SENDER_AGENT = 3
 CODE_MESSAGE_TYPE_TEXT = 1
 
 
@@ -152,7 +153,7 @@ class ChatbotService:
             # ── 상담사 연결 버튼: LLM 호출 없이 바로 이관 ──────────────────────
             # (버그 수정: 이전 코드는 LLM 호출과 상담사 이관이 동시에 발생)
             if self._is_agent_node(next_node):
-                process_method = "BP002_LLM"
+                process_method = "STAFF_REQUEST"
                 process_code = CODE_PROCESS_LLM
                 response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
                 agent_transfer_required = True
@@ -181,17 +182,22 @@ class ChatbotService:
                 # intent 분류 실패 → LLM 응답
                 # 대화 이력 + RAG 상품 데이터를 context로 전달
                 llm_intent = self._get_intent(chatbot.scenario_id, "LLM_FALLBACK")
-                history_ctx = build_history_context(self.db, chatbot.chatbot_consultation_id)
+                history_ctx = self._build_history_context(chatbot.chatbot_consultation_id)
                 rag_ctx = self._build_rag_context(message or "")
                 llm_context = "\n\n".join(filter(None, [rag_ctx, history_ctx]))
 
-                llm_response, llm_error = self._llm_adapter.answer(message or "", context=llm_context)
+                llm_result = self._llm_adapter.answer(message or "", context=llm_context)
+                if isinstance(llm_result, tuple):
+                    llm_response, llm_is_error = llm_result
+                else:
+                    llm_response = llm_result
+                    llm_is_error = self._is_llm_error(llm_response)
 
-                # LLM 실패 시(is_error 플래그) → 상담사 이관
-                if llm_error:
-                    agent_intent = self._get_intent(chatbot.scenario_id, "AGENT_TRANSFER")
+                # LLM 실패 시(에러 메시지 반환) → 상담사 이관
+                if llm_is_error:
+                    agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_ERROR_FALLBACK")
                     response_message = "죄송합니다, 일시적인 오류가 발생했습니다. 상담사에게 연결해 드리겠습니다."
-                    process_method = "AGENT_TRANSFER"
+                    process_method = "STAFF_ERROR_FALLBACK"
                     process_code = CODE_PROCESS_LLM
                     node_id = current_node_id or 0
                     agent_transfer_required = True
@@ -208,8 +214,8 @@ class ChatbotService:
                     if llm_intent:
                         chatbot.intent_id = llm_intent.intent_id
             else:
-                agent_intent = self._get_intent(chatbot.scenario_id, "AGENT_TRANSFER")
-                process_method = "BP002_LLM"
+                agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_REQUEST")
+                process_method = "STAFF_REQUEST"
                 process_code = CODE_PROCESS_LLM
                 response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
                 agent_transfer_required = True
@@ -369,6 +375,14 @@ class ChatbotService:
                 api_status="AUTH_REQUIRED",
             ),
             ChatbotFeatureResponse(
+                code="MY_TRANSFERS",
+                category_code="USER_FINANCE",
+                name="최근 이체 내역",
+                summary="고객 본인의 최근 이체 거래 내역을 조회합니다.",
+                sample_questions=["이체 내역 보여줘", "최근 이체 확인해줘"],
+                api_status="AUTH_REQUIRED",
+            ),
+            ChatbotFeatureResponse(
                 code="CASH_FLOW_RECOMMEND",
                 category_code="USER_FINANCE",
                 name="현금흐름 분석 기반 상품 추천",
@@ -439,40 +453,37 @@ class ChatbotService:
         feature_code: str,
         request: ChatbotFeatureExecuteRequest,
     ) -> ChatbotFeatureExecuteResponse:
-        p = ProductFeatureExecutor(self.db, self._rag, self._llm_adapter)
-        u = UserFinanceFeatureExecutor(self.db, self._rag, self._llm_adapter)
-        s = StaffFeatureExecutor(self.db, self._rag, self._llm_adapter)
-
         handlers: dict[str, Callable[[ChatbotFeatureExecuteRequest], ChatbotFeatureExecuteResponse]] = {
-            "PRODUCT_GUIDE":              p.execute_product_guide,
-            "RATE_GUIDE":                 p.execute_rate_guide,
-            "JOIN_CONDITION":             p.execute_join_condition,
-            "PRODUCT_COMPARE":            p.execute_product_compare,
-            "TERMS_RAG":                  p.execute_terms_search,
-            "FAQ":                        p.execute_faq,
-            "MY_ACCOUNTS":                u.execute_my_accounts,
-            "MY_PRODUCTS":  lambda req: u.execute_customer_contracts(
+            "PRODUCT_GUIDE": self._execute_product_guide,
+            "RATE_GUIDE": self._execute_rate_guide,
+            "JOIN_CONDITION": self._execute_join_condition,
+            "PRODUCT_COMPARE": self._execute_product_compare,
+            "TERMS_RAG": self._execute_terms_search,
+            "FAQ": self._execute_faq,
+            "MY_ACCOUNTS": self._execute_my_accounts,
+            "MY_PRODUCTS": lambda req: self._execute_customer_contracts(
                 req, "MY_PRODUCTS", "가입 상품 조회를 완료했습니다.", "조회된 가입 상품이 없습니다."
             ),
-            "CONTRACT_STATUS": lambda req: u.execute_customer_contracts(
+            "CONTRACT_STATUS": lambda req: self._execute_customer_contracts(
                 req, "CONTRACT_STATUS", "계약 상태 조회를 완료했습니다.", "조회된 계약 상태가 없습니다."
             ),
-            "MATURITY_SCHEDULE":          u.execute_maturity_schedule,
-            "INTEREST_HISTORY":           u.execute_interest_history,
-            "MY_CASH_FLOW":               u.execute_my_cash_flow,
-            "CASH_FLOW_RECOMMEND":        u.execute_cash_flow_recommend,
-            "STAFF_CUSTOMER":             s.execute_staff_customer,
-            "STAFF_CONTRACT": lambda req: s.execute_customer_contracts(
+            "MATURITY_SCHEDULE": self._execute_maturity_schedule,
+            "INTEREST_HISTORY": self._execute_interest_history,
+            "MY_CASH_FLOW": self._execute_my_cash_flow,
+            "MY_TRANSFERS": self._execute_my_transfers,
+            "CASH_FLOW_RECOMMEND": self._execute_cash_flow_recommend,
+            "STAFF_CASH_FLOW": self._execute_staff_cash_flow,
+            "STAFF_CUSTOMER": self._execute_staff_customer,
+            "STAFF_CONTRACT": lambda req: self._execute_customer_contracts(
                 req,
                 "STAFF_CONTRACT",
                 "직원용 고객 계약 조회를 완료했습니다.",
                 "조회된 고객 계약이 없습니다.",
                 requires_staff_auth=True,
             ),
-            "STAFF_ACCOUNT":              s.execute_staff_account,
-            "STAFF_TRANSFER_FLOW":        s.execute_staff_transfer_flow,
-            "STAFF_CONSULTATION_HISTORY": s.execute_staff_consultation_history,
-            "STAFF_CASH_FLOW":            s.execute_staff_cash_flow,
+            "STAFF_ACCOUNT": self._execute_staff_account,
+            "STAFF_TRANSFER_FLOW": self._execute_staff_transfer_flow,
+            "STAFF_CONSULTATION_HISTORY": self._execute_staff_consultation_history,
         }
         handler = handlers.get(feature_code)
         if not handler:
@@ -482,6 +493,992 @@ class ChatbotService:
                 message="지원하지 않는 챗봇 기능입니다.",
             )
         return handler(request)
+
+    def _execute_product_guide(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        """상품 추천.
+
+        우선순위:
+          1. RAG + 현금흐름: customer_no 있고 RAG 준비됨 → 현금흐름 쿼리로 RAG 검색
+          2. RAG 단독: customer_no 없고 RAG 준비됨 → query 텍스트로 RAG 검색
+          3. Fallback: RAG 없음 → DB 전체 상품 목록
+        """
+        from app.rag import ProductRagEngine
+
+        # ── 경로 1: RAG + 현금흐름 기반 개인화 추천 ───────────────────────────
+        if self._rag and self._rag.is_ready() and request.customer_no:
+            cf = self._analyze_customer_cash_flow(request.customer_no)
+            if cf and cf["has_data"]:
+                query = ProductRagEngine.build_cashflow_query(cf)
+                rag_results = self._rag.search(query, top_k=5, doc_type="product")
+                rows = self._enrich_rag_results(rag_results, cf)
+                msg = "고객님의 거래 패턴과 상품 내용을 분석해 맞춤 상품을 추천해 드립니다."
+                return self._data_response("PRODUCT_GUIDE", rows, msg, "등록된 수신 상품 데이터가 없습니다.")
+
+        # ── 경로 2: RAG 단독 (쿼리 텍스트 기반) ──────────────────────────────
+        if self._rag and self._rag.is_ready():
+            query = request.query or "수신 상품 추천"
+            rag_results = self._rag.search(query, top_k=5, doc_type="product")
+            rows = self._enrich_rag_results(rag_results, cf=None)
+            msg = "질문과 관련된 상품을 찾았습니다."
+            return self._data_response("PRODUCT_GUIDE", rows, msg, "등록된 수신 상품 데이터가 없습니다.")
+
+        # ── 경로 3: RAG 없음 → DB 전체 목록 ──────────────────────────────────
+        rows = self._rows(
+            """
+            SELECT banking_product_id AS product_id,
+                   deposit_product_name AS product_name,
+                   deposit_product_type AS product_type,
+                   description,
+                   base_interest_rate,
+                   min_join_amount,
+                   max_join_amount,
+                   min_period_month,
+                   max_period_month,
+                   deposit_product_status AS product_status
+              FROM deposit_banking_products
+             WHERE deposit_product_status = 'SELLING'
+             ORDER BY banking_product_id
+             LIMIT 20
+            """
+        )
+        return self._data_response("PRODUCT_GUIDE", rows, "상품 안내 조회를 완료했습니다.", "등록된 수신 상품 데이터가 없습니다.")
+
+    def _enrich_rag_results(
+        self, rag_results: list[dict[str, Any]], cf: dict[str, Any] | None
+    ) -> list[dict[str, Any]]:
+        """RAG 검색 결과에 추천 이유와 match_score 를 추가한다."""
+        enriched = []
+        for rank, r in enumerate(rag_results, start=1):
+            reasons: list[str] = []
+
+            ptype       = r.get("deposit_product_type") or r.get("product_type", "")
+            min_amt     = float(r.get("min_join_amount") or 0)
+            rate        = float(r.get("base_interest_rate") or 0)
+            rag_score   = float(r.get("_score", 0))
+
+            if cf:
+                total_balance   = cf.get("total_balance", 0)
+                monthly_surplus = cf.get("monthly_surplus", 0)
+
+                if ptype == "DEPOSIT" and total_balance >= min_amt:
+                    reasons.append(f"보유 잔액({total_balance:,.0f}원)으로 가입 가능")
+                if ptype == "SAVINGS" and monthly_surplus >= min_amt:
+                    reasons.append(f"월 여유자금({monthly_surplus:,.0f}원)으로 납입 가능")
+                if rate >= 3.5:
+                    reasons.append("고금리 혜택")
+
+            if not reasons:
+                reasons.append(f"질문과 {rag_score:.0%} 유사도로 매칭된 상품")
+
+            # match_score: RAG 유사도(0~1) × 100, 순위 패널티 적용
+            match_score = max(10, round(rag_score * 100) - (rank - 1) * 3)
+
+            enriched.append({
+                **{k: v for k, v in r.items() if not k.startswith("_")},
+                "recommend_reason": ", ".join(reasons),
+                "match_score":      match_score,
+            })
+        return enriched
+
+    def _analyze_customer_cash_flow(self, customer_no: str, months: int = 3) -> dict[str, Any] | None:
+        """고객의 전체 계좌 완료 거래를 집계해 현금흐름 지표를 반환한다.
+
+        Returns:
+            {total_balance, monthly_surplus, monthly_tx_count, has_data}
+            계좌 없으면 None
+        """
+        accounts = self._rows(
+            "SELECT account_id, balance FROM deposit_accounts WHERE customer_id = :cno",
+            {"cno": customer_no},
+        )
+        if not accounts:
+            return None
+
+        total_balance = sum(float(a.get("balance") or 0) for a in accounts)
+        id_list = ",".join(str(a["account_id"]) for a in accounts)
+
+        tx_rows = self._rows(
+            f"""
+            SELECT direction_type, amount
+              FROM deposit_transactions
+             WHERE account_id IN ({id_list})
+               AND status = 'SUCCESS'
+               AND transaction_at >= NOW() - INTERVAL '3 months'
+            """,
+        )
+
+        if not tx_rows:
+            return {
+                "total_balance":    total_balance,
+                "monthly_surplus":  0.0,
+                "monthly_tx_count": 0.0,
+                "has_data":         False,
+            }
+
+        inflow  = sum(float(r["amount"] or 0) for r in tx_rows if r.get("direction_type") == "IN")
+        outflow = sum(float(r["amount"] or 0) for r in tx_rows if r.get("direction_type") == "OUT")
+        return {
+            "total_balance":    total_balance,
+            "monthly_surplus":  (inflow - outflow) / months,
+            "monthly_tx_count": len(tx_rows) / months,
+            "has_data":         True,
+        }
+
+    def _execute_rate_guide(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        rows = self._rows(
+            """
+            SELECT r.rate_id,
+                   r.banking_product_id AS product_id,
+                   p.deposit_product_name AS product_name,
+                   r.rate_type,
+                   r.minimum_contract_period,
+                   r.maximum_contract_period,
+                   r.rate AS interest_rate,
+                   r.condition_description
+              FROM banking_deposit_product_interest_rates r
+              JOIN deposit_banking_products p ON p.banking_product_id = r.banking_product_id
+             ORDER BY r.banking_product_id, r.rate_id
+             LIMIT 20
+            """
+        )
+        return self._data_response("RATE_GUIDE", rows, "금리/우대금리 조회를 완료했습니다.", "등록된 금리 데이터가 없습니다.")
+
+    def _execute_join_condition(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        rows = self._rows(
+            """
+            SELECT banking_product_id AS product_id,
+                   deposit_product_name AS product_name,
+                   min_join_amount,
+                   max_join_amount,
+                   min_period_month,
+                   max_period_month,
+                   is_early_termination_allowed,
+                   is_tax_benefit_available,
+                   deposit_product_status AS product_status
+              FROM deposit_banking_products
+             ORDER BY banking_product_id
+             LIMIT 20
+            """
+        )
+        return self._data_response("JOIN_CONDITION", rows, "가입 조건 조회를 완료했습니다.", "등록된 가입 조건 데이터가 없습니다.")
+
+    def _execute_product_compare(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        product_ids = request.compare_product_ids or ([request.product_id] if request.product_id else [])
+        if product_ids:
+            rows = self._rows(
+                """
+                SELECT banking_product_id AS product_id,
+                       deposit_product_name AS product_name,
+                       deposit_product_type AS product_type,
+                       base_interest_rate,
+                       min_join_amount,
+                       max_join_amount,
+                       min_period_month,
+                       max_period_month
+                  FROM deposit_banking_products
+                 WHERE banking_product_id IN :product_ids
+                 ORDER BY banking_product_id
+                """,
+                {"product_ids": tuple(product_ids)},
+                expanding_params=("product_ids",),
+            )
+        else:
+            rows = self._rows(
+                """
+                SELECT banking_product_id AS product_id,
+                       deposit_product_name AS product_name,
+                       deposit_product_type AS product_type,
+                       base_interest_rate,
+                       min_join_amount,
+                       max_join_amount,
+                       min_period_month,
+                       max_period_month
+                  FROM deposit_banking_products
+                 ORDER BY base_interest_rate DESC, banking_product_id
+                 LIMIT 5
+                """
+            )
+        return self._data_response("PRODUCT_COMPARE", rows, "상품 비교 조회를 완료했습니다.", "비교할 상품 데이터가 없습니다.")
+
+    def _execute_terms_search(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        query = (request.query or "").strip()
+
+        # RAG 준비됐으면 의미 기반 검색 우선
+        if self._rag and self._rag.is_ready() and query:
+            rag_results = self._rag.search(query, top_k=5, doc_type="term")
+            if rag_results:
+                rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rag_results]
+                return self._data_response("TERMS_RAG", rows, "관련 약관을 찾았습니다.", "검색 가능한 약관 데이터가 없습니다.")
+
+        # Fallback: SQL LIKE 검색 (빈 쿼리 시 "%" → 전체 반환)
+        like = f"%{query}%" if query else "%"
+        rows = self._rows(
+            """
+            SELECT special_term_id,
+                   special_term_name,
+                   special_term_content,
+                   special_term_summary,
+                   is_required,
+                   status
+              FROM deposit_special_terms
+             WHERE special_term_name LIKE :query
+                OR special_term_content LIKE :query
+                OR special_term_summary LIKE :query
+             ORDER BY special_term_id
+             LIMIT 10
+            """,
+            {"query": like},
+        )
+        return self._data_response("TERMS_RAG", rows, "약관 검색을 완료했습니다.", "검색 가능한 약관 데이터가 없습니다.")
+
+    def _execute_faq(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        return ChatbotFeatureExecuteResponse(
+            feature_code="FAQ",
+            status="OK",
+            message="수신 상품 FAQ 응답입니다.",
+            data=[
+                {"question": "예금과 적금의 차이는 무엇인가요?", "answer": "예금은 목돈을 맡기고, 적금은 정해진 주기로 납입하는 상품입니다."},
+                {"question": "우대금리는 어떻게 적용되나요?", "answer": "상품별 우대 조건 충족 여부에 따라 기본금리에 추가됩니다."},
+                {"question": "중도해지하면 어떻게 되나요?", "answer": "상품 약관의 중도해지이율이 적용될 수 있어 약관 확인이 필요합니다."},
+            ],
+        )
+
+    def _execute_my_accounts(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("MY_ACCOUNTS", "계좌 조회에는 고객번호와 본인 인증이 필요합니다.")
+        rows = self._account_rows(request.customer_no)
+        return self._data_response(
+            "MY_ACCOUNTS", rows, "내 계좌 조회를 완료했습니다.", "조회된 계좌가 없습니다.", requires_auth=True
+        )
+
+    def _execute_maturity_schedule(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("MATURITY_SCHEDULE", "만기 예정 조회에는 고객번호와 본인 인증이 필요합니다.")
+        rows = self._contract_rows(request.customer_no)
+        return self._data_response(
+            "MATURITY_SCHEDULE", rows, "만기 예정 조회를 완료했습니다.", "조회된 만기 예정 계약이 없습니다.", requires_auth=True
+        )
+
+    def _execute_interest_history(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("INTEREST_HISTORY", "이자 내역 조회에는 고객번호와 본인 인증이 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT h.interest_id,
+                   h.contract_id,
+                   h.account_id,
+                   h.applied_interest_rate,
+                   h.interest_amount,
+                   h.interest_after_tax AS interest_after_tax_amount,
+                   h.interest_paid_at AS paid_at
+              FROM deposit_interest_history h
+              JOIN deposit_accounts a ON a.account_id = h.account_id
+             WHERE a.customer_id = :customer_no
+             ORDER BY h.interest_id DESC
+             LIMIT 20
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "INTEREST_HISTORY", rows, "이자 내역 조회를 완료했습니다.", "조회된 이자 내역이 없습니다.", requires_auth=True
+        )
+
+    def _execute_my_cash_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("MY_CASH_FLOW", "현금 흐름 조회에는 고객번호와 본인 인증이 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT t.transaction_id,
+                   a.account_number,
+                   t.transaction_type,
+                   t.amount,
+                   t.status AS transaction_status,
+                   t.created_at
+              FROM deposit_transactions t
+              JOIN deposit_accounts a ON a.account_id = t.account_id
+             WHERE a.customer_id = :customer_no
+             ORDER BY t.transaction_id DESC
+             LIMIT 20
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "MY_CASH_FLOW", rows, "현금 흐름 조회를 완료했습니다.", "조회된 거래 내역이 없습니다.", requires_auth=True
+        )
+
+    def _execute_my_transfers(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("MY_TRANSFERS", "이체 내역 조회에는 고객번호가 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT t.transaction_id,
+                   a.account_number,
+                   t.transaction_type,
+                   t.amount,
+                   t.status AS transaction_status,
+                   t.created_at
+              FROM deposit_transactions t
+              JOIN deposit_accounts a ON a.account_id = t.account_id
+             WHERE a.customer_id = :customer_no
+               AND t.transaction_type = 'TRANSFER'
+             ORDER BY t.transaction_id DESC
+             LIMIT 10
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "MY_TRANSFERS", rows, "최근 이체 내역입니다.", "조회된 이체 내역이 없습니다.", requires_auth=True
+        )
+
+    def execute_transfer(self, req: ChatbotTransferRequest) -> ChatbotTransferResponse:
+        try:
+            # 출금 계좌 검증
+            src = self.db.execute(
+                text("SELECT account_id, account_number, balance, is_withdrawable FROM deposit_accounts WHERE account_id = :aid AND customer_id = :cno"),
+                {"aid": req.from_account_id, "cno": req.customer_no},
+            ).mappings().first()
+            if not src:
+                return ChatbotTransferResponse(status="ERROR", message="출금 계좌를 찾을 수 없습니다.")
+            if not src["is_withdrawable"]:
+                return ChatbotTransferResponse(status="ERROR", message="출금이 불가능한 계좌입니다.")
+            if src["balance"] < req.amount:
+                return ChatbotTransferResponse(status="ERROR", message=f"잔액이 부족합니다. (현재 잔액: {int(src['balance']):,}원)")
+            if req.amount <= 0:
+                return ChatbotTransferResponse(status="ERROR", message="이체 금액은 0원보다 커야 합니다.")
+
+            # 수취 계좌 조회
+            dst = self.db.execute(
+                text("SELECT account_id, account_number, customer_id FROM deposit_accounts WHERE account_number = :ano AND account_status = 'ACTIVE'"),
+                {"ano": req.to_account_number},
+            ).mappings().first()
+            if not dst:
+                return ChatbotTransferResponse(status="ERROR", message="수취 계좌를 찾을 수 없습니다.")
+            if dst["account_id"] == req.from_account_id:
+                return ChatbotTransferResponse(status="ERROR", message="출금 계좌와 수취 계좌가 동일합니다.")
+
+            now = datetime.now(timezone.utc)
+            tx_no = f"TXN{now.strftime('%Y%m%d%H%M%S')}{req.from_account_id}"
+
+            # 출금 트랜잭션
+            src_balance_after = int(src["balance"]) - req.amount
+            result = self.db.execute(
+                text("""
+                    INSERT INTO deposit_transactions
+                        (transaction_number, account_id, transaction_type, direction_type,
+                         amount, balance_before, balance_after, available_balance_after,
+                         fee_amount, currency, status, channel_type,
+                         transaction_memo, transaction_summary, transaction_at,
+                         counterparty_account_no, counterparty_account_id,
+                         counterparty_customer_id, created_at, updated_at)
+                    VALUES
+                        (:tx_no, :account_id, 'TRANSFER', 'OUT',
+                         :amount, :bal_before, :bal_after, :bal_after,
+                         0, 'W', 'SUCCESS', 'CHATBOT',
+                         :memo, :summary, :now,
+                         :to_acc_no, :to_acc_id,
+                         :to_cust_id, :now, :now)
+                    RETURNING transaction_id
+                """),
+                {
+                    "tx_no": tx_no + "_OUT",
+                    "account_id": req.from_account_id,
+                    "amount": req.amount,
+                    "bal_before": int(src["balance"]),
+                    "bal_after": src_balance_after,
+                    "memo": req.memo,
+                    "summary": f"{req.to_account_number}으로 이체",
+                    "now": now,
+                    "to_acc_no": dst["account_number"],
+                    "to_acc_id": dst["account_id"],
+                    "to_cust_id": dst["customer_id"],
+                },
+            )
+            transaction_id = result.scalar()
+
+            # 수취 트랜잭션
+            dst_balance = self.db.execute(
+                text("SELECT balance FROM deposit_accounts WHERE account_id = :aid"),
+                {"aid": dst["account_id"]},
+            ).scalar() or 0
+            dst_balance_after = int(dst_balance) + req.amount
+            self.db.execute(
+                text("""
+                    INSERT INTO deposit_transactions
+                        (transaction_number, account_id, transaction_type, direction_type,
+                         amount, balance_before, balance_after, available_balance_after,
+                         fee_amount, currency, status, channel_type,
+                         transaction_memo, transaction_summary, transaction_at,
+                         counterparty_account_no, counterparty_account_id,
+                         counterparty_customer_id, created_at, updated_at)
+                    VALUES
+                        (:tx_no, :account_id, 'TRANSFER', 'IN',
+                         :amount, :bal_before, :bal_after, :bal_after,
+                         0, 'W', 'SUCCESS', 'CHATBOT',
+                         :memo, :summary, :now,
+                         :from_acc_no, :from_acc_id,
+                         :cno, :now, :now)
+                """),
+                {
+                    "tx_no": tx_no + "_IN",
+                    "account_id": dst["account_id"],
+                    "amount": req.amount,
+                    "bal_before": int(dst_balance),
+                    "bal_after": dst_balance_after,
+                    "memo": req.memo,
+                    "summary": f"{src['account_number']}에서 이체",
+                    "now": now,
+                    "from_acc_no": src["account_number"],
+                    "from_acc_id": req.from_account_id,
+                    "cno": req.customer_no,
+                },
+            )
+
+            # 잔액 업데이트
+            self.db.execute(
+                text("UPDATE deposit_accounts SET balance = :bal, updated_at = :now WHERE account_id = :aid"),
+                {"bal": src_balance_after, "now": now, "aid": req.from_account_id},
+            )
+            self.db.execute(
+                text("UPDATE deposit_accounts SET balance = :bal, updated_at = :now WHERE account_id = :aid"),
+                {"bal": dst_balance_after, "now": now, "aid": dst["account_id"]},
+            )
+            self.db.commit()
+
+            return ChatbotTransferResponse(
+                status="OK",
+                message=f"{req.amount:,}원이 {req.to_account_number}으로 이체되었습니다.",
+                transaction_id=transaction_id,
+                balance_after=src_balance_after,
+            )
+        except Exception as exc:
+            self.db.rollback()
+            logger.exception("이체 처리 오류: %s", exc)
+            return ChatbotTransferResponse(status="ERROR", message="이체 처리 중 오류가 발생했습니다.")
+
+    def _execute_cash_flow_recommend(
+        self, request: ChatbotFeatureExecuteRequest
+    ) -> ChatbotFeatureExecuteResponse:
+        """현금흐름 분석 → LLM 기반 개인화 상품 추천.
+
+        흐름:
+          1. customer_no 인증 확인
+          2. 현금흐름 분석 (잔액·월 잉여자금·거래 빈도)
+          3. 판매 중인 수신 상품 전체 조회 → LLM 컨텍스트로 전달
+          4. 대화 이력 → LLM 컨텍스트로 전달
+          5. LlmAdapter.recommend() 호출 → 개인화 추천 생성
+          6. LLM 미연결 시 룰 기반 fallback 추천
+        """
+        if not request.customer_no:
+            return self._auth_required(
+                "CASH_FLOW_RECOMMEND",
+                "현금흐름 분석 추천에는 고객번호와 본인 인증이 필요합니다.",
+            )
+
+        # ── 1. 현금흐름 분석 ──────────────────────────────────────────────────
+        cf = self._analyze_customer_cash_flow(request.customer_no)
+        if cf is None:
+            return self._data_response(
+                "CASH_FLOW_RECOMMEND",
+                [],
+                "",
+                "등록된 계좌 정보가 없어 현금흐름 분석을 진행할 수 없습니다.",
+                requires_auth=True,
+            )
+
+        # ── 2. 판매 중인 수신 상품 목록 (LLM 컨텍스트용) ──────────────────────
+        products = self._rows(
+            """
+            SELECT p.banking_product_id AS product_id,
+                   p.deposit_product_name,
+                   p.deposit_product_type,
+                   p.base_interest_rate,
+                   p.min_join_amount,
+                   p.max_join_amount,
+                   p.min_period_month,
+                   p.max_period_month,
+                   p.is_early_termination_allowed,
+                   p.is_tax_benefit_available
+              FROM deposit_banking_products p
+              JOIN banking_deposit_product_target_groups tg
+                ON tg.banking_product_id = p.banking_product_id
+             WHERE p.deposit_product_status = 'SELLING'
+               AND tg.target_group_id = 1
+             ORDER BY p.base_interest_rate DESC
+             LIMIT 10
+            """
+        )
+
+        # ── 3. LLM 추천 ───────────────────────────────────────────────────────
+        if self._llm_adapter:
+            history_ctx = (
+                self._build_history_context(request.chatbot_consultation_id)
+                if request.chatbot_consultation_id
+                else ""
+            )
+            try:
+                recommendation = self._llm_adapter.recommend(
+                    cash_flow=cf,
+                    products=products,
+                    user_query=request.query or "내 현금 흐름에 맞는 상품을 추천해줘",
+                    history_ctx=history_ctx,
+                )
+            except Exception:
+                recommendation = (
+                    "죄송합니다, 추천 생성 중 오류가 발생했습니다. "
+                    "상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
+                )
+        else:
+            # LLM 미연결 → 룰 기반 fallback
+            recommendation = self._rule_based_recommend(cf, products)
+
+        # ── 4. 순위별 상품 rows 구성 ─────────────────────────────────────────
+        top3 = self._rank_products(cf, products)
+        data = [
+            {
+                "row_type":         "cash_flow_summary",
+                "total_balance":    cf["total_balance"],
+                "monthly_surplus":  cf["monthly_surplus"],
+                "monthly_tx_count": cf["monthly_tx_count"],
+                "has_data":         cf["has_data"],
+                "product_count":    len(top3),
+            },
+            *[
+                {
+                    "row_type":          "recommended_product",
+                    "rank":              i + 1,
+                    "product_id":        p.get("product_id"),
+                    "product_name":      p.get("deposit_product_name") or p.get("product_name"),
+                    "product_type":      p.get("deposit_product_type") or p.get("product_type"),
+                    "base_interest_rate": p.get("base_interest_rate"),
+                    "min_join_amount":   p.get("min_join_amount"),
+                    "max_join_amount":   p.get("max_join_amount"),
+                    "min_period_month":  p.get("min_period_month"),
+                    "max_period_month":  p.get("max_period_month"),
+                    "reason":            p.get("_reason", ""),
+                }
+                for i, p in enumerate(top3)
+            ],
+        ]
+
+        return ChatbotFeatureExecuteResponse(
+            feature_code="CASH_FLOW_RECOMMEND",
+            status="OK",
+            message=recommendation,
+            data=data,
+            requires_auth=True,
+        )
+
+    def _rank_products(self, cf: dict[str, Any], products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """현금흐름 기반 1~3위 상품 선정 (100점 체계).
+
+        재정 적합도(40) + 예상 수익(30) + 유동성 매칭(20) + 혜택(10)
+        """
+        total_balance   = float(cf.get("total_balance", 0))
+        monthly_surplus = float(cf.get("monthly_surplus", 0))
+        monthly_tx      = float(cf.get("monthly_tx_count", 0))
+
+        is_spender    = monthly_surplus <= 0
+        is_accumulate = not is_spender and total_balance < monthly_surplus * 12
+        is_wealthy    = not is_spender and total_balance >= monthly_surplus * 12
+
+        candidates: list[dict[str, Any]] = []
+
+        for p in products:
+            ptype     = p.get("deposit_product_type") or p.get("product_type", "")
+            min_join  = float(p.get("min_join_amount") or 0)
+            min_month = int(p.get("min_period_month") or 1)
+            rate      = float(p.get("base_interest_rate") or 0)
+            is_early  = bool(p.get("is_early_termination_allowed"))
+            is_tax    = bool(p.get("is_tax_benefit_available"))
+
+            # ── 1. 가입 불가 및 유형 부적합 제외 ──────────────────────────
+            if ptype == "DEPOSIT":
+                if min_join > 0 and total_balance < min_join:
+                    continue
+                if is_spender and total_balance == 0:
+                    continue
+            elif ptype in ("SAVINGS", "SUBSCRIPTION"):
+                if monthly_surplus <= 0:
+                    continue
+                if min_join > 0 and monthly_surplus < min_join * 2:
+                    continue
+
+            # ── 2. 재정 적합도 (0~1) → 40점 ──────────────────────────────
+            if ptype == "DEPOSIT":
+                denom = min_join if min_join > 0 else total_balance
+                fit = min(total_balance / max(denom, 1), 5) / 5
+            else:
+                denom = min_join * 2 if min_join > 0 else monthly_surplus
+                fit = min(monthly_surplus / max(denom, 1), 5) / 5
+
+            # 고객 유형 매칭 보너스
+            if ptype == "DEPOSIT" and (is_wealthy or is_spender):
+                fit = min(fit * 1.3, 1.0)
+            elif ptype in ("SAVINGS", "SUBSCRIPTION") and is_accumulate:
+                fit = min(fit * 1.3, 1.0)
+
+            # ── 3. 예상 수익 (원화) → 정규화 후 30점 ─────────────────────
+            invest  = max(min_join, 1)
+            period  = max(min_month, 1)
+            if ptype == "DEPOSIT":
+                expected_interest = invest * rate / 100 * (period / 12)
+            else:
+                # 적금: 월 최소납입액 기준, 평균 잔액(납입액×기간/2) × 금리
+                expected_interest = invest * period * rate / 100 / 2
+
+            # ── 4. 유동성 매칭 (0~1) → 20점 ──────────────────────────────
+            if monthly_tx >= 10:
+                if min_month <= 12:
+                    liquidity = 1.0
+                elif min_month <= 24:
+                    liquidity = 0.5
+                else:
+                    liquidity = 0.1
+                if is_early:
+                    liquidity = min(liquidity + 0.2, 1.0)
+            elif monthly_tx <= 5:
+                liquidity = 1.0 if min_month >= 24 else 0.7
+            else:
+                liquidity = 0.7
+
+            # ── 5. 혜택 (0~1) → 10점 ─────────────────────────────────────
+            benefit = (0.7 if is_tax else 0.0) + (0.3 if is_early else 0.0)
+
+            candidates.append({
+                "product":            p,
+                "fit":                fit,
+                "expected_interest":  expected_interest,
+                "liquidity":          liquidity,
+                "benefit":            benefit,
+            })
+
+        if not candidates:
+            return []
+
+        # 예상 수익 정규화
+        max_interest = max(c["expected_interest"] for c in candidates) or 1
+        for c in candidates:
+            c["return_score"] = c["expected_interest"] / max_interest
+
+        # 최종 점수
+        for c in candidates:
+            c["total"] = (
+                c["fit"]          * 40 +
+                c["return_score"] * 30 +
+                c["liquidity"]    * 20 +
+                c["benefit"]      * 10
+            )
+
+        candidates.sort(key=lambda x: (-x["total"], -(float(x["product"].get("base_interest_rate") or 0))))
+
+        result = []
+        for c in candidates[:3]:
+            p = dict(c["product"])
+            p["_reason"] = self._make_reason(p, cf, c)
+            result.append(p)
+        return result
+
+    def _make_reason(self, p: dict[str, Any], cf: dict[str, Any], score_info: dict[str, Any]) -> str:
+        ptype           = p.get("deposit_product_type") or p.get("product_type", "")
+        rate            = float(p.get("base_interest_rate") or 0)
+        min_join        = float(p.get("min_join_amount") or 0)
+        min_month       = int(p.get("min_period_month") or 12)
+        monthly_surplus = float(cf.get("monthly_surplus", 0))
+        total_balance   = float(cf.get("total_balance", 0))
+        expected        = score_info.get("expected_interest", 0)
+
+        if ptype == "DEPOSIT":
+            invest      = max(min_join, 0)
+            usage_pct   = int(invest / total_balance * 100) if total_balance > 0 else 0
+            return (
+                f"잔액 {total_balance:,.0f}원 중 {invest:,.0f}원({usage_pct}%) 예치 → "
+                f"{min_month}개월 이자 약 {expected:,.0f}원 예상"
+            )
+        if ptype == "SAVINGS":
+            payment     = max(min_join, 0)
+            usage_pct   = int(payment / monthly_surplus * 100) if monthly_surplus > 0 else 0
+            remainder   = monthly_surplus - payment
+            return (
+                f"월 {payment:,.0f}원 납입(잉여자금의 {usage_pct}%), "
+                f"납입 후 {remainder:,.0f}원 여유 → {min_month}개월 이자 약 {expected:,.0f}원 예상"
+            )
+        if ptype == "SUBSCRIPTION":
+            payment = max(min_join, 0)
+            return (
+                f"월 {payment:,.0f}원 납입 → {min_month}개월 이자 약 {expected:,.0f}원, "
+                f"주택청약 목적 상품"
+            )
+        return f"금리 {rate}%"
+
+    def _rule_based_recommend(
+        self, cf: dict[str, Any], products: list[dict[str, Any]]
+    ) -> str:
+        """LLM 미연결 시 현금흐름 지표 기반 룰 추천 텍스트.
+
+        잔액·잉여자금 크기에 따라 예금/적금/자유적금을 우선 추천한다.
+        """
+        total_balance   = float(cf.get("total_balance", 0))
+        monthly_surplus = float(cf.get("monthly_surplus", 0))
+        has_data        = cf.get("has_data", False)
+
+        lines: list[str] = ["[현금흐름 분석 기반 상품 추천]\n"]
+
+        if not has_data:
+            lines.append(
+                "거래 내역이 부족해 정확한 패턴 분석이 어렵습니다. "
+                "아래 상품 목록을 참고해 주세요."
+            )
+        elif total_balance >= 10_000_000:
+            lines.append(
+                f"총 잔액 {total_balance:,.0f}원 — "
+                "목돈이 있어 정기예금 상품을 추천드립니다."
+            )
+        elif monthly_surplus >= 500_000:
+            lines.append(
+                f"월 잉여자금 {monthly_surplus:,.0f}원 — "
+                "정기 적금 납입에 적합합니다."
+            )
+        elif monthly_surplus > 0:
+            lines.append(
+                f"월 잉여자금 {monthly_surplus:,.0f}원 — "
+                "소액 자유적금 상품을 추천드립니다."
+            )
+        else:
+            lines.append(
+                "현재 잉여자금이 적습니다. "
+                "부담이 적은 자유납입 적금을 추천드립니다."
+            )
+
+        # 상위 3개 상품 나열
+        top = [
+            p for p in products
+            if (
+                (total_balance >= 10_000_000 and p.get("deposit_product_type") == "DEPOSIT")
+                or (monthly_surplus >= 100_000 and p.get("deposit_product_type") in ("SAVINGS", "SUBSCRIPTION"))
+                or True  # fallback: 모두 포함
+            )
+        ][:3]
+
+        if top:
+            lines.append("\n[추천 상품]")
+            for p in top:
+                name = p.get("deposit_product_name") or p.get("product_name", "")
+                rate = p.get("base_interest_rate", "")
+                lines.append(f"- {name}: 기본금리 {rate}%")
+
+        lines.append("\n더 자세한 상담은 '상담사 연결'을 이용해 주세요.")
+        return "\n".join(lines)
+
+    def _execute_staff_customer(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no or not request.staff_id:
+            return self._staff_auth_required("STAFF_CUSTOMER", "직원 고객 정보 조회에는 고객번호와 직원 권한이 필요합니다.")
+        rows = self._account_rows(request.customer_no)
+        return self._data_response(
+            "STAFF_CUSTOMER", rows, "직원용 고객 정보 조회를 완료했습니다.", "조회된 고객 정보가 없습니다.", requires_staff_auth=True
+        )
+
+    def _execute_staff_account(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no or not request.staff_id:
+            return self._staff_auth_required("STAFF_ACCOUNT", "직원 고객 계좌 조회에는 고객번호와 직원 권한이 필요합니다.")
+        rows = self._account_rows(request.customer_no)
+        return self._data_response(
+            "STAFF_ACCOUNT", rows, "직원용 고객 계좌 조회를 완료했습니다.", "조회된 고객 계좌가 없습니다.", requires_staff_auth=True
+        )
+
+    def _execute_staff_transfer_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no or not request.staff_id:
+            return self._staff_auth_required("STAFF_TRANSFER_FLOW", "이체 흐름 조회에는 고객번호와 직원 권한이 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT t.transaction_id,
+                   t.transaction_number,
+                   a.account_number,
+                   a.customer_id AS customer_no,
+                   t.transaction_type,
+                   t.status AS transaction_status,
+                   t.amount,
+                   t.created_at
+              FROM deposit_transactions t
+              JOIN deposit_accounts a ON a.account_id = t.account_id
+             WHERE a.customer_id = :customer_no
+             ORDER BY t.transaction_id DESC
+             LIMIT 20
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "STAFF_TRANSFER_FLOW", rows, "이체 흐름 조회를 완료했습니다.", "조회된 이체 내역이 없습니다.", requires_staff_auth=True
+        )
+
+    def _execute_staff_consultation_history(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no or not request.staff_id:
+            return self._staff_auth_required("STAFF_CONSULTATION_HISTORY", "상담 이력 조회에는 고객번호와 직원 권한이 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT consultation_id,
+                   customer_no,
+                   content_summary,
+                   status_code_id,
+                   answer_summary,
+                   consulted_at,
+                   completed_at
+              FROM consultation
+             WHERE customer_no = :customer_no
+             ORDER BY consultation_id DESC
+             LIMIT 20
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "STAFF_CONSULTATION_HISTORY", rows, "상담 이력 조회를 완료했습니다.", "조회된 상담 이력이 없습니다.", requires_staff_auth=True
+        )
+
+    def _execute_staff_cash_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no or not request.staff_id:
+            return self._staff_auth_required("STAFF_CASH_FLOW", "고객 현금 흐름 조회에는 고객번호와 직원 권한이 필요합니다.")
+        rows = self._rows(
+            """
+            SELECT t.transaction_id,
+                   a.account_number,
+                   a.customer_id AS customer_no,
+                   t.transaction_type,
+                   t.amount,
+                   t.status AS transaction_status,
+                   t.created_at
+              FROM deposit_transactions t
+              JOIN deposit_accounts a ON a.account_id = t.account_id
+             WHERE a.customer_id = :customer_no
+             ORDER BY t.transaction_id DESC
+             LIMIT 20
+            """,
+            {"customer_no": request.customer_no},
+        )
+        return self._data_response(
+            "STAFF_CASH_FLOW", rows, "고객 현금 흐름 조회를 완료했습니다.", "조회된 거래 내역이 없습니다.", requires_staff_auth=True
+        )
+
+    def _execute_customer_contracts(
+        self,
+        request: ChatbotFeatureExecuteRequest,
+        feature_code: str,
+        ok_message: str,
+        empty_message: str,
+        requires_staff_auth: bool = False,
+    ) -> ChatbotFeatureExecuteResponse:
+        if requires_staff_auth and (not request.customer_no or not request.staff_id):
+            return self._staff_auth_required(feature_code, "계약 조회에는 고객번호와 직원 권한이 필요합니다.")
+        if not requires_staff_auth and not request.customer_no:
+            return self._auth_required(feature_code, "계약 조회에는 고객번호와 본인 인증이 필요합니다.")
+        rows = self._contract_rows(request.customer_no or "")
+        return self._data_response(
+            feature_code,
+            rows,
+            ok_message,
+            empty_message,
+            requires_auth=not requires_staff_auth,
+            requires_staff_auth=requires_staff_auth,
+        )
+
+    def _account_rows(self, customer_no: str) -> list[dict[str, Any]]:
+        return self._rows(
+            """
+            SELECT account_id,
+                   account_number,
+                   customer_id AS customer_no,
+                   account_type,
+                   account_alias,
+                   balance,
+                   currency,
+                   account_status,
+                   opened_at,
+                   closed_at
+              FROM deposit_accounts
+             WHERE customer_id = :customer_no
+             ORDER BY account_id
+             LIMIT 20
+            """,
+            {"customer_no": customer_no},
+        )
+
+    def _contract_rows(self, customer_no: str) -> list[dict[str, Any]]:
+        return self._rows(
+            """
+            SELECT a.account_id,
+                   a.account_number,
+                   a.account_type,
+                   a.account_status,
+                   a.balance,
+                   a.is_withdrawable,
+                   a.opened_at AS started_at,
+                   a.maturity_at,
+                   c.contract_id,
+                   c.contract_number AS contract_no,
+                   c.join_amount,
+                   c.contract_interest_rate,
+                   c.contract_status,
+                   p.banking_product_id AS product_id,
+                   p.deposit_product_name AS product_name,
+                   p.deposit_product_type AS product_type
+              FROM deposit_accounts a
+              LEFT JOIN deposit_contracts c ON c.contract_id = a.contract_id
+              LEFT JOIN deposit_banking_products p ON p.banking_product_id = c.banking_product_id
+             WHERE a.customer_id = :customer_no
+               AND a.account_status != 'CLOSED'
+             ORDER BY a.account_id
+             LIMIT 20
+            """,
+            {"customer_no": customer_no},
+        )
+
+    def _rows(
+        self,
+        sql: str,
+        params: dict[str, Any] | None = None,
+        expanding_params: tuple[str, ...] = (),
+    ) -> list[dict[str, Any]]:
+        try:
+            statement = text(sql)
+            for param in expanding_params:
+                statement = statement.bindparams(bindparam(param, expanding=True))
+            result = self.db.execute(statement, params or {})
+            return [dict(row._mapping) for row in result]
+        except Exception:
+            self.db.rollback()
+            return []
+
+    def _data_response(
+        self,
+        feature_code: str,
+        rows: list[dict[str, Any]],
+        ok_message: str,
+        empty_message: str,
+        requires_auth: bool = False,
+        requires_staff_auth: bool = False,
+    ) -> ChatbotFeatureExecuteResponse:
+        return ChatbotFeatureExecuteResponse(
+            feature_code=feature_code,
+            status="OK" if rows else "EMPTY",
+            message=ok_message if rows else empty_message,
+            data=rows,
+            requires_auth=requires_auth,
+            requires_staff_auth=requires_staff_auth,
+        )
+
+    def _auth_required(self, feature_code: str, message: str) -> ChatbotFeatureExecuteResponse:
+        return ChatbotFeatureExecuteResponse(
+            feature_code=feature_code,
+            status="AUTH_REQUIRED",
+            message=message,
+            requires_auth=True,
+        )
+
+    def _staff_auth_required(self, feature_code: str, message: str) -> ChatbotFeatureExecuteResponse:
+        return ChatbotFeatureExecuteResponse(
+            feature_code=feature_code,
+            status="STAFF_AUTH_REQUIRED",
+            message=message,
+            requires_staff_auth=True,
+        )
 
     def seed_default_scenario(self) -> tuple[int, int]:
         scenario = self._ensure_default_scenario()
@@ -796,6 +1793,13 @@ class ChatbotService:
                 lines.append(f"- {name}: {desc}" if desc else f"- {name}")
         return "\n".join(lines) if len(lines) > 1 else ""
 
+    def _is_llm_error(self, response: str) -> bool:
+        """LlmAdapter.answer() 가 오류 응답을 반환했는지 확인한다.
+
+        LlmAdapter 예외 처리에서 항상 이 접두어로 시작하는 메시지를 반환한다.
+        """
+        return response.startswith("죄송합니다, 일시적인 오류가 발생했습니다.")
+
     def _ensure_default_intents(self, scenario_id: int) -> None:
         """챗봇의도 기본 레코드를 시딩한다."""
         intent_specs = [
@@ -807,7 +1811,8 @@ class ChatbotService:
             {"intent_name": "FAQ",               "intent_desc": "자주 묻는 질문",             "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 6},
             {"intent_name": "CASH_FLOW_RECOMMEND","intent_desc": "현금흐름 기반 상품 추천",    "process_method_code_id": CODE_PROCESS_LLM,      "priority": 7},
             {"intent_name": "LLM_FALLBACK",      "intent_desc": "LLM 자유 응답",              "process_method_code_id": CODE_PROCESS_LLM,      "priority": 8},
-            {"intent_name": "AGENT_TRANSFER",    "intent_desc": "상담사 이관",                "process_method_code_id": CODE_PROCESS_LLM,      "priority": 9},
+            {"intent_name": "STAFF_REQUEST",     "intent_desc": "상담사 이관",                "process_method_code_id": CODE_PROCESS_LLM,      "priority": 9},
+            {"intent_name": "STAFF_ERROR_FALLBACK", "intent_desc": "오류로 인한 상담사 이관", "process_method_code_id": CODE_PROCESS_LLM,      "priority": 10},
         ]
         for spec in intent_specs:
             exists = self.db.scalars(
@@ -832,7 +1837,10 @@ class ChatbotService:
 # ──────────────────────────────────────────────────────────────────────────────
 # 인간 상담원 채팅 서비스
 # ──────────────────────────────────────────────────────────────────────────────
-# CODE_SENDER_* 상수는 파일 상단에 통합 정의 (중복 선언 제거)
+
+CODE_SENDER_USER = 1
+CODE_SENDER_BOT = 2
+CODE_SENDER_AGENT = 3
 
 _SENDER_LABEL = {
     CODE_SENDER_USER: "USER",

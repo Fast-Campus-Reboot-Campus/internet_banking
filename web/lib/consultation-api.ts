@@ -133,6 +133,27 @@ export async function getChatMessages(chatConsultationId: number): Promise<ChatM
   return data
 }
 
+export type TransferResult = {
+  status: string
+  message: string
+  transaction_id: number | null
+  balance_after: number | null
+}
+
+export async function executeChatbotTransfer(payload: {
+  customer_no: string
+  from_account_id: number
+  to_account_number: string
+  amount: number
+  memo?: string
+}): Promise<TransferResult> {
+  const { data } = await consultationApi.post<TransferResult>('/chatbot/transfer', {
+    ...payload,
+    memo: payload.memo ?? '이체',
+  })
+  return data
+}
+
 export async function endChat(chatConsultationId: number, satisfactionScore?: number): Promise<ChatConsultation> {
   const { data } = await consultationApi.post<ChatConsultation>(
     `/chat/consultations/${chatConsultationId}/end`,

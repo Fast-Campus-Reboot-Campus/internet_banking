@@ -1,0 +1,28 @@
+name: Deploy consultation-service
+
+# Python 서비스 — Java 빌드 워크플로우 건너뛰고 바로 이미지 빌드.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/consultation-service/**'
+      - '.github/workflows/deploy-consultation-service.yml'
+      - '.github/workflows/reusable-docker-publish.yml'
+      - '.github/workflows/reusable-deploy-oracle.yml'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: consultation-service
+      build-context: services/consultation-service
+      dockerfile-path: services/consultation-service/Dockerfile
+
+  deploy:
+    needs: publish
+    uses: ./.github/workflows/reusable-deploy-oracle.yml
+    with:
+      service-name: consultation-service
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+    secrets: inherit

@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: internet-banking
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  # ⚠️ secret.sample.yaml 은 템플릿. 실제 secret 은 별도 적용:
+  #   kubectl create secret generic app-secrets --from-env-file=.env.prod -n internet-banking
+  - deployments/gateway-service.yaml
+  - deployments/loan-service.yaml
+  - deployments/consultation-service.yaml
+  # 나머지 서비스 추가시 deployments/<svc>.yaml 추가
+  - services/gateway-service.yaml
+  - services/loan-service.yaml
+  - services/consultation-service.yaml
+
+# 이미지 태그 일괄 갱신 (CI/CD 에서 kustomize edit set image 로 덮어쓰기)
+images:
+  - name: ghcr.io/OWNER/gateway-service
+    newTag: latest
+  - name: ghcr.io/OWNER/loan-service
+    newTag: latest
+  - name: ghcr.io/OWNER/consultation-service
+    newTag: latest
+
+commonLabels:
+  managed-by: kustomize
+  project: internet-banking

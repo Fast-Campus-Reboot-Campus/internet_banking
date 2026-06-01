@@ -1,0 +1,28 @@
+name: Deploy deposit-api
+
+# Python FastAPI 서비스.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/deposit-api/**'
+      - '.github/workflows/deploy-deposit-api.yml'
+      - '.github/workflows/reusable-docker-publish.yml'
+      - '.github/workflows/reusable-deploy-oracle.yml'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    uses: ./.github/workflows/reusable-docker-publish.yml
+    with:
+      service-name: deposit-api
+      build-context: services/deposit-api
+      dockerfile-path: services/deposit-api/Dockerfile
+
+  deploy:
+    needs: publish
+    uses: ./.github/workflows/reusable-deploy-oracle.yml
+    with:
+      service-name: deposit-api
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+    secrets: inherit

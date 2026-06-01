@@ -10,6 +10,7 @@ import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.login.config.EmployeeDirectoryProperties;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.dto.RefreshRequest;
@@ -38,6 +39,7 @@ public class LoginService {
     private final JwtProvider jwtProvider;
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate redisTemplate;
+    private final EmployeeDirectoryProperties employeeDirectory;
 
     /**
      * noRollbackFor: 비밀번호 실패 카운트·잠금 상태는 예외 발생 시에도 반드시 커밋돼야 한다.
@@ -76,8 +78,13 @@ public class LoginService {
 
         credential.recordLoginSuccess();
 
+        var emp = employeeDirectory.findById(customer.getCustomerId());
+        var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
+        var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
+        var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
+
         String accessToken  = jwtProvider.generateAccessToken(
-                customer.getCustomerId(), customer.getEmail(), List.of("ROLE_CUSTOMER"));
+                customer.getCustomerId(), customer.getEmail(), roles, branch, grade);
         String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
 
         storeRefreshToken(customer.getCustomerId(), refreshToken);
@@ -113,8 +120,13 @@ public class LoginService {
                 .findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
 
+        var emp2   = employeeDirectory.findById(customerId);
+        var roles2  = emp2.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
+        var branch2 = emp2.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
+        var grade2  = emp2.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
+
         String newAccessToken  = jwtProvider.generateAccessToken(
-                customerId, customer.getEmail(), List.of("ROLE_CUSTOMER"));
+                customerId, customer.getEmail(), roles2, branch2, grade2);
         String newRefreshToken = jwtProvider.generateRefreshToken(customerId);
 
         storeRefreshToken(customerId, newRefreshToken);

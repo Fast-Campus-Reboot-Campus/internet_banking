@@ -1,5 +1,5 @@
 server:
-  port: ${AI_APP_PORT:8086}
+  port: ${AUTO_LOAN_REVIEW_APP_PORT:8089}
 
 spring:
   application:
@@ -12,7 +12,7 @@ spring:
 
   # ---- PostgreSQL (B1 Audit Log) ----
   datasource:
-    url: ${AI_DB_URL:jdbc:postgresql://localhost:5432/ai_db}
+    url: ${AI_DB_URL:jdbc:postgresql://localhost:5437/ai_db}
     username: ${AI_DB_USER:ai}
     password: ${AI_DB_PASSWORD:ai}
     driver-class-name: org.postgresql.Driver
@@ -77,6 +77,11 @@ ai:
   audit:
     enabled: ${AI_AUDIT_ENABLED:true}
     include-raw-llm-response: ${AI_AUDIT_RAW_LLM:false}   # LLM 원문 저장 여부 (PII 위험 ↑)
+
+  # ---- loan-service 콜백 클라이언트 ----
+  loan-service:
+    base-url: ${LOAN_SERVICE_BASE_URL:http://localhost:8083}
+    internal-token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
 
   inference:
     base-url: ${AI_INFERENCE_BASE_URL:http://localhost:8090}
@@ -178,6 +183,30 @@ ai:
         self_employed: 0.407
         senior: 0.788
         young: 0.750
+
+  # ---- Kafka (편향 검증 컨슈머) ----
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: auto-loan-review-bias
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+
+logging:
+  file:
+    name: ${LOG_DIR:C:/logs/internet-banking}/auto-loan-review.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+langfuse:
+  enabled: ${LANGFUSE_ENABLED:false}
+  secret-key: ${LANGFUSE_SECRET_KEY:}
+  public-key: ${LANGFUSE_PUBLIC_KEY:}
+  host: ${LANGFUSE_HOST:http://localhost:3001}
 
 management:
   endpoints:

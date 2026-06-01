@@ -1,5 +1,6 @@
 package com.bank.loan.advisory.rag;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Random;
@@ -7,16 +8,12 @@ import java.util.Random;
 /**
  * 결정론적 단위벡터를 생성하는 스텁 임베딩 클라이언트.
  *
- * 운영 원칙:
- *   - 실제 모델 호출 없음 — 외부 서비스 의존 없이 전체 RAG 파이프라인을 구동 가능.
- *   - 동일 입력 → 동일 벡터 (text.hashCode + length 기반 Seed).
- *   - L2 정규화(norm = 1.0) 후 반환 → cosine similarity 계산에 바로 사용 가능.
- *   - 테스트에서 동일 텍스트로 문서/사례를 적재하면 코사인 유사도 = 1.0 보장.
- *
- * 운영 전환: BGE-M3 / SBERT-Ko 자체 호스팅 어댑터 빈을 @Primary 로 등록하면
- * 스프링이 이 빈 대신 새 구현체를 우선 주입한다.
+ * 활성 조건: advisory.rag.embed.provider=stub (기본값 — 미설정 시 동작)
+ * 테스트에서 동일 텍스트로 문서/사례를 적재하면 코사인 유사도 = 1.0 보장.
+ * 운영 전환: .env 에 ADVISORY_RAG_EMBED_PROVIDER=openai 설정 시 비활성.
  */
 @Component
+@ConditionalOnProperty(name = "advisory.rag.embed.provider", havingValue = "stub", matchIfMissing = true)
 public class StubEmbeddingClient implements EmbeddingClient {
 
     private static final String MODEL_CD  = "SBERT_KO_V1";

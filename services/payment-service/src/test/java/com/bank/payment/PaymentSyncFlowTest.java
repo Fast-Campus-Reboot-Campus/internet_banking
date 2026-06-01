@@ -4,6 +4,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +30,8 @@ class PaymentSyncFlowTest extends AbstractPaymentIntegrationTest {
     private static final String RECEIVER_S1      = "12345678905678";
     private static final String SENDER_F1        = "77770000000001";
     private static final String RECEIVER_CLOSED  = "99990000000003";
+    private static final String RECEIVER_F8      = "12345678909999";  // B-4 DEP-9001 → DepositInboundFailureException
+    private static final String RECEIVER_F5      = "88880000";        // 분개 INSERT 강제 실패 → LedgerInsertFailureException
 
     @Test
     @DisplayName("S1 자행이체 정상 — 200, status=COMPLETED, ledger 2건")
@@ -85,6 +90,18 @@ class PaymentSyncFlowTest extends AbstractPaymentIntegrationTest {
                 "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?",
                 Integer.class, piId);
         assertThat(ledgerCount).isEqualTo(0);
+
+        String prevStatusSelf = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'BALANCE_CHECK_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusSelf).isEqualTo("DRAFT");
+
+        String prevStatusFailed = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusFailed).isEqualTo("DRAFT");
     }
 
     @Test
@@ -114,5 +131,104 @@ class PaymentSyncFlowTest extends AbstractPaymentIntegrationTest {
                 "WHERE payment_instruction_id = ? AND event_type = 'ACCOUNT_CHECK_FAILED'",
                 Integer.class, piId);
         assertThat(eventCount).isEqualTo(1);
+
+        String prevStatusFailed = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(prevStatusFailed).isEqualTo("DRAFT");
+    }
+
+    // ── 즉시이체 F8/F5 보상 — 첫 자동 검증 ───────────────────────────────────
+
+    @Test
+    @DisplayName("sync_F8_reversed — 즉시이체 F8 입금실패 → AUTHORIZED→REVERSING→FAILED, from_status=AUTHORIZED, version=3, ledger 0")
+    void sync_F8_reversed() throws Exception {
+        // receiver="12345678909999" → deposit DEP-9001 → DepositInboundFailureException → 보상
+        MvcResult result = mockMvc.perform(postPayment(
+                "PAY-F8-001-1", "USER-F8-001", "AUTH-F8-001",
+                SENDER_S1, BANK_CODE_A, RECEIVER_F8, "홍판서",
+                100_000L, "MOBILE"
+        ))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("FAILED"))
+        .andReturn();
+
+        String piId = om.readTree(result.getResponse().getContentAsString())
+                .get("paymentInstructionId").asText();
+
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT status, failure_category, version FROM payment_instruction WHERE payment_instruction_id = ?", piId);
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("failure_category")).isEqualTo("SYSTEM_ERROR");
+        // version: DRAFT(0)→AUTHORIZED(1)→REVERSING(2)→FAILED(3)
+        assertThat(((Number) row.get("version")).intValue()).isEqualTo(3);
+
+        // ledger 0건 (txCompleteReversal — 역분개 없음, P-026)
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?", Integer.class, piId)).isZero();
+
+        // 이력 이벤트 순서 확인
+        List<String> events = jdbc.queryForList(
+                "SELECT event_type FROM status_history " +
+                "WHERE payment_instruction_id = ? ORDER BY sequence_in_payment ASC", String.class, piId);
+        assertThat(events).contains("SYSTEM_FAILURE_DETECTED", "COMPENSATION_STARTED",
+                "COMPENSATION_COMPLETED", "PAYMENT_FAILED");
+
+        // SYSTEM_FAILURE_DETECTED from_status="AUTHORIZED"
+        String sfdPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'SYSTEM_FAILURE_DETECTED'",
+                String.class, piId);
+        assertThat(sfdPrev).isEqualTo("AUTHORIZED");
+
+        // PAYMENT_FAILED from_status="REVERSING"
+        String paidPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(paidPrev).isEqualTo("REVERSING");
+    }
+
+    @Test
+    @DisplayName("sync_F5_reversed — 즉시이체 F5 분개실패 → txStep4 롤백 → AUTHORIZED→REVERSING→FAILED, from_status=AUTHORIZED, version=3")
+    void sync_F5_reversed() throws Exception {
+        // receiver="88880000" → txStep4 내 분개 INSERT 실패 → LedgerInsertFailureException → 보상
+        MvcResult result = mockMvc.perform(postPayment(
+                "PAY-F5-001-1", "USER-F5-001", "AUTH-F5-001",
+                SENDER_S1, BANK_CODE_A, RECEIVER_F5, "변학도",
+                100_000L, "MOBILE"
+        ))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("FAILED"))
+        .andReturn();
+
+        String piId = om.readTree(result.getResponse().getContentAsString())
+                .get("paymentInstructionId").asText();
+
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT status, failure_category, version FROM payment_instruction WHERE payment_instruction_id = ?", piId);
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("failure_category")).isEqualTo("SYSTEM_ERROR");
+        // version: DRAFT(0)→AUTHORIZED(1)→[txStep4 롤백→AUTHORIZED]→REVERSING(2)→FAILED(3)
+        assertThat(((Number) row.get("version")).intValue()).isEqualTo(3);
+
+        // ledger 0건 (txStep4 롤백으로 분개 롤백, txCompleteReversal 역분개 없음)
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger WHERE payment_instruction_id = ?", Integer.class, piId)).isZero();
+
+        // SYSTEM_FAILURE_DETECTED from_status="AUTHORIZED"
+        String sfdPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'SYSTEM_FAILURE_DETECTED'",
+                String.class, piId);
+        assertThat(sfdPrev).isEqualTo("AUTHORIZED");
+
+        // PAYMENT_FAILED from_status="REVERSING"
+        String paidPrev = jdbc.queryForObject(
+                "SELECT previous_status FROM status_history " +
+                "WHERE payment_instruction_id = ? AND event_type = 'PAYMENT_FAILED'",
+                String.class, piId);
+        assertThat(paidPrev).isEqualTo("REVERSING");
     }
 }

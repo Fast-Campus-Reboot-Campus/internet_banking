@@ -15,5 +15,6 @@ public record MyPageResponse(
         String genderCode,
         String customerGradeCode,
         String customerStatusCode,
-        OffsetDateTime joinedAt
+        OffsetDateTime joinedAt,
+        OffsetDateTime lastLoginAt
 ) {}

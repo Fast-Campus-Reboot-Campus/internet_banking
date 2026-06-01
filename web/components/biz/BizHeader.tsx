@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
@@ -206,15 +206,14 @@ export default function BizHeader() {
         <div className="max-w-kb-container mx-auto px-6 flex items-center h-[70px]">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-[3px] self-stretch bg-kb-yellow" />
-            <div className="flex flex-col leading-none gap-1.5">
-              <span className="text-[22px] font-bold text-kb-text tracking-[0.1em]">AX풀뱅크</span>
-              <span className="text-[10px] font-medium text-kb-text-muted tracking-[0.22em] uppercase">AXFULL BANK</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-[22px] font-bold text-kb-text tracking-[0.05em]">AXful Bank</span>
             </div>
           </Link>
           <nav className="flex items-center ml-auto">
             {['개인', '기업'].map((item, i) => (
               <span key={item} className="flex items-center">
-                <Link href={item === '개인' ? '/personal' : '/biz'}
+                <Link href={item === '개인' ? '/' : '/biz'}
                   className={`text-[15px] px-2 hover:text-kb-text transition-colors
                     ${item === '기업' ? 'text-kb-text font-semibold' : 'text-kb-text-muted'}`}>
                   {item}

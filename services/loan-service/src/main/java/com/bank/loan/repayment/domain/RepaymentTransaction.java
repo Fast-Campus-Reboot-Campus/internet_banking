@@ -102,4 +102,8 @@ public class RepaymentTransaction extends BaseEntity {
 
     @Column(name = "reversal_target_rtx_id")
     private Long reversalTargetRtxId;
+
+    /** payment-service 결제지시 ID. CLEARING 콜백 추적에 사용. */
+    @Column(name = "pi_id", length = 100)
+    private String piId;
 }

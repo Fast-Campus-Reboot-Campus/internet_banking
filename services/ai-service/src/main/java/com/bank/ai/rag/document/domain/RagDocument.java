@@ -31,6 +31,7 @@ public class RagDocument extends BaseEntity {
     public static final String DOC_TYPE_FAQ               = "FAQ";
     public static final String DOC_TYPE_FAIR_LENDING      = "FAIR_LENDING";
     public static final String DOC_TYPE_BIAS_CASE         = "BIAS_CASE";
+    public static final String DOC_TYPE_REVIEW_CASE       = "REVIEW_CASE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

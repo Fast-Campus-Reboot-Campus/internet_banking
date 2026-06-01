@@ -1,9 +1,11 @@
 package com.bank.loan.advisory.rag;
 
 import com.bank.common.web.BusinessException;
+import com.bank.loan.advisory.domain.AdvisoryCaseIndex;
 import com.bank.loan.advisory.domain.AdvisoryRetrievalLog;
 import com.bank.loan.advisory.domain.ReviewAdvisoryReport;
 import com.bank.loan.advisory.dto.SimilarCaseResponse;
+import com.bank.loan.advisory.repository.AdvisoryCaseIndexRepository;
 import com.bank.loan.advisory.repository.AdvisoryRetrievalLogRepository;
 import com.bank.loan.advisory.repository.ReviewAdvisoryReportRepository;
 import com.bank.loan.review.domain.LoanReview;
@@ -11,27 +13,25 @@ import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
- * 유사 과거 심사 사례 코사인 유사도 검색 (plan §11.4.3 — Task 6-5).
+ * 유사 과거 심사 사례 코사인 유사도 검색 (시나리오 δ — ai-service 어댑터).
  *
- * 요청 시나리오: 심사관이 GET /advisory/reports/{advr_id}/similar-cases 호출.
- *   1. 리포트 → revId 로드
- *   2. revId → LoanReview 로드 → 구조화 쿼리 텍스트 생성
- *   3. embed → ADVISORY_CASE_INDEX 코사인 유사도 검색
- *   4. ADVISORY_RETRIEVAL_LOG append
+ * 기존: advisory_case_index JDBC 직접 쿼리 (EmbeddingClient + pgvector)
+ * 변경: ai-service POST /rag/search (profile=similar-case) 위임
+ *       → 반환된 chunkId(=case_idx_id)로 advisory DB에서 메타데이터 보완
  *
- * OVERTURN 부스트: 결과 top-K 중 overturn_yn='Y' 사례를 앞으로 정렬
- * (점수가 같을 때만 우선 — cosine 점수 순 유지 원칙 준수, plan §11.7 §3).
+ * revId→LoanReview→텍스트 변환은 advisory DB에 종속되므로 advisory 내부 유지.
  */
 @Slf4j
 @Service
@@ -40,11 +40,11 @@ public class SimilarCaseRetriever {
 
     private static final int DEFAULT_TOP_K = 5;
 
-    private final JdbcTemplate                   jdbcTemplate;
-    private final EmbeddingClient                embeddingClient;
-    private final ReviewAdvisoryReportRepository reportRepo;
-    private final LoanReviewRepository           reviewRepo;
-    private final AdvisoryRetrievalLogRepository logRepo;
+    private final AiServiceRagClient              aiServiceRagClient;
+    private final AdvisoryCaseIndexRepository     caseIndexRepo;
+    private final ReviewAdvisoryReportRepository  reportRepo;
+    private final LoanReviewRepository            reviewRepo;
+    private final AdvisoryRetrievalLogRepository  logRepo;
 
     @Transactional
     public SimilarCaseResponse retrieve(Long advrId, Long actorId) {
@@ -62,42 +62,35 @@ public class SimilarCaseRetriever {
                 .orElse(null);
 
         String queryText = buildQueryText(report, review);
-        String modelCd  = embeddingClient.defaultModelCd();
-        float[] qvec    = embeddingClient.embed(queryText);
-        String  qvecStr = EmbeddingClient.toVectorString(qvec);
 
-        List<SimilarCaseResponse.CaseItem> items = new ArrayList<>();
-        try {
-            items = jdbcTemplate.query("""
-                SELECT ci.case_idx_id, ci.rev_id, ci.decision_cd, ci.overturn_yn,
-                       ci.credit_score, ci.dsr_ratio_bps, ci.ltv_ratio_bps,
-                       ci.cohort_employment_type_cd, ci.cohort_loan_purpose_cd,
-                       ci.summary_text,
-                       1 - (ci.embedding <=> CAST(? AS vector)) AS score
-                FROM   advisory_case_index ci
-                WHERE  ci.embedding_model_cd = ?
-                  AND  ci.rev_id <> ?
-                ORDER  BY ci.embedding <=> CAST(? AS vector)
-                LIMIT  ?
-                """,
-                    (rs, i) -> new SimilarCaseResponse.CaseItem(
-                            rs.getLong("case_idx_id"),
-                            rs.getLong("rev_id"),
-                            rs.getString("decision_cd"),
-                            rs.getString("overturn_yn"),
-                            (Integer) rs.getObject("credit_score"),
-                            (Integer) rs.getObject("dsr_ratio_bps"),
-                            (Integer) rs.getObject("ltv_ratio_bps"),
-                            rs.getString("cohort_employment_type_cd"),
-                            rs.getString("cohort_loan_purpose_cd"),
-                            rs.getString("summary_text"),
-                            rs.getDouble("score")),
-                    qvecStr, modelCd, report.getRevId(), qvecStr, topK);
-        } catch (Exception e) {
-            log.warn("유사 사례 검색 실패 (빈 결과 반환) — advrId={}: {}", advrId, e.getMessage());
-        }
+        List<AiServiceRagClient.ChunkHit> hits = aiServiceRagClient.search(queryText, "similar-case", topK);
 
-        appendLog(advrId, queryText, modelCd, items.size(),
+        List<Long> caseIdxIds = hits.stream().map(AiServiceRagClient.ChunkHit::chunkId).toList();
+        Map<Long, AdvisoryCaseIndex> caseMap = caseIndexRepo.findAllById(caseIdxIds).stream()
+                .collect(Collectors.toMap(AdvisoryCaseIndex::getCaseIdxId, c -> c));
+
+        // ai-service 점수 순서 유지, 자기 자신(revId 일치) 제외
+        List<SimilarCaseResponse.CaseItem> items = hits.stream()
+                .map(h -> {
+                    AdvisoryCaseIndex c = caseMap.get(h.chunkId());
+                    if (c == null || c.getRevId().equals(report.getRevId())) return null;
+                    return new SimilarCaseResponse.CaseItem(
+                            c.getCaseIdxId(),
+                            c.getRevId(),
+                            c.getDecisionCd(),
+                            c.getOverturnYn(),
+                            c.getCreditScore(),
+                            c.getDsrRatioBps(),
+                            c.getLtvRatioBps(),
+                            c.getCohortEmploymentTypeCd(),
+                            c.getCohortLoanPurposeCd(),
+                            c.getSummaryText(),
+                            h.score());
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        appendLog(advrId, queryText, "ai-service", items.size(),
                 items.isEmpty() ? null : items.get(0).score(), actorId);
 
         return new SimilarCaseResponse(advrId, items.size(), items);

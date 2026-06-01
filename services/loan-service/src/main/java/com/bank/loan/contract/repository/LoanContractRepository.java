@@ -11,4 +11,6 @@ public interface LoanContractRepository extends JpaRepository<LoanContract, Long
     Optional<LoanContract> findByCntrIdAndDeletedAtIsNull(Long cntrId);
 
     List<LoanContract> findByCntrStatusCdAndDeletedAtIsNullOrderByCntrIdAsc(String cntrStatusCd);
+
+    List<LoanContract> findByCustomerIdAndDeletedAtIsNullOrderByCntrIdDesc(Long customerId);
 }

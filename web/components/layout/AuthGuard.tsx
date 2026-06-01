@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 // 로그인 없이 접근 가능한 경로 prefix
 const PUBLIC_PREFIXES = [
   '/login',
-  '/personal',
+  '/logout',
   '/banking',
   '/cert',
   '/cert-cps',
@@ -14,13 +14,14 @@ const PUBLIC_PREFIXES = [
   '/products',
   '/support',
   '/security-install',
+  '/settings',
 ]
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
 
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+  const isPublic = pathname === '/' || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
   const [authorized, setAuthorized] = useState(isPublic)
 
   useEffect(() => {

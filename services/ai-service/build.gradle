@@ -1,4 +1,19 @@
 // ai-service 전용 의존성 (루트 build.gradle subprojects 블록에 추가되지 않는 것)
+
+// ── OTel Java Agent (Phoenix 계측용) ─────────────────────────────────────────
+configurations { otelAgent }
+
+dependencies {
+    otelAgent("io.opentelemetry.javaagent:opentelemetry-javaagent:2.9.0") { transitive = false }
+}
+
+tasks.register('copyOtelAgent', Copy) {
+    from configurations.otelAgent
+    into "$rootDir/libs"
+    rename { "opentelemetry-javaagent.jar" }
+}
+
+bootJar.dependsOn copyOtelAgent
 dependencies {
     // 문서 파싱 (PDF·DOCX·HWP)
     implementation 'org.apache.tika:tika-core:2.9.2'

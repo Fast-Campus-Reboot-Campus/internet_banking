@@ -58,6 +58,10 @@ public class AiAuditOpinion {
     @Column(name = "output_tokens")
     private Integer outputTokens;
 
+    /** LLM이 tool 호출로 참조한 chunk_id 목록, JSON 배열 직렬화 (예: [123,456]). null 허용. */
+    @Column(name = "cited_chunk_ids", columnDefinition = "TEXT")
+    private String citedChunkIds;
+
     @Column(name = "generated_at", nullable = false)
     private OffsetDateTime generatedAt;
 }

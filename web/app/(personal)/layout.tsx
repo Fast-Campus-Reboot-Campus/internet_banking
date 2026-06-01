@@ -1,7 +1,6 @@
 import Header from '@/components/layout/Header'
-import FloatingSidebar from '@/components/layout/FloatingSidebar'
-import ChatbotWidget from '@/components/chatbot/ChatbotWidget'
 import AuthGuard from '@/components/layout/AuthGuard'
+import FloatingSidebar from '@/components/layout/FloatingSidebar'
 import Link from 'next/link'
 
 const FOOTER_LINKS_TOP = [
@@ -20,12 +19,11 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <div className="min-h-[calc(100vh-300px)]">
-        <AuthGuard>{children}</AuthGuard>
-      </div>
-      <footer className="border-t border-kb-border bg-white">
+      <FloatingSidebar />
+      <AuthGuard>{children}</AuthGuard>
+      <footer className="border-t border-kb-border bg-kb-beige-light">
         <div className="max-w-kb-container mx-auto px-6 py-5">
-          <div className="flex flex-wrap gap-x-1 gap-y-1 mb-2">
+          <div className="flex flex-wrap gap-x-1 gap-y-1 mb-1">
             {FOOTER_LINKS_TOP.map((link, i) => (
               <span key={link} className="flex items-center gap-3">
                 {i > 0 && <span className="text-kb-border">|</span>}
@@ -35,7 +33,7 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
               </span>
             ))}
           </div>
-          <div className="flex flex-wrap gap-x-1 gap-y-1 mb-4">
+          <div className="flex flex-wrap gap-x-1 gap-y-1 mb-3">
             {FOOTER_LINKS_BOTTOM.map((link, i) => (
               <span key={link} className="flex items-center gap-3">
                 {i > 0 && <span className="text-kb-border">|</span>}
@@ -43,12 +41,12 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
               </span>
             ))}
           </div>
-          <p className="text-sm text-kb-text">
+          <p className="text-sm text-kb-text mt-3 mb-0">
             사업자 등록번호 : 000-00-00000 &nbsp;|&nbsp; 서울특별시 중구 태평로1길 1(AXful동) &nbsp;|&nbsp; 대표 : 홍대표
           </p>
         </div>
-        <div className="border-t border-kb-border bg-kb-beige-light">
-          <div className="max-w-kb-container mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="bg-kb-beige-light">
+          <div className="max-w-kb-container mx-auto px-6 pt-4 pb-5">
             <div className="flex items-center gap-3">
               {FOOTER_DROPDOWNS.map((label) => (
                 <button key={label}
@@ -58,21 +56,12 @@ export default function PersonalLayout({ children }: { children: React.ReactNode
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-2">
-              {[{ label: 'f', color: '#1877F2' }, { label: '📷', color: '#E4405F' }, { label: '▶', color: '#FF0000' }, { label: 'B', color: '#00C300' }].map((sns) => (
-                <Link key={sns.label} href="#"
-                  className="w-8 h-8 rounded-full border border-kb-border flex items-center justify-center text-sm font-bold hover:opacity-80"
-                  style={{ color: sns.color }}>{sns.label}</Link>
-              ))}
-            </div>
           </div>
-          <div className="max-w-kb-container mx-auto px-6 pb-4">
+          <div className="max-w-kb-container mx-auto px-6 pb-10">
             <p className="text-sm text-kb-text-muted">Copyright AXful Bank. All Rights Reserved.</p>
           </div>
         </div>
       </footer>
-      <FloatingSidebar />
-      <ChatbotWidget />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 package com.bank.loan.rag;
 
 import com.bank.loan.application.domain.LoanApplication;
-import com.bank.loan.rag.domain.LoanReview;
+import com.bank.loan.review.domain.LoanReview;
 
 /**
  * 유사 케이스 청크 텍스트 생성기 — D3-2.

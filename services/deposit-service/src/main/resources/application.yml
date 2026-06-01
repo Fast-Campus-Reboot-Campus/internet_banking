@@ -16,7 +16,7 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
   datasource:
-    url: jdbc:postgresql://${DEPOSIT_DB_HOST:localhost}:${DEPOSIT_DB_PORT:5433}/${DEPOSIT_DB_NAME:deposit_db}
+    url: jdbc:postgresql://${DEPOSIT_DB_HOST:localhost}:${DEPOSIT_DB_PORT:5432}/${DEPOSIT_DB_NAME:deposit_db}
     username: ${DEPOSIT_DB_USER:deposit}
     password: ${DEPOSIT_DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
