@@ -19,4 +19,7 @@ public interface LoanReviewOutboxRepository extends JpaRepository<LoanReviewOutb
     /** polling worker — 발행 대기(PENDING/FAILED) 중 재시도 시각 도달 건. */
     List<LoanReviewOutbox> findByStatusInAndNextAttemptAtLessThanEqualOrderByNextAttemptAtAsc(
             @Param("statuses") List<String> statuses, @Param("now") OffsetDateTime now);
+
+    /** index lag 모니터 — 주어진 status 중 가장 오래된(created_at ↑) 1건. */
+    Optional<LoanReviewOutbox> findTopByStatusOrderByCreatedAtAsc(String status);
 }

@@ -85,7 +85,7 @@ public class EsHybridSearchService implements RagSearchBackend {
             for (Hit<Map> hit : resp.hits().hits()) {
                 results.add(toChunk(corpus, hit));
             }
-            metricsRecorder.recordRagSearchLatency(corpus, Duration.between(start, Instant.now()));
+            metricsRecorder.recordRagSearchLatency(corpus, "rrf", Duration.between(start, Instant.now()));
             metricsRecorder.recordRagChunkCount(corpus, results.size());
             if (results.isEmpty()) {
                 metricsRecorder.recordRagSearchMiss(corpus);
@@ -93,7 +93,7 @@ public class EsHybridSearchService implements RagSearchBackend {
             return results;
         } catch (Exception e) {
             log.error("EsHybridSearchService: 검색 실패 corpus={} query={}", corpus, query, e);
-            metricsRecorder.recordRagSearchLatency(corpus, Duration.between(start, Instant.now()));
+            metricsRecorder.recordRagSearchLatency(corpus, "rrf", Duration.between(start, Instant.now()));
             metricsRecorder.recordRagSearchMiss(corpus);
             return List.of();
         }
