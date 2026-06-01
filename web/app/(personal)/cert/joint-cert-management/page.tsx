@@ -23,9 +23,9 @@ const MANAGEMENT_CARDS = [
         <rect x="2" y="4" width="28" height="32" rx="2" fill="#f5f5f5" stroke="#ccc" strokeWidth="1.5"/>
         <rect x="8" y="10" width="16" height="2" rx="1" fill="#ccc"/>
         <rect x="8" y="15" width="16" height="2" rx="1" fill="#ccc"/>
-        <path d="M38 20h4" stroke="#FFCC00" strokeWidth="2" strokeLinecap="round"/>
-        <path d="M36 18l4 2-4 2" fill="#FFCC00"/>
-        <circle cx="66" cy="20" r="12" fill="#FFCC00" opacity="0.2" stroke="#FFCC00" strokeWidth="1.5"/>
+        <path d="M38 20h4" stroke="#C09B3A" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M36 18l4 2-4 2" fill="#C09B3A"/>
+        <circle cx="66" cy="20" r="12" fill="#C09B3A" opacity="0.2" stroke="#C09B3A" strokeWidth="1.5"/>
         <path d="M62 20l4 4 6-8" stroke="#544C40" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
@@ -36,10 +36,10 @@ const MANAGEMENT_CARDS = [
     actionLabel: '인증서 내보내기',
     icon: (
       <svg viewBox="0 0 80 40" fill="none" className="w-20 h-10">
-        <circle cx="14" cy="20" r="12" fill="#FFCC00" opacity="0.2" stroke="#FFCC00" strokeWidth="1.5"/>
+        <circle cx="14" cy="20" r="12" fill="#C09B3A" opacity="0.2" stroke="#C09B3A" strokeWidth="1.5"/>
         <path d="M10 20l4 4 6-8" stroke="#544C40" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M38 20h4" stroke="#FFCC00" strokeWidth="2" strokeLinecap="round"/>
-        <path d="M44 18l4 2-4 2" fill="#FFCC00"/>
+        <path d="M38 20h4" stroke="#C09B3A" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M44 18l4 2-4 2" fill="#C09B3A"/>
         <rect x="50" y="4" width="28" height="32" rx="2" fill="#f5f5f5" stroke="#ccc" strokeWidth="1.5"/>
         <rect x="56" y="10" width="16" height="2" rx="1" fill="#ccc"/>
         <rect x="56" y="15" width="16" height="2" rx="1" fill="#ccc"/>
@@ -52,12 +52,12 @@ const MANAGEMENT_CARDS = [
     actionLabel: '인증서 복사',
     icon: (
       <svg viewBox="0 0 80 40" fill="none" className="w-20 h-10">
-        <circle cx="14" cy="20" r="12" fill="#FFCC00" opacity="0.2" stroke="#FFCC00" strokeWidth="1.5"/>
+        <circle cx="14" cy="20" r="12" fill="#C09B3A" opacity="0.2" stroke="#C09B3A" strokeWidth="1.5"/>
         <path d="M10 20l4 4 6-8" stroke="#544C40" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M34 20h12" stroke="#FFCC00" strokeWidth="2" strokeLinecap="round"/>
-        <path d="M40 17l6 3-6 3" fill="#FFCC00"/>
+        <path d="M34 20h12" stroke="#C09B3A" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M40 17l6 3-6 3" fill="#C09B3A"/>
         <rect x="54" y="8" width="12" height="22" rx="3" fill="#f5f5f5" stroke="#ccc" strokeWidth="1.5"/>
-        <rect x="57" y="12" width="6" height="2" rx="1" fill="#FFCC00"/>
+        <rect x="57" y="12" width="6" height="2" rx="1" fill="#C09B3A"/>
         <rect x="57" y="16" width="6" height="2" rx="1" fill="#ccc"/>
         <rect x="58" y="28" width="4" height="4" rx="1" fill="#ccc"/>
       </svg>
@@ -69,9 +69,9 @@ const MANAGEMENT_CARDS = [
     actionLabel: '인증서 삭제',
     icon: (
       <svg viewBox="0 0 80 40" fill="none" className="w-20 h-10">
-        <circle cx="40" cy="20" r="16" fill="#FFCC00" opacity="0.15" stroke="#FFCC00" strokeWidth="1.5"/>
+        <circle cx="40" cy="20" r="16" fill="#C09B3A" opacity="0.15" stroke="#C09B3A" strokeWidth="1.5"/>
         <path d="M34 14l12 12M46 14L34 26" stroke="#c0392b" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="40" cy="20" r="16" stroke="#FFCC00" strokeWidth="1.5" fill="none"/>
+        <circle cx="40" cy="20" r="16" stroke="#C09B3A" strokeWidth="1.5" fill="none"/>
       </svg>
     ),
   },
@@ -81,10 +81,10 @@ const MANAGEMENT_CARDS = [
     actionLabel: '인증서 보기/검증안내',
     icon: (
       <svg viewBox="0 0 80 40" fill="none" className="w-20 h-10">
-        <circle cx="32" cy="20" r="14" fill="#FFCC00" opacity="0.15" stroke="#FFCC00" strokeWidth="1.5"/>
+        <circle cx="32" cy="20" r="14" fill="#C09B3A" opacity="0.15" stroke="#C09B3A" strokeWidth="1.5"/>
         <path d="M28 20l4 4 6-8" stroke="#544C40" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
         <circle cx="57" cy="28" r="8" fill="#f5f5f5" stroke="#ccc" strokeWidth="1.5"/>
-        <path d="M53 28l3 3 5-5" stroke="#FFCC00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M53 28l3 3 5-5" stroke="#C09B3A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         <path d="M62 33l5 5" stroke="#ccc" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
@@ -95,9 +95,9 @@ const MANAGEMENT_CARDS = [
     actionLabel: '인증서 암호변경',
     icon: (
       <svg viewBox="0 0 80 40" fill="none" className="w-20 h-10">
-        <circle cx="40" cy="20" r="14" fill="#FFCC00" opacity="0.15" stroke="#FFCC00" strokeWidth="1.5"/>
+        <circle cx="40" cy="20" r="14" fill="#C09B3A" opacity="0.15" stroke="#C09B3A" strokeWidth="1.5"/>
         <text x="40" y="25" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#544C40">**</text>
-        <path d="M54 14l6-6M56 8l4 4" stroke="#FFCC00" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M54 14l6-6M56 8l4 4" stroke="#C09B3A" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
   },
@@ -122,7 +122,7 @@ export default function JointCertManagementPage() {
               href={item.href}
               className={`block px-5 py-2.5 text-caption border-b border-kb-border transition-colors
                 ${item.active
-                  ? 'bg-kb-yellow font-bold text-kb-text'
+                  ? 'bg-[#0D5C47] font-bold text-white'
                   : 'text-kb-text-body hover:bg-kb-beige-light'
                 }`}
             >
@@ -145,7 +145,7 @@ export default function JointCertManagementPage() {
         </div>
 
         {/* 페이지 제목 */}
-        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-kb-text pb-3">
+        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-[#0D5C47] pb-3">
           인증서 관리
         </h2>
 
@@ -172,7 +172,7 @@ export default function JointCertManagementPage() {
                 <button className="flex-1 py-2 border border-kb-border text-caption text-kb-text hover:bg-kb-beige-light transition-colors">
                   이용 안내
                 </button>
-                <button className="flex-1 py-2 bg-kb-yellow text-caption font-bold text-kb-text hover:brightness-95 transition-all">
+                <button className="flex-1 py-2 text-caption font-bold text-white hover:opacity-90 transition-all" style={{ backgroundColor: '#0D5C47' }}>
                   {card.actionLabel}
                 </button>
               </div>

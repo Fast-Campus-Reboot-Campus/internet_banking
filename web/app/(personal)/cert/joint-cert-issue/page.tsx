@@ -61,7 +61,7 @@ export default function JointCertIssuePage() {
               href={item.href}
               className={`block px-5 py-2.5 text-caption border-b border-kb-border transition-colors
                 ${item.active
-                  ? 'bg-kb-yellow font-bold text-kb-text'
+                  ? 'bg-[#0D5C47] font-bold text-white'
                   : 'text-kb-text-body hover:bg-kb-beige-light'
                 }`}
             >
@@ -77,10 +77,10 @@ export default function JointCertIssuePage() {
         <div className="mt-4 border border-kb-border p-4 bg-kb-beige-light text-center">
           <p className="text-[11px] text-kb-text-muted leading-tight mb-2">1,500만명의 선택</p>
           <p className="text-caption font-bold text-kb-text mb-3">AXful인증서 제휴신청</p>
-          <div className="w-10 h-10 bg-kb-yellow rounded-lg flex items-center justify-center mx-auto mb-2">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-2">
             <span className="text-[9px] font-extrabold text-kb-text">AX</span>
           </div>
-          <Link href="#" className="text-[11px] text-kb-blue hover:underline">바로가기 &gt;</Link>
+          <Link href="#" className="text-[11px] text-[#0D5C47] hover:underline">바로가기 &gt;</Link>
         </div>
       </aside>
 
@@ -99,7 +99,7 @@ export default function JointCertIssuePage() {
         </div>
 
         {/* 페이지 제목 */}
-        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-kb-text pb-3">
+        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-[#0D5C47] pb-3">
           개인용 인증서 발급
         </h2>
 
@@ -109,7 +109,7 @@ export default function JointCertIssuePage() {
             <div key={i} className="flex items-center">
               <div className={`flex items-center justify-center rounded-full text-[11px] font-bold border-2
                 ${i === 0
-                  ? 'w-auto px-3 h-7 bg-kb-yellow border-kb-yellow text-kb-text'
+                  ? 'w-auto px-3 h-7 bg-[#0D5C47] border-[#0D5C47] text-white'
                   : 'w-7 h-7 border-gray-300 text-gray-400'
                 }`}
               >
@@ -130,7 +130,7 @@ export default function JointCertIssuePage() {
             className="flex items-center justify-between px-4 py-3 border border-kb-border bg-gray-50 cursor-pointer hover:bg-kb-beige-light mb-1"
           >
             <div className="flex items-center gap-2">
-              <span className="text-green-600 font-bold">✓</span>
+              <span className="text-[#0D5C47] font-bold">✓</span>
               <span className="text-[13px] font-bold text-kb-text">전체약관보기</span>
             </div>
             <span className="text-kb-text-muted">&gt;</span>
@@ -145,9 +145,9 @@ export default function JointCertIssuePage() {
                 onClick={() => toggleOne(i)}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`font-bold text-[13px] ${checked[i] ? 'text-green-600' : 'text-gray-300'}`}>✓</span>
+                  <span className={`font-bold text-[13px] ${checked[i] ? 'text-[#0D5C47]' : 'text-gray-300'}`}>✓</span>
                   {term.required && (
-                    <span className="text-[11px] text-kb-blue font-semibold">[필수]</span>
+                    <span className="text-[11px] text-[#0D5C47] font-semibold">[필수]</span>
                   )}
                   <span className="text-[13px] text-kb-text-body">{term.label}</span>
                 </div>
@@ -168,9 +168,9 @@ export default function JointCertIssuePage() {
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              className="border border-gray-400 px-2 py-1.5 text-[13px] w-40 outline-none focus:border-blue-400"
+              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-blue-400"
             />
-            <Link href="/customer/id-inquiry" className="text-[12px] text-kb-blue hover:underline">
+            <Link href="/customer/id-inquiry" className="text-[12px] text-[#0D5C47] hover:underline">
               ID를 모르시는 경우↗
             </Link>
           </div>
@@ -184,7 +184,7 @@ export default function JointCertIssuePage() {
                 maxLength={6}
                 value={rrn1}
                 onChange={(e) => setRrn1(e.target.value.replace(/\D/g, ''))}
-                className="border border-gray-400 px-2 py-1.5 text-[13px] w-24 outline-none focus:border-blue-400"
+                className="border border-kb-border px-2 py-1.5 text-[13px] w-24 outline-none focus:border-blue-400"
               />
               <span className="text-gray-500">-</span>
               <input
@@ -192,7 +192,7 @@ export default function JointCertIssuePage() {
                 maxLength={7}
                 value={rrn2}
                 onChange={(e) => setRrn2(e.target.value.replace(/\D/g, ''))}
-                className="border border-gray-400 px-2 py-1.5 text-[13px] w-24 outline-none focus:border-blue-400"
+                className="border border-kb-border px-2 py-1.5 text-[13px] w-24 outline-none focus:border-blue-400"
               />
             </div>
             <label className="flex items-center gap-1 text-[12px] text-kb-text-body cursor-pointer">
@@ -210,10 +210,10 @@ export default function JointCertIssuePage() {
 
           {/* 버튼 */}
           <div className="flex gap-2 pt-2">
-            <button className="px-8 py-2.5 bg-kb-yellow text-[13px] font-bold text-kb-text hover:brightness-95">
+            <button className="px-8 py-2.5 text-[13px] font-bold text-white hover:opacity-90" style={{ backgroundColor: '#0D5C47' }}>
               약관 동의/본인확인
             </button>
-            <button className="px-8 py-2.5 border border-gray-400 text-[13px] text-gray-600 hover:bg-gray-50">
+            <button className="px-8 py-2.5 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-beige-light">
               취소
             </button>
           </div>
@@ -229,7 +229,7 @@ export default function JointCertIssuePage() {
             <p className="text-[12px] text-kb-text-muted leading-relaxed">
               AXful인증서를 발급 받으시면 보안카드/OTP가 없어도 인증서를 발급 받을 수 있습니다
             </p>
-            <Link href="#" className="text-[12px] text-kb-blue hover:underline">AXful인증서 알아보기 &gt;</Link>
+            <Link href="#" className="text-[12px] text-[#0D5C47] hover:underline">AXful인증서 알아보기 &gt;</Link>
           </div>
         </div>
 
