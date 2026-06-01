@@ -44,7 +44,6 @@ const NAV: SidebarItem[] = [
       { label: '기한연장',              href: '/products/loan/manage/extend' },
       { label: '금리인하요구권',         href: '/products/loan/manage/rate-cut' },
       { label: '연체정보조회',           href: '/products/loan/manage/delinquency' },
-      { label: '증명서 발급',            href: '/products/loan/manage/certificate' },
     ],
   },
 ]

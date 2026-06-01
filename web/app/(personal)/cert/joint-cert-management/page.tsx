@@ -2,12 +2,6 @@
 
 import Link from 'next/link'
 
-const SIDEBAR_ITEMS = [
-  { label: '공동인증서 발급/재발급', href: '/cert/joint-cert-issue' },
-  { label: '인증서 갱신', href: '#' },
-  { label: '인증서 관리', href: '/cert/joint-cert-management', active: true },
-  { label: '인증서 폐기', href: '#' },
-]
 
 const MANAGEMENT_CARDS = [
   {
@@ -101,82 +95,47 @@ const MANAGEMENT_CARDS = [
 
 export default function JointCertManagementPage() {
   return (
-    <div className="max-w-kb-container mx-auto px-6 py-8 flex gap-8">
+    <div className="max-w-kb-container mx-auto px-6 py-8">
 
-      {/* 좌측 사이드바 */}
-      <aside className="w-52 flex-shrink-0">
-        <div className="bg-white border border-kb-border">
-          <div className="bg-kb-text px-4 py-3">
-            <p className="text-body font-bold text-white">인증센터(개인)</p>
-          </div>
-          <div className="px-4 py-3 border-b border-kb-border bg-kb-beige-light">
-            <p className="text-body font-bold text-kb-text">공동인증서(구 공인인증서)</p>
-          </div>
-          {SIDEBAR_ITEMS.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`block px-5 py-2.5 text-caption border-b border-kb-border transition-colors
-                ${item.active
-                  ? 'bg-[#0D5C47] font-bold text-white'
-                  : 'text-kb-text-body hover:bg-kb-beige-light'
-                }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </aside>
+      {/* 브레드크럼 */}
+      <div className="flex items-center gap-1 text-[12px] text-kb-text-muted mb-6">
+        <Link href="/cert" className="hover:underline">인증센터(개인)</Link>
+        <span>›</span>
+        <span>공동인증서(구 공인인증서)</span>
+        <span>›</span>
+        <span className="font-semibold text-kb-text">인증서 관리</span>
+      </div>
 
-      {/* 우측 메인 */}
-      <main className="flex-1 min-w-0 space-y-8">
+      <h1 className="text-[24px] font-bold text-kb-text mb-2">인증서 관리</h1>
+      <p className="text-[14px] text-kb-text-muted mb-8">공동인증서의 가져오기, 내보내기, 복사, 삭제, 보기/검증, 암호변경을 할 수 있습니다.</p>
 
-        {/* 브레드크럼 */}
-        <div className="flex items-center gap-2 text-caption text-kb-text-muted">
-          <Link href="/cert" className="hover:text-kb-text">인증센터(개인)</Link>
-          <span>&gt;</span>
-          <span>공동인증서(구 공인인증서)</span>
-          <span>&gt;</span>
-          <span className="text-kb-text font-medium">인증서 관리</span>
-        </div>
+      {/* 안내 박스 */}
+      <div className="border border-kb-border bg-kb-beige-light px-5 py-4 space-y-1.5 text-[13px] text-kb-text-body mb-8">
+        <p>· 인증서 관리 메뉴에서 인증서 보기, 검증, 저장, 암호변경, 내보내기, 가져오기 등을 할 수 있습니다.</p>
+        <p>· 공동인증서는 하드 디스크보다 이동식 저장 장치에 저장하여 사용하는 것이 더 안전하고, 어느 PC에서도 편리하게 이용할 수 있습니다.</p>
+      </div>
 
-        {/* 페이지 제목 */}
-        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-[#0D5C47] pb-3">
-          인증서 관리
-        </h2>
-
-        {/* 안내 박스 */}
-        <div className="border border-kb-border bg-kb-beige-light px-6 py-4 space-y-1.5">
-          <p className="text-caption text-kb-text-body leading-relaxed">
-            · 인증서 관리 메뉴에서 인증서 보기, 검증, 저장, 암호변경, 내보내기, 가져오기 등을 할 수 있습니다.
-          </p>
-          <p className="text-caption text-kb-text-body leading-relaxed">
-            · 공동인증서는 하드 디스크보다 이동식 저장 장치에 저장하여 사용하는 것이 더 안전하고, 어느 PC에서도 편리하게 이용할 수 있습니다.
-          </p>
-        </div>
-
-        {/* 카드 그리드 2×3 */}
-        <div className="grid grid-cols-2 gap-4">
-          {MANAGEMENT_CARDS.map((card) => (
-            <div key={card.title} className="border border-kb-border p-6 space-y-3">
-              <div className="flex justify-center py-2">
-                {card.icon}
-              </div>
-              <h3 className="text-body font-bold text-kb-text">{card.title}</h3>
-              <p className="text-caption text-kb-text-muted leading-relaxed">{card.desc}</p>
-              <div className="flex gap-2 pt-1">
-                <button className="flex-1 py-2 border border-kb-border text-caption text-kb-text hover:bg-kb-beige-light transition-colors">
-                  이용 안내
-                </button>
-                <button className="flex-1 py-2 text-caption font-bold text-white hover:opacity-90 transition-all" style={{ backgroundColor: '#0D5C47' }}>
-                  {card.actionLabel}
-                </button>
-              </div>
+      {/* 카드 그리드 2×3 */}
+      <div className="grid grid-cols-2 gap-4">
+        {MANAGEMENT_CARDS.map((card) => (
+          <div key={card.title} className="border border-kb-border rounded-xl p-6 space-y-3">
+            <div className="flex justify-center py-2">
+              {card.icon}
             </div>
-          ))}
-        </div>
+            <h3 className="text-body font-bold text-kb-text">{card.title}</h3>
+            <p className="text-caption text-kb-text-muted leading-relaxed">{card.desc}</p>
+            <div className="flex gap-2 pt-1">
+              <button className="flex-1 py-2 border border-kb-border text-caption text-kb-text hover:bg-kb-beige-light transition-colors rounded-lg">
+                이용 안내
+              </button>
+              <button className="flex-1 py-2 text-caption font-bold text-white hover:opacity-90 transition-all rounded-lg" style={{ backgroundColor: '#0D5C47' }}>
+                {card.actionLabel}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      </main>
     </div>
   )
 }

@@ -117,7 +117,6 @@ const NAV_ITEMS = [
   { label: '보안',                  href: '/security-guide',                          group: '보안' },
   { label: '보안 FAQ',              href: '/security-faq',                            group: '보안' },
   { label: 'OTP',                  href: '/security-guide',                          group: '보안' },
-  { label: '보안카드',              href: '/security-guide',                          group: '보안' },
 ]
 
 const SEARCH_ITEMS = [

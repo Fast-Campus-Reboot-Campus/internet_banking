@@ -44,6 +44,7 @@ public class CertLoginService {
      * PIN 검증은 MVP 단계에서 credential.passwordHash 로 위임한다.
      * (공동인증서·금융인증서·AXful인증서 모두 동일 플로우)
      */
+    @SuppressWarnings("null")
     @Transactional(noRollbackFor = BusinessException.class)
     public LoginResponse certLogin(CertLoginRequest request) {
 
@@ -64,12 +65,18 @@ public class CertLoginService {
             throw new BusinessException(CustomerErrorCode.CUST_031);
         }
 
-        // PIN = 계정 비밀번호 (MVP 단순화)
-        var credential = credentialRepository
-                .findByCustomerIdAndDeletedAtIsNull(cert.getCustomerId())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_010));
+        // certPinHash 있으면 인증서 암호로 검증, 없으면 로그인 비밀번호로 fallback
+        boolean pinValid;
+        if (cert.getCertPinHash() != null) {
+            pinValid = passwordEncoder.matches(request.pin(), cert.getCertPinHash());
+        } else {
+            var credential = credentialRepository
+                    .findByCustomerIdAndDeletedAtIsNull(cert.getCustomerId())
+                    .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_010));
+            pinValid = passwordEncoder.matches(request.pin(), credential.getPasswordHash());
+        }
 
-        if (!passwordEncoder.matches(request.pin(), credential.getPasswordHash())) {
+        if (!pinValid) {
             cert.recordLoginFailure();
             throw new BusinessException(
                     cert.isLocked() ? CustomerErrorCode.CUST_034 : CustomerErrorCode.CUST_033);

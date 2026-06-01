@@ -10,6 +10,7 @@ import {
   getCurrentDepositCustomerId,
   terminateDepositContract,
 } from '@/lib/deposit-api'
+import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
 const STEP_LABELS = ['계좌조회/선택', '해지계좌 확인', '완료']
 type Step = 1 | 2 | 3
@@ -20,6 +21,7 @@ export default function DepositTerminatePage() {
   const [joinedAccounts, setJoinedAccounts] = useState<DepositViewAccount[]>([])
   const [password, setPassword] = useState('')
   const [mouseInput, setMouseInput] = useState(false)
+  const [mousePassword, setMousePassword] = useState('')
   const [depositNo, setDepositNo] = useState('')
   const [depositOpen,        setDepositOpen]        = useState(true)
   const [regularSavingsOpen, setRegularSavingsOpen] = useState(true)
@@ -63,7 +65,7 @@ export default function DepositTerminatePage() {
   }
 
   async function handleConfirm() {
-    if (!password && !mouseInput) { alert('해지계좌 비밀번호를 입력해주세요.'); return }
+    if (!(mouseInput ? mousePassword : password)) { alert('해지계좌 비밀번호를 입력해주세요.'); return }
     if (!depositNo) { alert('입금계좌를 선택해주세요.'); return }
     if (selected) {
       try {
@@ -246,18 +248,22 @@ export default function DepositTerminatePage() {
                     <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
                       <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: '#F0FAF7' }}>해지계좌비밀번호</td>
                       <td className={rowStyle}>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type={mouseInput ? 'text' : 'password'}
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            maxLength={4}
-                            placeholder="4자리 입력"
-                            className="border rounded-lg px-3 py-1.5 text-[13px] w-28 outline-none focus:ring-1"
-                            style={{ borderColor: '#D1D5DB' }}
-                          />
-                          <label className="flex items-center gap-1.5 text-[12px] text-kb-text-muted cursor-pointer">
-                            <input type="checkbox" checked={mouseInput} onChange={e => setMouseInput(e.target.checked)} />
+                        <div className="flex flex-col gap-2">
+                          {mouseInput ? (
+                            <MouseNumKeypad value={mousePassword} onChange={setMousePassword} maxLength={4} dotCount={4} />
+                          ) : (
+                            <input
+                              type="password"
+                              value={password}
+                              onChange={e => setPassword(e.target.value)}
+                              maxLength={4}
+                              placeholder="4자리 입력"
+                              className="border rounded-lg px-3 py-1.5 text-[13px] w-28 outline-none focus:ring-1"
+                              style={{ borderColor: '#D1D5DB' }}
+                            />
+                          )}
+                          <label className="flex items-center gap-1.5 text-[12px] text-kb-text-muted cursor-pointer w-fit">
+                            <input type="checkbox" checked={mouseInput} onChange={e => { setMouseInput(e.target.checked); setMousePassword(''); setPassword('') }} />
                             마우스로 입력
                           </label>
                         </div>

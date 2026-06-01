@@ -3,60 +3,55 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { api } from '@/lib/api'
+import { CERT_TERMS, CertTermsModal } from '@/components/cert/CertTermsModal'
 
-
-const TERMS = [
-  { label: '전자금융거래기본약관', required: true },
-  { label: '전자금융서비스이용약관', required: true },
-  { label: '전자금융서비스설명서', required: true },
-  { label: '개인(신용)정보 수집·이용 동의서(개인 공동/금융인증서 발급용)', required: true },
-  { label: '고유식별정보 수집·이용 동의서(개인 공동/금융인증서 발급용)', required: true },
-]
-
-const STEPS = ['약관동의 및 사용자 본인확인', 'OTP 인증', '발급 완료']
+const STEPS = ['약관동의 및 사용자 본인확인', '발급 완료']
 
 export default function JointCertIssuePage() {
-  const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [allChecked, setAllChecked] = useState(true)
-  const [checked, setChecked] = useState<boolean[]>(TERMS.map(() => true))
+  const [termModalIndex, setTermModalIndex] = useState<number | null>(null)
+  const [checked, setChecked] = useState<boolean[]>(CERT_TERMS.map(() => false))
+  const allChecked = checked.every(Boolean)
   const [userId, setUserId] = useState('')
   const [rrn1, setRrn1] = useState('')
   const [rrn2, setRrn2] = useState('')
   const [password, setPassword] = useState('')
-  const [otpCode, setOtpCode] = useState('')
+  const [certPin, setCertPin] = useState('')
+  const [certPinConfirm, setCertPinConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [issuedCert, setIssuedCert] = useState<{ serialNumber: string; expiryDate: string } | null>(null)
 
   function toggleAll() {
-    const next = !allChecked
-    setAllChecked(next)
-    setChecked(TERMS.map(() => next))
+    setChecked(CERT_TERMS.map(() => !allChecked))
   }
 
   function toggleOne(i: number) {
-    const next = checked.map((v, idx) => (idx === i ? !v : v))
-    setChecked(next)
-    setAllChecked(next.every(Boolean))
+    setChecked(prev => prev.map((v, idx) => idx === i ? !v : v))
   }
 
-  function handleNextStep() {
+  function agreeOne(i: number) {
+    setChecked(prev => prev.map((v, idx) => idx === i ? true : v))
+  }
+
+  function agreeAll() {
+    setChecked(CERT_TERMS.map(() => true))
+    setTermModalIndex(null)
+  }
+
+  async function handleIssue() {
     if (!checked.every(Boolean)) { setError('필수 약관에 모두 동의해 주세요.'); return }
     if (!userId) { setError('아이디를 입력해 주세요.'); return }
     if (rrn1.length !== 6 || rrn2.length !== 7) { setError('주민등록번호를 올바르게 입력해 주세요.'); return }
     if (!password) { setError('비밀번호를 입력해 주세요.'); return }
-    setError('')
-    setStep(2)
-  }
-
-  async function handleIssue() {
-    if (otpCode.length !== 6) { setError('OTP 6자리를 입력해 주세요.'); return }
+    if (certPin.length < 8) { setError('인증서 암호는 8자 이상 입력해 주세요.'); return }
+    if (certPin !== certPinConfirm) { setError('인증서 암호가 일치하지 않습니다.'); return }
     setError(''); setLoading(true)
     try {
       const { data: res } = await api.post('/api/v1/auth/cert/issue', {
         loginId: userId,
         password,
         certType: 'CERT_COMMON',
+        certPin,
       })
       const cert = res.data
       // 발급된 인증서를 localStorage에 저장해 로그인 모달에서 사용
@@ -98,61 +93,72 @@ export default function JointCertIssuePage() {
 
         {/* 단계 표시 */}
         <div className="flex items-center gap-0">
-          {STEPS.map((label, i) => {
-            const stepNum = i + 1
-            const isActive = stepNum === step
-            const isDone = stepNum < step
-            return (
-              <div key={i} className="flex items-center">
-                <div className={`flex items-center justify-center rounded-full text-[11px] font-bold border-2 px-3 h-7
-                  ${isActive ? 'bg-[#0D5C47] border-[#0D5C47] text-white'
-                  : isDone ? 'bg-white border-[#0D5C47] text-[#0D5C47]'
-                  : 'border-gray-300 text-gray-400'}`}
-                >
-                  {label}
-                </div>
-                {i < STEPS.length - 1 && <div className="w-6 h-px bg-gray-300 mx-1" />}
+          {STEPS.map((label, i) => (
+            <div key={i} className="flex items-center">
+              <div className={`flex items-center justify-center rounded-full text-[11px] font-bold border-2 px-3 h-7
+                ${i === 0 && !issuedCert ? 'bg-[#0D5C47] border-[#0D5C47] text-white'
+                : i === 1 && issuedCert ? 'bg-[#0D5C47] border-[#0D5C47] text-white'
+                : 'border-gray-300 text-gray-400'}`}
+              >
+                {label}
               </div>
-            )
-          })}
+              {i < STEPS.length - 1 && <div className="w-6 h-px bg-gray-300 mx-1" />}
+            </div>
+          ))}
         </div>
 
         {/* 약관동의 섹션 */}
         <section>
           <h3 className="text-[15px] font-bold text-kb-text mb-3">약관동의 및 사용자 본인 확인</h3>
 
-          {/* 전체약관보기 */}
-          <div
-            onClick={toggleAll}
-            className="flex items-center justify-between px-4 py-3 border border-kb-border bg-gray-50 cursor-pointer hover:bg-kb-beige-light mb-1"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-[#0D5C47] font-bold">✓</span>
-              <span className="text-[13px] font-bold text-kb-text">전체약관보기</span>
-            </div>
-            <span className="text-kb-text-muted">&gt;</span>
-          </div>
-
-          {/* 개별 약관 */}
-          <div className="border border-kb-border divide-y divide-kb-border">
-            {TERMS.map((term, i) => (
-              <div
-                key={term.label}
-                className="flex items-center justify-between px-4 py-3 hover:bg-kb-beige-light cursor-pointer"
-                onClick={() => toggleOne(i)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`font-bold text-[13px] ${checked[i] ? 'text-[#0D5C47]' : 'text-gray-300'}`}>✓</span>
-                  {term.required && (
-                    <span className="text-[11px] text-[#0D5C47] font-semibold">[필수]</span>
-                  )}
-                  <span className="text-[13px] text-kb-text-body">{term.label}</span>
+          <div className="border border-kb-border">
+            {/* 전체약관보기 */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-[#F0FAF7]">
+              <button className="flex items-center gap-3 flex-1 text-left" onClick={toggleAll}>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-[#0D5C47]' : 'border-kb-border'}`}
+                  style={allChecked ? { backgroundColor: '#0D5C47' } : {}}>
+                  {allChecked && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
-                <span className="text-kb-text-muted">&gt;</span>
+                <span className="text-[14px] font-bold text-kb-text">전체약관보기</span>
+              </button>
+              <button onClick={() => setTermModalIndex(0)}
+                className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0">
+                약관보기 ›
+              </button>
+            </div>
+
+            {/* 개별 약관 */}
+            {CERT_TERMS.map((term, i) => (
+              <div key={i} className="flex items-center justify-between px-5 py-4 border-b border-kb-border last:border-b-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button onClick={() => toggleOne(i)}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-[#0D5C47]' : 'border-kb-border'}`}
+                    style={checked[i] ? { backgroundColor: '#0D5C47' } : {}}>
+                    {checked[i] && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </button>
+                  <span className="text-[13px] text-kb-text-muted whitespace-pre-line">
+                    <span className="font-semibold mr-1" style={{ color: '#0D5C47' }}>[필수]</span>
+                    {term.label}
+                  </span>
+                </div>
+                <button onClick={() => setTermModalIndex(i)}
+                  className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0 ml-3">
+                  약관보기 ›
+                </button>
               </div>
             ))}
           </div>
         </section>
+
+        {/* 약관 모달 */}
+        {termModalIndex !== null && (
+          <CertTermsModal
+            termIndex={termModalIndex}
+            onClose={() => setTermModalIndex(null)}
+            onAgreeOne={(i) => { agreeOne(i); setTermModalIndex(i) }}
+            onAgreeAll={agreeAll}
+          />
+        )}
 
         {/* 사용자 본인확인 섹션 */}
         <section className="border border-kb-border p-6 space-y-4">
@@ -167,7 +173,7 @@ export default function JointCertIssuePage() {
               onChange={(e) => setUserId(e.target.value)}
               className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-blue-400"
             />
-            <Link href="/customer/id-inquiry" className="text-[12px] text-[#0D5C47] hover:underline">
+            <Link href="/support/customer-info/id-password" className="text-[12px] text-[#0D5C47] hover:underline">
               ID를 모르시는 경우↗
             </Link>
           </div>
@@ -192,10 +198,6 @@ export default function JointCertIssuePage() {
                 className="border border-kb-border px-2 py-1.5 text-[13px] w-24 outline-none focus:border-blue-400"
               />
             </div>
-            <label className="flex items-center gap-1 text-[12px] text-kb-text-body cursor-pointer">
-              <input type="checkbox" className="w-3.5 h-3.5" />
-              마우스로 입력
-            </label>
           </div>
           <p className="text-[11px] text-kb-text-muted pl-[108px]">
             ① 숫자만 입력하실 수 있으며, 붙여넣기는 지원되지 않습니다.
@@ -216,6 +218,31 @@ export default function JointCertIssuePage() {
               className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-[#0D5C47]"
             />
           </div>
+
+          {/* 인증서 암호 */}
+          <div className="flex items-center gap-3">
+            <label className="w-24 text-[13px] text-kb-text-body text-right flex-shrink-0">인증서 암호</label>
+            <input
+              type="password"
+              value={certPin}
+              onChange={(e) => setCertPin(e.target.value)}
+              placeholder="8자 이상"
+              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-[#0D5C47]"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="w-24 text-[13px] text-kb-text-body text-right flex-shrink-0">암호 확인</label>
+            <input
+              type="password"
+              value={certPinConfirm}
+              onChange={(e) => setCertPinConfirm(e.target.value)}
+              placeholder="인증서 암호 재입력"
+              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-[#0D5C47]"
+            />
+          </div>
+          <p className="text-[11px] text-kb-text-muted pl-[108px]">
+            인증서 암호는 로그인 비밀번호와 다르게 설정하시고 주기적으로 변경하시기 바랍니다.
+          </p>
 
           {error && <p className="text-[12px] text-red-500 pl-[108px]">{error}</p>}
 
@@ -268,19 +295,6 @@ export default function JointCertIssuePage() {
                   인증서 관리
                 </Link>
               </>
-            ) : step === 1 ? (
-              <>
-                <button
-                  onClick={handleNextStep}
-                  className="px-8 py-2.5 text-[13px] font-bold text-white hover:opacity-90"
-                  style={{ backgroundColor: '#0D5C47' }}
-                >
-                  다음
-                </button>
-                <Link href="/cert" className="px-8 py-2.5 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-beige-light flex items-center">
-                  취소
-                </Link>
-              </>
             ) : (
               <>
                 <button
@@ -289,43 +303,16 @@ export default function JointCertIssuePage() {
                   className="px-8 py-2.5 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: '#0D5C47' }}
                 >
-                  {loading ? '발급 중...' : '인증서 발급'}
+                  {loading ? '발급 중...' : '약관 동의/본인확인'}
                 </button>
-                <button
-                  onClick={() => { setStep(1); setError(''); setOtpCode('') }}
-                  className="px-8 py-2.5 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-beige-light"
-                >
-                  이전
-                </button>
+                <Link href="/cert" className="px-8 py-2.5 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-beige-light flex items-center">
+                  취소
+                </Link>
               </>
             )}
           </div>
         </section>
 
-        {/* OTP 인증 섹션 (step 2) */}
-        {step === 2 && !issuedCert && (
-          <section className="border border-kb-border p-6 space-y-4">
-            <h3 className="text-[15px] font-bold text-kb-text border-b border-kb-border pb-3">OTP 인증</h3>
-            <p className="text-[13px] text-kb-text-body">
-              OTP 단말기에 표시된 6자리 숫자를 입력해 주세요.
-            </p>
-            <div className="flex items-center gap-3">
-              <label className="w-24 text-[13px] text-kb-text-body text-right flex-shrink-0">OTP 번호</label>
-              <input
-                type="text"
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                onKeyDown={(e) => e.key === 'Enter' && handleIssue()}
-                placeholder="6자리 입력"
-                className="border border-kb-border px-2 py-1.5 text-[13px] w-32 outline-none focus:border-[#0D5C47] tracking-widest text-center"
-              />
-            </div>
-            <p className="text-[11px] text-kb-text-muted pl-[108px]">
-              OTP 단말기가 없는 경우 AXful인증서로 발급받으실 수 있습니다.
-            </p>
-          </section>
-        )}
 
     </main>
     </div>
