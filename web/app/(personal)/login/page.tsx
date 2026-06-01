@@ -604,6 +604,10 @@ function IdLoginTab() {
     }
     setError('')
     setLoading(true)
+    // 만료된 토큰이 Authorization 헤더에 실려 백엔드가 거부하는 것을 방지
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('sessionExpiry')
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
       localStorage.removeItem('sessionExpiry')

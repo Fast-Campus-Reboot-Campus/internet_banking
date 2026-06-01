@@ -55,10 +55,10 @@ export const GNB_MENUS = [
   {
     id: 'products',
     label: '금융상품',
-    href: '/products/loan',
+    href: '/products/deposit/list',
     megaMenu: [
       {
-        title: '예금 상품/가입',
+        title: '예금',
         href: '/products/deposit/list',
         items: [
           { label: '예금 상품/가입',    href: '/products/deposit/list' },
@@ -69,14 +69,12 @@ export const GNB_MENUS = [
         ],
       },
       {
-        title: '대출 상품/신청',
+        title: '대출',
         href: '/products/loan/credit',
         items: [
-          { label: '대출 상품/신청',               href: '/products/loan/credit' },
-          { label: '대출진행현황',                href: '/products/loan/status' },
-          { label: '대출관리',                    href: '/products/loan/manage/rate' },
-          { label: '대출 가이드',                 href: '/products/loan/guide/rate' },
-          { label: '신용평가 및 여신심사 자료제출', href: '/products/loan/credit-eval/biz-plan' },
+          { label: '대출 상품/신청', href: '/products/loan/credit' },
+          { label: '대출진행현황',  href: '/products/loan/status' },
+          { label: '대출관리',      href: '/products/loan/manage/rate' },
         ],
       },
     ],
@@ -154,7 +152,7 @@ export default function Header() {
     const expiry = stored ? parseInt(stored) : Date.now() + SESSION_SECONDS * 1000
     if (!stored) localStorage.setItem('sessionExpiry', String(expiry))
 
-    let seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
+    const seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
     setRemaining(seconds)
 
     const tick = setInterval(() => {
