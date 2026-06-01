@@ -41,6 +41,41 @@ public class ShadowResultRepository {
               AND created_at <  CAST(:to   AS TIMESTAMP WITH TIME ZONE)
             """;
 
+    private static final String TOTAL_COUNT_SQL = """
+            SELECT COUNT(*) FROM shadow_run_result
+            WHERE created_at >= CAST(:from AS TIMESTAMP WITH TIME ZONE)
+              AND created_at <  CAST(:to   AS TIMESTAMP WITH TIME ZONE)
+            """;
+
+    /**
+     * 기간 내 일치율 = (total - diverged) / total.
+     * total=0 이면 1.0 반환 (데이터 없음 → 게이트 단계에서 INSUFFICIENT_DATA 처리).
+     */
+    private static final String AGREEMENT_RATE_SQL = """
+            SELECT CASE WHEN COUNT(*) = 0 THEN 1.0
+                        ELSE CAST(COUNT(*) FILTER (WHERE NOT diverged) AS DOUBLE PRECISION)
+                             / COUNT(*)
+                   END
+            FROM shadow_run_result
+            WHERE created_at >= CAST(:from AS TIMESTAMP WITH TIME ZONE)
+              AND created_at <  CAST(:to   AS TIMESTAMP WITH TIME ZONE)
+            """;
+
+    /**
+     * citation 누락률 = POLICY_FLAG_DIFF 발생 건수 / rag_enabled=true 건수.
+     * rag_enabled 건수=0 이면 0.0 반환.
+     */
+    private static final String CITATION_MISS_RATE_SQL = """
+            SELECT CASE WHEN COUNT(*) FILTER (WHERE rag_enabled) = 0 THEN 0.0
+                        ELSE CAST(COUNT(*) FILTER (WHERE rag_enabled
+                                  AND diverge_reasons LIKE '%POLICY_FLAG_DIFF%') AS DOUBLE PRECISION)
+                             / COUNT(*) FILTER (WHERE rag_enabled)
+                   END
+            FROM shadow_run_result
+            WHERE created_at >= CAST(:from AS TIMESTAMP WITH TIME ZONE)
+              AND created_at <  CAST(:to   AS TIMESTAMP WITH TIME ZONE)
+            """;
+
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
 
@@ -81,6 +116,44 @@ public class ShadowResultRepository {
                        "to",   to.plusDays(1).atStartOfDay().toString()),
                 Integer.class);
         return count != null ? count : 0;
+    }
+
+    /** 기간 내 shadow_run_result 총 건수 (게이트 판정용). */
+    public int totalCount(LocalDate from, LocalDate to) {
+        Integer count = jdbc.queryForObject(
+                TOTAL_COUNT_SQL,
+                Map.of("from", from.atStartOfDay().toString(),
+                       "to",   to.plusDays(1).atStartOfDay().toString()),
+                Integer.class);
+        return count != null ? count : 0;
+    }
+
+    /**
+     * 기간 내 shadow 일치율 (E4-4 게이트용).
+     *
+     * @return (1 - diverged/total). total=0 이면 1.0.
+     */
+    public double agreementRate(LocalDate from, LocalDate to) {
+        Double rate = jdbc.queryForObject(
+                AGREEMENT_RATE_SQL,
+                Map.of("from", from.atStartOfDay().toString(),
+                       "to",   to.plusDays(1).atStartOfDay().toString()),
+                Double.class);
+        return rate != null ? rate : 1.0;
+    }
+
+    /**
+     * 기간 내 citation 누락률 (E4-4 게이트용).
+     *
+     * @return POLICY_FLAG_DIFF 건수 / rag_enabled 건수. rag_enabled 건수=0 이면 0.0.
+     */
+    public double citationMissRate(LocalDate from, LocalDate to) {
+        Double rate = jdbc.queryForObject(
+                CITATION_MISS_RATE_SQL,
+                Map.of("from", from.atStartOfDay().toString(),
+                       "to",   to.plusDays(1).atStartOfDay().toString()),
+                Double.class);
+        return rate != null ? rate : 0.0;
     }
 
     // ─────────────────────────────────────────────────────────────────────

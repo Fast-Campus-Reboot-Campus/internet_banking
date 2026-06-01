@@ -223,4 +223,20 @@ public class AgentMetricsRecorder {
                 .register(registry)
                 .record(count);
     }
+
+    // ── Canary 라우팅 ─────────────────────────────────────────────────────────
+
+    /**
+     * Canary 라우팅 기록 — backend={es|inline}.
+     *
+     * <p>메트릭: {@code ai.canary.routed.total{backend}}
+     *
+     * @param backend "es" 또는 "inline"
+     */
+    public void recordCanaryRouted(String backend) {
+        Counter.builder("ai.canary.routed.total")
+                .tag("backend", backend)
+                .register(registry)
+                .increment();
+    }
 }

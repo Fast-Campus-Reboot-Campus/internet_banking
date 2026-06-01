@@ -6,8 +6,11 @@ import com.bank.ai.rag.search.Chunk;
 import com.bank.ai.rag.search.RagSearchBackend;
 import com.bank.ai.rag.search.RagSearchProperties;
 import com.bank.ai.rule.domain.Track;
+import com.bank.ai.shadow.canary.CanaryRouter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -20,6 +23,9 @@ import java.util.List;
  * {@link AgentLoopGuard} 양쪽이 소진되면 현재까지 수집된 청크를 반환 (partial result).
  *
  * <p>{@code ai.rag.enabled=false} 시 즉시 빈 리스트 반환 — kill switch.
+ *
+ * <p>{@code ai.canary.enabled=true} 시 {@link CanaryRouter} 가 optional 주입되어 per-request 분기.
+ * canary 가 "inline" 을 선택하면 RAG 없이 빈 리스트 반환 — inline fallback 경로로 처리.
  *
  * <p>D2: 정책 코퍼스(policy_regulation) 1회 검색. D3 에서 similar_cases 검색 추가.
  */
@@ -34,6 +40,11 @@ public class RagRetrievalService {
     private final RagSearchProperties searchProps;
     private final RagProperties ragProps;
 
+    /** Canary 활성 시에만 주입 — null 이면 static 설정(ragProps.enabled) 으로만 판단. */
+    @Nullable
+    @Autowired(required = false)
+    private CanaryRouter canaryRouter;
+
     /**
      * AgentLoopGuard 통합 정책 코퍼스 검색.
      *
@@ -47,6 +58,12 @@ public class RagRetrievalService {
      */
     public List<Chunk> retrieve(Track track, String policyQuery, AgentLoopGuard guard) {
         if (!ragProps.enabled()) {
+            return List.of();
+        }
+
+        // Canary 라우팅: canaryRouter 가 있으면 per-request 분기
+        if (canaryRouter != null && !canaryRouter.shouldUseEs()) {
+            log.debug("RagRetrievalService: [Canary] inline 경로 — RAG skip track={}", track);
             return List.of();
         }
 

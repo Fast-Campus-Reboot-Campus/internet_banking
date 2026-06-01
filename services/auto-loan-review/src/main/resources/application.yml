@@ -110,6 +110,18 @@ ai:
     timeout-seconds: 45
     rag-backend: ${AI_SHADOW_RAG_BACKEND:inline}   # shadow run 이 사용할 RAG 백엔드 (inline / es)
 
+  # ---- E4-4: Canary 라우팅 (shadow → canary → full 단계 전환) ----
+  # 단계별 절차:
+  #   1. shadow 100% 검증 (현재): AI_SHADOW_ENABLED=true
+  #   2. canary  5%: AI_CANARY_ENABLED=true  AI_CANARY_ES_WEIGHT=5   (48h 후 게이트 통과 시)
+  #   3. canary 25%: AI_CANARY_ENABLED=true  AI_CANARY_ES_WEIGHT=25  (48h 후 게이트 통과 시)
+  #   4. full  100%: AI_CANARY_ENABLED=true  AI_CANARY_ES_WEIGHT=100
+  # 게이트 기준: agreementRate ≥ 0.95, citationMissRate ≤ 0.05, p99 search < 500ms, p99 report < 8s
+  canary:
+    enabled: ${AI_CANARY_ENABLED:false}       # Canary 라우팅 활성 (CanaryRouter 빈 등록)
+    es-weight: ${AI_CANARY_ES_WEIGHT:5}       # ES 경로 라우팅 비율 0~100 (5 = 5%)
+    min-shadow-runs: ${AI_CANARY_MIN_SHADOW_RUNS:100}  # 게이트 판정 최소 shadow 건수
+
   # ---- 사전 심사 에이전트 (pre-review-agent-plan.md) ----
   agent:
     enabled: ${AI_AGENT_ENABLED:true}         # kill switch — false 시 AGENT_DISABLED fallback
