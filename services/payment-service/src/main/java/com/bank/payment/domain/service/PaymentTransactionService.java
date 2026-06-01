@@ -710,6 +710,31 @@ public class PaymentTransactionService {
         statusHistoryMapper.insert(history);
     }
 
+    /**
+     * 사용자 예약취소. SCHEDULED→CANCELED + SCHEDULED_CANCELED 이력.
+     * claim 과 대칭: WHERE status='SCHEDULED' AND version=? 조건부 UPDATE.
+     * affected=0 = 그새 claim 되거나 이미 취소됨 → PaymentCancelConflictException(409).
+     */
+    @Transactional
+    public void cancelScheduled(String piId, Integer version, String reason) {
+        LocalDateTime now = LocalDateTime.now();
+
+        int updated = paymentInstructionMapper.cancelScheduledForUser(piId, version);
+        if (updated == 0) {
+            throw new com.bank.payment.common.exception.PaymentCancelConflictException(
+                    "SCHEDULED 상태 전이 충돌(claim 경합 또는 이미 취소): " + piId);
+        }
+
+        Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
+        int seq = (maxSeq == null ? 0 : maxSeq) + 1;
+        StatusHistory history = StatusHistory.of(
+                idGenerator.nextHistoryId(), piId, seq,
+                "SCHEDULED", "CANCELED", "SCHEDULED_CANCELED", "USER",
+                null, reason,
+                now);
+        statusHistoryMapper.insert(history);
+    }
+
     /** AUTHORIZED→PROCESSING 전이: updateStatus(낙관락) + PROCESSING_STARTED 이력. txStep4 3종 공용. */
     private void markProcessing(String piId, int version, LocalDateTime now) {
         int updated = paymentInstructionMapper.updateStatus(piId, "PROCESSING", null, null, version);
