@@ -1,6 +1,8 @@
 package com.bank.loan.commonsync.service;
 
 import com.bank.loan.commonsync.outbox.CommonSyncOutboxAppender;
+import com.bank.loan.contract.domain.LoanContract;
+import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.repository.LoanProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class CommonSyncBackfillService {
     public static final int DEFAULT_PAGE_SIZE = 500;
 
     private final LoanProductRepository loanProductRepository;
+    private final LoanContractRepository loanContractRepository;
     private final CommonSyncOutboxAppender appender;
 
     /**
@@ -52,6 +55,33 @@ public class CommonSyncBackfillService {
             }
         }
         log.info("[common-sync-backfill] PRODUCT enqueued={}/{}", enqueued, unsynced.size());
+        return enqueued;
+    }
+
+    /**
+     * ACTIVE/CLOSED 상태이면서 contractId 가 null 인 (common_contract 미동기화) 계약을
+     * pageSize 건씩 픽업해 outbox 적재.
+     * SIGNED 는 아직 ACTIVE 전이 전이므로 대상 제외.
+     *
+     * @return 이번 호출에서 새로 적재된 outbox 건수
+     */
+    public int backfillContracts(int pageSize) {
+        List<LoanContract> unsynced = loanContractRepository
+                .findByContractIdIsNullAndCntrStatusCdInAndDeletedAtIsNullOrderByCntrIdAsc(
+                        List.of(LoanContract.STATUS_ACTIVE, LoanContract.STATUS_CLOSED),
+                        PageRequest.of(0, pageSize));
+
+        int enqueued = 0;
+        for (LoanContract c : unsynced) {
+            try {
+                appender.enqueueContractInCurrentTx(c);
+                enqueued++;
+            } catch (RuntimeException e) {
+                log.warn("[common-sync-backfill] CONTRACT cntrId={} skipped: {}",
+                        c.getCntrId(), e.getMessage());
+            }
+        }
+        log.info("[common-sync-backfill] CONTRACT enqueued={}/{}", enqueued, unsynced.size());
         return enqueued;
     }
 }

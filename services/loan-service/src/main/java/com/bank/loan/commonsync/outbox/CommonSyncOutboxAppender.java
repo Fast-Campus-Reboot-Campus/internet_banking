@@ -1,6 +1,8 @@
 package com.bank.loan.commonsync.outbox;
 
+import com.bank.loan.commonsync.dto.ContractSyncPayload;
 import com.bank.loan.commonsync.dto.ProductSyncPayload;
+import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.product.domain.LoanProduct;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,7 +22,7 @@ import java.time.OffsetDateTime;
  *
  * 트랜잭션:
  *   enqueueXxxInCurrentTx — REQUIRED (호출자 트랜잭션 참여, 도메인 저장과 원자적).
- *   백필 배치는 트랜잭션 없이 호출 → 각 enqueueProductInCurrentTx 가 자체 tx 시작 (행 단위 격리).
+ *   백필 배치는 트랜잭션 없이 호출 → 각 enqueueXxxInCurrentTx 가 자체 tx 시작 (행 단위 격리).
  *
  * 멱등:
  *   idempotencyKey = "TARGET_TYPE:sourceId" (common_sync_outbox.idempotency_key UNIQUE 제약).
@@ -55,6 +57,28 @@ public class CommonSyncOutboxAppender {
                 payload,
                 key));
         log.debug("[common-sync-appender] enqueued PRODUCT prodId={} key={}", product.getProdId(), key);
+    }
+
+    /**
+     * 계약 ACTIVE 전이(최초 인출 COMPLETED) 시 도메인 트랜잭션 내에서 호출.
+     * 디스패처가 common_contract upsert 후 LoanContract.contractId 를 백필한다.
+     * 이미 outbox 가 존재하면 skip.
+     */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void enqueueContractInCurrentTx(LoanContract contract) {
+        String key = idempotencyKey(CommonSyncOutbox.TARGET_CONTRACT, contract.getCntrId());
+        if (repository.findByIdempotencyKeyAndDeletedAtIsNull(key).isPresent()) {
+            log.debug("[common-sync-appender] skip duplicate key={}", key);
+            return;
+        }
+        String payload = serializeContractPayload(contract);
+        repository.save(buildOutbox(
+                CommonSyncOutbox.TARGET_CONTRACT,
+                contract.getCntrId(),
+                contract.getCntrNo(),
+                payload,
+                key));
+        log.debug("[common-sync-appender] enqueued CONTRACT cntrId={} key={}", contract.getCntrId(), key);
     }
 
     // -------------------------------------------------------------------------
@@ -100,6 +124,42 @@ public class CommonSyncOutboxAppender {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(
                     "ProductSyncPayload 직렬화 실패: prodId=" + p.getProdId(), e);
+        }
+    }
+
+    private String serializeContractPayload(LoanContract c) {
+        try {
+            // LoanContract 에 없는 필드(customerNo, autoTransferYn 등)는 null 처리.
+            // CommonContract 는 해당 컬럼이 nullable.
+            ContractSyncPayload payload = new ContractSyncPayload(
+                    c.getCntrNo(),
+                    c.getCustomerId(),
+                    null,                       // customerNo — loan_contract 미보유
+                    c.getProdId(),
+                    BIZ_DIV_LOAN,
+                    c.getContractedAmount(),
+                    c.getRateTypeCd(),
+                    c.getBaseRateBps(),
+                    c.getSpreadBps(),
+                    c.getPreferentialRateBps(),
+                    c.getTotalRateBps(),
+                    c.getCntrStartDate(),
+                    c.getCntrEndDate(),
+                    null,                       // autoTransferYn
+                    null,                       // autoTransferDay
+                    c.getSignedAt(),
+                    null,                       // cntrChannelCd
+                    null,                       // spotId
+                    null,                       // spotName
+                    null,                       // managerId
+                    null,                       // managerName
+                    null,                       // proxyYn
+                    c.getCntrStatusCd()
+            );
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(
+                    "ContractSyncPayload 직렬화 실패: cntrId=" + c.getCntrId(), e);
         }
     }
 }

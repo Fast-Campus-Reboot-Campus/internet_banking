@@ -19,6 +19,7 @@ import com.bank.loan.notification.channel.KafkaChannelAdapter;
 import com.bank.loan.notification.channel.StubEmailAdapter;
 import com.bank.loan.notification.channel.StubKakaoAdapter;
 import com.bank.loan.notification.channel.StubSmsAdapter;
+import com.bank.loan.commonsync.outbox.CommonSyncOutboxAppender;
 import com.bank.loan.notification.outbox.NotificationOutboxAppender;
 import com.bank.loan.payment.SystemAccountProvider;
 import com.bank.loan.payment.client.PaymentServiceClient;
@@ -71,6 +72,7 @@ public class LoanExecutionService {
     private final GuaranteeInsuranceRepository guaranteeInsuranceRepository;
     private final RepaymentScheduleService repaymentScheduleService;
     private final NotificationOutboxAppender outboxAppender;
+    private final CommonSyncOutboxAppender commonSyncOutboxAppender;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final CryptoService cryptoService;
@@ -172,6 +174,10 @@ public class LoanExecutionService {
                         currentActor.currentActorId()
                 ));
                 repaymentScheduleService.generateForFirstDrawdown(contract);
+
+                // 계약 ACTIVE 전이와 동일 트랜잭션에서 common_sync_outbox 적재 (outbox 패턴).
+                // 디스패처가 common_contract upsert + loan_contract.contract_id 백필을 비동기 처리.
+                commonSyncOutboxAppender.enqueueContractInCurrentTx(contract);
 
                 String payload = String.format(
                         "{\"cntrId\":%d,\"cntrNo\":\"%s\",\"customerId\":%d,\"executedAmount\":%d}",

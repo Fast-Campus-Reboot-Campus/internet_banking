@@ -50,4 +50,15 @@ public class CommonSyncDispatchController {
             @RequestParam(defaultValue = "500") @Min(1) int pageSize) {
         return ApiResponse.ok(backfillService.backfillProducts(pageSize));
     }
+
+    @Operation(summary = "계약 common_db 백필",
+            description = "ACTIVE/CLOSED 상태이면서 loan_contract.contract_id 가 null 인 " +
+                          "(common_contract 미동기화) 계약을 pageSize 건 픽업해 common_sync_outbox 에 적재한다. " +
+                          "SIGNED 계약은 대상 외 (아직 ACTIVE 전이 전). " +
+                          "적재 후 /dispatch 를 호출해야 실제 동기화가 진행된다.")
+    @PostMapping("/backfill/contracts")
+    public ApiResponse<Integer> backfillContracts(
+            @RequestParam(defaultValue = "500") @Min(1) int pageSize) {
+        return ApiResponse.ok(backfillService.backfillContracts(pageSize));
+    }
 }
