@@ -91,7 +91,7 @@ class EsDownFallbackSmokeTest {
     void setUp() throws IOException {
         when(autoReviewService.review(any())).thenReturn(TRACK1_INFERENCE);
         doThrow(new IOException("Connection refused — ES 다운 시뮬레이션"))
-                .when(elasticsearchClient).search(any(), any());
+                .when(elasticsearchClient).search(any(co.elastic.clients.elasticsearch.core.SearchRequest.class), any());
     }
 
     @AfterEach
