@@ -14,4 +14,7 @@ public interface CommonSyncOutboxRepository extends JpaRepository<CommonSyncOutb
             List<String> statuses, OffsetDateTime now, Pageable pageable);
 
     Optional<CommonSyncOutbox> findByOutboxIdAndDeletedAtIsNull(Long outboxId);
+
+    /** 멱등 키 중복 체크 — 적재 전 appender 가 호출. */
+    Optional<CommonSyncOutbox> findByIdempotencyKeyAndDeletedAtIsNull(String idempotencyKey);
 }
