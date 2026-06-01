@@ -280,7 +280,7 @@ export default function AccountsPage() {
                   open={regularSavingsOpen} onToggle={() => setRegularSavingsOpen(v => !v)} />
                 {regularSavingsOpen && (
                   regularSavingsAccounts.length === 0
-                    ? <EmptyState message="가입된 정기적금 계좌가 없습니다." subMessage="매월 일정액을 납입하는 정기적금을 시작해보세요." />
+                    ? <EmptyState message="가입된 정기적금 계좌가 없습니다." subMessage="매월 일정액을 납입하는 정기적금을 시작해보세요." actionHref="/products/deposit/list?tab=정기적금" actionLabel="가입하기" />
                     : regularSavingsAccounts.map(account =>
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
@@ -302,7 +302,7 @@ export default function AccountsPage() {
                   open={freeSavingsOpen} onToggle={() => setFreeSavingsOpen(v => !v)} />
                 {freeSavingsOpen && (
                   freeSavingsAccounts.length === 0
-                    ? <EmptyState message="가입된 자유적금 계좌가 없습니다." subMessage="목돈 마련의 첫걸음, 자유적금을 시작해보세요." />
+                    ? <EmptyState message="가입된 자유적금 계좌가 없습니다." subMessage="목돈 마련의 첫걸음, 자유적금을 시작해보세요." actionHref="/products/deposit/list?tab=자유적금" actionLabel="가입하기" />
                     : freeSavingsAccounts.map(account =>
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
