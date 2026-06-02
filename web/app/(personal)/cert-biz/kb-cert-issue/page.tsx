@@ -148,7 +148,7 @@ export default function KBCertBizIssuePage() {
           <div className="mb-5">
             <h2 className="text-base font-bold text-kb-text">AXful인증서(기업) 통합용</h2>
             <p className="text-sm text-kb-text-muted mt-0.5">
-              AX풀뱅크 인터넷뱅킹 Master ID와 연결되는 인증서입니다.
+              AXful Bank 인터넷뱅킹 Master ID와 연결되는 인증서입니다.
             </p>
           </div>
 

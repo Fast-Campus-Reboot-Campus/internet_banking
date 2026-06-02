@@ -111,6 +111,10 @@ public class ContractService {
                 .build());
 
         // 비밀번호 BCrypt 해시 처리 — 평문 저장 금지
+        boolean isCheckingAccount = product.getProductType() == ProductType.DEPOSIT
+                && product.getProductName() != null && product.getProductName().contains("통장");
+        BigDecimal initialBalance = isCheckingAccount ? joinAmount : BigDecimal.ZERO;
+
         accountRepository.save(Account.builder()
                 .accountNumber(accountNumber)
                 .customerId(customerId)
@@ -120,6 +124,8 @@ public class ContractService {
                 .openedAt(todayDate)
                 .maturityAt(maturityDate)
                 .accountPassword(passwordEncoder.encode(accountPassword))
+                .balance(initialBalance)
+                .totalPaidAmount(initialBalance)
                 .build());
 
         return contract;
@@ -134,6 +140,11 @@ public class ContractService {
 
     @Transactional
     public Contract terminate(Long id, String reason) {
+        return terminate(id, reason, null);
+    }
+
+    @Transactional
+    public Contract terminate(Long id, String reason, Long targetAccountId) {
         Contract contract = findById(id);
         if (contract.getContractStatus() != ContractStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.INVALID_STATUS, "활성 계약만 해지할 수 있습니다.");
@@ -165,10 +176,13 @@ public class ContractService {
                         .transactionSummary("해지 출금")
                         .build());
 
-                // 고객의 DEPOSIT 타입 입출금 계좌로 입금
+                // 고객의 입금 계좌로 입금 (targetAccountId 지정 시 해당 계좌, 없으면 첫 번째 입출금 계좌)
+                // 해지 중인 계좌(savingsAccount) 자신은 반드시 제외
                 accountRepository.findByCustomerIdAndAccountStatus(contract.getCustomerId(), AccountStatus.ACTIVE)
                         .stream()
+                        .filter(a -> !a.getAccountId().equals(savingsAccount.getAccountId()))
                         .filter(a -> a.getAccountType() == ProductType.DEPOSIT && Boolean.TRUE.equals(a.getIsWithdrawable()))
+                        .filter(a -> targetAccountId == null || a.getAccountId().equals(targetAccountId))
                         .findFirst()
                         .ifPresent(depositAccount -> {
                             BigDecimal depositBefore = depositAccount.getBalance();

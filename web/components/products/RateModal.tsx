@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 
@@ -174,7 +174,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
         <div className="flex items-center justify-between px-5 py-2 border-t border-kb-border bg-[#fafafa]">
           <span className="text-[12px] text-kb-text-muted flex items-center gap-1">
             <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4"><path d="M10 2L3 7v6c0 4 2.5 7 7 8 4.5-1 7-4 7-8V7L10 2z" fill="#5BC9A8"/></svg>
-            AX풀뱅크
+            AXful Bank
           </span>
           <button onClick={onClose}
             className="border border-kb-border px-6 py-1.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">

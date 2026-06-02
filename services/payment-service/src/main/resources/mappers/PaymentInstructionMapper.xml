@@ -190,6 +190,18 @@
            AND version              = #{version}
     </update>
 
+    <!-- 사용자 예약취소 전용 UPDATE. claim 과 대칭: status/version 가드 동일, CANCELED 전이. -->
+    <!-- next_timeout_at/next_retry_at/scheduled_execution_at 건드리지 않음(감사 보존). -->
+    <update id="cancelScheduledForUser">
+        UPDATE payment_instruction
+           SET status           = 'CANCELED',
+               version          = version + 1,
+               last_modified_at = now()
+         WHERE payment_instruction_id = #{paymentInstructionId}
+           AND status               = 'SCHEDULED'
+           AND version              = #{version}
+    </update>
+
     <!-- AUTHORIZED→SCHEDULED 전이. is_scheduled=true + scheduled_execution_at 세팅. 낙관락 포함. -->
     <update id="updateScheduled">
         UPDATE payment_instruction

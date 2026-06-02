@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
 import {
@@ -11,20 +10,8 @@ import {
 } from '@/lib/deposit-api'
 
 const MOCK_ROWS = [
-  {
-    date: '2024.10.16',
-    accountNo: '557315-2623671',
-    type: 'AXful 정기예금',
-    withdrawNo: '531089-04-274618',
-    amount: '1,000,000',
-  },
-  {
-    date: '2024.02.26',
-    accountNo: '557315-2588965',
-    type: 'AXful 정기예금',
-    withdrawNo: '531089-04-274618',
-    amount: '1,000,000',
-  },
+  { date: '2024.10.16', accountNo: '557315-2623671', type: 'AXful 정기예금', withdrawNo: '531089-04-274618', amount: '1,000,000' },
+  { date: '2024.02.26', accountNo: '557315-2588965', type: 'AXful 정기예금', withdrawNo: '531089-04-274618', amount: '1,000,000' },
 ]
 
 type NewHistoryRow = {
@@ -53,9 +40,8 @@ export default function DepositNewHistoryPage() {
           fetchDepositProducts(),
         ])
         if (cancelled) return
-
-        const accountByContractId = new Map(accounts.map(account => [account.contractId, account]))
-        const productById = new Map(products.map(product => [product.productId, product]))
+        const accountByContractId = new Map(accounts.map(a => [a.contractId, a]))
+        const productById = new Map(products.map(p => [p.productId, p]))
         const apiRows = contracts.map(contract => {
           const account = accountByContractId.get(contract.contractId)
           const product = productById.get(contract.productId)
@@ -72,64 +58,63 @@ export default function DepositNewHistoryPage() {
         setRows(MOCK_ROWS)
       }
     }
-
     loadRows()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   return (
-    <div className="max-w-kb-container mx-auto px-6 py-6">
-      {/* 브레드크럼 */}
-      <div className="flex justify-end mb-3 text-[12px] text-kb-text-muted gap-1 items-center">
-        <span>개인뱅킹</span><span>›</span>
-        <span>금융상품</span><span>›</span>
-        <span>예금</span><span>›</span>
-        <Link href="/products/deposit/inquiry/new" className="hover:underline">신규결과/내역 조회</Link>
-        <span>›</span>
-        <Link href="#" className="text-kb-blue hover:underline">도움말</Link>
-      </div>
-
-      <div className="flex gap-6">
+    <div className="max-w-kb-container mx-auto px-6">
+      <div className="flex">
         <DepositSidebar />
 
-        <main className="flex-1 min-w-0">
-          <h1 className="text-[20px] font-bold text-kb-text mb-5">신규결과/내역 조회</h1>
+        <main className="flex-1 pl-8 pt-6 pb-12">
+          <h1 className="text-[22px] font-bold text-kb-text mb-5">신규결과/내역 조회</h1>
 
-          {/* 안내 */}
-          <div className="border border-kb-border bg-[#FAFAFA] px-4 py-3 mb-5 text-[12px] text-kb-text-body space-y-1">
-            <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>예금 신규결과/내역입니다.</span></p>
-            <p className="flex gap-1.5"><span className="flex-shrink-0">-</span><span>AX풀뱅크 계좌형자주 가입현황은 &apos;재청·저주신규조회&apos; 화면에서 확인가능합니다.</span></p>
+          <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
+            style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+            <p className="flex gap-1.5 text-kb-text-muted">
+              <span className="flex-shrink-0">·</span>
+              <span>예금 신규결과/내역입니다.</span>
+            </p>
+            <p className="flex gap-1.5 text-kb-text-muted">
+              <span className="flex-shrink-0">·</span>
+              <span>AXful Bank 계좌형 가입현황은 &apos;재청·저주신규조회&apos; 화면에서 확인 가능합니다.</span>
+            </p>
           </div>
 
-          {/* 테이블 */}
-          <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text">
-            <thead>
-              <tr className="bg-kb-beige-light">
-                <th className="border border-kb-border px-3 py-3 font-semibold text-kb-text text-center">신규일자</th>
-                <th className="border border-kb-border px-3 py-3 font-semibold text-kb-text text-center">신규계좌번호</th>
-                <th className="border border-kb-border px-3 py-3 font-semibold text-kb-text text-center">신규계좌종류</th>
-                <th className="border border-kb-border px-3 py-3 font-semibold text-kb-text text-center">출금계좌번호</th>
-                <th className="border border-kb-border px-3 py-3 font-semibold text-kb-text text-center">신규금액</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={i} className="hover:bg-[#fafafa]">
-                  <td className="border border-kb-border px-3 py-3 text-center text-kb-text-body">{row.date}</td>
-                  <td className="border border-kb-border px-3 py-3 text-center text-kb-text-body">{row.accountNo}</td>
-                  <td className="border border-kb-border px-3 py-3 text-center text-kb-text-body">{row.type}</td>
-                  <td className="border border-kb-border px-3 py-3 text-center text-kb-text-body">{row.withdrawNo}</td>
-                  <td className="border border-kb-border px-3 py-3 text-right text-kb-text-body pr-4">{row.amount}</td>
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                  {['신규일자', '신규계좌번호', '신규계좌종류', '출금계좌번호', '신규금액'].map(h => (
+                    <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]"
+                      style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={i} className="border-b hover:bg-[#F8FFFE] transition-colors"
+                    style={{ borderColor: '#E2F5EF' }}>
+                    <td className="px-4 py-3.5 text-center text-kb-text">{row.date}</td>
+                    <td className="px-4 py-3.5 text-center font-medium" style={{ color: '#0D5C47' }}>{row.accountNo}</td>
+                    <td className="px-4 py-3.5 text-center text-kb-text">{row.type}</td>
+                    <td className="px-4 py-3.5 text-center text-kb-text-muted">{row.withdrawNo}</td>
+                    <td className="px-4 py-3.5 text-right font-semibold pr-5" style={{ color: '#0D5C47' }}>{row.amount}원</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          {/* 페이지네이션 */}
-          <div className="flex justify-center mt-4">
-            <button className="w-7 h-7 text-[12px] font-bold text-white flex items-center justify-center" style={{ backgroundColor: '#5BC9A8' }}>1</button>
+          <div className="flex justify-center mt-5">
+            <button
+              className="w-8 h-8 text-[13px] font-bold text-white rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: '#0D5C47' }}>
+              1
+            </button>
           </div>
         </main>
       </div>

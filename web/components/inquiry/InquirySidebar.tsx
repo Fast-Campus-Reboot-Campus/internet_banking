@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -12,16 +12,7 @@ const SIDEBAR_INQUIRY: SidebarItem[] = [
     label: '계좌조회',
     expandable: true,
     children: [
-      { label: 'AX풀뱅크 계좌조회', href: '/inquiry/accounts' },
-      { label: '다른금융 조회', href: '#' },
-      { label: 'AXful금융그룹통합 조회', href: '#' },
-      { label: '휴면계좌 조회', href: '#' },
-      { label: '전자통장 조회', href: '#' },
-      { label: '장기미거래신탁계좌 조회', href: '#' },
-      { label: '계좌종합관리 계좌조회', href: '#' },
-      { label: '착오송금 반환 동의', href: '#' },
-      { label: '오픈뱅킹 착오송금 반환 신청', href: '#' },
-      { label: '공채 본인부담금 조회', href: '#' },
+      { label: 'AXful Bank 계좌조회', href: '/inquiry/accounts' },
     ],
   },
   {
@@ -29,35 +20,8 @@ const SIDEBAR_INQUIRY: SidebarItem[] = [
     expandable: true,
     children: [
       { label: '거래내역 조회', href: '/inquiry/transactions' },
-      { label: '다른금융 통합거래내역조회', href: '#' },
     ],
   },
-  {
-    label: '전자어음 조회',
-    expandable: true,
-    children: [
-      { label: '전자어음 조회', href: '#' },
-      { label: '전자어음 발행조회', href: '#' },
-    ],
-  },
-  {
-    label: '에스크로 조회',
-    expandable: true,
-    children: [
-      { label: '에스크로 거래조회', href: '#' },
-      { label: '에스크로 입금확인', href: '#' },
-    ],
-  },
-  {
-    label: '수표어음 조회',
-    expandable: true,
-    children: [
-      { label: '수표조회', href: '#' },
-      { label: '어음조회', href: '#' },
-    ],
-  },
-  { label: '어카운트인포', href: '#' },
-  { label: '계약서류 관리', href: '#' },
 ]
 
 export default function InquirySidebar() {
@@ -81,34 +45,34 @@ export default function InquirySidebar() {
   }
 
   return (
-    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-base font-bold text-kb-text mb-3 px-1">조회</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2 bg-white">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: "#0D5C47" }}>조회</h2>
       <nav>
         {SIDEBAR_INQUIRY.map((item) => (
-          <div key={item.label}>
+          <div key={item.label} className="border-b border-kb-border last:border-b-0">
             {item.expandable ? (
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text"
+                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] rounded-sm transition-colors duration-150"
                 >
                   <span>{item.label}</span>
                   <span className="text-[10px] text-kb-text-muted">
-                    {openSections.has(item.label) ? '˄' : '˅'}
+                    {openSections.has(item.label) ? '▴' : '▾'}
                   </span>
                 </button>
                 {openSections.has(item.label) && item.children && (
-                  <ul className="mb-1">
+                  <ul className="mb-2 pl-1">
                     {item.children.map((child) => {
                       const active = child.href !== '#' && pathname.startsWith(child.href)
                       return (
                         <li key={child.label}>
                           <Link
                             href={child.href}
-                            className={`block px-3 py-1.5 text-[13px] ${
+                            className={`block py-1.5 text-[13px] transition-colors duration-150 ${
                               active
-                                ? 'bg-kb-yellow font-semibold text-kb-text'
-                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                                ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
+                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
                             }`}
                           >
                             {child.label}
@@ -122,7 +86,7 @@ export default function InquirySidebar() {
             ) : (
               <Link
                 href={item.href ?? '#'}
-                className="block px-2 py-2 text-[13px] text-kb-text-muted hover:text-kb-text"
+                className="block px-2 py-2.5 text-[13px] text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7] transition-colors duration-150"
               >
                 {item.label}
               </Link>

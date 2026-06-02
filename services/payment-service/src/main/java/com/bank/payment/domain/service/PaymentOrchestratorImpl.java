@@ -6,6 +6,7 @@ import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.common.exception.LedgerInsertFailureException;
 import com.bank.payment.common.exception.PaymentCancelConflictException;
 import com.bank.payment.common.exception.PaymentNotFoundException;
+import com.bank.payment.common.exception.PaymentUnauthorizedException;
 import com.bank.payment.common.exception.PaymentValidationException;
 import com.bank.payment.domain.BokSettlementTransaction;
 import com.bank.payment.domain.ExternalCall;
@@ -962,6 +963,30 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     }
 
     // ── F6-Ⅱ-2: 운영자 강제취소 ──────────────────────────────────────────────────
+
+    /**
+     * 사용자 예약취소. SCHEDULED→CANCELED + SCHEDULED_CANCELED 이력. 외부 API 없음.
+     * 권한(403) 체크 → 상태(409) 체크 순서로 남의 PI 상태 노출 방지.
+     */
+    @Override
+    public PaymentResult cancelScheduledPayment(String piId, String requesterUserId, String reason) {
+        PaymentInstruction freshPi = txService.selectById(piId);
+        if (freshPi == null) {
+            throw new PaymentNotFoundException(piId);
+        }
+
+        if (!requesterUserId.equals(freshPi.getSenderUserId())) {
+            throw new PaymentUnauthorizedException(piId);
+        }
+
+        if (!"SCHEDULED".equals(freshPi.getStatus())) {
+            throw new PaymentCancelConflictException(freshPi.getStatus());
+        }
+
+        txService.cancelScheduled(piId, freshPi.getVersion(), reason);
+
+        return new PaymentResult(piId, freshPi.getTransactionNo(), "CANCELED", null, null);
+    }
 
     /**
      * 운영자 강제취소. CLEARING 상태만 허용. CLEARING→REVERSING→FAILED + 역분개4건 + B-5 + CT REJECTED.

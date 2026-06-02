@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
@@ -9,7 +9,7 @@ const HERO_IMAGE = '/images/biz-hero1.png'
 const SLIDES = [
   {
     badge: 'AXful 기업금융',
-    title: '기업에 답이 필요할 때,\nAX풀뱅크와 함께 해결해볼까요?',
+    title: '기업에 답이 필요할 때,\nAXful Bank와 함께 해결해볼까요?',
     desc: '기업의 모든 순간, AXful이 있다.\nAXful 기업금융 영상을 소개합니다.',
   },
   {

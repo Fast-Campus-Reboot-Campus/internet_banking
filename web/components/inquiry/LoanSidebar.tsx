@@ -12,6 +12,7 @@ const NAV: SidebarItem[] = [
     label: '대출상품/신청',
     expandable: true,
     children: [
+      { label: '한도조회(가심사)',       href: '/products/loan/prescreening' },
       { label: '신용대출',             href: '/products/loan/credit' },
       { label: '담보대출',             href: '/products/loan/mortgage' },
       { label: '전월세/반환보증',       href: '/products/loan/jeonse' },
@@ -27,55 +28,25 @@ const NAV: SidebarItem[] = [
     children: [
       { label: '진행현황조회/실행/예약', href: '/products/loan/status' },
       { label: '사후서류제출',           href: '/products/loan/status/docs' },
-      { label: '배우자정보제공동의',     href: '/products/loan/status/spouse',     disabled: true },
-      { label: '세대원정보제공동의',     href: '/products/loan/status/household',  disabled: true },
-      { label: '제3자담보정보제공동의',   href: '/products/loan/status/collateral', disabled: true },
-      { label: '부동산담보대출 전자서명', href: '/products/loan/status/sign' },
+      { label: '전자서명 (약정 체결)',   href: '/products/loan/status/sign' },
+      { label: '대출 실행',             href: '/products/loan/status/execute' },
     ],
   },
   {
     label: '대출관리',
     expandable: true,
     children: [
-      { label: '적용금리조회',                         href: '/products/loan/manage/rate' },
-      { label: '이자/월부금입금',                       href: '/products/loan/manage/payment' },
-      { label: '대출금상환',                            href: '/products/loan/manage/repay' },
-      { label: '대출계약철회 예상조회/완제',             href: '/products/loan/manage/withdraw' },
-      { label: '대출한도변경/해지',                     href: '/products/loan/manage/limit' },
-      { label: '기한연장',                             href: '/products/loan/manage/extend' },
-      { label: '개인대출 금리인하요구권',               href: '/products/loan/manage/rate-cut' },
-      { label: '해지계좌조회',                         href: '/products/loan/manage/closed' },
-      { label: '금리산정내역서 조회',                   href: '/products/loan/manage/rate-detail' },
-      { label: '소멸시효완성에 따른 채무면제 결과조회', href: '/products/loan/manage/debt-relief' },
-      { label: '통장자동대출 이자납입내역 조회',         href: '/products/loan/manage/auto-interest' },
-      { label: '개인대출 통지서비스 변경',               href: '/products/loan/manage/notify' },
-      { label: '개인대출 할부금(이자) 납입방법 변경',   href: '/products/loan/manage/payment-method' },
-      { label: '연체정보조회',                           href: '/products/loan/manage/delinquency' },
+      { label: '내 대출 현황',            href: '/products/loan/my' },
+      { label: '적용금리조회',           href: '/products/loan/manage/rate' },
+      { label: '이자/월부금입금',         href: '/products/loan/manage/payment' },
+      { label: '대출금상환',             href: '/products/loan/manage/repay' },
+      { label: '대출계약철회/완제',       href: '/products/loan/manage/withdraw' },
+      { label: '기한연장',              href: '/products/loan/manage/extend' },
+      { label: '금리인하요구권',         href: '/products/loan/manage/rate-cut' },
+      { label: '연체정보조회',           href: '/products/loan/manage/delinquency' },
+      { label: '증명서 발급',            href: '/products/loan/manage/certificate' },
     ],
   },
-  {
-    label: '대출 가이드',
-    expandable: true,
-    children: [
-      { label: '가계대출금리',                          href: '/products/loan/guide/rate' },
-      { label: '대출관련 수수료',                       href: '/products/loan/guide/fee' },
-      { label: '금리인하요구권',                        href: '/products/loan/guide/rate-cut' },
-      { label: '대출연체시 지연배상금액 예시',           href: '/products/loan/guide/late-fee' },
-      { label: '부가서비스',                            href: '/products/loan/guide/benefits' },
-      { label: '내용증명 우편미수신 주요정보 안내',      href: '/products/loan/guide/notice' },
-      { label: '추심관련 권리의무 및 권리구제방법 안내', href: '/products/loan/guide/rights' },
-    ],
-  },
-  {
-    label: '신용평가 및 여신심사 자료제출',
-    expandable: true,
-    children: [
-      { label: '「업체현황 및 사업계획서」조회 및 작성',   href: '/products/loan/credit-eval/biz-plan' },
-      { label: '「FATI (재무 및 세무자료)」제출',         href: '/products/loan/credit-eval/fati-submit' },
-      { label: '「FATI (재무 및 세무자료)」제출내역조회', href: '/products/loan/credit-eval/fati-history' },
-    ],
-  },
-  { label: '🔒 인증센터', href: '/cert' },
 ]
 
 function getDefaultOpen(pathname: string): string[] {
@@ -117,12 +88,12 @@ export default function LoanSidebar() {
   }
 
   function isActive(href: string) {
-    return pathname === href || pathname.startsWith(href + '/')
+    return pathname === href
   }
 
   return (
-    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-base font-bold text-kb-text mb-3 px-1">대출</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: '#0D5C47' }}>대출</h2>
       <nav>
         {NAV.map((item) => (
           <div key={item.label}>
@@ -130,7 +101,7 @@ export default function LoanSidebar() {
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text hover:bg-kb-beige-light transition-colors"
+                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] transition-colors"
                 >
                   <span className="text-left leading-tight">{item.label}</span>
                   <span className="text-[11px] text-kb-text-muted ml-1 flex-shrink-0 font-bold">
@@ -148,10 +119,10 @@ export default function LoanSidebar() {
                         ) : (
                           <Link
                             href={child.href}
-                            className={`block pl-5 pr-2 py-1.5 text-[12px] leading-snug transition-colors ${
+                            className={`block py-1.5 text-[12px] leading-snug transition-colors ${
                               isActive(child.href)
-                                ? 'bg-kb-yellow font-semibold text-kb-text'
-                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                                ? 'pl-[17px] pr-2 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
+                                : 'pl-5 pr-2 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
                             }`}
                           >
                             {child.label}

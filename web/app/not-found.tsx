@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 
 export default function NotFound() {
   return (
@@ -10,7 +10,7 @@ export default function NotFound() {
             <div className="w-10 h-10 bg-kb-yellow rounded-sm flex items-center justify-center">
               <span className="text-[18px] font-black text-kb-text">AX</span>
             </div>
-            <span className="text-[20px] font-bold text-kb-text">AX풀뱅크</span>
+            <span className="text-[20px] font-bold text-kb-text">AXful Bank</span>
           </div>
         </div>
 
@@ -24,7 +24,7 @@ export default function NotFound() {
 
         <div className="flex justify-center gap-3">
           <Link
-            href="/personal"
+            href="/"
             className="px-8 py-3 bg-kb-yellow text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
           >
             홈으로 이동

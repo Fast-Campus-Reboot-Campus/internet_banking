@@ -236,7 +236,7 @@ export default function DepositJoinPage() {
       if (!enlistDate) { alert('입대일을 입력해주세요.'); return }
       if (!dischargeDate) { alert('전역예정일을 입력해주세요.'); return }
     }
-    {
+    if (!isChecking) {
       const m = parseInt(period)
       if (!m || m < periodRange.min || m > periodRange.max) {
         alert(`가입기간을 올바르게 입력해주세요. (${periodRange.label})`)
@@ -307,14 +307,10 @@ export default function DepositJoinPage() {
       })
       localStorage.removeItem('joinedAccounts')
       router.push('/inquiry/accounts')
+      router.refresh()
     } catch {
-      try {
-        saveFallbackAccount()
-        router.push('/inquiry/accounts')
-      } catch {
-        alert('가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
-        setSubmitting(false)
-      }
+      alert('가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+      setSubmitting(false)
     }
   }
 
@@ -503,8 +499,8 @@ export default function DepositJoinPage() {
                   </>
                 )}
 
-                {/* 가입기간 */}
-                {true && (
+                {/* 가입기간 - 입출금 상품은 숨김 */}
+                {!isChecking && (
                   <FormRow label="가입기간">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-[12px] text-kb-text-muted mr-2">{periodRange.label}</p>

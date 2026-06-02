@@ -1,5 +1,6 @@
 package com.bank.payment.api;
 
+import com.bank.payment.api.dto.CancelScheduledRequest;
 import com.bank.payment.api.dto.OperatorCancelRequest;
 import com.bank.payment.api.dto.PaymentRequest;
 import com.bank.payment.api.dto.PaymentResponse;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Optional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -109,6 +112,31 @@ public class PaymentController {
         );
 
         PaymentResult result = paymentOrchestrator.registerScheduledPayment(command, scheduledAt);
+
+        return ResponseEntity.ok(new PaymentResponse(
+                result.paymentInstructionId(),
+                result.transactionNo(),
+                result.status(),
+                result.completedAt(),
+                result.failureCategory()
+        ));
+    }
+
+    /**
+     * 사용자 예약취소. SCHEDULED 상태 PI만 허용. 본인(X-User-Id) 검증.
+     * 404: PI 없음. 403: 본인 아님. 409: SCHEDULED 아닌 상태 또는 claim 경합.
+     */
+    @PostMapping("/scheduled/{piId}/cancel")
+    public ResponseEntity<?> cancelScheduledPayment(
+            @PathVariable String piId,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody(required = false) CancelScheduledRequest request) {
+
+        String reason = Optional.ofNullable(request)
+                .map(CancelScheduledRequest::reason)
+                .orElse(null);
+
+        PaymentResult result = paymentOrchestrator.cancelScheduledPayment(piId, userId, reason);
 
         return ResponseEntity.ok(new PaymentResponse(
                 result.paymentInstructionId(),

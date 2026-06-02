@@ -184,13 +184,13 @@ export default function TransferConfirmPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-[13px]">
                   <span className="text-gray-400">●●</span>
-                  <input type="text" maxLength={2} value={cardInput1} onChange={e => { setCardInput1(e.target.value); setPasswordError(false) }}
+                  <input type="text" maxLength={2} value={cardInput1} onChange={e => { setCardInput1(e.target.value.replace(/\D/g, '')); setPasswordError(false) }}
                     className="border border-kb-border w-16 px-2 py-1 text-center text-[13px]" />
                   <span className="text-kb-text-muted">[33] 앞의 두자리</span>
                 </div>
                 <div className="flex items-center gap-3 text-[13px]">
                   <span className="text-gray-400">●●</span>
-                  <input type="text" maxLength={2} value={cardInput2} onChange={e => { setCardInput2(e.target.value); setPasswordError(false) }}
+                  <input type="text" maxLength={2} value={cardInput2} onChange={e => { setCardInput2(e.target.value.replace(/\D/g, '')); setPasswordError(false) }}
                     className="border border-kb-border w-16 px-2 py-1 text-center text-[13px]" />
                   <span className="text-kb-text-muted">[10] 뒤의 두자리</span>
                 </div>
