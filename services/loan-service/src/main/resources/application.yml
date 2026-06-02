@@ -85,8 +85,9 @@ auto-review:
   read-timeout-ms: ${AUTO_REVIEW_READ_TIMEOUT_MS:30000}
 
 crypto:
-  # AES-256 키 (32바이트 Base64). 운영 환경에서는 반드시 CRYPTO_KEY_BASE64 환경변수로 교체할 것.
-  key-base64: ${CRYPTO_KEY_BASE64:bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM=}
+  # AES-256 키 (32바이트 Base64). 반드시 CRYPTO_KEY_BASE64 환경변수로 주입해야 함.
+  # 기본값 없음: 미주입 시 부팅 실패 (fail-fast). 로컬 개발값은 application-local.yml 참조.
+  key-base64: ${CRYPTO_KEY_BASE64}
 
 payment:
   # 수납/집행 시스템 계좌는 common_db.common_account(account_nickname=LOAN_COLLECTION/LOAN_DISBURSEMENT)로 이관.
