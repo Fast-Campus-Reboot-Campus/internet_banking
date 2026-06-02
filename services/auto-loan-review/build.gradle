@@ -1,4 +1,5 @@
 // auto-loan-review: 의존성/플러그인은 루트 build.gradle 의 subprojects 블록에서 일괄 관리.
+
 // 본 모듈은 RDB(JPA) 를 사용하지 않으므로 공통에서 들어오는 spring-data-jpa starter 만 제외.
 configurations.implementation {
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-data-jpa'

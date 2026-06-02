@@ -58,6 +58,8 @@ payment:
     kftc-clearing-minutes: ${PAYMENT_TIMEOUT_KFTC_CLEARING_MINUTES:5}
     bok-clearing-seconds: ${PAYMENT_TIMEOUT_BOK_CLEARING_SECONDS:30}
     poll-interval-ms: ${PAYMENT_TIMEOUT_POLL_INTERVAL_MS:10000}
+  scheduled:
+    poll-interval-ms: ${PAYMENT_SCHEDULED_POLL_INTERVAL_MS:30000}
   kafka:
     kftc:
       bootstrap-servers: ${KFTC_KAFKA_BOOTSTRAP:localhost:9092}

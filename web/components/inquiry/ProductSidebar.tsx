@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -12,12 +12,8 @@ const NAV: SidebarItem[] = [
     label: '예금',
     expandable: true,
     children: [
-      { label: '예금 상품/가입',  href: '/products/deposit' },
-      { label: '예금 리스트',     href: '/products/deposit/list' },
-      { label: '판매중지상품',    href: '#' },
-      { label: '예금 조회/해지',  href: '#' },
-      { label: '예금 관리',       href: '#' },
-      { label: '예금 가이드',     href: '#' },
+      { label: '예금 상품/가입', href: '/products/deposit' },
+      { label: '예금 리스트',   href: '/products/deposit/list' },
     ],
   },
   {
@@ -29,10 +25,6 @@ const NAV: SidebarItem[] = [
       { label: '대출현황',   href: '/products/loan/status' },
     ],
   },
-  { label: '펀드',     href: '#' },
-  { label: '신탁/ISA', href: '#' },
-  { label: '외화/골드', href: '#' },
-  { label: '퇴직연금', href: '#' },
 ]
 
 export default function ProductSidebar() {
@@ -55,33 +47,33 @@ export default function ProductSidebar() {
   }
 
   return (
-    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-base font-bold text-kb-text mb-3 px-1">금융상품</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2 bg-white">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: "#0D5C47" }}>금융상품</h2>
       <nav>
         {NAV.map((item) => (
-          <div key={item.label}>
+          <div key={item.label} className="border-b border-kb-border last:border-b-0">
             {item.expandable ? (
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text"
+                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] rounded-sm transition-colors duration-150"
                 >
                   <span>{item.label}</span>
                   <span className="text-[10px] text-kb-text-muted">
-                    {openSections.has(item.label) ? '˄' : '˅'}
+                    {openSections.has(item.label) ? '▴' : '▾'}
                   </span>
                 </button>
                 {openSections.has(item.label) && item.children && (
-                  <ul className="mb-1">
+                  <ul className="mb-2 pl-1">
                     {item.children.map((child) => {
                       const active = child.href !== '#' && pathname === child.href
                       return (
                         <li key={child.label}>
                           <Link href={child.href}
-                            className={`block px-3 py-1.5 text-[13px] ${
+                            className={`block py-1.5 text-[13px] transition-colors duration-150 ${
                               active
-                                ? 'bg-kb-yellow font-semibold text-kb-text'
-                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                                ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
+                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
                             }`}>
                             {child.label}
                           </Link>
@@ -93,7 +85,7 @@ export default function ProductSidebar() {
               </>
             ) : (
               <Link href={item.href ?? '#'}
-                className="block px-2 py-2 text-[13px] text-kb-text-muted hover:text-kb-text">
+                className="block px-2 py-2.5 text-[13px] text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7] transition-colors duration-150">
                 {item.label}
               </Link>
             )}

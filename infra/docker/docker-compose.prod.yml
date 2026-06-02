@@ -134,6 +134,7 @@ services:
       timeout: 5s
       retries: 5
 
+
   ai-db:
     image: pgvector/pgvector:pg16
     container_name: ib-ai-db

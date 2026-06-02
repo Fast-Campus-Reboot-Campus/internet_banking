@@ -20,7 +20,7 @@ const STEPS = [
   { step: '01', label: '서비스\n이용안내' },
   { step: '02', label: '다른은행 자동이체\n내역조회' },
   { step: '03', label: '변경하려는\n자동이체 선택' },
-  { step: '04', label: 'AX풀뱅크 계좌로\n변경신청' },
+  { step: '04', label: 'AXful Bank 계좌로\n변경신청' },
 ]
 
 export default function AutoServiceChangePage() {
@@ -81,8 +81,8 @@ export default function AutoServiceChangePage() {
           <div className="bg-kb-beige-light border border-kb-border rounded-xl p-6 mb-8 flex items-start gap-3">
             <span className="text-[18px] text-kb-yellow mt-0.5">ℹ</span>
             <p className="text-[13px] text-kb-text-body leading-relaxed">
-              조회/출금계좌변경은 다른 은행의 자동이체 출금계좌를 AX풀뱅크 계좌로 변경하는 거래입니다.<br />
-              자동이체 출금계좌변경 서비스를 이용하시면 다른 금융기관에 등록된 자동이체를 AX풀뱅크 계좌로 한번에 변경하실 수 있습니다.
+              조회/출금계좌변경은 다른 은행의 자동이체 출금계좌를 AXful Bank 계좌로 변경하는 거래입니다.<br />
+              자동이체 출금계좌변경 서비스를 이용하시면 다른 금융기관에 등록된 자동이체를 AXful Bank 계좌로 한번에 변경하실 수 있습니다.
             </p>
           </div>
 
@@ -124,7 +124,7 @@ export default function AutoServiceChangePage() {
               <h3 className="text-lg font-bold text-kb-text mb-2">자동납부란?</h3>
               <p className="text-[13px] text-kb-text-muted mb-5 leading-relaxed">
                 요금청구기관의 청구에 의해 자동으로 납부되는 서비스입니다.
-                공과금, 보험료, 통신요금 등의 자동이체 출금계좌를 AX풀뱅크으로 변경할 수 있습니다.
+                공과금, 보험료, 통신요금 등의 자동이체 출금계좌를 AXful Bank으로 변경할 수 있습니다.
               </p>
               <button className="w-full bg-kb-yellow py-2.5 text-[14px] font-bold text-kb-text hover:bg-kb-yellow-dark">
                 자동납부 계좌변경하기

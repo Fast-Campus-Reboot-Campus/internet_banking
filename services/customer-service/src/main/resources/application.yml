@@ -82,6 +82,14 @@ employee-directory:
       branch: "0001"
       grade: TELLER
       roles: [ROLE_TELLER]
+    - customer-id: 9001
+      branch: "0001"
+      grade: BRANCH_MANAGER
+      roles: [ROLE_BRANCH_MANAGER]
+    - customer-id: 9002
+      branch: "0001"
+      grade: DEPUTY_MANAGER
+      roles: [ROLE_DEPUTY_MANAGER]
 
 logging:
   file:

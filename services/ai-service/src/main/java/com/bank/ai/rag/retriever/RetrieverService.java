@@ -1,5 +1,6 @@
 package com.bank.ai.rag.retriever;
 
+import com.bank.ai.langfuse.LangfuseService;
 import com.bank.ai.rag.ingestion.embedder.EmbeddingClient;
 import com.bank.ai.rag.observability.RagMetrics;
 import com.bank.ai.rag.retriever.dto.RagChunkHit;
@@ -8,10 +9,13 @@ import com.bank.ai.rag.retriever.dto.RagSearchResponse;
 import com.bank.ai.rag.store.VectorConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * RAG 검색 오케스트레이터.
@@ -36,6 +40,9 @@ public class RetrieverService {
     private final ChunkSearchRepository searchRepository;
     private final RagMetrics            ragMetrics;
 
+    @Autowired(required = false)
+    private LangfuseService langfuse;
+
     /**
      * @param req 검색 요청 (query, profile, sensitivityCd, asOfDate, topK)
      * @return 유사도 높은 청크 목록 (score 내림차순)
@@ -51,6 +58,7 @@ public class RetrieverService {
         log.debug("[retriever] profile={} topK={} asOfDate={}", profile.getCode(), topK, req.asOfDate());
 
         long started = System.nanoTime();
+        Instant startTime = Instant.now();
         try {
             // ── 임베딩 (외부 API, 트랜잭션 바깥) ──────────────────────────
             float[] vector    = embeddingClient.embed(List.of(req.query())).get(0);
@@ -61,6 +69,16 @@ public class RetrieverService {
                     vecStr, profile.getDocTypes(), req.asOfDate(), topK);
 
             log.debug("[retriever] hits={}", hits.size());
+
+            if (langfuse != null) {
+                String traceId = langfuse.newTraceId();
+                langfuse.trace(traceId, "ai-service", null);
+                langfuse.span(traceId, "rag-search",
+                        Map.of("query", req.query(), "profile", profile.getCode()),
+                        Map.of("hitCount", hits.size()),
+                        startTime, Instant.now());
+            }
+
             return new RagSearchResponse(req.query(), profile.getCode(), hits);
         } finally {
             ragMetrics.recordSearch(profile.getCode(),

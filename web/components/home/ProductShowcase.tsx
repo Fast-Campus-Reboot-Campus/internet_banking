@@ -1,167 +1,300 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { fetchDepositProducts, DepositProduct } from '@/lib/deposit-api'
 
-type Product = {
-  badge: string
-  badgeColor: string
-  icon: ReactNode
-  subLabel: string
-  name: string
-  valueLabel: string
-  value: string
-  href: string
+type Slide = {
+  badge: string; category: string; sub: string; title: string
+  field1Label: string; field1: string; field2Label: string; field2: string
+  rate: string; rateNote: string; href: string
 }
 
-function PiggyIcon() {
-  return (
-    <svg viewBox="0 0 60 52" fill="none" className="w-16 h-14 mx-auto" stroke="#BBBBBB" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <ellipse cx="28" cy="32" rx="17" ry="13" />
-      <circle cx="21" cy="27" r="1.8" fill="#BBBBBB" stroke="none" />
-      <path d="M45 30 C49 30 51 27 51 25 C51 23 49 23 45 24" />
-      <path d="M28 19 C28 17 30 16 33 16 C35 16 36 18 34 19" />
-      <path d="M20 44 L18 50" />
-      <path d="M36 44 L38 50" />
-      <path d="M11 33 Q13 39 16 39" />
-    </svg>
-  )
+function productToSlide(p: DepositProduct, category: string, badge: string, tab: string): Slide {
+  const rate = p.baseInterestRate != null ? `연 ${p.baseInterestRate}%` : '-'
+  const period = p.minPeriodMonth != null
+    ? (p.maxPeriodMonth && p.maxPeriodMonth !== p.minPeriodMonth
+        ? `${p.minPeriodMonth}~${p.maxPeriodMonth}개월`
+        : `${p.minPeriodMonth}개월`)
+    : '제한없음'
+  const minAmt = p.minJoinAmount != null
+    ? `${Number(p.minJoinAmount).toLocaleString('ko-KR')}원 이상`
+    : '제한없음'
+  return {
+    badge, category,
+    sub: p.description || badge + ' 상품',
+    title: p.productName,
+    field1Label: '기간', field1: period,
+    field2Label: '금액', field2: minAmt,
+    rate, rateNote: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '') + ' 기준, 세금공제전',
+    href: `/products/deposit/list?tab=${tab}`,
+  }
 }
 
-function MoneyBagIcon() {
-  return (
-    <svg viewBox="0 0 60 60" fill="none" className="w-16 h-16 mx-auto" stroke="#BBBBBB" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 26 C17 31 15 36 15 40 C15 49 22 54 30 54 C38 54 45 49 45 40 C45 36 43 31 39 26 Z" />
-      <path d="M25 26 C25 22 27 20 30 20 C33 20 35 22 35 26" />
-      <path d="M25 13 L35 13 Q37 20 30 20 Q23 20 25 13 Z" />
-      <text x="30" y="43" textAnchor="middle" fontSize="12" fontWeight="bold" stroke="none" fill="#BBBBBB">W</text>
-    </svg>
-  )
-}
-
-
-const PRODUCT_SLIDES: Product[][] = [
-  [
-    {
-      badge: '예금',
-      badgeColor: '#6B4C35',
-      icon: <PiggyIcon />,
-      subLabel: 'AX풀뱅크의 대표 정기예금',
-      name: 'AX풀뱅크 Star 정기예금',
-      valueLabel: '1~36개월,',
-      value: '연 2.4% ~ 2.9%',
-      href: '/products/deposit',
-    },
-    {
-      badge: '신용대출',
-      badgeColor: '#2D6A4F',
-      icon: <MoneyBagIcon />,
-      subLabel: '직장인이라면',
-      name: 'AX풀뱅크 직장인든든 신용대출',
-      valueLabel: '최고',
-      value: '3억원',
-      href: '/products/loan',
-    },
-  ],
+const FALLBACK_SLIDES: Slide[] = [
+  { badge: '예금', category: '예금', sub: 'Digital AXful의 대표 정기예금', title: 'AXful 정기예금', field1Label: '기간', field1: '1~36개월', field2Label: '금액', field2: '제한없음', rate: '연 2.4%', rateNote: '세금공제전', href: '/products/deposit/list?tab=예금' },
+  { badge: '적금', category: '적금', sub: '누구나 쉽게 우대받는 DIY', title: 'AXful 내맘대로적금', field1Label: '기간', field1: '6~36개월', field2Label: '금액', field2: '1만원 이상', rate: '연 2.95%', rateNote: '세금공제전, 우대금리포함', href: '/products/deposit/list?tab=자유적금' },
+  { badge: '입출금자유', category: '입출금자유', sub: '입금과 출금을 내 마음대로', title: 'AXful 입출금자유 통장', field1Label: '기간', field1: '제한없음', field2Label: '금액', field2: '제한없음', rate: '연 2%', rateNote: '세금공제전', href: '/products/deposit/list?tab=입출금자유' },
+  { badge: '주택청약', category: '주택청약', sub: '내 집 마련의 꿈을 위한', title: 'AXful 주택청약종합저축', field1Label: '기간', field1: '24개월 기준', field2Label: '금액', field2: '제한없음', rate: '연 3.1%', rateNote: '세금공제전', href: '/products/deposit/list?tab=주택청약' },
 ]
 
+const DEPOSIT_CATEGORIES = [
+  { no: '01', desc: '열심히 모은 종자돈을 더 크게',  label: '예금 상품',    href: '/products/deposit/list?tab=예금',      key: '예금' },
+  { no: '02', desc: '당신의 노력과 꿈을 모아모아',   label: '적금 상품',    href: '/products/deposit/list?tab=자유적금',   key: '적금' },
+  { no: '03', desc: '입금과 출금을 내 마음대로',     label: '입출금자유 상품', href: '/products/deposit/list?tab=입출금자유', key: '입출금자유' },
+  { no: '04', desc: '내 집 마련의 꿈을 위한',       label: '주택청약 상품', href: '/products/deposit/list?tab=주택청약',  key: '주택청약' },
+]
+
+const LOAN_SLIDES = [
+  {
+    badge: '신용', category: '신용',
+    sub: '근로소득이 발생되는 국민 누구나',
+    title: 'AXful Smart신용대출',
+    field1Label: '기간', field1: '최대 10년',
+    field2Label: '한도', field2: '3.5억원 이내',
+    rate: '연 4.5% ~ 7.8%', rateNote: '2026.05.25 기준, 우대금리포함',
+    href: '/products/loan/credit',
+  },
+  {
+    badge: '담보', category: '담보',
+    sub: '내 집을 담보로 유리한 조건의 대출',
+    title: 'AXful 아파트담보대출',
+    field1Label: '기간', field1: '최대 30년',
+    field2Label: '한도', field2: '10억원 이내',
+    rate: '연 3.2% ~ 5.1%', rateNote: '2026.05.25 기준, 우대금리포함',
+    href: '/products/loan/mortgage',
+  },
+  {
+    badge: '전월세', category: '전월세',
+    sub: '안전한 전세 생활을 위한 자금 지원',
+    title: 'AXful 전세자금대출',
+    field1Label: '기간', field1: '최대 2년',
+    field2Label: '한도', field2: '2억원 이내',
+    rate: '연 2.8% ~ 4.2%', rateNote: '2026.05.25 기준, 우대금리포함',
+    href: '/products/loan/jeonse',
+  },
+  {
+    badge: '기타', category: '기타',
+    sub: '내 차 마련을 위한 합리적 금리',
+    title: 'AXful 자동차대출',
+    field1Label: '기간', field1: '최대 7년',
+    field2Label: '한도', field2: '5천만원 이내',
+    rate: '연 5.1% ~ 8.3%', rateNote: '2026.05.25 기준, 우대금리포함',
+    href: '/products/loan/auto',
+  },
+  {
+    badge: '기타', category: '기타',
+    sub: '주거 안정을 위한 정책금융 대출',
+    title: 'AXful 주택도시기금대출',
+    field1Label: '기간', field1: '최대 30년',
+    field2Label: '한도', field2: '한도 내',
+    rate: '연 1.5% ~ 3.3%', rateNote: '2026.05.25 기준, 정책금리',
+    href: '/products/loan/khfc',
+  },
+]
+
+const LOAN_CATEGORIES = [
+  { no: '01', desc: '빠르고 간편하게 바로 지금',    label: '신용대출',    href: '/products/loan/credit',   key: '신용' },
+  { no: '02', desc: '부동산을 활용한 합리적 금리',   label: '담보대출',    href: '/products/loan/mortgage', key: '담보' },
+  { no: '03', desc: '내 집 마련의 첫걸음',          label: '전월세 대출', href: '/products/loan/jeonse',   key: '전월세' },
+  { no: '04', desc: '다양한 목적에 맞는 특화 상품', label: '기타 대출',   href: '/products/loan/other',    key: '기타' },
+]
+
+type Tab = '수신' | '여신'
+
 export default function ProductShowcase() {
-  const [slide, setSlide] = useState(0)
-  const products = PRODUCT_SLIDES[slide]
+  const [activeTab, setActiveTab] = useState<Tab>('수신')
+  const [depositSlide, setDepositSlide] = useState(0)
+  const [loanSlide, setLoanSlide] = useState(0)
+  const [depositSlides, setDepositSlides] = useState<Slide[]>(FALLBACK_SLIDES)
+
+  useEffect(() => {
+    fetchDepositProducts({ productStatus: 'SELLING' }).then(products => {
+      const TYPE_MAP: { type: string; category: string; badge: string; tab: string }[] = [
+        { type: 'DEPOSIT',      category: '예금',      badge: '예금',      tab: '예금' },
+        { type: 'SAVINGS',      category: '적금',      badge: '적금',      tab: '자유적금' },
+        { type: 'DEPOSIT',      category: '입출금자유', badge: '입출금자유', tab: '입출금자유' },
+        { type: 'SUBSCRIPTION', category: '주택청약',  badge: '주택청약',  tab: '주택청약' },
+      ]
+      const slides: Slide[] = []
+      TYPE_MAP.forEach(({ type, category, badge, tab }) => {
+        const isChecking = category === '입출금자유'
+        const filtered = products.filter(p =>
+          p.productType === type &&
+          (isChecking
+            ? (p.productName?.includes('통장') || p.productName?.includes('입출금'))
+            : !p.productName?.includes('통장'))
+        )
+        const pick = filtered[0]
+        if (pick) slides.push(productToSlide(pick, category, badge, tab))
+      })
+      if (slides.length > 0) setDepositSlides(slides)
+    }).catch(() => {})
+  }, [])
+
+  const isDeposit = activeTab === '수신'
+  const slides = isDeposit ? depositSlides : LOAN_SLIDES
+  const categories = isDeposit ? DEPOSIT_CATEGORIES : LOAN_CATEGORIES
+  const slide = isDeposit ? depositSlide : loanSlide
+  const setSlide = isDeposit ? setDepositSlide : setLoanSlide
+  const current = slides[slide]
+
 
   return (
-    <section className="py-6" style={{ backgroundColor: '#EDE0D4' }}>
-      <div className="max-w-kb-container mx-auto px-6">
-        <div className="grid grid-cols-3 gap-4" style={{ minHeight: '300px' }}>
+    <section className="py-6" style={{ backgroundColor: '#F5F6F8' }}>
+      <div className="max-w-kb-container mx-auto px-8">
 
-          {/* 좌측: AX풀뱅크 대표상품 */}
-          <div
-            className="p-6 flex flex-col items-center text-center"
-            style={{ backgroundColor: '#5BC9A8' }}
-          >
-            <p className="text-sm text-black/70 mb-2 mt-2">고객님들의 행복한 삶을 위한</p>
-            <h2 className="text-3xl font-bold text-kb-text leading-tight">
-              AX풀뱅크 대표상품
-            </h2>
-            <div className="flex-1" />
-            <div className="mb-0">
-              <p className="text-sm text-black/60">⊙ 2026.05.24 기준</p>
-              <p className="text-sm text-black/60">세금공제전, 우대금리포함</p>
-            </div>
-            <div className="flex-1" />
-            <Link
-              href="/products"
-              className="text-base font-bold text-kb-text border-b-2 border-black pb-0.5 inline-flex items-center gap-1 mt-6"
-            >
-              바로가기 →
-            </Link>
-            <div className="mt-4" />
+        {/* 헤더 */}
+        <div className="mb-3">
+          <p className="text-[11px] font-semibold tracking-widest uppercase mb-0.5" style={{ color: '#5BC9A8' }}>Featured Products</p>
+          <h2 className="text-[22px] font-bold text-kb-text">AXful Bank 대표상품</h2>
+        </div>
+
+        {/* 카드 — 탭 + 캐러셀 통합 */}
+        <div className="bg-white rounded-lg overflow-hidden">
+
+          {/* 탭 바 */}
+          <div className="flex border-b border-kb-border px-4">
+            {(['수신', '여신'] as Tab[]).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className="px-6 py-3 text-[14px] font-bold transition-colors"
+                style={activeTab === tab
+                  ? { color: '#2D5A3D', borderBottom: '2px solid #2D5A3D', marginBottom: '-1px' }
+                  : { color: '#999', borderBottom: '2px solid transparent', marginBottom: '-1px' }
+                }>
+                {tab}
+              </button>
+            ))}
           </div>
 
-          {/* 우측: 상품 카드 2개 */}
-          {products.map((product) => (
-            <div
-              key={product.name}
-              className="border border-[#E0E0E0] bg-white relative pt-8 px-5 pb-5 flex flex-col hover:bg-[#F9F9F9] transition-colors"
-            >
-              {/* 뱃지 + 수평선 */}
-              <div className="absolute top-0 left-0 right-0 flex items-center" style={{ transform: 'translateY(-50%)' }}>
-                <div className="ml-5">
-                  <span
-                    className="px-4 py-1.5 text-sm text-white font-bold rounded-full whitespace-nowrap"
-                    style={{ backgroundColor: product.badgeColor }}
-                  >
-                    {product.badge}
-                  </span>
+        {/* 히어로 캐러셀 */}
+        <div className="flex">
+
+          {/* 좌: 슬라이드 배너 */}
+          <div className="px-12 pt-9 pb-7 relative min-h-[300px] flex flex-col justify-between"
+            style={{ width: 'calc(66.667% - 8px)', flexShrink: 0 }}>
+            <div>
+              <span className="inline-block text-white text-[12px] font-bold px-3 py-0.5 rounded-sm mb-3"
+                style={{ backgroundColor: '#2D5A3D' }}>
+                {current.badge}
+              </span>
+              <p className="text-[13px] text-kb-text-muted mb-2">{current.sub}</p>
+              <h3 className="text-[34px] font-bold text-kb-text leading-tight mb-5">{current.title}</h3>
+              <hr className="border-t-4 border-kb-border mb-5" />
+
+              <div className="flex gap-14 mb-5">
+                {/* field1 */}
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: '#C09B3A' }}>
+                    <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="white" strokeWidth="1.8">
+                      <rect x="3" y="4" width="18" height="17" rx="2"/>
+                      <line x1="3" y1="9" x2="21" y2="9"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-kb-text-muted">{current.field1Label}</p>
+                    <p className="text-[19px] font-bold text-kb-text">{current.field1}</p>
+                  </div>
                 </div>
-                <div className="flex-1 h-px mx-3" style={{ backgroundColor: product.badgeColor }} />
+                {/* field2 */}
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: '#C09B3A' }}>
+                    <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="white" strokeWidth="1.8">
+                      <circle cx="12" cy="12" r="9"/>
+                      <text x="12" y="16" textAnchor="middle" fontSize="11" fill="white" stroke="none" fontWeight="bold">₩</text>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-kb-text-muted">{current.field2Label}</p>
+                    <p className="text-[19px] font-bold text-kb-text">{current.field2}</p>
+                  </div>
+                </div>
               </div>
 
-              {/* 아이콘 */}
-              <div className="flex justify-center items-center mb-3 h-12">{product.icon}</div>
+              {/* 금리 */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: '#C09B3A' }}>
+                  <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="white" strokeWidth="2">
+                    <circle cx="12" cy="12" r="9"/>
+                    <line x1="12" y1="7" x2="12" y2="17"/>
+                    <line x1="7" y1="12" x2="17" y2="12"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[22px] font-bold text-kb-text leading-none">
+                    {current.rate}
+                    <span className="text-[11px] text-kb-text-muted font-normal ml-2">{current.rateNote}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
 
-              {/* 서브 라벨 */}
-              <p className="text-sm text-kb-text-muted text-center mb-1">{product.subLabel}</p>
-
-              {/* 상품명 */}
-              <p className="text-xl text-kb-text text-center mb-4 leading-snug min-h-[48px]">{product.name}</p>
-
-              <div className="flex-1" />
-              {/* 값 라벨 + 값 */}
-              <p className="text-base text-kb-text-muted text-center">{product.valueLabel}</p>
-              <p className="text-3xl font-bold text-kb-text text-center my-2">{product.value}</p>
-
-              {/* 바로가기 버튼 */}
-              <Link
-                href={product.href}
-                className="w-2/3 mx-auto mt-3 mb-2 py-2 rounded-full text-white text-base font-medium text-center block hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: product.badgeColor }}
-              >
+            {/* 캐러셀 컨트롤 + 바로가기 */}
+            <div className="flex items-center justify-between mt-5">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSlide(s => (s - 1 + slides.length) % slides.length)}
+                  className="text-kb-text-muted hover:text-kb-text text-xl leading-none">‹</button>
+                <div className="flex gap-1.5">
+                  {slides.map((_, i) => (
+                    <button key={i} onClick={() => setSlide(i)}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        i === slide ? 'bg-kb-text' : 'bg-kb-border'
+                      }`} />
+                  ))}
+                </div>
+                <button onClick={() => setSlide(s => (s + 1) % slides.length)}
+                  className="text-kb-text-muted hover:text-kb-text text-xl leading-none">›</button>
+                <span className="ml-2 text-[11px] text-kb-text-muted border border-kb-border px-1.5 py-0.5">II</span>
+              </div>
+              <Link href={current.href} className="text-[14px] font-bold text-kb-text underline hover:opacity-70">
                 바로가기
               </Link>
             </div>
-          ))}
+          </div>
+
+          {/* 우: 카테고리 4개 */}
+          <div className="flex-1 bg-[#F2F0E8] flex flex-col gap-2 p-3">
+            {categories.map(cat => {
+              const isActive = cat.key === current.category
+              return (
+                <button key={cat.no}
+                  onClick={() => {
+                    const idx = slides.findIndex(s => s.category === cat.key)
+                    if (idx !== -1) setSlide(idx)
+                  }}
+                  className={`flex items-center justify-between px-5 py-4 flex-1 transition-colors text-left ${
+                    isActive ? 'bg-[#2D5A3D]' : 'bg-white hover:bg-[#2D5A3D]/10'
+                  }`}>
+                  <div className="flex items-start gap-4">
+                    <span className={`text-[22px] font-bold leading-none mt-0.5 ${
+                      isActive ? 'text-white/70' : 'text-[#C09B3A]'
+                    }`}>{cat.no}</span>
+                    <div>
+                      <p className={`text-[11px] leading-relaxed ${isActive ? 'text-white/80' : 'text-kb-text-muted'}`}>
+                        {cat.desc}
+                      </p>
+                      <p className={`text-[14px] font-bold ${isActive ? 'text-white' : 'text-kb-text'}`}>
+                        {cat.label}
+                      </p>
+                    </div>
+                  </div>
+                  {isActive && <span className="text-white text-lg">›</span>}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        {/* 슬라이드 컨트롤 */}
-        <div className="flex justify-center items-center gap-2 mt-6">
-          <button
-            onClick={() => setSlide((s) => (s - 1 + PRODUCT_SLIDES.length) % PRODUCT_SLIDES.length)}
-            className="text-[#8B5E3C] text-sm hover:text-kb-text"
-          >‹</button>
-          {PRODUCT_SLIDES.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setSlide(i)}
-              className={`rounded-full transition-all ${
-                i === slide ? 'w-5 h-2 bg-[#2D6A4F]' : 'w-2 h-2 bg-[#D4D4D4]'
-              }`}
-            />
-          ))}
-          <button
-            onClick={() => setSlide((s) => (s + 1) % PRODUCT_SLIDES.length)}
-            className="text-[#8B5E3C] text-sm hover:text-kb-text"
-          >›</button>
+          <p className="text-[12px] text-kb-text-muted px-4 py-2 text-right border-t border-kb-border">
+            ⊙ {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace('.', '')} 기준 · 세금공제전 · 우대금리포함
+          </p>
         </div>
       </div>
     </section>

@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
     llm_confidence_threshold: int = 70
+    langfuse_enabled: bool = False
+    langfuse_secret_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_host: str = "http://localhost:3001"
 
     model_config = SettingsConfigDict(
         env_prefix="CONSULTATION_",

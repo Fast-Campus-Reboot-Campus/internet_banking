@@ -74,7 +74,12 @@ class ChatbotFeatureExecuteRequest(BaseModel):
     product_id: int | None = None
     compare_product_ids: list[int] = Field(default_factory=list)
     staff_id: str | None = None
-    chatbot_consultation_id: int | None = None  # 대화 이력 조회용 (CASH_FLOW_RECOMMEND 등)
+    chatbot_consultation_id: int | None = None
+    # PRODUCT_SEARCH 전용
+    amount: float | None = None
+    period: int | None = None
+    product_type: str | None = None   # DEPOSIT / SAVINGS / SUBSCRIPTION
+    purpose: str | None = None        # lump_sum / monthly / subscription
 
 
 class ChatbotFeatureExecuteResponse(BaseModel):

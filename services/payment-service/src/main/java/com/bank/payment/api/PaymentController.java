@@ -1,8 +1,10 @@
 package com.bank.payment.api;
 
+import com.bank.payment.api.dto.CancelScheduledRequest;
 import com.bank.payment.api.dto.OperatorCancelRequest;
 import com.bank.payment.api.dto.PaymentRequest;
 import com.bank.payment.api.dto.PaymentResponse;
+import com.bank.payment.api.dto.ScheduledPaymentRequest;
 import com.bank.payment.domain.service.PaymentCommand;
 import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.bank.payment.domain.service.PaymentResult;
@@ -14,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Optional;
+
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -72,6 +77,74 @@ public class PaymentController {
             return ResponseEntity.accepted().body(response);
         }
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 예약이체 등록. POST /api/v1/payments/scheduled.
+     * scheduledExecutionAt null 또는 현재 이하 → 400 (payment_instruction row 미생성).
+     * 정상 등록 시 200 OK, status=SCHEDULED.
+     */
+    @PostMapping("/scheduled")
+    public ResponseEntity<?> createScheduledPayment(
+            @RequestHeader("X-Idempotency-Key") String idempotencyKey,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader("X-Auth-Token-Id") String authTokenId,
+            @RequestBody ScheduledPaymentRequest request) {
+
+        LocalDateTime scheduledAt = request.scheduledExecutionAt();
+        if (scheduledAt == null || !scheduledAt.isAfter(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        PaymentCommand command = new PaymentCommand(
+                request.senderAccountId(),
+                request.receiverBankCode(),
+                request.receiverAccountNo(),
+                request.receiverHolderName(),
+                request.transferAmount(),
+                request.receiverMemo(),
+                request.senderMemo(),
+                request.channel(),
+                request.receiverPassbookSenderDisplay(),
+                userId,
+                authTokenId,
+                idempotencyKey
+        );
+
+        PaymentResult result = paymentOrchestrator.registerScheduledPayment(command, scheduledAt);
+
+        return ResponseEntity.ok(new PaymentResponse(
+                result.paymentInstructionId(),
+                result.transactionNo(),
+                result.status(),
+                result.completedAt(),
+                result.failureCategory()
+        ));
+    }
+
+    /**
+     * 사용자 예약취소. SCHEDULED 상태 PI만 허용. 본인(X-User-Id) 검증.
+     * 404: PI 없음. 403: 본인 아님. 409: SCHEDULED 아닌 상태 또는 claim 경합.
+     */
+    @PostMapping("/scheduled/{piId}/cancel")
+    public ResponseEntity<?> cancelScheduledPayment(
+            @PathVariable String piId,
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody(required = false) CancelScheduledRequest request) {
+
+        String reason = Optional.ofNullable(request)
+                .map(CancelScheduledRequest::reason)
+                .orElse(null);
+
+        PaymentResult result = paymentOrchestrator.cancelScheduledPayment(piId, userId, reason);
+
+        return ResponseEntity.ok(new PaymentResponse(
+                result.paymentInstructionId(),
+                result.transactionNo(),
+                result.status(),
+                result.completedAt(),
+                result.failureCategory()
+        ));
     }
 
     /**
