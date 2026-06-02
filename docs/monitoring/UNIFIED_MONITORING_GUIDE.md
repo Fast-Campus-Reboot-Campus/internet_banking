@@ -45,6 +45,20 @@
 
 대시보드 경로: **Dashboards → Monitoring Stack Overview**
 
+### 최초 실행 전 필수 설정
+
+`alertmanager.yml`은 Slack Webhook URL 등 민감 정보를 포함하므로 git에서 제외됩니다. 클론 후 아래 순서로 설정하세요:
+
+```bash
+# 1. 샘플 파일 복사
+cp infra/alertmanager/alertmanager.yml.sample infra/alertmanager/alertmanager.yml
+
+# 2. Slack Webhook URL 및 healthchecks.io ping URL 직접 편집
+vi infra/alertmanager/alertmanager.yml
+```
+
+이 파일 없이 `docker compose up` 하면 Alertmanager 컨테이너가 시작에 실패합니다.
+
 ---
 
 ## 2. 전체 구조
@@ -216,7 +230,7 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 | Alert | 조건 | 심각도 | 의미 |
 |-------|------|--------|------|
 | Watchdog | 항상 FIRING | info | Prometheus 생존 heartbeat. FIRING이 정상. |
-| PrometheusDown | `up{job="prometheus"} == 0` 1분 | critical | Prometheus 다운 |
+| PrometheusDown | `up{job="prometheus"} == 0` 1분 | critical | Prometheus가 자기 자신을 scrape하지 못하는 경우만 감지. Prometheus 프로세스 자체가 죽으면 이 alert는 발동하지 않음 — 그 역할은 Dead Man's Switch(healthchecks.io)가 담당 |
 | GrafanaDown | `up{job="grafana"} == 0` 1분 | critical | Grafana 다운 |
 | LokiDown | `up{job="loki"} == 0` 1분 | critical | Loki 다운 |
 | AlertmanagerDown | `up{job="alertmanager"} == 0` 1분 | critical | Alertmanager 다운 → Alert Slack 전송 불가 |
