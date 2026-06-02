@@ -35,15 +35,15 @@ public class InboundPaymentOrchestratorImpl implements InboundPaymentOrchestrato
         PaymentInstruction pi = txService.selectById(piId);
         String receiverAccountNo = pi.getReceiverAccountNo();
 
-        // A-1: 수신계좌 검증
+        // A-1: 수신계좌 검증 + accountId 획득 (by-number, D-REQ-1 해결)
         AccountInquiryData account;
         try {
-            account = depositAccountClient.getAccount(receiverAccountNo);
+            account = depositAccountClient.getAccountByNo(receiverAccountNo);
             recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
-                    "/api/accounts/" + receiverAccountNo, "SUCCESS");
+                    "/api/accounts/by-number/" + receiverAccountNo, "SUCCESS");
         } catch (DepositInboundFailureException e) {
             recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
-                    "/api/accounts/" + receiverAccountNo, e.getDepositResponseCode(), "FAIL");
+                    "/api/accounts/by-number/" + receiverAccountNo, e.getDepositResponseCode(), "FAIL");
             txService.txInboundReject(pi, command, e.getDepositResponseCode(), e.getMessage());
             log.info("[IN] IN-03 거절 완결(계좌조회 실패): piId={} clearingNo={} rejectCode={}",
                     piId, command.clearingNo(), e.getDepositResponseCode());
@@ -60,18 +60,18 @@ public class InboundPaymentOrchestratorImpl implements InboundPaymentOrchestrato
         txService.txInboundAuthorize(pi);
         pi = txService.selectById(piId);  // version 갱신 (1)
 
-        // B-4: 입금
+        // B-4: 입금 — A-1에서 획득한 accountId 재사용 (by-number 중복 호출 없음)
         String callIdemKey = piId + "-BALANCE_DEPOSIT-RECEIVER-1";
+        String piMemo = pi.getReceiverPassbookSenderDisplay();
+        String transactionMemo = (piMemo != null && !piMemo.isBlank())
+                ? piId + "|" + piMemo
+                : piId;
         DepositRequest depositReq = new DepositRequest(
-                receiverAccountNo,
-                pi.getTransferAmount().longValueExact(),
-                "KRW", "TRANSFER_IN", piId,
-                new DepositRequest.Counterparty(
-                        command.senderBankCode(),
-                        command.senderAccountNo(),
-                        command.senderRealName(),
-                        pi.getReceiverPassbookSenderDisplay()),
-                pi.getReceiverPassbookSenderDisplay());
+                account.accountId(),
+                pi.getTransferAmount(),
+                "MOBILE",
+                transactionMemo,
+                command.senderRealName());  // depositorName: 입금인명 = 송신자 실명
 
         BalanceTxData depositTx;
         try {

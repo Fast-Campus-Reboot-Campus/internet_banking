@@ -78,9 +78,9 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
         // before=20억: 10억 출금 후 after=10억(양수), 100만 출금 후 after≈20억(양수).
         // chk_ledger_balance_before/after >= 0 조건 유지.
         BigDecimal before = BigDecimal.valueOf(2000000000L);
-        BigDecimal amount = BigDecimal.valueOf(request.amount());
+        BigDecimal amount = request.amount();
         return new BalanceTxData(
-                "T-20260516-A-00045678", request.accountNo(),
+                "T-20260516-A-00045678", String.valueOf(request.accountId()),
                 amount, before, before.subtract(amount),
                 "2026-05-16T14:30:00Z", "TRANSFER_OUT");
     }
@@ -88,14 +88,14 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
     @Override
     public BalanceTxData deposit(String idempotencyKey, DepositRequest request) {
         // F8 계좌: 시스템 장애(race condition) 시뮬레이션 → DepositInboundFailureException
-        if (F8_FAIL_RECEIVER.equals(request.accountNo())) {
+        if (DepositAccountClientMock.F8_FAIL_RECEIVER_ID.equals(request.accountId())) {
             throw new DepositInboundFailureException("INTERNAL_SERVER_ERROR", "입금 처리 중 시스템 오류");
         }
         // S1: 성춘향 1,000,000 → (1,000,000 + amount)
         BigDecimal before = BigDecimal.valueOf(1000000L);
-        BigDecimal amount = BigDecimal.valueOf(request.amount());
+        BigDecimal amount = request.amount();
         return new BalanceTxData(
-                "T-20260516-B-00067890", request.accountNo(),
+                "T-20260516-B-00067890", String.valueOf(request.accountId()),
                 amount, before, before.add(amount),
                 "2026-05-16T14:30:00Z", "TRANSFER_IN");
     }

@@ -19,6 +19,9 @@ RUN gradle :services:payment-service:dependencies --no-daemon -q 2>/dev/null || 
 COPY common/src common/src
 COPY services/payment-service/src services/payment-service/src
 
+# UTF-8 BOM 제거: Windows 편집기가 생성한 BOM(EF BB BF)이 Java 컴파일러 오류 유발
+RUN find common/src services/payment-service/src -name "*.java" -exec sh -c 'b=$(od -An -N3 -tx1 "$1" | tr -d " \n"); case "$b" in efbbbf*) tail -c +4 "$1" > "$1.tmp" && mv "$1.tmp" "$1";; esac' _ {} \;
+
 RUN gradle :services:payment-service:bootJar --no-daemon -q
 
 # =============================================================================

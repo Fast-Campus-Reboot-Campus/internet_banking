@@ -379,15 +379,15 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         String sender = command.senderAccountId();
         String receiver = command.receiverAccountNo();
 
-        // A-1 계좌조회 (송신계좌)
+        // A-1 계좌조회 (송신계좌) — by-number (D-REQ-1 해결)
         AccountInquiryData senderAccount;
         try {
-            senderAccount = depositAccountClient.getAccount(sender);
+            senderAccount = depositAccountClient.getAccountByNo(sender);
             recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
-                    "/api/accounts/" + sender, "SUCCESS");
+                    "/api/accounts/by-number/" + sender, "SUCCESS");
         } catch (DepositInboundFailureException e) {
             recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
-                    "/api/accounts/" + sender, e.getDepositResponseCode(), "FAIL");
+                    "/api/accounts/by-number/" + sender, e.getDepositResponseCode(), "FAIL");
             throw new PaymentValidationException(
                     DepositErrorMapper.toFailureCategory(e.getDepositResponseCode()), e.getMessage());
         }
@@ -405,12 +405,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         if (Boolean.TRUE.equals(pi.getIsIntraBank())) {
             AccountInquiryData receiverAccount;
             try {
-                receiverAccount = depositAccountClient.getAccount(receiver);
+                receiverAccount = depositAccountClient.getAccountByNo(receiver);
                 recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
-                        "/api/accounts/" + receiver, "SUCCESS");
+                        "/api/accounts/by-number/" + receiver, "SUCCESS");
             } catch (DepositInboundFailureException e) {
                 recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
-                        "/api/accounts/" + receiver, e.getDepositResponseCode(), "FAIL");
+                        "/api/accounts/by-number/" + receiver, e.getDepositResponseCode(), "FAIL");
                 throw new PaymentValidationException(
                         DepositErrorMapper.toFailureCategory(e.getDepositResponseCode()), e.getMessage());
             }
@@ -472,12 +472,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         // A-1 계좌조회 (송신계좌) — ACTIVE 여부 + 사고신고 확인
         AccountInquiryData senderAccount;
         try {
-            senderAccount = depositAccountClient.getAccount(sender);
+            senderAccount = depositAccountClient.getAccountByNo(sender);
             recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
-                    "/api/accounts/" + sender, "SUCCESS", "SUCCESS", attempt);
+                    "/api/accounts/by-number/" + sender, "SUCCESS", "SUCCESS", attempt);
         } catch (DepositInboundFailureException e) {
             recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
-                    "/api/accounts/" + sender, e.getDepositResponseCode(), "FAIL", attempt);
+                    "/api/accounts/by-number/" + sender, e.getDepositResponseCode(), "FAIL", attempt);
             throw new PaymentValidationException(
                     DepositErrorMapper.toFailureCategory(e.getDepositResponseCode()), e.getMessage());
         }
@@ -540,14 +540,22 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     // WithdrawStepResult: BalanceTxData + callId (B-4 실패 시 B-5 compensation_target_call_id 참조용)
     private WithdrawStepResult step3_withdraw(PaymentInstruction pi, PaymentCommand command) {
         String piId = pi.getPaymentInstructionId();
-        long amount = command.transferAmount().longValueExact();
         String callIdemKey = piId + "-BALANCE_WITHDRAW-SENDER-1";
 
+        // by-number → accountId 획득 (step2a에서 검증된 계좌 재조회)
+        AccountInquiryData senderAcc = depositAccountClient.getAccountByNo(command.senderAccountId());
+        Long senderAccountId = senderAcc.accountId();
+
+        String senderMemo = command.senderMemo();
+        String transactionMemo = (senderMemo != null && !senderMemo.isBlank())
+                ? piId + "|" + senderMemo
+                : piId;
+
         WithdrawRequest request = new WithdrawRequest(
-                command.senderAccountId(), amount, "KRW", "TRANSFER_OUT", piId,
-                new WithdrawRequest.Counterparty(
-                        command.receiverBankCode(), command.receiverAccountNo(), command.receiverHolderName()),
-                command.senderMemo());
+                senderAccountId,
+                command.transferAmount(),
+                "MOBILE",
+                transactionMemo);
 
         BalanceTxData tx;
         try {
@@ -566,15 +574,23 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     // DEP-0000 외 응답 코드 → DepositInboundFailureException (보상 필요 신호, P-002)
     private BalanceTxData step3b_deposit(PaymentInstruction pi, PaymentCommand command) {
         String piId = pi.getPaymentInstructionId();
-        long amount = command.transferAmount().longValueExact();
         String callIdemKey = piId + "-BALANCE_DEPOSIT-RECEIVER-1";
 
+        // by-number → accountId 획득
+        AccountInquiryData receiverAcc = depositAccountClient.getAccountByNo(command.receiverAccountNo());
+        Long receiverAccountId = receiverAcc.accountId();
+
+        String receiverMemo = command.receiverMemo();
+        String transactionMemo = (receiverMemo != null && !receiverMemo.isBlank())
+                ? piId + "|" + receiverMemo
+                : piId;
+
         DepositRequest request = new DepositRequest(
-                command.receiverAccountNo(), amount, "KRW", "TRANSFER_IN", piId,
-                new DepositRequest.Counterparty(
-                        command.receiverBankCode(), command.senderAccountId(), command.receiverHolderName(),
-                        command.receiverPassbookSenderDisplay()),
-                command.receiverMemo());
+                receiverAccountId,
+                command.transferAmount(),
+                "MOBILE",
+                transactionMemo,
+                command.receiverPassbookSenderDisplay());  // depositorName: 통장 표시 송신자명
 
         BalanceTxData tx;
         try {
