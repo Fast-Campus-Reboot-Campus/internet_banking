@@ -14,6 +14,26 @@
 
 ---
 
+## 목차
+
+- [1. 접속 방법](#1-접속-방법)
+- [2. 전체 구조](#2-전체-구조)
+- [3. 대시보드 구성](#3-대시보드-구성)
+- [4. 전체 요약 섹션 해석](#4-전체-요약-섹션-해석)
+- [5. 도구별 섹션 해석](#5-도구별-섹션-해석)
+  - [Prometheus](#prometheus)
+  - [Grafana](#grafana)
+  - [Loki](#loki)
+  - [Alertmanager](#alertmanager)
+  - [Langfuse](#langfuse)
+- [6. Alert 목록](#6-alert-목록)
+- [7. Slack 알림 해석](#7-slack-알림-해석)
+- [8. Dead Man's Switch](#8-dead-mans-switch-healthchecksio)
+- [9. 알림이 오지 않을 때 체크리스트](#9-알림이-오지-않을-때-체크리스트)
+- [10. 관련 가이드](#10-관련-가이드)
+
+---
+
 ## 1. 접속 방법
 
 | 도구 | URL | 용도 |
@@ -70,6 +90,11 @@ LLM 추적:  LLM/RAG 호출 ──▶ Langfuse
 
 ## 4. 전체 요약 섹션 해석
 
+**용어:**
+- **Scrape** — Prometheus가 각 서비스의 메트릭 엔드포인트를 주기적으로 호출해서 데이터를 가져오는 행위. 15초마다 수행됨.
+- **Scrape Target** — Prometheus가 메트릭을 수집하는 대상 서비스. customer-service, grafana, loki 등 각각이 하나의 target.
+- **Alert** — Prometheus가 정의된 조건(예: 서비스 다운, 오류율 급증)을 감지했을 때 발생시키는 알림.
+
 ### 전체 서비스 가용률 (%)
 
 전체 Prometheus scrape target 중 현재 응답 중인 비율입니다.
@@ -96,9 +121,12 @@ LLM 추적:  LLM/RAG 호출 ──▶ Langfuse
 
 현재 FIRING 상태인 Alert 수입니다. 0이 정상입니다.
 
+- **FIRING** — Alert 조건이 충족되어 현재 발동 중인 상태.
+- **PENDING** — 조건은 충족됐지만 `for` 시간이 지나지 않아 아직 발동 전인 상태.
+
 ### 전체 Scrape 성공률
 
-Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율입니다. 낮으면 해당 서비스에서 메트릭을 노출하지 않고 있거나 서비스가 다운된 것입니다.
+Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율입니다. 낮으면 해당 서비스가 다운됐거나 메트릭을 노출하지 않는 것입니다.
 
 ---
 
@@ -106,15 +134,23 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 
 ### Prometheus
 
+**용어:**
+- **시계열 (Time Series)** — 하나의 메트릭을 시간 순서대로 기록한 데이터. 예: customer-service의 HTTP 요청 수를 15초마다 기록한 것이 하나의 시계열.
+- **수집 중인 시계열 수** — Prometheus가 현재 추적 중인 시계열의 총 개수. 서비스와 메트릭이 많을수록 늘어남.
+
 | 패널 | 정상 | 주의 |
 |------|------|------|
 | UP/DOWN | UP (초록) | DOWN (빨강) → 메트릭 수집 전체 중단 |
 | Scrape 성공률 추이 | 90% 이상 유지 | 급격히 하락 → 다수 서비스 장애 |
 | 수집 중인 시계열 수 | 15,000~20,000개 수준 유지 | 급격히 감소 → scrape target 소실 / 급격히 증가 → 카디널리티 폭발 |
 
-> **시계열 수**는 Prometheus가 현재 추적 중인 메트릭 데이터 포인트 수입니다. 서비스가 많아질수록 자연스럽게 증가하며, 급격한 변동이 없으면 정상입니다.
+---
 
 ### Grafana
+
+**용어:**
+- **HTTP 요청률 (req/s)** — 초당 Grafana에 들어오는 HTTP 요청 수. 대시보드 조회, API 호출 등이 포함됨.
+- **5xx 오류율** — Grafana가 500번대 오류(서버 내부 오류)를 반환한 비율.
 
 | 패널 | 정상 | 주의 |
 |------|------|------|
@@ -122,7 +158,13 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 | HTTP 요청률 | 일정 수준 유지 | 0으로 떨어짐 → Grafana 응답 불가 |
 | 5xx 오류율 | 0 | 증가 → Grafana 내부 오류 확인 필요 |
 
+---
+
 ### Loki
+
+**용어:**
+- **로그 수집 라인수 (lines/s)** — 초당 Loki에 수집되는 로그 라인 수. Promtail이 각 서비스의 로그 파일을 읽어 전송함.
+- **수집 바이트 (bytes/s)** — 초당 수집되는 로그 데이터 크기.
 
 | 패널 | 정상 | 주의 |
 |------|------|------|
@@ -132,7 +174,14 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 
 > Loki가 UP이어도 수집량이 0이면 `LokiNoLogsIngested` Alert가 5분 후 발동합니다.
 
+---
+
 ### Alertmanager
+
+**용어:**
+- **slack** — Alertmanager가 Slack DM으로 alert를 전송하는 채널.
+- **webhook** — Alertmanager가 healthchecks.io로 Watchdog heartbeat를 전송하는 채널.
+- **알림 전송 실패** — Alertmanager가 Slack 또는 healthchecks.io로 전송을 시도했지만 실패한 건수.
 
 | 패널 | 정상 | 주의 |
 |------|------|------|
@@ -140,25 +189,23 @@ Prometheus가 각 target에서 메트릭을 정상적으로 수집하는 비율�
 | 알림 전송 건수 | Alert 발생 시 증가 | 0 지속 → Prometheus 연결 확인 |
 | 알림 전송 실패 | 0 | 증가 → Slack Webhook URL 유효성 확인 필요 |
 
-> 알림 전송 패널은 **slack**, **webhook**(healthchecks.io) 두 채널만 표시합니다. slack은 일반 Alert 발송, webhook은 Watchdog heartbeat 전송에 사용됩니다.
+> 알림 전송 패널은 **slack**, **webhook** 두 채널만 표시합니다.
+
+---
 
 ### Langfuse
+
+**용어:**
+- **Blackbox Exporter** — HTTP 엔드포인트를 직접 호출해 응답 여부를 확인하는 도구. Langfuse처럼 Prometheus 메트릭을 노출하지 않는 서비스 감시에 사용.
+- **probe_success** — Blackbox Exporter가 대상을 호출했을 때 성공 여부. 1이면 정상, 0이면 응답 없음.
+- **프로브 응답시간** — Blackbox Exporter가 Langfuse 헬스체크 엔드포인트를 호출해서 응답받는 데 걸린 시간.
 
 | 패널 | 정상 | 주의 |
 |------|------|------|
 | UP/DOWN | UP (초록) | DOWN → LLM 추적 데이터 유실 |
 | 프로브 응답시간 | 500ms 이하 | 3초 이상 → Langfuse 컨테이너 부하 또는 DB 문제 |
 
-> Langfuse는 Prometheus 형식 메트릭을 제공하지 않으므로 **Blackbox Exporter**가 HTTP 헬스체크(`/api/public/health`)로 생존 여부를 확인합니다. UP/DOWN은 이 프로브 결과입니다.
-
-### Blackbox Exporter
-
-Langfuse처럼 Prometheus 메트릭을 직접 노출하지 않는 서비스의 HTTP 엔드포인트를 주기적으로 호출해 응답 여부를 확인하는 도구입니다.
-
-| 확인 항목 | 방법 |
-|----------|------|
-| 정상 작동 확인 | `http://localhost:9115` 접속 → 상태 페이지 표시 여부 |
-| 프로브 직접 테스트 | `http://localhost:9115/probe?target=http://langfuse:3000/api/public/health&module=http_2xx` |
+> Langfuse는 Prometheus 형식 메트릭을 제공하지 않으므로 Blackbox Exporter가 `/api/public/health`를 주기적으로 호출해 생존 여부를 확인합니다.
 
 ---
 
@@ -200,6 +247,9 @@ Alertmanager가 Slack으로 보내는 메시지 형식:
 ---
 
 ## 8. Dead Man's Switch (healthchecks.io)
+
+**용어:**
+- **Dead Man's Switch** — "내가 살아있음"을 주기적으로 외부에 알리고, 신호가 끊기면 장애로 감지하는 패턴. Prometheus 자체 다운을 감지하기 위해 사용.
 
 Prometheus 자체가 다운되면 내부 Alert가 발송되지 않습니다. 이를 보완하기 위해 healthchecks.io를 사용합니다.
 
