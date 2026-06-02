@@ -191,7 +191,52 @@
 
 ---
 
-## 7. 관련 가이드
+## 7. 테스트 환경 구성
+
+> 이 섹션은 에이전트 모니터링 대시보드가 실제 데이터로 동작하는지 검증하기 위한 테스트 환경 구성 방법을 설명합니다.
+
+### 현재 상태 (2026-06-02 기준)
+
+에이전트 모니터링 코드(대시보드, alert, 가이드)는 완성됐지만 실제 데이터로 테스트를 진행하지 못했습니다. 이유는 아래와 같습니다.
+
+**이유 1 — 에이전트 서비스들이 단독 실행 구조가 아님**
+
+auto-loan-review, review-ai-gateway, ai-service는 Dockerfile만 있고 docker-compose 설정이 없습니다. `docker compose up` 한 번으로 전체를 실행하는 구조가 아직 갖춰지지 않은 상태입니다.
+
+**이유 2 — 서비스 간 의존성이 복잡함**
+
+에이전트 서비스들은 단독으로 실행할 수 없고, 다른 서비스들이 먼저 실행되어 있어야 합니다.
+
+```
+auto-loan-review 실행하려면
+  → loan-service, inference-server, Kafka 필요
+
+review-ai-gateway 실행하려면
+  → ai-service, loan-service, advisory-service, Kafka 필요
+```
+
+결국 프로젝트 전체를 띄워야 테스트가 가능합니다.
+
+**이유 3 — consultation-service는 별도 협의 필요**
+
+consultation-service는 자체 docker-compose를 가지고 있어 메인 인프라와 포트 충돌이 발생합니다. 담당 팀원과 협의 후 메인 docker-compose로 통합해야 합니다.
+
+### 테스트 진행 순서
+
+테스트를 진행하려면 아래 순서로 선행 작업이 필요합니다.
+
+| 순서 | 작업 | 담당 |
+|------|------|------|
+| 1 | 서비스 전체를 메인 `docker-compose.yml` 하나로 통합 | 팀 전체 협의 |
+| 2 | consultation-service 담당자와 docker-compose 통합 협의 | 담당 팀원 |
+| 3 | `docker compose up` 으로 전체 서비스 실행 확인 | — |
+| 4 | 에이전트 서비스에 실제 API 요청 발송 | — |
+| 5 | 대시보드 패널에 데이터가 표시되는지 확인 | — |
+| 6 | Alert 발동 시나리오 테스트 (폴백률, 하드 실패 등) | — |
+
+---
+
+## 8. 관련 가이드
 
 | 문서 | 내용 |
 |------|------|
