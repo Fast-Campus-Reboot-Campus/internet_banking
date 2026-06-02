@@ -21,6 +21,7 @@ type PendingTransfer = {
 
 export default function TransferResultPage() {
   const router = useRouter()
+  const loadedTransferRef = useRef(false)
   const [data, setData] = useState<PendingTransfer | null>(null)
   const [accounts, setAccounts] = useState<{ id: string; apiAccountId?: number; number: string; balance: number }[]>([])
 

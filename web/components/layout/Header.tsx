@@ -55,10 +55,10 @@ export const GNB_MENUS = [
   {
     id: 'products',
     label: '금융상품',
-    href: '/products/loan',
+    href: '/products/deposit/list',
     megaMenu: [
       {
-        title: '예금 상품/가입',
+        title: '예금',
         href: '/products/deposit/list',
         items: [
           { label: '예금 상품/가입',    href: '/products/deposit/list' },
@@ -69,14 +69,12 @@ export const GNB_MENUS = [
         ],
       },
       {
-        title: '대출 상품/신청',
+        title: '대출',
         href: '/products/loan/credit',
         items: [
-          { label: '대출 상품/신청',               href: '/products/loan/credit' },
-          { label: '대출진행현황',                href: '/products/loan/status' },
-          { label: '대출관리',                    href: '/products/loan/manage/rate' },
-          { label: '대출 가이드',                 href: '/products/loan/guide/rate' },
-          { label: '신용평가 및 여신심사 자료제출', href: '/products/loan/credit-eval/biz-plan' },
+          { label: '대출 상품/신청', href: '/products/loan/credit' },
+          { label: '대출진행현황',  href: '/products/loan/status' },
+          { label: '대출관리',      href: '/products/loan/manage/rate' },
         ],
       },
     ],
@@ -138,6 +136,7 @@ export default function Header() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [user, setUser] = useState<StoredUser | null>(null)
   const [remaining, setRemaining] = useState(SESSION_SECONDS)
+  const [extending, setExtending] = useState(false)
 
   useEffect(() => {
     try {
@@ -154,7 +153,7 @@ export default function Header() {
     const expiry = stored ? parseInt(stored) : Date.now() + SESSION_SECONDS * 1000
     if (!stored) localStorage.setItem('sessionExpiry', String(expiry))
 
-    let seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
+    const seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
     setRemaining(seconds)
 
     const tick = setInterval(() => {
@@ -195,11 +194,13 @@ export default function Header() {
   }
 
   async function handleExtend() {
+    if (extending) return
     const refreshToken = localStorage.getItem('refreshToken')
     if (!refreshToken) {
       window.location.href = '/logout'
       return
     }
+    setExtending(true)
     try {
       const { data } = await api.post('/api/v1/auth/refresh', { refreshToken })
       localStorage.setItem('accessToken', data.data.accessToken)
@@ -212,6 +213,8 @@ export default function Header() {
       setRemaining(SESSION_SECONDS)
     } catch {
       window.location.href = '/logout'
+    } finally {
+      setExtending(false)
     }
   }
 
@@ -240,9 +243,10 @@ export default function Header() {
                 <span className="text-kb-border">|</span>
                 <span className="text-kb-text-muted">🔒 {formatTime(remaining)}</span>
                 <button onClick={handleExtend}
-                  className="px-3 py-1 text-[13px] font-semibold rounded-full border transition-colors hover:bg-[#F0FAF7]"
+                  disabled={extending}
+                  className="px-3 py-1 text-[13px] font-semibold rounded-full border transition-colors hover:bg-[#F0FAF7] disabled:opacity-50"
                   style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
-                  연장
+                  {extending ? '연장 중...' : '연장'}
                 </button>
                 <button onClick={handleLogout}
                   className="px-3 py-1 text-[13px] font-semibold rounded-full border border-gray-200 text-kb-text-muted hover:bg-gray-50 transition-colors">

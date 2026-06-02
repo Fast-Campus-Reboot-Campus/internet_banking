@@ -4,13 +4,9 @@ import Link from 'next/link'
 
 const SIDEBAR_ITEMS = [
   { label: '공동인증서 발급/재발급', href: '/cert/joint-cert-issue' },
-  { label: '타행·타기관인증서 등록/해제', href: '#' },
   { label: '인증서 갱신', href: '#' },
   { label: '인증서 관리', href: '/cert/joint-cert-management', active: true },
-  { label: '인증서폐기/수수료환급등록', href: '#' },
-  { label: '영수증/세금계산서', href: '#' },
-  { label: '스마트폰 인증서 복사', href: '#' },
-  { label: 'AXful인증서로 발급받기', href: '#' },
+  { label: '인증서 폐기', href: '#' },
 ]
 
 const MANAGEMENT_CARDS = [

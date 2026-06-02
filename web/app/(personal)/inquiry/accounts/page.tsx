@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { Account, formatNumber } from '@/lib/mock-data'
 import InquirySidebar from '@/components/inquiry/InquirySidebar'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import type { DepositViewAccount } from '@/lib/deposit-api'
 
 const ACCOUNT_TABS = ['예금', '펀드', '신탁/ISA', '대출', '외화/골드', '보험/공제', '퇴직연금', '전체계좌']
 
@@ -141,7 +142,7 @@ export default function AccountsPage() {
           setJoinedAccounts(apiAccounts.length > 0 ? apiAccounts : fallbackAccounts)
         }
       } catch {
-        if (!cancelled) setJoinedAccounts(fallbackAccounts)
+        if (!cancelled) setJoinedAccounts([])
       }
     }
 

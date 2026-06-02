@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import HeroCarousel, { HERO_SLIDES } from './HeroCarousel'
+import HeroCarousel from './HeroCarousel'
 
 const QUICK_MENUS = [
   {

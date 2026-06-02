@@ -410,12 +410,36 @@ function CommonCertTab() {
 
 /* ── 공동인증서 모달 (전자 서명 작성) ── */
 const STORAGE_TYPES = [
-  { label: '하드디스크', icon: '🖥️' },
-  { label: '이동식',     icon: '💾' },
-  { label: '보안토큰',   icon: '🔒' },
-  { label: '휴대폰',     icon: '📱' },
-  { label: '안전디스크', icon: '💿' },
-  { label: '간편인증',   icon: '✓'  },
+  { label: '하드디스크', icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="17" cy="12" r="1.5" fill="currentColor" stroke="none"/><line x1="5" y1="12" x2="10" y2="12"/>
+    </svg>
+  )},
+  { label: '이동식', icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <path d="M8 3h8l3 6v9a1 1 0 01-1 1H6a1 1 0 01-1-1V9L8 3z"/><circle cx="12" cy="14" r="2"/>
+    </svg>
+  )},
+  { label: '보안토큰', icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>
+    </svg>
+  )},
+  { label: '휴대폰', icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <rect x="7" y="2" width="10" height="20" rx="2"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/>
+    </svg>
+  )},
+  { label: '안전디스크', icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/>
+    </svg>
+  )},
+  { label: '간편인증', icon: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+      <path d="M9 12l2 2 4-4"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+    </svg>
+  )},
 ]
 
 const MOCK_JOINT_CERTS = [
@@ -444,12 +468,23 @@ async function handleCertLogin(certSerialNumber: string, certType: string, pin: 
   window.location.href = '/'
 }
 
+
 function JointCertModal({ onClose }: { onClose: () => void }) {
   const [storageType, setStorageType] = useState('하드디스크')
+  const [certs, setCerts] = useState(MOCK_JOINT_CERTS)
   const [selectedCert, setSelectedCert] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [subModal, setSubModal] = useState<'view' | 'find' | 'delete' | null>(null)
+
+  const activeCert = certs.find(c => c.id === selectedCert)
+
+  function handleDelete() {
+    setCerts(prev => prev.filter(c => c.id !== selectedCert))
+    setSelectedCert(null)
+    setSubModal(null)
+  }
 
   async function handleConfirm() {
     if (!selectedCert) { setError('인증서를 선택해 주세요.'); return }
@@ -468,48 +503,53 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="bg-white shadow-2xl" style={{ width: 520 }}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ width: 500 }}>
 
-        {/* 타이틀 바 */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-kb-border" style={{ backgroundColor: '#F0FAF7' }}>
-          <span className="text-[13px] font-medium text-kb-text">전자 서명 작성</span>
-          <button onClick={onClose} className="text-kb-text-muted hover:text-kb-text text-lg leading-none">✕</button>
-        </div>
-
-        {/* AXful인증서 배너 */}
-        <div className="flex items-center gap-4 px-4 py-3 border-b" style={{ backgroundColor: '#F0FAF7', borderColor: '#E2F5EF' }}>
-          <div className="flex-1">
-            <p className="text-[12px] font-bold" style={{ color: '#0D5C47' }}>금융생활을 넘어 일상생활까지 AXful인증서로</p>
-            <p className="text-[11px] mt-0.5" style={{ color: '#0D5C47' }}>간편하게 발급에서 안전하게 보관하고 평생 쉽게 이용하는 AXful인증서</p>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-[11px] font-extrabold" style={{ backgroundColor: '#0D5C47' }}>
-              AX
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: '#0D5C47' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" className="w-4 h-4">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              </svg>
             </div>
+            <span className="text-[15px] font-bold text-white">공동인증서 로그인</span>
           </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
-          {/* 저장 위치 선택 */}
+        {/* AXful 배너 */}
+        <div className="flex items-center gap-4 px-6 py-3 border-b" style={{ backgroundColor: '#F0FAF7', borderColor: '#E2F5EF' }}>
+          <div className="flex-1">
+            <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>금융생활을 넘어 일상생활까지 AXful인증서로</p>
+            <p className="text-[11px] text-kb-text-muted mt-0.5">간편 발급 · 안전 보관 · 평생 이용</p>
+          </div>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-extrabold shadow-sm" style={{ backgroundColor: '#0D5C47' }}>AX</div>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+
+          {/* 저장 위치 */}
           <div>
-            <p className="text-[13px] font-bold text-kb-text mb-2">인증서 저장 위치를 선택해 주세요</p>
-            <div className="flex gap-1.5">
+            <p className="text-[12px] font-semibold text-kb-text-muted uppercase tracking-wide mb-2.5">저장 위치</p>
+            <div className="grid grid-cols-6 gap-1.5">
               {STORAGE_TYPES.map((st) => (
                 <button
                   key={st.label}
                   onClick={() => setStorageType(st.label)}
-                  className={`relative flex flex-col items-center gap-1 px-2 py-2 border text-[11px] min-w-[60px] transition-colors
+                  className={`flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl border-2 text-[11px] transition-all
                     ${storageType === st.label
-                      ? 'text-kb-text font-semibold'
-                      : 'border-kb-border text-kb-text-muted hover:bg-[#F0FAF7]'
+                      ? 'border-[#0D5C47] bg-[#F0FAF7] text-[#0D5C47] font-bold shadow-sm'
+                      : 'border-transparent bg-[#F8F8F8] text-kb-text-muted hover:border-[#E2F5EF] hover:bg-[#F0FAF7]'
                     }`}
                 >
-                  {storageType === st.label && (
-                    <span className="absolute top-1 left-1 text-[10px] font-bold" style={{ color: '#0D5C47' }}>✓</span>
-                  )}
-                  <span className="text-lg leading-none mt-1">{st.icon}</span>
-                  <span>{st.label}</span>
+                  <span className={storageType === st.label ? 'text-[#0D5C47]' : 'text-kb-text-muted'}>{st.icon}</span>
+                  <span className="leading-tight text-center">{st.label}</span>
                 </button>
               ))}
             </div>
@@ -517,70 +557,178 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
 
           {/* 인증서 목록 */}
           <div>
-            <p className="text-[13px] font-bold text-kb-text mb-2">사용할 인증서를 선택해 주세요</p>
-            <table className="w-full border border-kb-border text-[12px]">
-              <thead>
-                <tr className="bg-[#F0FAF7]">
-                  {['구분', '사용자', '만료일', '발급자'].map((h) => (
-                    <th key={h} className="border-r last:border-r-0 border-kb-border py-1.5 px-2 font-medium text-kb-text text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_JOINT_CERTS.map((cert) => (
-                  <tr
-                    key={cert.id}
-                    onClick={() => setSelectedCert(cert.id)}
-                    className={`cursor-pointer ${selectedCert === cert.id ? 'bg-[#F0FAF7]' : 'hover:bg-[#F0FAF7]'}`}
-                  >
-                    <td className="border-r border-gray-200 py-1.5 px-2">{cert.type}</td>
-                    <td className="border-r border-gray-200 py-1.5 px-2">{cert.user}</td>
-                    <td className="border-r border-gray-200 py-1.5 px-2">{cert.expiry}</td>
-                    <td className="py-1.5 px-2">{cert.issuer}</td>
+            <p className="text-[12px] font-semibold text-kb-text-muted uppercase tracking-wide mb-2.5">인증서 선택</p>
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#E2F5EF' }}>
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '1px solid #E2F5EF' }}>
+                    {['구분', '사용자', '만료일', '발급자'].map((h) => (
+                      <th key={h} className="py-2.5 px-3 font-semibold text-left text-kb-text-muted">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="flex justify-end gap-1 mt-1">
-              {['인증서 보기', '인증서 찾기', '인증서 삭제'].map((btn) => (
-                <button key={btn} className="border border-kb-border text-[11px] px-2 py-1 text-kb-text-body hover:bg-[#F0FAF7]">
-                  {btn}
-                </button>
-              ))}
+                </thead>
+                <tbody>
+                  {MOCK_JOINT_CERTS.map((cert) => (
+                    <tr
+                      key={cert.id}
+                      onClick={() => setSelectedCert(cert.id)}
+                      className={`cursor-pointer transition-colors ${selectedCert === cert.id ? 'bg-[#F0FAF7]' : 'hover:bg-[#FAFAFA]'}`}
+                    >
+                      <td className="py-3 px-3 font-medium text-kb-text">{cert.type}</td>
+                      <td className="py-3 px-3 text-kb-text">{cert.user}</td>
+                      <td className="py-3 px-3 text-kb-text-muted">{cert.expiry}</td>
+                      <td className="py-3 px-3 text-kb-text-muted">{cert.issuer}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+            <div className="flex justify-end gap-1.5 mt-2">
+              <button
+                onClick={() => { if (!selectedCert) { setError('인증서를 먼저 선택해 주세요.'); return } setSubModal('view') }}
+                className="text-[11px] px-3 py-1.5 rounded-lg border text-kb-text-muted hover:bg-[#F0FAF7] hover:text-kb-text transition-colors"
+                style={{ borderColor: '#E2F5EF' }}>
+                인증서 보기
+              </button>
+              <button
+                onClick={() => setSubModal('find')}
+                className="text-[11px] px-3 py-1.5 rounded-lg border text-kb-text-muted hover:bg-[#F0FAF7] hover:text-kb-text transition-colors"
+                style={{ borderColor: '#E2F5EF' }}>
+                인증서 찾기
+              </button>
+              <button
+                onClick={() => { if (!selectedCert) { setError('삭제할 인증서를 먼저 선택해 주세요.'); return } setSubModal('delete') }}
+                className="text-[11px] px-3 py-1.5 rounded-lg border text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                style={{ borderColor: '#FCA5A5' }}>
+                인증서 삭제
+              </button>
+            </div>
+
+            {/* 인증서 보기 패널 */}
+            {subModal === 'view' && activeCert && (
+              <div className="mt-3 rounded-xl border-2 overflow-hidden" style={{ borderColor: '#0D5C47' }}>
+                <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: '#0D5C47' }}>
+                  <span className="text-[12px] font-bold text-white">인증서 상세 정보</span>
+                  <button onClick={() => setSubModal(null)} className="text-white/70 hover:text-white">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <div className="bg-white divide-y text-[12px]" style={{ divideColor: '#E2F5EF' }}>
+                  {[
+                    ['인증서 구분', activeCert.type],
+                    ['소유자', activeCert.user],
+                    ['일련번호', activeCert.serialNumber],
+                    ['발급기관', activeCert.issuer],
+                    ['유효기간', `${activeCert.expiry}까지`],
+                    ['인증서 유형', activeCert.certType],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex px-4 py-2.5">
+                      <span className="w-24 text-kb-text-muted flex-shrink-0">{label}</span>
+                      <span className="text-kb-text font-medium break-all">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 인증서 찾기 패널 */}
+            {subModal === 'find' && (
+              <div className="mt-3 rounded-xl border-2 p-4" style={{ borderColor: '#E2E8F0' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[12px] font-bold text-kb-text">인증서 찾기</span>
+                  <button onClick={() => setSubModal(null)} className="text-kb-text-muted hover:text-kb-text">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <p className="text-[11px] text-kb-text-muted mb-3">인증서 파일(.pfx, .p12)을 직접 선택하여 등록할 수 있습니다.</p>
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer hover:bg-[#F0FAF7] transition-colors" style={{ borderColor: '#0D5C47' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5 flex-shrink-0" style={{ color: '#0D5C47' }}>
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <div>
+                    <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>파일 선택</p>
+                    <p className="text-[11px] text-kb-text-muted">.pfx, .p12 형식 지원</p>
+                  </div>
+                  <input type="file" accept=".pfx,.p12" className="hidden" onChange={() => setSubModal(null)} />
+                </label>
+              </div>
+            )}
           </div>
 
-          {/* 인증서 암호 */}
+          {/* 암호 입력 */}
           <div>
-            <p className="text-[13px] font-bold text-kb-text mb-2">인증서 암호를 입력해 주세요</p>
-            <div className="flex gap-2">
+            <p className="text-[12px] font-semibold text-kb-text-muted uppercase tracking-wide mb-2.5">인증서 암호</p>
+            <div className="relative">
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
-                className="flex-1 border border-kb-border px-2 py-1.5 text-[13px] outline-none focus:border-kb-taupe"
+                placeholder="암호를 입력하세요"
+                className="w-full rounded-xl border-2 px-4 py-2.5 text-[13px] outline-none transition-colors"
+                style={{ borderColor: password ? '#0D5C47' : '#E2E8F0' }}
               />
-              <button className="border border-kb-border px-3 text-kb-text-muted hover:bg-[#F0FAF7] text-[18px]">⌨</button>
             </div>
-            <p className="text-[11px] text-gray-500 mt-1">안전한 금융거래를 위해 6개월마다 인증서 암호를 변경하시기 바랍니다.</p>
-            {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+            <p className="text-[11px] text-kb-text-muted mt-1.5">6개월마다 인증서 암호를 변경하시기 바랍니다.</p>
+            {error && (
+              <div className="flex items-center gap-1.5 mt-2 text-red-500">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5 flex-shrink-0">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p className="text-[12px]">{error}</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 확인 / 취소 */}
-        <div className="flex justify-center gap-3 px-5 pb-5">
+        {/* 삭제 확인 오버레이 */}
+        {subModal === 'delete' && activeCert && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/30 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl p-6 mx-6 w-full max-w-xs">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" className="w-5 h-5">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[14px] font-bold text-kb-text">인증서 삭제</p>
+                  <p className="text-[12px] text-kb-text-muted mt-0.5">삭제 후 복구할 수 없습니다.</p>
+                </div>
+              </div>
+              <div className="bg-[#FEF2F2] rounded-xl p-3 mb-4 text-[12px]">
+                <p className="font-medium text-red-700">{activeCert.user}</p>
+                <p className="text-red-500 mt-0.5">{activeCert.type} · 만료 {activeCert.expiry}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setSubModal(null)}
+                  className="flex-1 py-2.5 rounded-xl border-2 text-[13px] font-medium text-kb-text-muted hover:bg-[#F8F8F8] transition-colors"
+                  style={{ borderColor: '#E2E8F0' }}>
+                  취소
+                </button>
+                <button onClick={handleDelete}
+                  className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white bg-red-500 hover:bg-red-600 transition-colors">
+                  삭제
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 버튼 */}
+        <div className="flex gap-2.5 px-6 pb-6">
           <button
             onClick={handleConfirm}
             disabled={loading}
-            className="px-12 py-2 text-white text-[14px] font-bold rounded-lg hover:opacity-85 disabled:opacity-60 transition-opacity"
+            className="flex-1 py-3 text-white text-[14px] font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
             style={{ backgroundColor: '#0D5C47' }}
           >
-            확인
+            {loading ? '확인 중...' : '확인'}
           </button>
           <button
             onClick={onClose}
-            className="px-12 py-2 border border-kb-border text-[14px] text-kb-text-body hover:bg-[#F0FAF7]"
+            className="flex-1 py-3 rounded-xl border-2 text-[14px] font-medium text-kb-text-muted hover:bg-[#F0FAF7] hover:text-kb-text transition-colors"
+            style={{ borderColor: '#E2E8F0' }}
           >
             취소
           </button>
@@ -604,6 +752,10 @@ function IdLoginTab() {
     }
     setError('')
     setLoading(true)
+    // 만료된 토큰이 Authorization 헤더에 실려 백엔드가 거부하는 것을 방지
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('sessionExpiry')
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
       localStorage.removeItem('sessionExpiry')
