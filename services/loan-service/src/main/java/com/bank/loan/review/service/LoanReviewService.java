@@ -174,12 +174,12 @@ public class LoanReviewService {
                 .approvedPeriodMo(approvedPeriod)
                 .rejectReasonCd(approved ? null : req.rejectReasonCd())
                 .revRemark(req.revRemark())
-                .reviewerId(req.reviewerId())
+                .reviewerId(actorId)
                 .reviewedAt(now)
                 .approvedAt(approvedAt)
                 .build());
 
-        checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req);
+        checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req, actorId);
 
         // 심사원 결정 이력
         statusHistoryPublisher.publish(StatusChangeEvent.of(

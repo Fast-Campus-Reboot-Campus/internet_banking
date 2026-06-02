@@ -30,8 +30,6 @@ public record RunReviewRequest(
         @Min(1) Integer approvedPeriodMo,
 
         @Size(max = 50) String rejectReasonCd,
-        @Size(max = 500) String revRemark,
-
-        Long reviewerId
+        @Size(max = 500) String revRemark
 ) {
 }
