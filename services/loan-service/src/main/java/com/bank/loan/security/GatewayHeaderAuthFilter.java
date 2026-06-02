@@ -58,8 +58,11 @@ public class GatewayHeaderAuthFilter extends OncePerRequestFilter {
                         new UsernamePasswordAuthenticationToken(customerId, null, authorities);
 
                 // 직원 속성(지점·직급)을 details 에 보관 — Stage 4 스코프 판정에서 사용
-                String branch = request.getHeader(HEADER_USER_BRANCH);
-                String grade  = request.getHeader(HEADER_USER_GRADE);
+                // 게이트웨이가 빈 문자열로 set할 수 있으므로 blank → null 정규화
+                String branchRaw = request.getHeader(HEADER_USER_BRANCH);
+                String gradeRaw  = request.getHeader(HEADER_USER_GRADE);
+                String branch = (branchRaw != null && !branchRaw.isBlank()) ? branchRaw : null;
+                String grade  = (gradeRaw  != null && !gradeRaw.isBlank())  ? gradeRaw  : null;
                 auth.setDetails(new GatewayAuthDetails(branch, grade));
 
                 SecurityContextHolder.getContext().setAuthentication(auth);
