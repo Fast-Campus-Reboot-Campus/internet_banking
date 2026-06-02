@@ -3,6 +3,7 @@ package com.bank.ai;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * auto-loan-review 모듈은 RDB(JPA) 비사용. spring-data-jpa starter 는 build.gradle 에서 제외하고,
@@ -14,6 +15,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  */
 @SpringBootApplication(scanBasePackages = {"com.bank.ai", "com.bank.common.web"})
 @ConfigurationPropertiesScan("com.bank.ai")
+@EnableScheduling
 public class AutoLoanReviewApplication {
 
     public static void main(String[] args) {

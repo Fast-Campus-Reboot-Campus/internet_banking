@@ -28,6 +28,7 @@ Thumbs.db
 .env.prod
 *.local
 *.bak
+infra/alertmanager/alertmanager.yml
 .venv/
 venv/
 env/
