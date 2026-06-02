@@ -98,16 +98,280 @@ const SECTIONS = [
       </div>
     ),
   },
-  { num: '2', title: '전자서명인증업무 관련 정보의 공고', content: null },
-  { num: '3', title: '신원확인', content: null },
-  { num: '4', title: '인증서 관리', content: null },
-  { num: '5', title: '시설 및 운영관리', content: null },
-  { num: '6', title: '기술적 보호조치', content: null },
-  { num: '7', title: '인증서 형식', content: null },
-  { num: '8', title: '감사 및 평가', content: null },
-  { num: '9', title: '전자서명인증업무 보증 등 기타사항', content: null },
-  { num: '부록 A', title: '프로파일', content: null },
-  { num: '부록 B', title: '개정이력', content: null },
+  {
+    num: '2', title: '전자서명인증업무 관련 정보의 공고',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">2.1 저장소</h3>
+          <p>AXful Bank는 인증업무준칙 및 관련 정책 문서를 공식 웹사이트(<span className="font-medium text-kb-text">https://www.axful.com/cert-cps</span>)를 통해 공고합니다. 저장소는 연중무휴 24시간 접근 가능하도록 운영됩니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">2.2 공고 정보</h3>
+          <ul className="list-disc list-inside space-y-1 pl-2 text-kb-text-muted">
+            <li>인증업무준칙(CPS) 최신 버전 및 개정 이력</li>
+            <li>인증서 폐기 목록(CRL) 및 OCSP 서비스 정보</li>
+            <li>AXful Bank 인증기관(CA) 인증서</li>
+            <li>인증서 정책(CP) 식별자(OID)</li>
+          </ul>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">2.3 공고 주기</h3>
+          <p>인증업무준칙은 중요 변경사항 발생 시 즉시 개정·공고하며, 변경이 없는 경우에도 매년 1회 이상 검토합니다.</p>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '3', title: '신원확인',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">3.1 초기 등록 시 신원확인</h3>
+          <p className="mb-2">인증서 발급을 신청하는 가입자의 신원확인은 다음 방법 중 하나로 수행합니다.</p>
+          <ul className="list-disc list-inside space-y-1 pl-2 text-kb-text-muted">
+            <li>공인된 신분증(주민등록증, 운전면허증, 여권) 직접 대면 확인</li>
+            <li>AXful Bank 인터넷뱅킹 로그인 후 본인 인증</li>
+            <li>휴대폰 본인인증 서비스를 통한 실명 확인</li>
+          </ul>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">3.2 재발급 시 신원확인</h3>
+          <p>기존 유효 인증서 보유자의 재발급 요청 시, 기존 인증서를 활용한 전자서명으로 본인 확인을 갈음할 수 있습니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">3.3 폐기 요청 시 신원확인</h3>
+          <p>인증서 폐기는 가입자 본인, AXful Bank 고객센터(전화·방문), 또는 AXful 뱅킹 앱에서 신청 가능하며, 각 채널별 본인확인 절차를 준수합니다.</p>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '4', title: '인증서 관리',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">4.1 인증서 발급</h3>
+          <p>신원확인 완료 후 영업일 기준 즉시 발급을 원칙으로 합니다. 발급된 인증서는 가입자에게 안전한 채널을 통해 전달됩니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">4.2 인증서 갱신</h3>
+          <p>유효기간 만료 30일 전부터 갱신 신청이 가능합니다. 갱신 시 신원확인 절차를 재수행하며, 기존 인증서의 유효기간 내 갱신한 경우 잔여 기간은 이월되지 않습니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">4.3 인증서 폐기</h3>
+          <p className="mb-1">다음의 경우 즉시 인증서를 폐기합니다.</p>
+          <ul className="list-disc list-inside space-y-1 pl-2 text-kb-text-muted">
+            <li>가입자의 폐기 요청</li>
+            <li>개인키 분실 또는 유출이 의심되는 경우</li>
+            <li>가입자 정보 변경으로 인증서 내용이 부정확해진 경우</li>
+            <li>법원 명령 또는 관계 법령에 의한 폐기 요청</li>
+          </ul>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">4.4 인증서 유효기간</h3>
+          <div className="overflow-x-auto" style={{ border: '1px solid #E2F5EF', borderRadius: 8 }}>
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                  {['인증서 종류', '유효기간'].map(h => (
+                    <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[['AXful인증서', '2년'], ['AXful인증서(기업)', '3년'], ['금융인증서', '3년']].map(([name, period], i) => (
+                  <tr key={name} style={{ backgroundColor: i % 2 === 1 ? '#F8FFFE' : 'white', borderTop: '1px solid #E2F5EF' }}>
+                    <td className="px-4 py-2">{name}</td>
+                    <td className="px-4 py-2">{period}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '5', title: '시설 및 운영관리',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">5.1 물리적 보안</h3>
+          <p>AXful Bank 인증시스템은 금융감독원 전자금융감독규정을 준수하는 데이터센터에 위치합니다. 출입 통제, 이중 잠금장치, CCTV 24시간 모니터링을 운영합니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">5.2 운영 인력</h3>
+          <p>인증시스템 운영은 보안 전문 교육을 이수한 인가된 인원만이 수행할 수 있으며, 2인 이상의 인원이 동시에 참여하는 이중 통제 원칙을 적용합니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">5.3 백업 및 복구</h3>
+          <p>인증 데이터는 일 1회 이상 오프사이트 백업을 수행하며, 재해복구(DR) 시스템을 통해 서비스 연속성을 보장합니다. 목표 복구 시간(RTO)은 4시간 이내입니다.</p>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '6', title: '기술적 보호조치',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">6.1 키 생성 및 보관</h3>
+          <p>인증기관(CA) 개인키는 FIPS 140-2 Level 3 이상의 하드웨어 보안 모듈(HSM)에서 생성 및 보관됩니다. 키 생성 의식은 감사인 입회 하에 수행됩니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">6.2 암호 알고리즘</h3>
+          <ul className="list-disc list-inside space-y-1 pl-2 text-kb-text-muted">
+            <li>서명 알고리즘: ECDSA P-256 / RSA-2048 이상</li>
+            <li>해시 알고리즘: SHA-256 이상</li>
+            <li>대칭키 암호: AES-256</li>
+          </ul>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">6.3 가입자 키 보호</h3>
+          <p>가입자 개인키는 가입자 기기 내 안전한 저장소(스마트폰 보안 영역 또는 PC 암호화 저장소)에 보관되며, AXful Bank는 가입자 개인키에 접근하지 않습니다.</p>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '7', title: '인증서 형식',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">7.1 인증서 프로파일</h3>
+          <p className="mb-2">AXful Bank 발급 인증서는 ITU-T X.509 v3 표준을 준수합니다. 주요 확장 필드는 다음과 같습니다.</p>
+          <ul className="list-disc list-inside space-y-1 pl-2 text-kb-text-muted">
+            <li>Subject Alternative Name (SAN)</li>
+            <li>Key Usage / Extended Key Usage</li>
+            <li>CRL Distribution Points</li>
+            <li>Authority Information Access (OCSP)</li>
+            <li>Certificate Policies (OID: 1.2.410.200xxx)</li>
+          </ul>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">7.2 CRL 프로파일</h3>
+          <p>인증서 폐기 목록(CRL)은 X.509 v2 형식으로 발급되며, 최소 24시간마다 갱신 발행됩니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">7.3 OCSP 프로파일</h3>
+          <p>실시간 인증서 상태 확인을 위한 OCSP 서비스는 RFC 6960을 준수하며, 응답 서명에 전용 OCSP 서명 인증서를 사용합니다.</p>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '8', title: '감사 및 평가',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">8.1 감사 주기</h3>
+          <p>AXful Bank는 인증업무에 대한 내부 감사를 연 1회 이상 수행하고, 전자서명법 제24조에 따른 외부 평가기관에 의한 적합성 평가를 정기적으로 받습니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">8.2 감사 기록 보관</h3>
+          <p>인증업무 관련 로그 및 감사 기록은 최소 5년간 안전하게 보관하며, 접근 권한을 엄격히 제한합니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">8.3 보안 사고 대응</h3>
+          <p>보안 사고 발생 시 즉각적인 대응 절차를 실행하고, 금융감독원 및 관계 기관에 규정된 기한 내 보고합니다. 사고 원인 분석 및 재발 방지 대책을 수립·이행합니다.</p>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '9', title: '전자서명인증업무 보증 등 기타사항',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">9.1 요금 및 환급</h3>
+          <p>AXful인증서 발급 수수료는 무료입니다. 단, 기업 인증서의 경우 별도 수수료 정책이 적용될 수 있으며, 요금표는 공식 홈페이지에 공고합니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">9.2 책임의 한계</h3>
+          <p>AXful Bank는 가입자의 귀책 사유로 발생한 손해, 불가항력에 의한 손해, 인증서의 허용 한도를 초과한 거래로 인한 손해에 대해서는 책임을 지지 않습니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">9.3 준거법 및 분쟁 해결</h3>
+          <p>본 준칙은 대한민국 법률에 따라 해석되며, 분쟁 발생 시 서울중앙지방법원을 제1심 관할 법원으로 합니다.</p>
+        </section>
+        <section>
+          <h3 className="text-[16px] font-bold mb-2 text-kb-text">9.4 준칙의 개정</h3>
+          <p>본 준칙의 중요 변경사항은 변경 30일 전 공고를 원칙으로 하며, 법령 변경 등 긴급한 경우 즉시 개정·시행할 수 있습니다.</p>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '부록 A', title: '프로파일',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <section>
+          <h3 className="text-[16px] font-bold mb-3 text-kb-text">A.1 AXful인증서 인증서 프로파일</h3>
+          <div className="overflow-x-auto" style={{ border: '1px solid #E2F5EF', borderRadius: 8 }}>
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                  {['필드', '값'].map(h => (
+                    <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['버전', 'v3 (X.509)'],
+                  ['직렬번호', '고유 일련번호 (20바이트)'],
+                  ['서명 알고리즘', 'ecdsa-with-SHA256'],
+                  ['유효기간', '발급일로부터 2년'],
+                  ['주체 공개키', 'EC P-256'],
+                  ['키 용도', 'digitalSignature, nonRepudiation'],
+                ].map(([field, val], i) => (
+                  <tr key={field} style={{ backgroundColor: i % 2 === 1 ? '#F8FFFE' : 'white', borderTop: '1px solid #E2F5EF' }}>
+                    <td className="px-4 py-2 font-medium text-kb-text">{field}</td>
+                    <td className="px-4 py-2 text-kb-text-muted">{val}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    ),
+  },
+  {
+    num: '부록 B', title: '개정이력',
+    content: (
+      <div className="space-y-4 text-[14px] text-kb-text-body leading-relaxed">
+        <div className="overflow-x-auto" style={{ border: '1px solid #E2F5EF', borderRadius: 8 }}>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr style={{ backgroundColor: '#F0FAF7' }}>
+                {['버전', '개정일', '주요 내용'].map(h => (
+                  <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Ver.1.0.14', '2026.02.24', '암호 알고리즘 업데이트 (ECDSA P-256 추가), 유효기간 조정'],
+                ['Ver.1.0.13', '2025.08.01', '금융인증서 관련 조항 신설, 9.2 책임 한계 조항 명확화'],
+                ['Ver.1.0.12', '2025.01.15', 'AXful인증서(기업) 유효기간 3년으로 변경'],
+                ['Ver.1.0.11', '2024.06.30', '전자서명법 시행령 개정에 따른 신원확인 조항 수정'],
+                ['Ver.1.0.10', '2024.01.02', '최초 제정 및 시행'],
+              ].map(([ver, date, desc], i) => (
+                <tr key={ver} style={{ backgroundColor: i % 2 === 1 ? '#F8FFFE' : 'white', borderTop: '1px solid #E2F5EF' }}>
+                  <td className="px-4 py-2 font-medium text-kb-text whitespace-nowrap">{ver}</td>
+                  <td className="px-4 py-2 text-kb-text-muted whitespace-nowrap">{date}</td>
+                  <td className="px-4 py-2 text-kb-text-muted">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ),
+  },
 ]
 
 export default function CertCpsPage() {

@@ -1,12 +1,15 @@
-package com.bank.loan.autodebit.service;
+﻿package com.bank.loan.autodebit.service;
 
+import com.bank.loan.autodebit.domain.AutoDebitClearingPending;
 import com.bank.loan.autodebit.dto.AutoDebitRunResponse;
+import com.bank.loan.autodebit.repository.AutoDebitClearingPendingRepository;
 import com.bank.loan.calendar.service.BusinessDayService;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.common.security.crypto.CryptoService;
+import com.bank.commonaccount.domain.CommonAccount;
+import com.bank.loan.payment.SystemAccountProvider;
 import com.bank.loan.payment.client.PaymentServiceClient;
-import com.bank.loan.payment.client.PaymentServiceProperties;
 import com.bank.loan.payment.client.dto.PaymentRequest;
 import com.bank.loan.payment.client.dto.PaymentResponse;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
@@ -45,7 +48,7 @@ import java.util.Optional;
  *   3. payment-service POST /api/v1/payments 호출
  *       COMPLETED → repaymentService.repayInstallment() → STATUS_SUCCESS
  *       FAILED    → RepaymentTransaction STATUS_FAILED 기록
- *       CLEARING  → 별도 협의 필요, skipped 처리
+ *       CLEARING  → auto_debit_clearing_pending 등록, payment.* Kafka 이벤트로 완결 (PaymentEventConsumer)
  *
  * 멱등성: 회차당 idempotency_key = "AUTO-{cntrId}-{rschId}-{baseDate}" 자체 채번.
  * 같은 baseDate 재실행 시 RepaymentTransaction.idempotency_key UNIQUE 제약으로 중복 출금 차단.
@@ -59,18 +62,20 @@ public class AutoDebitBatchService {
 
     private static final Logger log = LoggerFactory.getLogger(AutoDebitBatchService.class);
 
-    // payment-service channel CHECK: WEB/MOBILE/BRANCH/ATM/OPEN_BANKING/INBOUND
-    // 자동이체 = INBOUND (은행 내부 시스템 발신)
+    // 원장 기록용 채널 (RepaymentTransaction.channel_cd) — 자동이체 식별값
     private static final String CHANNEL_AUTO_DEBIT = "INBOUND";
+    // payment-service 호출 채널 CHECK: WEB/MOBILE/BRANCH/ATM/OPEN_BANKING (INBOUND은 타행→당행 수신 전용이라 OUT 이체엔 사용 불가)
+    private static final String PAYMENT_CHANNEL_OPEN_BANKING = "OPEN_BANKING";
 
     private final RepaymentScheduleRepository scheduleRepository;
     private final RepaymentAccountRepository repaymentAccountRepository;
     private final LoanContractRepository contractRepository;
     private final RepaymentService repaymentService;
     private final PaymentServiceClient paymentServiceClient;
-    private final PaymentServiceProperties paymentProps;
+    private final SystemAccountProvider systemAccountProvider;
     private final CryptoService cryptoService;
     private final BusinessDayService businessDayService;
+    private final AutoDebitClearingPendingRepository clearingPendingRepository;
 
     public AutoDebitRunResponse run(String baseDate) {
         if (!businessDayService.isBusinessDay(baseDate)) {
@@ -129,8 +134,14 @@ public class AutoDebitBatchService {
                             RepaymentTransaction.STATUS_FAILED, piId);
                     skipped++;
                 } else if (PaymentResponse.STATUS_CLEARING.equals(payResp.status())) {
-                    // 타행 청산 대기: payment-service가 KFTC 정산 완료 후 /api/internal/auto-debit/payment-result 콜백
-                    log.info("auto-debit: CLEARING 대기 cntrId={} installmentNo={} piId={}",
+                    // 타행 청산 대기: payment 가 정산 완료 후 payment.completed/failed Kafka 이벤트 발행.
+                    // 이벤트엔 piId 만 실려오므로 piId↔회차 매핑을 저장해 두고 PaymentEventConsumer 가 완결한다.
+                    if (clearingPendingRepository.findByPiId(piId).isEmpty()) {
+                        clearingPendingRepository.save(AutoDebitClearingPending.of(
+                                piId, schedule.getCntrId(), schedule.getRschId(),
+                                schedule.getInstallmentNo(), baseDate, idemKey));
+                    }
+                    log.info("auto-debit: CLEARING 대기 등록 cntrId={} installmentNo={} piId={}",
                             schedule.getCntrId(), schedule.getInstallmentNo(), piId);
                     skipped++;
                 } else {
@@ -157,16 +168,16 @@ public class AutoDebitBatchService {
                                                RepaymentAccount account,
                                                LoanContract contract) {
         String senderAccountNo = cryptoService.decrypt(account.getAccountNoEnc());
-        PaymentServiceProperties.Collection coll = paymentProps.collection();
+        CommonAccount collection = systemAccountProvider.collectionAccount();
         return new PaymentRequest(
                 senderAccountNo,
-                coll.bankCode(),
-                coll.accountNo(),
-                coll.holderName(),
+                collection.getBankCd(),
+                collection.getAccountNo(),
+                collection.getAccountNickname(),
                 BigDecimal.valueOf(schedule.getScheduledTotal()),
                 "대출상환 " + schedule.getInstallmentNo() + "회차",
                 "대출상환",
-                CHANNEL_AUTO_DEBIT,
+                PAYMENT_CHANNEL_OPEN_BANKING,
                 contract.getCntrNo()
         );
     }

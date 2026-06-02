@@ -4,6 +4,7 @@ import com.bank.common.web.ApiResponse;
 import com.bank.loan.review.dto.AcknowledgeBiasRequest;
 import com.bank.loan.review.dto.ApproverApproveRequest;
 import com.bank.loan.review.dto.ConfirmReviewRequest;
+import com.bank.loan.review.dto.EscalateToHqRequest;
 import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviseReviewRequest;
 import com.bank.loan.review.dto.RunReviewRequest;
@@ -12,12 +13,14 @@ import com.bank.loan.review.service.LoanReviewApproverService;
 import com.bank.loan.review.service.LoanReviewAutoDecideService;
 import com.bank.loan.review.service.LoanReviewReviseService;
 import com.bank.loan.review.service.LoanReviewService;
+import com.bank.loan.security.LoanActorContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,8 +55,8 @@ public class LoanReviewController {
 
     @Operation(summary = "본심사 결과 조회")
     @GetMapping
-    public ApiResponse<LoanReviewResponse> get(@PathVariable Long applId) {
-        return ApiResponse.ok(service.get(applId));
+    public ApiResponse<LoanReviewResponse> get(@PathVariable Long applId, Authentication auth) {
+        return ApiResponse.ok(service.get(applId, LoanActorContext.from(auth)));
     }
 
     @Operation(summary = "본심사 결정 정정(재심사)",
@@ -112,5 +115,18 @@ public class LoanReviewController {
             @PathVariable Long applId,
             @Valid @RequestBody ApproverApproveRequest req) {
         return ApiResponse.ok(approverService.approverApprove(applId, req));
+    }
+
+    @Operation(summary = "이상거래 본사 상신",
+            description = "지점장이 심사 진행 중인 건을 이상거래로 판단해 본사에 상신. "
+                    + "이미 상신된 건은 LOAN_203, COMPLETED/EXPIRED 건은 LOAN_204. "
+                    + "상신 후 ROLE_HQ_REVIEWER 만 해당 건을 조회할 수 있다.")
+    @PostMapping("/escalate-to-hq")
+    public ApiResponse<LoanReviewResponse> escalateToHq(
+            @PathVariable Long applId,
+            @Valid @RequestBody EscalateToHqRequest req,
+            Authentication auth) {
+        return ApiResponse.ok(
+                service.escalateToHq(applId, LoanActorContext.from(auth), req.escalateReason()));
     }
 }

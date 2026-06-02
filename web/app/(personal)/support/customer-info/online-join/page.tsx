@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '@/lib/api'
+import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
 
 const STEPS = ['약관동의', '본인확인', '정보입력', '가입완료']
@@ -152,6 +153,7 @@ export default function OnlineJoinPage() {
   const [accountNo,  setAccountNo]  = useState('')
   const [accountPw,  setAccountPw]  = useState('')
   const [mouseInput, setMouseInput] = useState(false)
+  const [mouseAccountPw, setMouseAccountPw] = useState('')
 
   // Step 2 — 정보입력 (성명·생년월일은 본인확인에서 가져옴)
   const [name,       setName]      = useState('')
@@ -362,12 +364,16 @@ export default function OnlineJoinPage() {
                       </td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <input type={mouseInput ? 'text' : 'password'} value={accountPw}
-                            onChange={e => setAccountPw(e.target.value)} maxLength={4}
-                            placeholder="4자리 입력"
-                            className="border border-kb-border px-3 py-1.5 w-28 outline-none text-[13px] text-center tracking-widest" />
-                          <label className="flex items-center gap-1.5 text-[12px] text-kb-text-body cursor-pointer">
-                            <input type="checkbox" checked={mouseInput} onChange={e => setMouseInput(e.target.checked)} className="w-3.5 h-3.5" />
+                          {mouseInput ? (
+                            <MouseNumKeypad value={mouseAccountPw} onChange={setMouseAccountPw} maxLength={4} dotCount={4} />
+                          ) : (
+                            <input type="password" value={accountPw}
+                              onChange={e => setAccountPw(e.target.value)} maxLength={4}
+                              placeholder="4자리 입력"
+                              className="border border-kb-border px-3 py-1.5 w-28 outline-none text-[13px] text-center tracking-widest" />
+                          )}
+                          <label className="flex items-center gap-1.5 text-[12px] text-kb-text-body cursor-pointer w-fit">
+                            <input type="checkbox" checked={mouseInput} onChange={e => { setMouseInput(e.target.checked); setMouseAccountPw(''); setAccountPw('') }} className="w-3.5 h-3.5" />
                             마우스로 입력
                           </label>
                         </div>
@@ -469,14 +475,19 @@ export default function OnlineJoinPage() {
                       <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">사용자암호</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <input type={mouseId ? 'text' : 'password'} value={pw}
-                            onChange={e => setPw(e.target.value)}
-                            placeholder="영문/숫자/특수문자 조합(8~12자리)"
-                            className="border border-kb-border px-3 py-1.5 w-52 outline-none text-[13px]" />
-                          <label className="flex items-center gap-1.5 text-[12px] cursor-pointer">
-                            <input type="checkbox" checked={mouseId} onChange={e => setMouseId(e.target.checked)} className="w-3.5 h-3.5" />
-                            마우스로 입력
-                          </label>
+                          <div className="relative">
+                            <input type={mouseId ? 'text' : 'password'} value={pw}
+                              onChange={e => setPw(e.target.value)}
+                              placeholder="영문/숫자/특수문자 조합(8~12자리)"
+                              className="border border-kb-border px-3 py-1.5 pr-9 w-52 outline-none text-[13px]" />
+                            <button type="button" onClick={() => setMouseId(v => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-kb-text-muted hover:text-kb-text">
+                              {mouseId
+                                ? <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                : <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                              }
+                            </button>
+                          </div>
                           <button className="text-kb-text-muted border border-kb-border rounded-full w-5 h-5 text-[10px] flex items-center justify-center">ⓘ</button>
                         </div>
                       </td>
@@ -485,14 +496,19 @@ export default function OnlineJoinPage() {
                       <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">사용자암호 확인</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <input type={mouseId2 ? 'text' : 'password'} value={pwConfirm}
-                            onChange={e => setPwConfirm(e.target.value)}
-                            placeholder="사용자암호 재입력"
-                            className="border border-kb-border px-3 py-1.5 w-52 outline-none text-[13px]" />
-                          <label className="flex items-center gap-1.5 text-[12px] cursor-pointer">
-                            <input type="checkbox" checked={mouseId2} onChange={e => setMouseId2(e.target.checked)} className="w-3.5 h-3.5" />
-                            마우스로 입력
-                          </label>
+                          <div className="relative">
+                            <input type={mouseId2 ? 'text' : 'password'} value={pwConfirm}
+                              onChange={e => setPwConfirm(e.target.value)}
+                              placeholder="사용자암호 재입력"
+                              className="border border-kb-border px-3 py-1.5 pr-9 w-52 outline-none text-[13px]" />
+                            <button type="button" onClick={() => setMouseId2(v => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-kb-text-muted hover:text-kb-text">
+                              {mouseId2
+                                ? <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                : <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                              }
+                            </button>
+                          </div>
                         </div>
                         {pwConfirm && pw !== pwConfirm && (
                           <p className="text-[12px] text-kb-red mt-1">사용자암호가 일치하지 않습니다.</p>

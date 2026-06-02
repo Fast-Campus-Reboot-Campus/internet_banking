@@ -2,8 +2,10 @@ package com.bank.loan.execution.repository;
 
 import com.bank.loan.execution.domain.LoanExecution;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -25,4 +27,10 @@ public interface LoanExecutionRepository extends JpaRepository<LoanExecution, Lo
     @Query("SELECT MAX(e.executedAt) FROM LoanExecution e " +
             "WHERE e.cntrId = :cntrId AND e.execStatusCd = 'DONE' AND e.deletedAt IS NULL")
     Optional<OffsetDateTime> findLastExecutedAt(@Param("cntrId") Long cntrId);
+
+    /** common_db 동기화 후 브리지 컬럼 백필. */
+    @Modifying
+    @Transactional
+    @Query("UPDATE LoanExecution e SET e.transactionId = :commonId WHERE e.execId = :execId")
+    int updateTransactionId(@Param("execId") Long execId, @Param("commonId") Long commonId);
 }

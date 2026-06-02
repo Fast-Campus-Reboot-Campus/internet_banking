@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '@/lib/api'
-import { ArrowLeftRight, Bot, Home, MessageCircle, PackageSearch, Phone, Send, Sparkles, X } from 'lucide-react'
+import { ArrowLeftRight, Bot, Home, LogOut, MessageCircle, PackageSearch, Phone, Send, Sparkles, X } from 'lucide-react'
 import {
   ChatbotButton,
   ChatbotFeatureExecuteResponse,
@@ -19,7 +19,7 @@ import {
   sendChatbotMessage,
   startChatbotConsultation,
 } from '@/lib/consultation-api'
-import { getCurrentDepositCustomerId, fetchDepositAccountViewModels } from '@/lib/deposit-api'
+import { getCurrentDepositCustomerId, fetchDepositAccountViewModels, terminateDepositContract } from '@/lib/deposit-api'
 import ConsultModal from '@/components/layout/ConsultModal'
 
 type ChatMessage = {
@@ -33,7 +33,7 @@ type ChatMessage = {
   loginForm?: boolean
 }
 
-type TransferStep = 'form' | 'confirm' | 'processing' | 'done' | 'error'
+type TransferStep = 'form' | 'confirm' | 'verify' | 'processing' | 'done' | 'error'
 
 type MyAccount = { account_id: number; account_number: string; balance: number; account_alias: string | null }
 
@@ -43,12 +43,44 @@ type TransferState = {
   fromAccountNumber: string
   fromBalance: number
   toAccountNumber: string
+  toBank: string
   toTab: 'direct' | 'my_accounts'
   myAccounts: MyAccount[]
   amount: string
   memo: string
   resultMessage: string
   balanceAfter: number | null
+  verifySubStep: 'card' | 'cert-info' | 'cert-pin'
+  certPin: string
+  cardFront: string
+  cardBack: string
+}
+
+type ProductSearchStep = 'period' | 'amount' | 'type' | 'purpose' | 'done'
+type ProductSearchState = {
+  step: ProductSearchStep
+  period: string
+  amount: string
+  productType: 'DEPOSIT' | 'SAVINGS' | 'SUBSCRIPTION' | null
+  purpose: 'lump_sum' | 'monthly' | null
+}
+
+type TerminateStep = 'method' | 'verify-card' | 'verify-cert-info' | 'verify-cert-pin' | 'done' | 'error'
+type TerminateState = {
+  step: TerminateStep
+  accountId: number
+  accountNumber: string
+  productName: string
+  balance: number
+  contractId: number | null
+  method: 'cash' | 'own' | 'other' | null
+  targetAccountId: string
+  otherBank: string
+  otherAccount: string
+  checkingAccounts: MyAccount[]
+  cardFront: string
+  cardBack: string
+  certPin: string
 }
 
 type ExpandedRow = {
@@ -89,7 +121,6 @@ const PRODUCT_CHOICES = [
   { label: TEXT.deposit,      query: '\uC608\uAE08 \uC0C1\uD488 \uC54C\uB824\uC918' },
   { label: TEXT.savings,      query: '\uC801\uAE08 \uC0C1\uD488 \uC54C\uB824\uC918' },
   { label: TEXT.subscription, query: '\uCCAD\uC57D \uC0C1\uD488 \uC54C\uB824\uC918' },
-  { label: TEXT.saving,       query: '\uC800\uCD95 \uC0C1\uD488 \uC54C\uB824\uC918' },
 ]
 
 const FIELD_LABELS: Record<string, string> = {
@@ -203,6 +234,15 @@ function rowSummary(row: Record<string, unknown>, index: number) {
     }
   }
 
+  if ('account_number' in row && 'balance' in row && 'product_name' in row) {
+    const balance = Number(row.balance ?? 0).toLocaleString('ko-KR')
+    const type = String(row.product_type ?? '')
+    return {
+      title: String(row.product_name || row.account_number || ''),
+      meta: `${type} · 잔액 ${balance}원`,
+    }
+  }
+
   if ('transaction_id' in row || 'transaction_type' in row) {
     return {
       title: `${formatDisplayValue('transaction_type', row.transaction_type)} ${formatDisplayValue('amount', row.amount)}`,
@@ -220,13 +260,14 @@ function rowSummary(row: Record<string, unknown>, index: number) {
 }
 
 function addFeatureResult(result: ChatbotFeatureExecuteResponse): ChatMessage {
+  const needLogin = result.requires_auth && !localStorage.getItem('access_token') && !localStorage.getItem('accessToken')
   return {
     id: messageId(result.feature_code),
     role: 'bot',
     text: result.message || '\uC694\uCCAD\uD558\uC2E0 \uB0B4\uC6A9\uC744 \uD655\uC778\uD588\uC2B5\uB2C8\uB2E4.',
     data: result.data,
     featureCode: result.feature_code,
-    ...(result.requires_auth ? { loginForm: true } : {}),
+    ...(needLogin ? { loginForm: true } : {}),
   }
 }
 
@@ -243,6 +284,12 @@ export default function ChatbotWidget() {
   const [dataPages, setDataPages] = useState<Record<string, number>>({})
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const [transferState, setTransferState] = useState<TransferState | null>(null)
+  const [terminateState, setTerminateState] = useState<TerminateState | null>(null)
+  const [productSearchState, setProductSearchState] = useState<ProductSearchState | null>(null)
+  const [lastRecommendCtx, setLastRecommendCtx] = useState<string>('')
+  const lastRecommendProductsRef = useRef<Record<string, unknown>[]>([])
+  const lastTopProductRef = useRef<Record<string, unknown> | null>(null)
+  const pendingLoginActionRef = useRef<string | null>(null)
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -259,8 +306,7 @@ export default function ChatbotWidget() {
     () => [
       ...PRODUCT_CHOICES.map((choice) => ({ type: 'product_guide' as const, ...choice })),
       { type: 'my_products' as const, label: TEXT.myProducts, message: '\uB0B4 \uC0C1\uD488 \uBCF4\uC5EC\uC918' },
-      { type: 'recommend' as const, label: TEXT.recommend, message: '\uB0B4 \uD604\uAE08 \uD750\uB984\uC5D0 \uB9DE\uB294 \uC0C1\uD488\uC744 \uCD94\uCC9C\uD574\uC918' },
-      { type: 'cashflow' as const, label: TEXT.cashflow, message: '\uCD5C\uADFC \uD604\uAE08 \uD750\uB984\uC744 \uC54C\uB824\uC918' },
+      { type: 'recommend' as const, label: TEXT.recommend, message: '' },
       { type: 'consult' as const, label: '\uC0C1\uB2F4\uC6D0 \uC5F0\uACB0', message: '' },
     ],
     [],
@@ -268,9 +314,6 @@ export default function ChatbotWidget() {
 
   useEffect(() => {
     setMounted(true)
-    const cid = localStorage.getItem('customerId')
-    if (cid) setCustomerNo(cid)
-    setIsLoggedIn(!!localStorage.getItem('accessToken') && !!localStorage.getItem('user'))
   }, [])
 
   useEffect(() => {
@@ -333,18 +376,210 @@ export default function ChatbotWidget() {
     return started.chatbot_consultation_id
   }
 
+  function saveRecommendContext(result: ChatbotFeatureExecuteResponse) {
+    if (!result.data?.length) return
+    const products = result.data.filter(r => r.row_type === 'recommended_product')
+    if (!products.length) return
+    lastRecommendProductsRef.current = products
+    const ctx = products.map((p, i) => {
+      const name = String(p.product_name ?? '')
+      const rate = p.base_interest_rate ?? '-'
+      const reason = p.reason ? ` 추천이유:${String(p.reason)}` : ''
+      const period = p.min_period_month != null ? ` 기간:${p.min_period_month}~${p.max_period_month}개월` : ''
+      return `${i + 1}위:${name}(금리${rate}%${period}${reason})`
+    }).join(' / ')
+    setLastRecommendCtx(ctx)
+  }
+
+  function pushProductSearchResult(result: ChatbotFeatureExecuteResponse) {
+    saveRecommendContext(result)
+    pushMessages([addFeatureResult(result)])
+  }
+
+  const BEST_KEYWORDS = ['제일 좋', '가장 좋', '최고', '1위', '1순위', '뭐가 좋', '어떤 게 좋', '어떤게 좋', '뭘 선택', '어떤 상품', '뭐 추천', '제일이', '제일을', '제일은', '어떤 걸', '골라줘', '골라 줘', '선택해줘', '선택해 줘', '추천해줘', '추천해 줘']
+  const FOLLOWUP_KEYWORDS = ['어떤 면', '왜', '이유', '설명', '어떻게', '근거', '어떤 이유', '좋은 이유', '추천 이유', '더 알려', '구체적', '장점', '단점', '특징', '뭐가 좋', '왜 좋', '어떤 점', '말해봐', '말해 봐', '알려줘', '알려 줘', '뭔데', '어때', '괜찮', '어떤거야', '어떤 거야', '좋아', '좋은가', '괜찮아', '어떻게 돼', '금리가', '기간이', '조건이', '가입하면', '이거 왜', '이게 왜', '왜 이걸', '이게 좋']
+  function tryAnswerFromRecommend(text: string): string | null {
+    const products = lastRecommendProductsRef.current
+    if (!products.length) return null
+
+    // 전체 상품 나열 요청
+    const LIST_KEYWORDS = ['나열', '순서대로', '순으로', '다 보여', '전부', '모두 알려', '목록', '리스트', '다시 보여', '전체', '전부 알려', '다 알려', '몇 개야', '몇개야', '몇 가지', '몇가지', '장점순', '유리한 순', '좋은 순', '추천 순', '랭킹', '순위대로', '순위별', '순위별로', '1위부터', '순서별', '상품 순위', '추천 순위', '순위', '순위?', '순위요', '순위야', '순위는', '순위로', '순위 알려', '순위 말해', '순위 보여']
+    if (LIST_KEYWORDS.some(kw => text.includes(kw))) {
+      const lines = ['현금흐름 분석 기반 추천 순위입니다.\n']
+      products.forEach((p, i) => {
+        const name = String(p.product_name ?? '')
+        const rate = p.base_interest_rate != null ? `기본금리 ${p.base_interest_rate}%` : ''
+        const reason = String(p.reason ?? '')
+        const score = p.match_score != null ? ` (적합도 ${p.match_score}점)` : ''
+        lines.push(`${i + 1}위. ${name}${rate ? ` · ${rate}` : ''}${score}`)
+        if (reason) lines.push(`   → ${reason}`)
+      })
+      return lines.join('\n')
+    }
+
+    // 각 상품별 장점/이유 요청 ("각 장점", "각각 장점", "각 상품 장점", "상품별 장점" 등)
+    const EACH_KEYWORDS = ['각 ', '각각', '상품별', '각 상품', '하나씩', '순서대로 장점', '장점 말해', '장점을 말', '장점 알려', '이유 말해', '이유 알려', '이유를 말']
+    if (EACH_KEYWORDS.some(kw => text.includes(kw)) && FOLLOWUP_KEYWORDS.some(kw => text.includes(kw))) {
+      const lines = ['추천 상품별 장점을 안내해 드립니다.\n']
+      products.forEach((p, i) => {
+        const name = String(p.product_name ?? '')
+        const rate = p.base_interest_rate != null ? `기본금리 ${p.base_interest_rate}%` : ''
+        const reason = String(p.reason ?? '')
+        lines.push(`${i + 1}위. ${name}${rate ? ` · ${rate}` : ''}`)
+        if (reason) lines.push(`   → ${reason}`)
+      })
+      return lines.join('\n')
+    }
+
+    // "이유", "왜" 등 단독으로 쓰면 → 추천 상품 전체 이유 안내
+    const REASON_ONLY_KEYWORDS = ['이유', '왜', '근거', '추천 이유', '어떤 이유', '이유가']
+    if (REASON_ONLY_KEYWORDS.some(kw => text.trim() === kw || text.trim() === `${kw}?` || text.trim() === `${kw}야` || text.trim() === `${kw}요`)) {
+      const lines = ['추천 상품별 이유를 안내해 드립니다.\n']
+      products.forEach((p, i) => {
+        const name = String(p.product_name ?? '')
+        const rate = p.base_interest_rate != null ? `기본금리 ${p.base_interest_rate}%` : ''
+        const reason = String(p.reason ?? '')
+        lines.push(`${i + 1}위. ${name}${rate ? ` · ${rate}` : ''}`)
+        if (reason) lines.push(`   → ${reason}`)
+        else lines.push(`   → 현금흐름 분석 기반 추천 상품입니다.`)
+      })
+      return lines.join('\n')
+    }
+
+    // "이유 알려줘", "왜 추천했어" 등 문장 형태로 이유 질문
+    const REASON_PHRASE_KEYWORDS = ['이유 알려', '이유를 알', '이유를 말', '왜 추천', '추천한 이유', '추천 이유', '왜 좋', '이유가 뭐', '이유가 있']
+    if (REASON_PHRASE_KEYWORDS.some(kw => text.includes(kw))) {
+      const lines = ['추천 상품별 이유를 안내해 드립니다.\n']
+      products.forEach((p, i) => {
+        const name = String(p.product_name ?? '')
+        const rate = p.base_interest_rate != null ? `기본금리 ${p.base_interest_rate}%` : ''
+        const reason = String(p.reason ?? '')
+        lines.push(`${i + 1}위. ${name}${rate ? ` · ${rate}` : ''}`)
+        if (reason) lines.push(`   → ${reason}`)
+        else lines.push(`   → 현금흐름 분석 기반 추천 상품입니다.`)
+      })
+      return lines.join('\n')
+    }
+
+    // 직전 추천 1위 상품에 대한 후속 질문
+    if (lastTopProductRef.current && FOLLOWUP_KEYWORDS.some(kw => text.includes(kw))) {
+      const top = lastTopProductRef.current
+      const name = String(top.product_name ?? '')
+      const rate = top.base_interest_rate != null ? `${top.base_interest_rate}%` : ''
+      const reason = String(top.reason ?? '')
+      const minM = top.min_period_month != null ? `${top.min_period_month}개월` : ''
+      const maxM = top.max_period_month != null ? `${top.max_period_month}개월` : ''
+      const period = minM && maxM && minM !== maxM ? `${minM}~${maxM}` : minM
+      const lines = [`"${name}"을 추천한 이유입니다.`]
+      if (reason) lines.push(`• ${reason}`)
+      if (rate) lines.push(`• 기본금리 ${rate}`)
+      if (period) lines.push(`• 가입 가능 기간: ${period}`)
+      return lines.join('\n')
+    }
+
+    // 추천 목록 중 특정 순위 상품 질문 ("1위 장점", "2위 상품 어때" 등)
+    const rankMatch = text.match(/([1-5])위/)
+    if (rankMatch) {
+      const rank = parseInt(rankMatch[1], 10)
+      const target = products[rank - 1]
+      if (target && FOLLOWUP_KEYWORDS.some(kw => text.includes(kw))) {
+        const name = String(target.product_name ?? '')
+        const rate = target.base_interest_rate != null ? `${target.base_interest_rate}%` : ''
+        const reason = String(target.reason ?? '')
+        const lines = [`${rank}위 "${name}"의 특징입니다.`]
+        if (reason) lines.push(`• ${reason}`)
+        if (rate) lines.push(`• 기본금리 ${rate}`)
+        return lines.join('\n')
+      }
+    }
+
+    if (!BEST_KEYWORDS.some(kw => text.includes(kw))) return null
+    const top = products[0]
+    lastTopProductRef.current = top
+    const name = String(top.product_name ?? '')
+    const rate = top.base_interest_rate != null ? `${top.base_interest_rate}%` : ''
+    const reason = String(top.reason ?? '')
+    const parts = [`추천 상품 중 가장 좋은 것은 "${name}"입니다.`]
+    if (rate) parts.push(`기본금리 ${rate}`)
+    if (reason) parts.push(`(${reason})`)
+    return parts.join(' ')
+  }
+
+  // 상품 목록/금리 조회 키워드 패턴
+  const PRODUCT_GUIDE_PATTERNS = [
+    { keywords: ['청약'], query: '청약 상품 알려줘' },
+    { keywords: ['적금'], query: '적금 상품 알려줘' },
+    { keywords: ['예금'], query: '예금 상품 알려줘' },
+  ]
+  // 현금흐름 기반 추천 키워드 (카드 데이터 포함 결과 필요)
+  const CASH_FLOW_RECOMMEND_KEYWORDS = [
+    '순위', '순위별', '순위대로', '1위부터', '랭킹', '추천 순위',
+    '내 현금흐름', '현금흐름 분석', '거래내역 보고', '거래 내역 보고',
+    '나한테 맞는 상품', '나에게 맞는 상품', '내 패턴', '내 거래 패턴',
+  ]
+
   async function handleScenarioMessage(text: string, buttonValue?: string) {
+    // 예금/적금/청약 목록 조회 → handleFeature로 라우팅 (상품 카드 표시)
+    const trimmed = text.trim()
+    // 단순 상품 목록 조회만 라우팅 (다른 의도가 섞인 긴 문장은 제외)
+    const hasOtherIntent = ['비교', '차이', '맞는', '적합', '추천', '나한테', '나에게', '뭐가 더', '어느'].some(w => trimmed.includes(w))
+    const productGuideMatch = !hasOtherIntent && PRODUCT_GUIDE_PATTERNS.find(p =>
+      p.keywords.some(kw =>
+        trimmed === kw ||
+        trimmed === kw + ' 종류' ||
+        trimmed === kw + ' 목록' ||
+        trimmed === kw + ' 상품' ||
+        trimmed === kw + ' 알려줘' ||
+        trimmed === kw + ' 상품 알려줘' ||
+        trimmed === kw + ' 뭐가 있어' ||
+        trimmed === kw + ' 소개해줘'
+      )
+    )
+    if (productGuideMatch) {
+      await handleFeature('PRODUCT_GUIDE', productGuideMatch.query, false)
+      return
+    }
+
+    // 현금흐름 추천/순위 → 이미 추천된 상품 없을 때만 executeChatbotFeature로 라우팅
+    if (CASH_FLOW_RECOMMEND_KEYWORDS.some(kw => trimmed.includes(kw)) && lastRecommendProductsRef.current.length === 0) {
+      if (!isLoggedIn) {
+        pendingLoginActionRef.current = 'recommend'
+        setMessages([{
+          id: messageId('auth'), role: 'bot',
+          text: '로그인 후 이용하실 수 있는 서비스입니다.',
+          loginForm: true,
+        }])
+        return
+      }
+      await handleFeature('CASH_FLOW_RECOMMEND', trimmed, false)
+      return
+    }
+
     setLoading(true)
-    pushMessages([{ id: messageId('user'), role: 'user', text }])
+    // 새 질문으로 넘어가면 이전 메시지 삭제, 현재 Q&A만 표시
+    setMessages([{ id: messageId('user'), role: 'user', text }])
+    setExpandedRow(null)
+    setDataPages({})
+
+    const directAnswer = tryAnswerFromRecommend(text)
+    if (directAnswer) {
+      setMessages(prev => [...prev, { id: messageId('bot'), role: 'bot', text: directAnswer }])
+      setLoading(false)
+      return
+    }
+
     try {
       const consultationId = await ensureStarted()
+      const messageWithCtx = lastRecommendCtx
+        ? `${text}\n[직전 추천 상품: ${lastRecommendCtx}]`
+        : text
       const reply = await sendChatbotMessage(consultationId, {
-        message: text,
+        message: messageWithCtx,
         button_value: buttonValue ?? null,
       })
-      pushMessages([{ id: messageId('bot'), role: 'bot', text: reply.message, buttons: reply.buttons }])
+      setMessages(prev => [...prev, { id: messageId('bot'), role: 'bot', text: reply.message, buttons: reply.buttons }])
     } catch {
-      pushMessages([{ id: messageId('error'), role: 'system', text: '\uCC57\uBD07 \uC11C\uBC84 \uC5F0\uACB0\uC5D0 \uC2E4\uD328\uD588\uC2B5\uB2C8\uB2E4. \uC0C1\uB2F4 \uC11C\uBE44\uC2A4\uB97C \uD655\uC778\uD574\uC8FC\uC138\uC694.' }])
+      setMessages(prev => [...prev, { id: messageId('error'), role: 'system', text: '챗봇 서버 연결에 실패했습니다. 상담 서비스를 확인해주세요.' }])
     } finally {
       setLoading(false)
     }
@@ -362,7 +597,7 @@ export default function ChatbotWidget() {
     try {
       const consultationId = hasStarted ? chatbotConsultationId : undefined
       const result = await executeChatbotFeature(featureCode, {
-        customer_no: customerNo.trim() || DEFAULT_CUSTOMER_NO,
+        customer_no: customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO,
         query: userText,
         chatbot_consultation_id: consultationId ?? undefined,
       })
@@ -390,17 +625,16 @@ export default function ChatbotWidget() {
   async function handleQuickAction(action: (typeof quickActions)[number]) {
     if (loading) return
 
-    const AUTH_REQUIRED = new Set(['my_products', 'transfer', 'cashflow', 'recommend'])
-    if (AUTH_REQUIRED.has(action.type)) {
-      if (!localStorage.getItem('accessToken') || !localStorage.getItem('user')) {
-        pushMessages([{
-          id: messageId('auth'),
-          role: 'bot',
-          text: '로그인 후 이용하실 수 있는 서비스입니다.',
-          loginForm: true,
-        }])
-        return
-      }
+    const AUTH_REQUIRED = new Set(['my_products', 'recommend'])
+    if (AUTH_REQUIRED.has(action.type) && !isLoggedIn) {
+      pendingLoginActionRef.current = action.type
+      pushMessages([{
+        id: messageId('auth'),
+        role: 'bot',
+        text: '로그인 후 이용하실 수 있는 서비스입니다.',
+        loginForm: true,
+      }])
+      return
     }
 
     if (action.type === 'consult') {
@@ -408,23 +642,27 @@ export default function ChatbotWidget() {
       return
     }
     if (action.type === 'recommend') {
-      await handleFeature('CASH_FLOW_RECOMMEND', action.message, true)
+      setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null })
       return
     }
     if (action.type === 'my_products') {
-      if (!customerNo.trim()) {
+      const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+      if (!cid) {
         pushMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
         return
       }
       setLoading(true)
-      pushMessages([{ id: messageId('user'), role: 'user', text: action.message }])
+      setExpandedRow(null)
+      setDataPages({})
+      setMessages([{ id: messageId('user'), role: 'user', text: action.message }])
       try {
         // 계좌 조회와 동일한 소스: deposit API → localStorage 순서
         let rows: Record<string, unknown>[] = []
         try {
-          const apiAccounts = await fetchDepositAccountViewModels(customerNo)
+          const apiAccounts = await fetchDepositAccountViewModels(cid)
           rows = apiAccounts.map((a) => ({
             account_id: a.apiAccountId ?? 0,
+            contract_id: a.contractId ?? null,
             account_number: a.number,
             product_name: a.name,
             product_type: a.type,
@@ -484,33 +722,89 @@ export default function ChatbotWidget() {
       }
       return
     }
-    if (action.type === 'transfer') {
-      setLoading(true)
-      pushMessages([{ id: messageId('user'), role: 'user', text: action.message }])
-      try {
-        const result = await executeChatbotFeature('MY_TRANSFERS', {
-          customer_no: customerNo.trim() || DEFAULT_CUSTOMER_NO,
-        })
-        pushMessages([{
-          ...addFeatureResult(result),
-          link: { text: '새 이체 시작하기 →', href: '/transfer/account' },
-        }])
-      } catch {
-        pushMessages([{ id: messageId('error'), role: 'system', text: '요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }])
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-    if (action.type === 'cashflow') {
-      await handleFeature('MY_CASH_FLOW', action.message, true)
-      return
-    }
     if (action.type === 'product_guide') {
-      await handleFeature('PRODUCT_GUIDE', action.query, true)
+      await handleFeature('PRODUCT_GUIDE', action.query, false)
       return
     }
     await handleScenarioMessage((action as { message: string }).message)
+  }
+
+  async function startTerminate(row: Record<string, unknown>) {
+    const cid = customerNo.trim() || localStorage.getItem('customerId') || ''
+    let checkingAccounts: MyAccount[] = []
+    try {
+      const accs = await fetchDepositAccountViewModels(cid)
+      const terminatingAccountId = Number(row.account_id ?? 0)
+      checkingAccounts = accs
+        .filter(a => (a.apiAccountId ?? 0) !== terminatingAccountId)
+        .map(a => ({
+          account_id: a.apiAccountId ?? 0,
+          account_number: a.number,
+          balance: a.balance,
+          account_alias: a.name,
+        }))
+    } catch {}
+    setTerminateState({
+      step: 'method',
+      accountId: Number(row.account_id ?? 0),
+      accountNumber: String(row.account_number ?? ''),
+      productName: String(row.product_name ?? ''),
+      balance: Number(row.balance ?? 0),
+      contractId: row.contract_id ? Number(row.contract_id) : null,
+      method: null,
+      targetAccountId: '',
+      otherBank: '',
+      otherAccount: '',
+      checkingAccounts,
+      cardFront: '',
+      cardBack: '',
+      certPin: '',
+    })
+  }
+
+  async function refreshMyProducts() {
+    const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+    if (!cid) return
+    try {
+      const apiAccounts = await fetchDepositAccountViewModels(cid)
+      const rows = apiAccounts.map((a) => ({
+        account_id: a.apiAccountId ?? 0,
+        contract_id: a.contractId ?? null,
+        account_number: a.number,
+        product_name: a.name,
+        product_type: a.type,
+        saving_type: a.savingType ?? null,
+        balance: a.balance,
+        account_status: a.accountStatus ?? 'ACTIVE',
+        maturity_at: a.maturityDate ?? null,
+        started_at: a.createdAt ?? null,
+        is_withdrawable: a.type === '입출금',
+      }))
+      setExpandedRow(null)
+      setDataPages({})
+      setMessages([
+        { id: messageId('user'), role: 'user', text: '내 상품 보여줘' },
+        { id: messageId('MY_PRODUCTS'), role: 'bot', text: '가입 상품 조회를 완료했습니다.', data: [...rows], featureCode: 'MY_PRODUCTS' },
+      ])
+      setDataPages({})
+    } catch (e) { console.error('refreshMyProducts error:', e) }
+  }
+
+  async function executeTerminate() {
+    if (!terminateState) return
+    try {
+      if (terminateState.contractId) await terminateDepositContract(
+        terminateState.contractId,
+        'ONLINE_TERMINATION',
+        terminateState.targetAccountId ? Number(terminateState.targetAccountId) : undefined
+      )
+      setTerminateState(s => s && { ...s, step: 'done' })
+    } catch {
+      setTerminateState(s => s && { ...s, step: 'error' })
+      return
+    }
+    // 해지 후 내 상품 목록 자동 갱신
+    await refreshMyProducts()
   }
 
   async function startTransfer(accountId: number, accountNumber: string, balance: number) {
@@ -520,12 +814,17 @@ export default function ChatbotWidget() {
       fromAccountNumber: accountNumber,
       fromBalance: balance,
       toAccountNumber: '',
+      toBank: '',
       toTab: 'my_accounts',
       myAccounts: [],
       amount: '',
       memo: '이체',
       resultMessage: '',
       balanceAfter: null,
+      verifySubStep: 'card',
+      certPin: '',
+      cardFront: '',
+      cardBack: '',
     })
     try {
       let allAccounts: MyAccount[] = []
@@ -570,7 +869,7 @@ export default function ChatbotWidget() {
     setTransferState((s) => s && { ...s, step: 'processing' })
     try {
       const result = await executeChatbotTransfer({
-        customer_no: customerNo.trim() || DEFAULT_CUSTOMER_NO,
+        customer_no: customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO,
         from_account_id: transferState.fromAccountId,
         to_account_number: transferState.toAccountNumber,
         amount,
@@ -579,11 +878,15 @@ export default function ChatbotWidget() {
       if (result.status === 'OK') {
         setTransferState((s) => s && { ...s, step: 'done', resultMessage: result.message, balanceAfter: result.balance_after })
         pushMessages([{ id: messageId('transfer'), role: 'bot', text: `✓ ${result.message}` }])
+        try { await refreshMyProducts() } catch { /* 갱신 실패해도 이체 성공으로 표시 */ }
       } else {
         setTransferState((s) => s && { ...s, step: 'error', resultMessage: result.message })
       }
-    } catch {
-      setTransferState((s) => s && { ...s, step: 'error', resultMessage: '이체 처리 중 오류가 발생했습니다.' })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string; message?: string } }; message?: string })
+      const detail = msg?.response?.data?.detail || msg?.response?.data?.message || msg?.message || ''
+      console.error('[이체 오류]', detail, err)
+      setTransferState((s) => s && { ...s, step: 'error', resultMessage: detail || '이체 처리 중 오류가 발생했습니다.' })
     }
   }
 
@@ -597,7 +900,7 @@ export default function ChatbotWidget() {
 
   const panel = open && mounted
     ? createPortal(
-        <div className="fixed inset-0 z-[260] bg-black/20" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false) }}>
+        <div className="fixed inset-0 z-[260] bg-black/20">
           <section
             className="fixed flex w-[420px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-lg border border-kb-border bg-white shadow-2xl relative"
             style={{
@@ -635,27 +938,44 @@ export default function ChatbotWidget() {
                   <p className="text-xs text-white/75">{TEXT.subtitle}</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={() => setOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/15 flex-shrink-0"
-                aria-label={TEXT.closeChat}
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                {isLoggedIn && (
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => {
+                      localStorage.removeItem('access_token')
+                      localStorage.removeItem('accessToken')
+                      localStorage.removeItem('user')
+                      localStorage.removeItem('customerId')
+                      setIsLoggedIn(false)
+                      setCustomerNo('')
+                      setMessages([{ id: 'welcome', role: 'bot', text: '로그아웃되었습니다.' }])
+                      setChatbotConsultationId(null)
+                      setExpandedRow(null)
+                      setDataPages({})
+                      setTransferState(null)
+                      setProductSearchState(null)
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/15 flex-shrink-0"
+                    aria-label="로그아웃"
+                    title="로그아웃"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={() => setOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/15 flex-shrink-0"
+                  aria-label={TEXT.closeChat}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </header>
 
-            <div className="border-b border-kb-border bg-[#F7F5EF] px-4 py-3">
-              <label className="flex items-center gap-2 text-xs text-kb-text-muted">
-                {FIELD_LABELS.customer_no}
-                <input
-                  value={customerNo}
-                  onChange={(event) => setCustomerNo(event.target.value)}
-                  className="h-8 flex-1 rounded border border-kb-border bg-white px-2 text-xs text-kb-text outline-none focus:border-[#2D6A4F]"
-                />
-              </label>
-            </div>
 
             {transferState ? (<>
                 <div className="flex items-center justify-between border-b border-kb-border bg-white px-4 py-3">
@@ -694,17 +1014,17 @@ export default function ChatbotWidget() {
                         <div className="mb-2 flex rounded border border-kb-border overflow-hidden">
                           <button
                             type="button"
-                            onClick={() => setTransferState((s) => s && { ...s, toTab: 'my_accounts', toAccountNumber: '' })}
+                            onClick={() => setTransferState((s) => s && { ...s, toTab: 'my_accounts', toAccountNumber: '', toBank: '' })}
                             className={`flex-1 py-1.5 text-xs font-bold transition ${transferState.toTab === 'my_accounts' ? 'bg-[#2D6A4F] text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige'}`}
                           >
-                            내 계좌
+                            당행
                           </button>
                           <button
                             type="button"
-                            onClick={() => setTransferState((s) => s && { ...s, toTab: 'direct', toAccountNumber: '' })}
+                            onClick={() => setTransferState((s) => s && { ...s, toTab: 'direct', toAccountNumber: '', toBank: '' })}
                             className={`flex-1 py-1.5 text-xs font-bold transition ${transferState.toTab === 'direct' ? 'bg-[#2D6A4F] text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige'}`}
                           >
-                            직접 입력
+                            타행
                           </button>
                         </div>
 
@@ -737,13 +1057,25 @@ export default function ChatbotWidget() {
                             </div>
                           )
                         ) : (
-                          <input
-                            type="text"
-                            value={transferState.toAccountNumber}
-                            onChange={(e) => setTransferState((s) => s && { ...s, toAccountNumber: e.target.value })}
-                            placeholder="계좌번호 입력 (예: 12345678901234)"
-                            className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F]"
-                          />
+                          <div className="space-y-2">
+                            <select
+                              value={transferState.toBank}
+                              onChange={(e) => setTransferState((s) => s && { ...s, toBank: e.target.value })}
+                              className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F] bg-white"
+                            >
+                              <option value="">은행 선택</option>
+                              {['국민은행','신한은행','우리은행','하나은행','농협은행','기업은행','카카오뱅크','케이뱅크','토스뱅크','SC제일은행','한국씨티은행','우체국','새마을금고','신협','수협은행','대구은행','부산은행'].map((b) => (
+                                <option key={b} value={b}>{b}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="text"
+                              value={transferState.toAccountNumber}
+                              onChange={(e) => setTransferState((s) => s && { ...s, toAccountNumber: e.target.value })}
+                              placeholder="계좌번호 입력 (예: 12345678901234)"
+                              className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F]"
+                            />
+                          </div>
                         )}
                       </div>
                       <div>
@@ -792,7 +1124,7 @@ export default function ChatbotWidget() {
                       <button
                         type="button"
                         onClick={confirmTransfer}
-                        disabled={!transferState.toAccountNumber || !transferState.amount}
+                        disabled={!transferState.toAccountNumber || !transferState.amount || (transferState.toTab === 'direct' && !transferState.toBank)}
                         className="w-full rounded bg-[#2D6A4F] py-3 text-sm font-bold text-white hover:bg-[#24563F] disabled:bg-gray-300"
                       >
                         다음
@@ -830,12 +1162,132 @@ export default function ChatbotWidget() {
                         </button>
                         <button
                           type="button"
-                          onClick={executeTransfer}
+                          onClick={() => setTransferState((s) => s && { ...s, step: 'verify' })}
                           className="flex-1 rounded bg-[#2D6A4F] py-3 text-sm font-bold text-white hover:bg-[#24563F]"
                         >
-                          이체 확인
+                          다음
                         </button>
                       </div>
+                    </>
+                  )}
+
+                  {transferState.step === 'verify' && (
+                    <>
+                      {/* STEP 1: 보안카드 입력 */}
+                      {transferState.verifySubStep === 'card' && (
+                        <div className="space-y-3">
+                          <p className="text-xs font-bold text-kb-text">보안매체 비밀번호 입력</p>
+                          {/* 보안카드 이미지 */}
+                          <div className="border border-gray-300 p-2 text-[10px] rounded">
+                            <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-200">
+                              <span className="font-bold text-[11px]">✱ AX풀뱅크</span>
+                              <span className="text-gray-400">No. 0123456789</span>
+                            </div>
+                            <div className="grid grid-cols-5 gap-0.5 text-center text-gray-400">
+                              {Array.from({ length: 15 }, (_, i) => (
+                                <div key={i} className="py-0.5 text-[9px]">
+                                  <span className="mr-0.5">{i + 1}</span><span>•••</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400 w-4">●●</span>
+                              <input
+                                type="text" maxLength={2}
+                                value={transferState.cardFront}
+                                onChange={(e) => setTransferState((s) => s && { ...s, cardFront: e.target.value.replace(/\D/g, '') })}
+                                placeholder="앞 2자리"
+                                className="w-20 rounded border border-kb-border px-2 py-1.5 text-sm text-center outline-none focus:border-[#2D6A4F]"
+                              />
+                              <span className="text-kb-text-muted text-[11px]">[33] 앞의 두자리</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-400 w-4">●●</span>
+                              <input
+                                type="text" maxLength={2}
+                                value={transferState.cardBack}
+                                onChange={(e) => setTransferState((s) => s && { ...s, cardBack: e.target.value.replace(/\D/g, '') })}
+                                placeholder="뒤 2자리"
+                                className="w-20 rounded border border-kb-border px-2 py-1.5 text-sm text-center outline-none focus:border-[#2D6A4F]"
+                              />
+                              <span className="text-kb-text-muted text-[11px]">[10] 뒤의 두자리</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="button"
+                              onClick={() => setTransferState((s) => s && { ...s, step: 'confirm' })}
+                              className="flex-1 rounded border border-kb-border py-2 text-xs font-bold text-kb-text hover:bg-kb-beige">
+                              이전
+                            </button>
+                            <button type="button"
+                              disabled={transferState.cardFront.length !== 2 || transferState.cardBack.length !== 2}
+                              onClick={() => setTransferState((s) => s && { ...s, verifySubStep: 'cert-info' })}
+                              className="flex-1 rounded bg-[#2D6A4F] py-2 text-xs font-bold text-white hover:bg-[#24563F] disabled:bg-gray-300">
+                              확인
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* STEP 2: 전자서명 원문 확인 */}
+                      {transferState.verifySubStep === 'cert-info' && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="border border-gray-300 rounded px-2 py-0.5 text-[10px] font-black text-gray-600 tracking-wider">YESKEY</div>
+                            <span className="text-xs font-bold text-kb-text">금융인증서비스</span>
+                          </div>
+                          <p className="text-xs font-bold text-kb-text">전자서명 원문</p>
+                          <div className="bg-gray-50 border border-gray-200 rounded p-3 text-[11px] text-kb-text-body space-y-0.5">
+                            <p>이체금액 : {parseInt(transferState.amount).toLocaleString('ko-KR')}원</p>
+                            <p>입금계좌번호 : {transferState.toAccountNumber}</p>
+                            <p>출금계좌번호 : {transferState.fromAccountNumber}</p>
+                            <p>이체수수료 : 0원</p>
+                          </div>
+                          <button type="button"
+                            onClick={() => setTransferState((s) => s && { ...s, verifySubStep: 'cert-pin', certPin: '' })}
+                            className="w-full rounded bg-[#2D6A4F] py-2 text-xs font-bold text-white hover:bg-[#24563F]">
+                            확인
+                          </button>
+                        </div>
+                      )}
+
+                      {/* STEP 3: PIN 입력 */}
+                      {transferState.verifySubStep === 'cert-pin' && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="border border-gray-300 rounded px-2 py-0.5 text-[10px] font-black text-gray-600 tracking-wider">YESKEY</div>
+                            <span className="text-xs font-bold text-kb-text">금융인증서비스</span>
+                          </div>
+                          <p className="text-xs text-kb-text-muted text-center">비밀번호를 입력해주세요</p>
+                          <div className="flex gap-1.5 justify-center">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                              <div key={i} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${i < transferState.certPin.length ? 'bg-kb-text border-kb-text' : 'border-gray-300'}`}>
+                                {i < transferState.certPin.length && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[[5,2,7],[9,8,0],[6,1,4],['↺',3,'✕']].flat().map((key, i) => (
+                              <button key={i} type="button"
+                                onClick={() => {
+                                  if (key === '↺') { setTransferState((s) => s && { ...s, certPin: '' }); return }
+                                  if (key === '✕') { setTransferState((s) => s && { ...s, certPin: s.certPin.slice(0, -1) }); return }
+                                  if (!transferState || transferState.certPin.length >= 6) return
+                                  const next = transferState.certPin + String(key)
+                                  setTransferState((s) => s && { ...s, certPin: next })
+                                  if (next.length === 6) {
+                                    setTimeout(() => executeTransfer(), 300)
+                                  }
+                                }}
+                                className="py-2 text-sm font-semibold rounded hover:bg-kb-beige border border-kb-border transition-colors">
+                                {key}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
 
@@ -868,7 +1320,377 @@ export default function ChatbotWidget() {
                     </>
                   )}
                 </div>
-              </>) : (<>
+              </>) : terminateState ? (<>
+              <div className="flex items-center justify-between border-b border-kb-border bg-white px-4 py-3">
+                <button type="button" onClick={() => setTerminateState(null)}
+                  className="flex items-center gap-1 text-xs font-medium text-kb-text-muted hover:text-kb-text">
+                  ← 취소
+                </button>
+                <span className="text-xs font-bold text-kb-text">해지 신청</span>
+                <div className="w-12" />
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                {/* 해지 계좌 정보 */}
+                <div className="rounded border border-kb-border bg-white p-3 text-xs space-y-1.5">
+                  <div className="flex justify-between"><span className="text-kb-text-muted">상품명</span><span className="font-bold">{terminateState.productName}</span></div>
+                  <div className="flex justify-between"><span className="text-kb-text-muted">계좌번호</span><span>{terminateState.accountNumber}</span></div>
+                  <div className="flex justify-between"><span className="text-kb-text-muted">해지금액</span><span className="font-bold text-[#E05555]">{terminateState.balance.toLocaleString()}원</span></div>
+                </div>
+
+                {terminateState.step === 'method' && (<>
+                  <p className="text-xs font-bold text-kb-text">입금 방식을 선택해주세요</p>
+                  <div className="space-y-2">
+                    {(['cash', 'own', 'other'] as const).map((m) => (
+                      <button key={m} type="button"
+                        onClick={() => setTerminateState(s => s && { ...s, method: m })}
+                        className={`w-full rounded border px-3 py-2 text-xs font-bold text-left transition ${terminateState.method === m ? 'border-[#E05555] bg-red-50 text-[#E05555]' : 'border-kb-border bg-white text-kb-text hover:bg-kb-beige'}`}>
+                        {m === 'cash' ? '💵 현금 수령' : m === 'own' ? '🏦 당행 계좌 입금' : '🏛 타행 계좌 입금'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {terminateState.method === 'own' && (
+                    <div>
+                      <p className="text-xs text-kb-text-muted mb-1.5">입금 계좌 선택</p>
+                      {terminateState.checkingAccounts.length === 0 ? (
+                        <p className="text-xs text-kb-text-muted">입출금 계좌가 없습니다.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {terminateState.checkingAccounts.map(acc => (
+                            <button key={acc.account_id} type="button"
+                              onClick={() => setTerminateState(s => s && { ...s, targetAccountId: String(acc.account_id) })}
+                              className={`w-full rounded border px-3 py-2 text-left text-xs transition ${terminateState.targetAccountId === String(acc.account_id) ? 'border-[#2D6A4F] bg-[#EAF4EF]' : 'border-kb-border bg-white hover:bg-kb-beige'}`}>
+                              <p className="font-bold">{acc.account_number}</p>
+                              <p className="text-kb-text-muted">{acc.balance.toLocaleString()}원</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {terminateState.method === 'other' && (
+                    <div className="space-y-2">
+                      <select value={terminateState.otherBank}
+                        onChange={e => setTerminateState(s => s && { ...s, otherBank: e.target.value })}
+                        className="w-full rounded border border-kb-border px-2 py-1.5 text-xs outline-none bg-white">
+                        <option value="">은행 선택</option>
+                        {['국민은행','신한은행','우리은행','하나은행','농협은행','기업은행','카카오뱅크','케이뱅크','토스뱅크','SC제일은행','한국씨티은행','우체국','새마을금고','신협','수협은행','대구은행','부산은행'].map(b => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                      <input type="text" placeholder="계좌번호 입력"
+                        value={terminateState.otherAccount}
+                        onChange={e => setTerminateState(s => s && { ...s, otherAccount: e.target.value })}
+                        className="w-full rounded border border-kb-border px-2 py-1.5 text-xs outline-none" />
+                    </div>
+                  )}
+
+                  <button type="button" onClick={() => {
+                    if (!terminateState.method) { alert('입금 방식을 선택해주세요.'); return }
+                    if (terminateState.method === 'own' && !terminateState.targetAccountId) { alert('입금 계좌를 선택해주세요.'); return }
+                    if (terminateState.method === 'other' && (!terminateState.otherBank || !terminateState.otherAccount)) { alert('은행과 계좌번호를 입력해주세요.'); return }
+                    setTerminateState(s => s && { ...s, step: 'verify-card', cardFront: '', cardBack: '', certPin: '' })
+                  }}
+                    className="w-full rounded bg-[#E05555] py-2 text-xs font-bold text-white hover:bg-red-700">
+                    해지 확인
+                  </button>
+                </>)}
+
+                {/* 보안카드 */}
+                {terminateState.step === 'verify-card' && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-kb-text">보안매체 비밀번호 입력</p>
+                    <div className="border border-gray-300 p-2 text-[10px] rounded">
+                      <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-200">
+                        <span className="font-bold text-[11px]">✱ AX풀뱅크</span>
+                        <span className="text-gray-400">No. 0123456789</span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-0.5 text-center text-gray-400">
+                        {Array.from({ length: 15 }, (_, i) => (
+                          <div key={i} className="py-0.5 text-[9px]">
+                            <span className="mr-0.5">{i + 1}</span><span>•••</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-400 w-4">●●</span>
+                        <input type="text" maxLength={2} value={terminateState.cardFront}
+                          onChange={e => setTerminateState(s => s && { ...s, cardFront: e.target.value.replace(/\D/g,'') })}
+                          placeholder="앞 2자리"
+                          className="w-20 rounded border border-kb-border px-2 py-1.5 text-sm text-center outline-none focus:border-[#E05555]" />
+                        <span className="text-kb-text-muted text-[11px]">[33] 앞의 두자리</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-400 w-4">●●</span>
+                        <input type="text" maxLength={2} value={terminateState.cardBack}
+                          onChange={e => setTerminateState(s => s && { ...s, cardBack: e.target.value.replace(/\D/g,'') })}
+                          placeholder="뒤 2자리"
+                          className="w-20 rounded border border-kb-border px-2 py-1.5 text-sm text-center outline-none focus:border-[#E05555]" />
+                        <span className="text-kb-text-muted text-[11px]">[10] 뒤의 두자리</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button"
+                        onClick={() => setTerminateState(s => s && { ...s, step: 'method' })}
+                        className="flex-1 rounded border border-kb-border py-2 text-xs font-bold text-kb-text hover:bg-kb-beige">
+                        이전
+                      </button>
+                      <button type="button"
+                        disabled={terminateState.cardFront.length !== 2 || terminateState.cardBack.length !== 2}
+                        onClick={() => setTerminateState(s => s && { ...s, step: 'verify-cert-info' })}
+                        className="flex-1 rounded bg-[#E05555] py-2 text-xs font-bold text-white hover:bg-red-700 disabled:bg-gray-300">
+                        확인
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 전자서명 원문 확인 */}
+                {terminateState.step === 'verify-cert-info' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="border border-gray-300 rounded px-2 py-0.5 text-[10px] font-black text-gray-600 tracking-wider">YESKEY</div>
+                      <span className="text-xs font-bold text-kb-text">금융인증서비스</span>
+                    </div>
+                    <p className="text-xs font-bold text-kb-text">전자서명 원문</p>
+                    <div className="bg-gray-50 border border-gray-200 rounded p-3 text-[11px] text-kb-text-body space-y-0.5">
+                      <p>거래종류 : 예금/적금 해지</p>
+                      <p>해지계좌번호 : {terminateState.accountNumber}</p>
+                      <p>해지계좌명 : {terminateState.productName}</p>
+                      <p>해지금액 : {terminateState.balance.toLocaleString()}원</p>
+                    </div>
+                    <button type="button"
+                      onClick={() => setTerminateState(s => s && { ...s, step: 'verify-cert-pin', certPin: '' })}
+                      className="w-full rounded bg-[#E05555] py-2 text-xs font-bold text-white hover:bg-red-700">
+                      확인
+                    </button>
+                  </div>
+                )}
+
+                {/* PIN 입력 */}
+                {terminateState.step === 'verify-cert-pin' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="border border-gray-300 rounded px-2 py-0.5 text-[10px] font-black text-gray-600 tracking-wider">YESKEY</div>
+                      <span className="text-xs font-bold text-kb-text">금융인증서비스</span>
+                    </div>
+                    <p className="text-xs text-kb-text-muted text-center">비밀번호를 입력해주세요</p>
+                    <div className="flex gap-1.5 justify-center">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${i < terminateState.certPin.length ? 'bg-kb-text border-kb-text' : 'border-gray-300'}`}>
+                          {i < terminateState.certPin.length && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[[5,2,7],[9,8,0],[6,1,4],['↺',3,'✕']].flat().map((key, i) => (
+                        <button key={i} type="button"
+                          onClick={() => {
+                            if (key === '↺') { setTerminateState(s => s && { ...s, certPin: '' }); return }
+                            if (key === '✕') { setTerminateState(s => s && { ...s, certPin: s.certPin.slice(0, -1) }); return }
+                            if (!terminateState || terminateState.certPin.length >= 6) return
+                            const next = terminateState.certPin + String(key)
+                            setTerminateState(s => s && { ...s, certPin: next })
+                            if (next.length === 6) setTimeout(() => executeTerminate(), 300)
+                          }}
+                          className="py-2 text-sm font-semibold rounded hover:bg-kb-beige border border-kb-border transition-colors">
+                          {key}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {terminateState.step === 'done' && (
+                  <div className="text-center py-4 space-y-2">
+                    <p className="text-sm font-bold text-kb-text">해지가 완료되었습니다.</p>
+                    <p className="text-xs text-kb-text-muted">{terminateState.balance.toLocaleString()}원이 {terminateState.method === 'cash' ? '현금으로 수령' : terminateState.method === 'own' ? '당행 계좌로 입금' : `${terminateState.otherBank} ${terminateState.otherAccount}으로 입금`}됩니다.</p>
+                    <button type="button" onClick={() => setTerminateState(null)}
+                      className="rounded bg-[#2D6A4F] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#24563F]">
+                      확인
+                    </button>
+                  </div>
+                )}
+
+                {terminateState.step === 'error' && (
+                  <div className="text-center py-4 space-y-2">
+                    <p className="text-xs text-red-500">해지 처리 중 오류가 발생했습니다.</p>
+                    <button type="button" onClick={() => setTerminateState(s => s && { ...s, step: 'method' })}
+                      className="rounded border border-kb-border px-4 py-1.5 text-xs text-kb-text hover:bg-kb-beige">
+                      다시 시도
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>) : productSearchState && isLoggedIn ? (<>
+              {/* 헤더 */}
+              <div className="flex items-center justify-between border-b border-kb-border bg-white px-4 py-3">
+                <button type="button" onClick={() => setProductSearchState(null)}
+                  className="flex items-center gap-1 text-xs font-medium text-kb-text-muted hover:text-kb-text">
+                  ← 취소
+                </button>
+                <span className="text-xs font-bold text-kb-text">조건 맞춤 추천</span>
+                <div className="w-12" />
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                {/* 진행 단계 표시 */}
+                <div className="flex gap-1">
+                  {(['period','amount','type','purpose'] as const).map((s, i) => (
+                    <div key={s} className={`flex-1 h-1 rounded-full ${(['period','amount','type','purpose'] as const).indexOf(productSearchState.step as 'period'|'amount'|'type'|'purpose') >= i ? 'bg-[#2D6A4F]' : 'bg-kb-border'}`} />
+                  ))}
+                </div>
+
+                {/* Step 1: 가입기간 */}
+                {productSearchState.step === 'period' && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-kb-text">가입 기간을 입력해주세요</p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {['6개월','12개월','24개월','36개월'].map(v => (
+                        <button key={v} type="button"
+                          onClick={() => setProductSearchState(s => s && { ...s, period: v.replace('개월',''), step: 'amount' })}
+                          className="rounded border border-kb-border py-1.5 text-[11px] hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="text" placeholder="직접 입력 (예: 12개월, 1년)"
+                      value={productSearchState.period}
+                      onChange={e => setProductSearchState(s => s && { ...s, period: e.target.value })}
+                      onKeyDown={e => e.key === 'Enter' && productSearchState.period && setProductSearchState(s => s && { ...s, step: 'amount' })}
+                      className="w-full rounded border border-kb-border px-3 py-2 text-xs outline-none focus:border-[#2D6A4F]" />
+                    <button type="button" disabled={!productSearchState.period}
+                      onClick={() => setProductSearchState(s => s && { ...s, step: 'amount' })}
+                      className="w-full rounded bg-[#2D6A4F] py-2 text-xs font-bold text-white hover:bg-[#24563F] disabled:opacity-40">
+                      다음
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 2: 가입금액 */}
+                {productSearchState.step === 'amount' && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-kb-text">가입 금액을 입력해주세요</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {['100만원','500만원','1000만원'].map(v => (
+                        <button key={v} type="button"
+                          onClick={() => setProductSearchState(s => s && { ...s, amount: v, step: 'type' })}
+                          className="rounded border border-kb-border py-1.5 text-[11px] hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="text" placeholder="직접 입력 (예: 100만원, 1000000)"
+                      value={productSearchState.amount}
+                      onChange={e => setProductSearchState(s => s && { ...s, amount: e.target.value })}
+                      onKeyDown={e => e.key === 'Enter' && productSearchState.amount && setProductSearchState(s => s && { ...s, step: 'type' })}
+                      className="w-full rounded border border-kb-border px-3 py-2 text-xs outline-none focus:border-[#2D6A4F]" />
+                    <button type="button" disabled={!productSearchState.amount}
+                      onClick={() => setProductSearchState(s => s && { ...s, step: 'type' })}
+                      className="w-full rounded bg-[#2D6A4F] py-2 text-xs font-bold text-white hover:bg-[#24563F] disabled:opacity-40">
+                      다음
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 3: 상품유형 */}
+                {productSearchState.step === 'type' && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-kb-text">상품 유형을 선택해주세요</p>
+                    {([['DEPOSIT','예금','💳'],['SAVINGS','적금','🪙'],['SUBSCRIPTION','청약','🏠']] as const).map(([val, label, icon]) => (
+                      <button key={val} type="button"
+                        onClick={async () => {
+                          if (val === 'SUBSCRIPTION') {
+                            // 청약: purpose 없이 바로 호출
+                            const snap = { ...productSearchState, productType: val }
+                            setProductSearchState(null)
+                            setLoading(true)
+                            const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+                            pushMessages([{ id: messageId('user'), role: 'user', text: `청약 상품 안내 요청` }])
+                            try {
+                              const result = await executeChatbotFeature('PRODUCT_SEARCH', {
+                                customer_no: cid,
+                                period: Number(snap.period) || undefined,
+                                amount: Number(snap.amount.replace(/[^0-9]/g, '')) || undefined,
+                                product_type: 'SUBSCRIPTION',
+                              })
+                              pushProductSearchResult(result)
+                            } catch {
+                              pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
+                            } finally {
+                              setLoading(false)
+                            }
+                          } else {
+                            setProductSearchState(s => s && { ...s, productType: val, step: 'purpose' })
+                          }
+                        }}
+                        className="w-full rounded border border-kb-border px-3 py-2 text-xs font-bold text-left hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
+                        {icon} {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Step 4: 목적 (예금/적금만) */}
+                {productSearchState.step === 'purpose' && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-kb-text">가입 목적을 선택해주세요</p>
+                    {productSearchState.productType === 'DEPOSIT' && (
+                      <button type="button"
+                        onClick={async () => {
+                          const snap = productSearchState
+                          setProductSearchState(null)
+                          setLoading(true)
+                          const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+                          pushMessages([{ id: messageId('user'), role: 'user', text: '목돈 굴리기 - 예금 추천 요청' }])
+                          try {
+                            const result = await executeChatbotFeature('PRODUCT_SEARCH', {
+                              customer_no: cid,
+                              period: Number(snap.period) || undefined,
+                              amount: Number(snap.amount.replace(/[^0-9]/g, '')) || undefined,
+                              product_type: 'DEPOSIT',
+                              purpose: 'lump_sum',
+                            })
+                            pushProductSearchResult(result)
+                          } catch {
+                            pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
+                          } finally { setLoading(false) }
+                        }}
+                        className="w-full rounded border border-kb-border px-3 py-2 text-xs font-bold text-left hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
+                        💰 목돈 굴리기
+                      </button>
+                    )}
+                    {productSearchState.productType === 'SAVINGS' && (
+                      <button type="button"
+                        onClick={async () => {
+                          const snap = productSearchState
+                          setProductSearchState(null)
+                          setLoading(true)
+                          const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+                          pushMessages([{ id: messageId('user'), role: 'user', text: '매달 저축 - 적금 추천 요청' }])
+                          try {
+                            const result = await executeChatbotFeature('PRODUCT_SEARCH', {
+                              customer_no: cid,
+                              period: Number(snap.period) || undefined,
+                              amount: Number(snap.amount.replace(/[^0-9]/g, '')) || undefined,
+                              product_type: 'SAVINGS',
+                              purpose: 'monthly',
+                            })
+                            pushProductSearchResult(result)
+                          } catch {
+                            pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
+                          } finally { setLoading(false) }
+                        }}
+                        className="w-full rounded border border-kb-border px-3 py-2 text-xs font-bold text-left hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
+                        📅 매달 저축
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>) : (<>
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#FBFAF7] px-4 py-4">
               {messages.map((message) => (
@@ -886,9 +1708,47 @@ export default function ChatbotWidget() {
 
                     {message.data && message.data.length > 0 && (() => {
                       const page = dataPages[message.id] ?? 0
-                      const totalPages = Math.ceil(message.data.length / DATA_PAGE_SIZE)
-                      const startIndex = page * DATA_PAGE_SIZE
-                      const visibleRows = message.data.slice(startIndex, startIndex + DATA_PAGE_SIZE)
+                      const pageSize = message.featureCode === 'MY_PRODUCTS' ? message.data.length : DATA_PAGE_SIZE
+                      const totalPages = Math.ceil(message.data.length / pageSize)
+                      const startIndex = page * pageSize
+                      const visibleRows = message.data.slice(startIndex, startIndex + pageSize)
+
+                      if (message.featureCode === 'PRODUCT_GUIDE' || message.featureCode === 'CASH_FLOW_RECOMMEND' || message.featureCode === 'PRODUCT_SEARCH') {
+                        const productRows = message.featureCode === 'CASH_FLOW_RECOMMEND'
+                          ? message.data!.filter(r => r.row_type === 'recommended_product')
+                          : visibleRows
+                        return (
+                        <div className="mt-3 space-y-2">
+                          {productRows.map((row, index) => (
+                            <div key={`${message.id}-${index}`} className="rounded border border-kb-border bg-white p-3 text-xs space-y-1">
+                              <div className="flex items-center gap-2">
+                                {row.rank != null && <span className="flex-shrink-0 rounded-full bg-[#2D6A4F] text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center">{String(row.rank)}</span>}
+                                <p className="font-bold text-kb-text">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-kb-text-muted">
+                                <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate != null ? `${row.base_interest_rate}%` : '-'}</span></span>
+                                <span>기간 {row.min_period_month != null ? `${row.min_period_month}${row.max_period_month != null && row.max_period_month !== row.min_period_month ? `~${row.max_period_month}` : ''}개월` : '-'}</span>
+                                {row.target_groups != null && <span>가입대상 {String(row.target_groups)}</span>}
+                                {row.description != null && <span>{String(row.description)}</span>}
+                              </div>
+                              {row.reason != null && <p className="text-[11px] text-[#2D6A4F] font-medium">✓ {String(row.reason)}</p>}
+                              {(row.min_join_amount != null || row.max_join_amount != null) && (
+                                <p className="text-[11px] text-kb-text-muted">
+                                  가입금액 {row.min_join_amount != null ? `${Number(row.min_join_amount).toLocaleString()}원~` : ''}{row.max_join_amount != null ? `${Number(row.max_join_amount).toLocaleString()}원` : ''}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                          {totalPages > 1 && (
+                            <div className="flex justify-between text-[11px] text-kb-text-muted">
+                              <button type="button" disabled={page === 0} onClick={() => setMessagePage(message.id, page - 1)} className="disabled:opacity-30">{TEXT.prev}</button>
+                              <span>{page + 1} / {totalPages}</span>
+                              <button type="button" disabled={page >= totalPages - 1} onClick={() => setMessagePage(message.id, page + 1)} className="disabled:opacity-30">{TEXT.next}</button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                      }
 
                       return (
                       <div className="mt-3 space-y-2">
@@ -925,14 +1785,14 @@ export default function ChatbotWidget() {
                                       이체
                                     </button>
                                   )}
-                                  {message.featureCode === 'MY_PRODUCTS' && row.product_type !== '입출금' && (
-                                    <a
-                                      href="/products/deposit/inquiry/terminate"
-                                      onClick={(e) => e.stopPropagation()}
+                                  {message.featureCode === 'MY_PRODUCTS' && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); startTerminate(row) }}
                                       className="rounded border border-[#E05555] bg-white px-2 py-0.5 text-[10px] font-bold text-[#E05555] hover:bg-red-50"
                                     >
                                       해지
-                                    </a>
+                                    </button>
                                   )}
                                   <button
                                     type="button"
@@ -957,7 +1817,7 @@ export default function ChatbotWidget() {
                                   </div>
                                   <dl className="space-y-1 text-xs">
                                     {Object.entries(expandedRow.row)
-                                      .filter(([key]) => key !== 'row_type')
+                                      .filter(([key]) => !['row_type', 'account_id', 'contract_id', 'product_id', 'rate_id'].includes(key))
                                       .map(([key, value]) => (
                                         <div key={key} className="flex justify-between gap-3 border-t border-gray-100 pt-1 first:border-t-0 first:pt-0">
                                           <dt className="flex-none text-kb-text-muted">{formatFieldLabel(key)}</dt>
@@ -1022,12 +1882,51 @@ export default function ChatbotWidget() {
                         </a>
                       </div>
                     )}
-                    {message.loginForm && (
+                    {message.loginForm && !isLoggedIn && (
                       <InlineLoginForm onSuccess={() => {
                         setIsLoggedIn(true)
                         const cid = localStorage.getItem('customerId')
                         if (cid) setCustomerNo(cid)
-                        handleQuickAction({ type: 'my_products', label: TEXT.myProducts, message: '내 상품 보여줘' })
+                        setMessages(prev => prev.map(m => m.loginForm ? { ...m, loginForm: false } : m))
+                        const pending = pendingLoginActionRef.current
+                        pendingLoginActionRef.current = null
+                        if (pending === 'recommend') {
+                          setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null })
+                        } else {
+                          // my_products: isLoggedIn이 아직 setState 반영 전이므로 직접 실행
+                          const cidVal = cid || customerNo.trim() || DEFAULT_CUSTOMER_NO
+                          if (cidVal) {
+                            setLoading(true)
+                            setExpandedRow(null)
+                            setDataPages({})
+                            setMessages([{ id: messageId('user'), role: 'user', text: '내 상품 보여줘' }])
+                            fetchDepositAccountViewModels(cidVal)
+                              .then((apiAccounts) => {
+                                const rows = apiAccounts.map((a) => ({
+                                  account_id: a.apiAccountId ?? 0,
+                                  contract_id: a.contractId ?? null,
+                                  account_number: a.number,
+                                  product_name: a.name,
+                                  product_type: a.type,
+                                  saving_type: a.savingType ?? null,
+                                  balance: a.balance,
+                                  account_status: a.accountStatus ?? 'ACTIVE',
+                                  maturity_at: a.maturityDate ?? null,
+                                  started_at: a.createdAt ?? null,
+                                  is_withdrawable: a.type === '입출금',
+                                }))
+                                setMessages((prev) => [...prev, {
+                                  id: messageId('bot'), role: 'bot' as const,
+                                  text: `고객님의 수신 상품 ${rows.length}건을 조회했습니다.`,
+                                  data: rows, featureCode: 'MY_PRODUCTS',
+                                }])
+                              })
+                              .catch(() => {
+                                setMessages((prev) => [...prev, { id: messageId('err'), role: 'bot' as const, text: '상품 조회 중 오류가 발생했습니다.' }])
+                              })
+                              .finally(() => setLoading(false))
+                          }
+                        }
                       }} />
                     )}
                   </div>
@@ -1055,15 +1954,12 @@ export default function ChatbotWidget() {
                           ? 'border-[#2D6A4F] bg-white text-[#2D6A4F] hover:bg-[#EAF4EF]'
                           : action.type === 'my_products'
                             ? 'border-[#2D6A4F] bg-[#EAF4EF] text-[#2D6A4F] hover:bg-[#D8EEE3]'
-                          : action.type === 'transfer'
-                            ? 'border-[#1a5fa8] bg-[#EAF2FB] text-[#1a5fa8] hover:bg-[#D0E6F7]'
                           : 'border-kb-border bg-[#F7F5EF] text-kb-text hover:bg-kb-beige'
                     }`}
                   >
                     {action.type === 'recommend' && <Sparkles className="h-3.5 w-3.5" />}
                     {action.type === 'consult' && <Phone className="h-3.5 w-3.5" />}
                     {action.type === 'my_products' && <PackageSearch className="h-3.5 w-3.5" />}
-                    {action.type === 'transfer' && <ArrowLeftRight className="h-3.5 w-3.5" />}
                     {action.label}
                   </button>
                 ))}
@@ -1148,6 +2044,7 @@ function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
         const data = await res.json()
         localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('customerId', String(data.user.customer_id))
         localStorage.setItem('user', JSON.stringify(data.user))
         onSuccess()
       } else {
@@ -1171,8 +2068,10 @@ function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
       localStorage.setItem('customerId', String(data.data.customerId))
       try {
         const me = await api.get('/api/v1/customers/me')
-        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name }))
-      } catch {}
+        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, customerId: data.data.customerId }))
+      } catch {
+        localStorage.setItem('user', JSON.stringify({ customerId: data.data.customerId }))
+      }
       onSuccess()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }

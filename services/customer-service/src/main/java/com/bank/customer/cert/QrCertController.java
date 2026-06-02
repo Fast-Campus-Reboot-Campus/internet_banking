@@ -1,0 +1,41 @@
+package com.bank.customer.cert;
+
+import com.bank.common.web.ApiResponse;
+import com.bank.customer.cert.dto.QrCertApproveRequest;
+import com.bank.customer.cert.dto.QrCertStatusResponse;
+import com.bank.customer.cert.dto.QrGenerateResponse;
+import com.bank.customer.cert.service.QrCertService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/auth/qr-cert")
+@RequiredArgsConstructor
+public class QrCertController {
+
+    private final QrCertService qrCertService;
+
+    /** PC: QR 토큰 생성 */
+    @PostMapping("/generate")
+    public ResponseEntity<ApiResponse<QrGenerateResponse>> generate(HttpServletRequest req) {
+        String ip = req.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank()) ip = req.getRemoteAddr();
+        return ResponseEntity.ok(ApiResponse.ok(qrCertService.generate(ip)));
+    }
+
+    /** PC: 상태 폴링. APPROVED면 serialNumber·issuedDate·expiryDate 포함 */
+    @GetMapping("/status")
+    public ResponseEntity<ApiResponse<QrCertStatusResponse>> status(@RequestParam String token) {
+        return ResponseEntity.ok(ApiResponse.ok(qrCertService.getStatus(token)));
+    }
+
+    /** 모바일: QR 승인 (loginId + password 인증 후 인증서 발급) */
+    @PostMapping("/approve")
+    public ResponseEntity<ApiResponse<Void>> approve(@Valid @RequestBody QrCertApproveRequest request) {
+        qrCertService.approve(request);
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+}

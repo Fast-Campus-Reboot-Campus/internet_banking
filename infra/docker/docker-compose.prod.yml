@@ -116,6 +116,25 @@ services:
       timeout: 5s
       retries: 5
 
+  common-db:
+    image: postgres:16-alpine
+    container_name: ib-common-db
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${COMMON_DB_NAME:-common_db}
+      POSTGRES_USER: ${COMMON_DB_USER:-common}
+      POSTGRES_PASSWORD: ${COMMON_DB_PASSWORD}
+    volumes:
+      - common-db-data:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${COMMON_DB_USER:-common} -d ${COMMON_DB_NAME:-common_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
   ai-db:
     image: pgvector/pgvector:pg16
     container_name: ib-ai-db
@@ -464,6 +483,7 @@ volumes:
   loan-db-data:
   payment-db-data:
   master-db-data:
+  common-db-data:
   ai-db-data:
   redis-data:
   prometheus-data:

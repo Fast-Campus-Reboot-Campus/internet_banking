@@ -37,7 +37,11 @@ public enum CustomerErrorCode implements ErrorCode {
     // QR 로그인 (040-049)
     CUST_040(HttpStatus.NOT_FOUND,   "QR 토큰을 찾을 수 없습니다."),
     CUST_041(HttpStatus.GONE,        "QR 코드가 만료되었습니다."),
-    CUST_042(HttpStatus.CONFLICT,    "이미 처리된 QR 코드입니다.");
+    CUST_042(HttpStatus.CONFLICT,    "이미 처리된 QR 코드입니다."),
+
+    // 출금계좌 관리 (050-059)
+    CUST_050(HttpStatus.NOT_FOUND,  "출금계좌를 찾을 수 없습니다."),
+    CUST_051(HttpStatus.CONFLICT,   "이미 등록된 출금계좌입니다.");
 
     private final HttpStatus status;
     private final String message;

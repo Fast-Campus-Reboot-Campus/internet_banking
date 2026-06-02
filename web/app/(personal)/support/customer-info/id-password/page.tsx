@@ -22,11 +22,6 @@ const NOTICES_CHANGE = [
   '사용불가: ID와 동일한 암호설정, 같은 숫자 반복, 연속된 숫자, 연속된 문자(알파벳 순서 등), 노출되기 쉬운 주민등록번호·생일·전화번호 등',
 ]
 
-// 보안카드 mock
-const SECURITY_CARD = Array.from({ length: 35 }, (_, i) => ({
-  num: i + 1,
-  value: Math.random() < 0.15 ? '●●' : '****',
-}))
 
 function NoticeBox({ items }: { items: string[] }) {
   return (
@@ -96,7 +91,7 @@ function IdDisplay({ id }: { id: string }) {
 export default function IdPasswordPage() {
   const [tab,     setTab]     = useState<Tab>('no-id')
   const [step,    setStep]    = useState<Step>('verify')
-  const [authTab, setAuthTab] = useState<AuthTab>('security')
+  const [authTab, setAuthTab] = useState<AuthTab>('old-pw')
 
   // Step 1 fields
   const [name,      setName]      = useState('')
@@ -108,8 +103,6 @@ export default function IdPasswordPage() {
   const [newPw,        setNewPw]        = useState('')
   const [newPwConfirm, setNewPwConfirm] = useState('')
   const [oldPw,        setOldPw]        = useState('')
-  const [secInput1,    setSecInput1]    = useState('')
-  const [secInput2,    setSecInput2]    = useState('')
   const [error,        setError]        = useState('')
   const [loading,      setLoading]      = useState(false)
 
@@ -131,7 +124,6 @@ export default function IdPasswordPage() {
     if (newPw.length < 8)    { setError('사용자암호는 8자리 이상 입력해주세요.'); return }
     if (newPw !== newPwConfirm) { setError('사용자암호가 일치하지 않습니다.'); return }
     if (authTab === 'old-pw' && !oldPw) { setError('기존 사용자암호를 입력해주세요.'); return }
-    if (authTab === 'security' && (!secInput1 || !secInput2)) { setError('보안카드 번호를 입력해주세요.'); return }
     setLoading(true)
     await new Promise(r => setTimeout(r, 600))
     setLoading(false)
@@ -279,83 +271,6 @@ export default function IdPasswordPage() {
               </tbody>
             </table>
           </div>
-
-          {/* 인증 탭 */}
-          <div className="flex border-b border-kb-border">
-            {([['security', '보안매체 인증'], ['old-pw', '기존 사용자암호로 인증']] as [AuthTab, string][]).map(([key, label]) => (
-              <button key={key} onClick={() => { setAuthTab(key); setError('') }}
-                className={`px-6 py-2.5 text-[14px] whitespace-nowrap transition-colors
-                  ${authTab === key ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
-                style={authTab === key ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* 보안매체 인증 */}
-          {authTab === 'security' && (
-            <div className="border border-kb-border rounded-xl overflow-hidden">
-              <div className="px-6 py-3 font-semibold text-[14px] text-white" style={{ backgroundColor: '#0D5C47' }}>
-                보안매체 비밀번호 입력
-              </div>
-              <div className="p-5 grid gap-5" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                {/* 좌: 입력 */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[20px] text-kb-text-muted">●●</span>
-                      <span className="border border-kb-border bg-[#F5F5F5] text-[13px] font-bold px-2 py-0.5 text-kb-text">[18]</span>
-                    </div>
-                    <span className="text-[13px] text-kb-text-muted">앞의 두자리</span>
-                    <input type="text" value={secInput1} onChange={e => setSecInput1(e.target.value.slice(0, 2))}
-                      maxLength={2}
-                      className="border border-kb-border px-2 py-1.5 w-16 text-center outline-none text-[14px] font-bold focus:border-[#0D5C47]" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[20px] text-kb-text-muted">●●</span>
-                      <span className="border border-kb-border bg-[#F5F5F5] text-[13px] font-bold px-2 py-0.5 text-kb-text">[13]</span>
-                    </div>
-                    <span className="text-[13px] text-kb-text-muted">뒤의 두자리</span>
-                    <input type="text" value={secInput2} onChange={e => setSecInput2(e.target.value.slice(0, 2))}
-                      maxLength={2}
-                      className="border border-kb-border px-2 py-1.5 w-16 text-center outline-none text-[14px] font-bold focus:border-[#0D5C47]" />
-                  </div>
-                  <p className="text-[12px] text-kb-text-muted">› 번호 입력 후 [확인] 버튼을 선택해주세요.</p>
-                </div>
-
-                {/* 우: 보안카드 */}
-                <div className="border border-kb-border rounded-lg overflow-hidden">
-                  <div className="px-3 py-2 flex items-center justify-between"
-                    style={{ backgroundColor: '#0D5C47' }}>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center">
-                        <span className="text-[8px] font-bold" style={{ color: '#0D5C47' }}>★</span>
-                      </div>
-                      <span className="text-[12px] font-bold text-white">AXful Bank</span>
-                    </div>
-                    <span className="text-[11px] text-white/80">Number. 0123456789</span>
-                  </div>
-                  <div className="p-2 bg-[#F5F3E8]">
-                    <div className="grid grid-cols-6 gap-px text-[10px]">
-                      {SECURITY_CARD.map(cell => (
-                        <div key={cell.num} className="flex items-center gap-0.5 px-1 py-0.5">
-                          <span className="text-kb-text-muted w-4 text-right flex-shrink-0">{cell.num}</span>
-                          <span className={`font-mono text-[9px] ${cell.value === '●●' ? 'text-kb-text font-bold' : 'text-kb-text-muted'}`}>
-                            {cell.value}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-[9px] text-kb-text-muted mt-2 leading-tight px-1">
-                      이 카드의 비밀번호는 당행 직원이 절대로 물어보지 않습니다.<br />
-                      고객센터 1588-0000
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* 기존 사용자암호로 인증 */}
           {authTab === 'old-pw' && (

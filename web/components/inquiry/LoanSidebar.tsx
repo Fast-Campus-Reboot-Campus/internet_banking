@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
@@ -37,20 +37,21 @@ const NAV: SidebarItem[] = [
     label: '대출관리',
     expandable: true,
     children: [
-      { label: '적용금리조회',                         href: '/products/loan/manage/rate' },
-      { label: '이자/월부금입금',                       href: '/products/loan/manage/payment' },
-      { label: '대출금상환',                            href: '/products/loan/manage/repay' },
-      { label: '대출계약철회 예상조회/완제',             href: '/products/loan/manage/withdraw' },
-      { label: '대출한도변경/해지',                     href: '/products/loan/manage/limit' },
-      { label: '기한연장',                             href: '/products/loan/manage/extend' },
-      { label: '개인대출 금리인하요구권',               href: '/products/loan/manage/rate-cut' },
-      { label: '해지계좌조회',                         href: '/products/loan/manage/closed' },
-      { label: '금리산정내역서 조회',                   href: '/products/loan/manage/rate-detail' },
-      { label: '소멸시효완성에 따른 채무면제 결과조회', href: '/products/loan/manage/debt-relief' },
-      { label: '통장자동대출 이자납입내역 조회',         href: '/products/loan/manage/auto-interest' },
-      { label: '개인대출 통지서비스 변경',               href: '/products/loan/manage/notify' },
-      { label: '개인대출 할부금(이자) 납입방법 변경',   href: '/products/loan/manage/payment-method' },
-      { label: '연체정보조회',                           href: '/products/loan/manage/delinquency' },
+      { label: '내 대출 현황',                                        href: '/products/loan/my' },
+      { label: '적용금리조회',                                        href: '/products/loan/manage/rate' },
+      { label: '이자/월부금입금',                                      href: '/products/loan/manage/payment' },
+      { label: '대출금상환',                                          href: '/products/loan/manage/repay' },
+      { label: '대출계약철회 예상조회/완제',                            href: '/products/loan/manage/withdraw' },
+      { label: '대출한도변경/해지',                                    href: '/products/loan/manage/limit' },
+      { label: '기한연장',                                            href: '/products/loan/manage/extend' },
+      { label: '개인대출 금리인하요구권',                              href: '/products/loan/manage/rate-cut' },
+      { label: '해지계좌조회',                                        href: '/products/loan/manage/closed' },
+      { label: '금리산정내역서 조회',                                  href: '/products/loan/manage/rate-detail' },
+      { label: '소멸시효완성에 따른 채무면제 결과조회',                 href: '/products/loan/manage/debt-relief' },
+      { label: '통장자동대출 이자납입내역 조회',                        href: '/products/loan/manage/auto-interest' },
+      { label: '개인대출 통지서비스 변경',                             href: '/products/loan/manage/notify' },
+      { label: '개인대출 할부금(이자) 납입방법 변경',                  href: '/products/loan/manage/payment-method' },
+      { label: '연체정보조회',                                        href: '/products/loan/manage/delinquency' },
     ],
   },
   {

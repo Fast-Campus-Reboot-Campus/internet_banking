@@ -1,4 +1,4 @@
-# Internet Banking MVP
+﻿# Internet Banking MVP
 
 MSA 구조 기반 인터넷뱅킹 플랫폼. 수신·여신·결제·고객·상담 도메인을 독립 서비스로 분리하고, AI/RAG 기반 자동심사·유사사례 검색·편향검증을 통합한다.
 

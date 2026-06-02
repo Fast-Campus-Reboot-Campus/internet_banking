@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const MOCK_USERS = [
   { customer_id: 1, email: 'test@axfulbank.com', password: 'password123', name: '홍길동' },
+  { customer_id: 2, email: 'test2', password: '12341234', name: '홍길동' },
 ]
 
 export async function POST(req: NextRequest) {
