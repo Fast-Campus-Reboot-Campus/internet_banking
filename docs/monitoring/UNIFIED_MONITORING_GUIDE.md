@@ -265,6 +265,14 @@ Prometheus 자체가 다운되면 내부 Alert가 발송되지 않습니다. 이
 - 체크가 빨간색으로 바뀌면 → Prometheus 또는 Alertmanager 다운 의심
 - `docker-compose up -d prometheus alertmanager` 로 재시작
 
+**현재 알림 수단 및 개선 여지:**
+
+현재는 healthchecks.io의 이메일 integration만 등록되어 있어, Alertmanager 장애 시 **이메일로만** 알림을 받습니다.
+
+healthchecks.io는 Slack integration도 지원합니다. 이를 추가하면 Alertmanager를 거치지 않고 healthchecks.io가 Slack으로 직접 알림을 보낼 수 있어 더 빠르게 감지할 수 있습니다.
+
+> 개선 방법: healthchecks.io → Integrations → Slack 추가 → Slack webhook URL 등록
+
 ---
 
 ## 9. 알림이 오지 않을 때 체크리스트
