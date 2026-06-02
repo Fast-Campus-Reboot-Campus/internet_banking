@@ -2,7 +2,6 @@ package com.bank.payment.outbound.kafka;
 
 import com.bank.payment.config.PaymentMetrics;
 import com.bank.payment.domain.OutboxMessage;
-import com.bank.payment.domain.mapper.OutboxMessageMapper;
 import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +10,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -26,7 +26,8 @@ import java.util.concurrent.ExecutionException;
 @Component
 public class OutboxPublisher {
 
-    private final OutboxMessageMapper outboxMessageMapper;
+    private static final int STUCK_PUBLISHING_MINUTES = 5;
+
     private final OutboxTransactionHelper transactionHelper;
     private final KafkaTemplate<String, String> kftcKafkaTemplate;
     private final KafkaTemplate<String, String> bokKafkaTemplate;
@@ -36,7 +37,6 @@ public class OutboxPublisher {
     private final PaymentMetrics metrics;
 
     public OutboxPublisher(
-            OutboxMessageMapper outboxMessageMapper,
             OutboxTransactionHelper transactionHelper,
             @Qualifier("kftcKafkaTemplate") KafkaTemplate<String, String> kftcKafkaTemplate,
             @Qualifier("bokKafkaTemplate") KafkaTemplate<String, String> bokKafkaTemplate,
@@ -44,7 +44,6 @@ public class OutboxPublisher {
             ObjectMapper objectMapper,
             PaymentOrchestrator orchestrator,
             PaymentMetrics metrics) {
-        this.outboxMessageMapper = outboxMessageMapper;
         this.transactionHelper = transactionHelper;
         this.kftcKafkaTemplate = kftcKafkaTemplate;
         this.bokKafkaTemplate = bokKafkaTemplate;
@@ -56,13 +55,22 @@ public class OutboxPublisher {
 
     @Scheduled(fixedDelay = 1000)
     public void publishPending() {
-        List<OutboxMessage> pending = outboxMessageMapper.selectPending();
+        List<OutboxMessage> pending = transactionHelper.claimPending();
         if (pending.isEmpty()) {
             return;
         }
         log.debug("Outbox 발행 대상: {}건", pending.size());
         for (OutboxMessage message : pending) {
             publishOne(message);
+        }
+    }
+
+    @Scheduled(fixedDelay = 60_000)
+    public void recoverStuckPublishing() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(STUCK_PUBLISHING_MINUTES);
+        int recovered = transactionHelper.resetStuckPublishing(cutoff);
+        if (recovered > 0) {
+            log.warn("Outbox Stuck PUBLISHING 복구: {}건 → PENDING 재설정 (cutoff={}분)", recovered, STUCK_PUBLISHING_MINUTES);
         }
     }
 

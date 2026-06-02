@@ -40,6 +40,38 @@
         WHERE message_id = #{messageId}
     </update>
 
+    <!--
+        폴링 클레임: PENDING → PUBLISHING 원자 전환.
+        CTE로 FOR UPDATE SKIP LOCKED 선점 + UPDATE를 단일 문장으로 묶어 두 인스턴스가
+        동일 행을 읽지 못하도록 보장한다. @Transactional 범위(OutboxTransactionHelper)
+        안에서만 호출해야 락-커밋이 올바르게 작동한다.
+    -->
+    <select id="claimPending" resultType="com.bank.payment.domain.OutboxMessage">
+        WITH claimed AS (
+            SELECT message_id
+            FROM outbox_message
+            WHERE publish_status = 'PENDING'
+              AND available_at &lt;= NOW()
+            ORDER BY available_at ASC, message_id ASC
+            LIMIT 50
+            FOR UPDATE SKIP LOCKED
+        )
+        UPDATE outbox_message
+        SET publish_status   = 'PUBLISHING',
+            last_modified_at = NOW()
+        WHERE message_id IN (SELECT message_id FROM claimed)
+        RETURNING *
+    </select>
+
+    <!-- Stuck PUBLISHING 복구: last_modified_at 기준 cutoff 이전 PUBLISHING 행을 PENDING으로 재설정. -->
+    <update id="resetStuckPublishing" parameterType="java.time.LocalDateTime">
+        UPDATE outbox_message
+        SET publish_status   = 'PENDING',
+            last_modified_at = NOW()
+        WHERE publish_status = 'PUBLISHING'
+          AND last_modified_at &lt; #{cutoff}
+    </update>
+
     <insert id="insert" parameterType="com.bank.payment.domain.OutboxMessage">
         INSERT INTO outbox_message (
             message_id,
