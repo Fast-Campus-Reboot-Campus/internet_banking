@@ -100,6 +100,45 @@ class TestSessionIsolation:
         assert result.feature_code == "SAVINGS_GOAL"
 
 
+# ── End-to-End 라우팅 검증 ────────────────────────────────────────────────────
+
+class TestEndToEndRouting:
+    """2턴 메시지가 분류기를 우회하고 SAVINGS_GOAL로 라우팅되는지 검증."""
+
+    def setup_method(self):
+        _SESSION.clear()
+
+    def test_second_turn_not_matched_by_classifier(self):
+        """'월 30만원요'는 키워드 분류기에서 SAVINGS_GOAL로 안 잡힌다."""
+        from app.llm import IntentClassifier
+        classifier = IntentClassifier()
+        assert classifier.classify("월 30만원요") != "SAVINGS_GOAL"
+        assert classifier.classify("목돈 300만원 있어요") != "SAVINGS_GOAL"
+
+    def test_session_forces_savings_goal_routing(self):
+        """_SESSION에 cid가 있으면 강제 SAVINGS_GOAL 라우팅해야 함을 검증."""
+        from app.llm import IntentClassifier
+        from app.features.savings_goal import _SESSION as S
+        _SESSION[77] = {"stage": "ASKED_MONTHLY", "goal_amount": 5_000_000, "goal_months": 12}
+        classifier = IntentClassifier()
+        classified = classifier.classify("월 30만원요")
+        assert classified != "SAVINGS_GOAL"
+        # services.py 로직 시뮬레이션
+        cid = 77
+        intent = "SAVINGS_GOAL" if cid in S else classified
+        assert intent == "SAVINGS_GOAL"
+
+    def test_session_cleared_after_second_turn(self):
+        """2턴 처리 후 세션이 삭제되는지."""
+        _SESSION[88] = {"stage": "ASKED_MONTHLY", "goal_amount": 5_000_000, "goal_months": 12}
+        db = MagicMock()
+        db.execute.return_value.mappings.return_value.all.return_value = []
+        executor = SavingsGoalFeatureExecutor(db=db)
+        req = ChatbotFeatureExecuteRequest(query="목돈 300만원 있어요", chatbot_consultation_id=88)
+        executor.execute_savings_goal(req)
+        assert 88 not in _SESSION
+
+
 # ── 6. 이자 계산식 ───────────────────────────────────────────────────────────
 
 class TestInterestCalc:

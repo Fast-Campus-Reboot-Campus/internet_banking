@@ -163,7 +163,14 @@ class ChatbotService:
             # 버튼 매핑 없음 → intent 분류 후 feature 실행 시도
             # 프론트엔드가 붙이는 [직전 추천 상품: ...] 컨텍스트 annotation을 제거하고 분류
             classify_text = (message or "").split("\n[직전 추천 상품:")[0].strip()
-            intent_name = self._classifier.classify(classify_text)
+
+            # 진행 중인 SAVINGS_GOAL 세션이 있으면 분류 전에 강제 라우팅
+            # 2턴 답변("월 30만원요", "목돈 300만원")은 키워드 미매칭이므로 세션으로 판단
+            from app.features.savings_goal import _SESSION as _SAVINGS_SESSION
+            if chatbot.chatbot_consultation_id in _SAVINGS_SESSION:
+                intent_name = "SAVINGS_GOAL"
+            else:
+                intent_name = self._classifier.classify(classify_text)
             intent_record = self._get_intent(chatbot.scenario_id, intent_name) if intent_name else None
             if intent_name:
                 customer_no = self._get_customer_no(chatbot)
