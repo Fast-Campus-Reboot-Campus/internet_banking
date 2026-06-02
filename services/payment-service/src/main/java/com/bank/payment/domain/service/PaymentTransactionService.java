@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -212,8 +213,8 @@ public class PaymentTransactionService {
                 idGenerator.nextLedgerId(), piId, command.senderAccountId(),
                 journalNo, command.senderAccountId(), senderHolderName,
                 amount,
-                BigDecimal.valueOf(withdrawResult.balanceBefore()),
-                BigDecimal.valueOf(withdrawResult.balanceAfter()),
+                withdrawResult.balanceBefore(),
+                withdrawResult.balanceAfter(),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "자행이체 출금");
 
@@ -227,8 +228,8 @@ public class PaymentTransactionService {
                 idGenerator.nextLedgerId(), piId, command.receiverAccountNo(),
                 journalNo, command.receiverAccountNo(), receiverHolderName,
                 amount,
-                BigDecimal.valueOf(depositResult.balanceBefore()),
-                BigDecimal.valueOf(depositResult.balanceAfter()),
+                depositResult.balanceBefore(),
+                depositResult.balanceAfter(),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "자행이체 입금");
         ledgerMapper.insert(in);
@@ -313,8 +314,8 @@ public class PaymentTransactionService {
                 idGenerator.nextLedgerId(), piId, command.senderAccountId(),
                 journalNo, command.senderAccountId(), senderHolderName,
                 amount,
-                BigDecimal.valueOf(withdrawResult.balanceBefore()),
-                BigDecimal.valueOf(withdrawResult.balanceAfter()),
+                withdrawResult.balanceBefore(),
+                withdrawResult.balanceAfter(),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "자행이체 출금");
 
@@ -328,8 +329,8 @@ public class PaymentTransactionService {
                 idGenerator.nextLedgerId(), piId, command.receiverAccountNo(),
                 journalNo, command.receiverAccountNo(), receiverHolderName,
                 amount,
-                BigDecimal.valueOf(depositResult.balanceBefore()),
-                BigDecimal.valueOf(depositResult.balanceAfter()),
+                depositResult.balanceBefore(),
+                depositResult.balanceAfter(),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "자행이체 입금");
         ledgerMapper.insert(in);
@@ -407,8 +408,8 @@ public class PaymentTransactionService {
                 idGenerator.nextLedgerId(), piId, command.senderAccountId(),
                 jn1, command.senderAccountId(), senderHolderName,
                 transferAmount,
-                BigDecimal.valueOf(withdrawResult.balanceBefore()),
-                BigDecimal.valueOf(withdrawResult.balanceAfter()),
+                withdrawResult.balanceBefore(),
+                withdrawResult.balanceAfter(),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "타행이체 출금");
         ledgerMapper.insert(out);
@@ -475,17 +476,31 @@ public class PaymentTransactionService {
 
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(Map.of(
-                    "paymentInstructionId", piId,
-                    "clearingNo", clearingNo,
-                    "transactionNo", pi.getTransactionNo(),
-                    "senderAccountId", command.senderAccountId(),
-                    "receiverBankCode", command.receiverBankCode(),
-                    "receiverAccountNo", command.receiverAccountNo(),
-                    "receiverHolderName", command.receiverHolderName(),
-                    "transferAmount", transferAmount,
-                    "feeAmount", feeAmount,
-                    "requestedAt", now.toString()));
+            Map<String, Object> senderNode = new LinkedHashMap<>();
+            senderNode.put("bankCode",    senderBankCode);
+            senderNode.put("accountNo",   command.senderAccountId());
+            senderNode.put("realName",    senderHolderName);
+            senderNode.put("displayName", command.receiverPassbookSenderDisplay());
+
+            Map<String, Object> receiverNode = new LinkedHashMap<>();
+            receiverNode.put("bankCode",           command.receiverBankCode());
+            receiverNode.put("accountNo",          command.receiverAccountNo());
+            receiverNode.put("expectedHolderName", command.receiverHolderName());
+
+            Map<String, Object> payloadMap = new LinkedHashMap<>();
+            payloadMap.put("messageType",          "PAYMENT_REQUEST");
+            payloadMap.put("messageVersion",       "v1");
+            payloadMap.put("correlationId",        clearingNo);
+            payloadMap.put("sequenceNo",           1);
+            payloadMap.put("clearingNo",           clearingNo);
+            payloadMap.put("sender",               senderNode);
+            payloadMap.put("receiver",             receiverNode);
+            payloadMap.put("amount",               transferAmount);
+            payloadMap.put("currency",             "KRW");
+            payloadMap.put("sentAt",               clearingRequestedAt);
+            payloadMap.put("receiverPassbookMemo", command.receiverMemo());
+
+            payload = objectMapper.writeValueAsString(payloadMap);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Outbox payload 직렬화 실패: " + piId, e);
         }
@@ -550,8 +565,8 @@ public class PaymentTransactionService {
                 idGenerator.nextLedgerId(), piId, command.senderAccountId(),
                 jn1, command.senderAccountId(), senderHolderName,
                 transferAmount,
-                BigDecimal.valueOf(withdrawResult.balanceBefore()),
-                BigDecimal.valueOf(withdrawResult.balanceAfter()),
+                withdrawResult.balanceBefore(),
+                withdrawResult.balanceAfter(),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "BOK이체 출금");
         ledgerMapper.insert(out);
@@ -1374,8 +1389,8 @@ public class PaymentTransactionService {
                 idGenerator.nextLedgerId(), piId, pi.getReceiverAccountNo(),
                 journalNo, pi.getReceiverAccountNo(), pi.getReceiverHolderNameSnap(),
                 pi.getTransferAmount(),
-                BigDecimal.valueOf(depositTx.balanceBefore()),
-                BigDecimal.valueOf(depositTx.balanceAfter()),
+                depositTx.balanceBefore(),
+                depositTx.balanceAfter(),
                 "KRW", businessDate, businessDate, businessDate,
                 now, "타행이체 수신 입금",
                 senderAccountNo, senderBankCode, senderRealName);
