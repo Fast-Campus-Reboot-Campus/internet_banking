@@ -42,7 +42,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -355,24 +354,25 @@ public class LoanReviewService {
         OffsetDateTime fromAt = fromDate.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
         OffsetDateTime toAt = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
 
-        List<LoanReview> rows = repository
-                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanAndDeletedAtIsNull(fromAt, toAt);
+        long total = repository.countByReviewedAtBetween(fromAt, toAt);
 
         Map<String, Long> byTypeDecision = new LinkedHashMap<>();
-        Map<String, Long> byStatus = new LinkedHashMap<>();
-        Map<String, Long> byRejectReason = new LinkedHashMap<>();
-
-        for (LoanReview r : rows) {
-            String typeDec = r.getRevTypeCd() + "_"
-                    + (r.getRevDecisionCd() != null ? r.getRevDecisionCd() : "NONE");
-            byTypeDecision.merge(typeDec, 1L, Long::sum);
-            byStatus.merge(r.getRevStatusCd(), 1L, Long::sum);
-            if (r.getRejectReasonCd() != null) {
-                byRejectReason.merge(r.getRejectReasonCd(), 1L, Long::sum);
-            }
+        for (Object[] row : repository.countGroupByTypeAndDecision(fromAt, toAt)) {
+            String key = row[0] + "_" + (row[1] != null ? row[1] : "NONE");
+            byTypeDecision.put(key, (Long) row[2]);
         }
 
-        return new ReviewStatsResponse(fromYyyyMMdd, toYyyyMMdd, rows.size(),
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        for (Object[] row : repository.countGroupByStatus(fromAt, toAt)) {
+            byStatus.put((String) row[0], (Long) row[1]);
+        }
+
+        Map<String, Long> byRejectReason = new LinkedHashMap<>();
+        for (Object[] row : repository.countGroupByRejectReason(fromAt, toAt)) {
+            byRejectReason.put((String) row[0], (Long) row[1]);
+        }
+
+        return new ReviewStatsResponse(fromYyyyMMdd, toYyyyMMdd, total,
                 byTypeDecision, byStatus, byRejectReason);
     }
 

@@ -1,4 +1,4 @@
-﻿package com.bank.loan.review.repository;
+package com.bank.loan.review.repository;
 
 import com.bank.loan.review.domain.LoanReview;
 import org.springframework.data.domain.Page;
@@ -36,6 +36,34 @@ public interface LoanReviewRepository extends JpaRepository<LoanReview, Long> {
 
     List<LoanReview> findByRevStatusCdAndPendingApproverSinceIsNullAndDeletedAtIsNull(
             String revStatusCd);
+
+    @Query("""
+            SELECT COUNT(r) FROM LoanReview r
+            WHERE r.reviewedAt >= :from AND r.reviewedAt < :to AND r.deletedAt IS NULL
+            """)
+    long countByReviewedAtBetween(@Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+
+    @Query("""
+            SELECT r.revTypeCd, r.revDecisionCd, COUNT(r) FROM LoanReview r
+            WHERE r.reviewedAt >= :from AND r.reviewedAt < :to AND r.deletedAt IS NULL
+            GROUP BY r.revTypeCd, r.revDecisionCd
+            """)
+    List<Object[]> countGroupByTypeAndDecision(@Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+
+    @Query("""
+            SELECT r.revStatusCd, COUNT(r) FROM LoanReview r
+            WHERE r.reviewedAt >= :from AND r.reviewedAt < :to AND r.deletedAt IS NULL
+            GROUP BY r.revStatusCd
+            """)
+    List<Object[]> countGroupByStatus(@Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+
+    @Query("""
+            SELECT r.rejectReasonCd, COUNT(r) FROM LoanReview r
+            WHERE r.reviewedAt >= :from AND r.reviewedAt < :to
+              AND r.rejectReasonCd IS NOT NULL AND r.deletedAt IS NULL
+            GROUP BY r.rejectReasonCd
+            """)
+    List<Object[]> countGroupByRejectReason(@Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
 
     List<LoanReview> findByReviewedAtGreaterThanEqualAndReviewedAtLessThanAndDeletedAtIsNull(
             OffsetDateTime fromInclusive, OffsetDateTime toExclusive);
