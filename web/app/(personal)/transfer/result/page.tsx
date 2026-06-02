@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
