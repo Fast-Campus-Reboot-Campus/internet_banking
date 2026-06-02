@@ -47,17 +47,32 @@
 
 ### 최초 실행 전 필수 설정
 
-`alertmanager.yml`은 Slack Webhook URL 등 민감 정보를 포함하므로 git에서 제외됩니다. 클론 후 아래 순서로 설정하세요:
+Slack Webhook URL 등 민감 정보가 포함된 파일은 git에 올라가지 않습니다. 아래 순서대로 설정한 뒤 `docker compose up`을 실행하세요.
 
-```bash
-# 1. 샘플 파일 복사
-cp infra/alertmanager/alertmanager.yml.sample infra/alertmanager/alertmanager.yml
+1. `.env.sample` → `.env` 복사
+2. `infra/alertmanager/alertmanager.yml.sample` → `infra/alertmanager/alertmanager.yml` 복사
+3. `.env`에서 아래 항목을 본인 값으로 직접 채웁니다:
+   - `SLACK_WEBHOOK_URL` — Slack Incoming Webhooks에서 발급
+   - `HEALTHCHECKS_PING_URL` — healthchecks.io 가입 후 체크 생성 시 발급
+   - DB 비밀번호 (`*_DB_PASSWORD`) — 운영 환경에서만 변경 필요, 로컬은 기본값 사용
+   - `LANGFUSE_SECRET_KEY`, `LANGFUSE_PUBLIC_KEY` — Langfuse UI → Settings → API Keys에서 발급
 
-# 2. Slack Webhook URL 및 healthchecks.io ping URL 직접 편집
-vi infra/alertmanager/alertmanager.yml
-```
+> **주의**: `alertmanager.yml`이 없으면 `docker compose up` 시 Alertmanager 컨테이너가 시작에 실패합니다.
 
-이 파일 없이 `docker compose up` 하면 Alertmanager 컨테이너가 시작에 실패합니다.
+### 설정 완료 후 정상 동작 확인
+
+`docker compose up` 이후 아래 항목을 순서대로 확인하세요.
+
+| 확인 항목 | 정상 상태 |
+|-----------|-----------|
+| `http://localhost:9090` | Prometheus 접속됨 |
+| `http://localhost:9090/targets` | 수집 대상 목록에 `State: UP` 항목이 보임 |
+| `http://localhost:9095` | Alertmanager 접속됨 |
+| `http://localhost:9095/#/alerts` | `Watchdog` alert가 `FIRING` 상태로 표시됨 (정상) |
+| `http://localhost:3000` | Grafana 접속됨 (admin / admin) |
+
+> `Watchdog`이 `FIRING`이면 Prometheus → Alertmanager → healthchecks.io 연결이 모두 정상입니다.
+> `Watchdog`이 보이지 않으면 `alertmanager.yml` 설정을 다시 확인하세요.
 
 ---
 
