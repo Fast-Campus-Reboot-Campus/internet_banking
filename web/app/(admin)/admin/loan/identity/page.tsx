@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import AdminSidebar from '@/components/admin/AdminSidebar'

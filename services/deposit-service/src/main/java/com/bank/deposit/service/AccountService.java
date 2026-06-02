@@ -35,6 +35,11 @@ public class AccountService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
     }
 
+    public Account findByAccountNumber(String accountNumber) {
+        return accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+    }
+
     public Account findActive(Long id) {
         Account account = findById(id);
         if (account.getAccountStatus() != AccountStatus.ACTIVE) {

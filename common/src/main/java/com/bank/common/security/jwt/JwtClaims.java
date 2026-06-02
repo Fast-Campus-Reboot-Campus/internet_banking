@@ -1,4 +1,4 @@
-package com.bank.common.security.jwt;
+﻿package com.bank.common.security.jwt;
 
 import java.util.List;
 
@@ -7,6 +7,6 @@ public record JwtClaims(
         String email,
         List<String> roles,
         TokenType tokenType,
-        String branch,
-        String grade
+        String branch,   // nullable: 직원이면 지점 코드, 고객이면 null
+        String grade     // nullable: 직원이면 직급 코드, 고객이면 null
 ) {}

@@ -80,15 +80,18 @@ function SectionHeader({ dotColor, label, count, balance, open, onToggle, showOr
   )
 }
 
-function normalizeAccountType(account: { type: string; name: string }): string {
-  if (['입출금', '적금', '예금', '청약'].includes(account.type)) return account.type
+function normalizeAccountType(account: Account): Account['type'] {
+  if (['입출금', '적금', '예금', '청약'].includes(account.type)) {
+    return account.type
+  }
+
   if (account.name.includes('청약')) return '청약'
   if (account.name.includes('적금')) return '적금'
   if (account.name.includes('통장')) return '입출금'
   return '예금'
 }
 
-function canTransferFrom(account: { type: string; name: string }) {
+function canTransferFrom(account: Account) {
   return normalizeAccountType(account) === '입출금'
 }
 
@@ -106,13 +109,25 @@ export default function AccountsPage() {
   const [allFxOpen, setAllFxOpen] = useState(true)
   const [allInsOpen, setAllInsOpen] = useState(true)
   const [allRetireOpen, setAllRetireOpen] = useState(true)
-  const [joinedAccounts, setJoinedAccounts] = useState<DepositViewAccount[]>([])
+  const [joinedAccounts, setJoinedAccounts] = useState<Account[]>([])
   const [accountOverrides, setAccountOverrides] = useState<Record<string, number>>({})
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem('user')
       if (stored) setUserName(JSON.parse(stored).name)
+    } catch {}
+    let fallbackAccounts: Account[] = []
+    try {
+      const raw = localStorage.getItem('joinedAccounts')
+      if (raw) {
+        const parsed = (JSON.parse(raw) as Account[]).map(account => ({
+          ...account,
+          type: normalizeAccountType(account),
+        }))
+        fallbackAccounts = parsed
+        localStorage.setItem('joinedAccounts', JSON.stringify(parsed))
+      }
     } catch {}
     try {
       const raw = localStorage.getItem('accountOverrides')
@@ -123,7 +138,9 @@ export default function AccountsPage() {
     async function loadDepositAccounts() {
       try {
         const apiAccounts = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-        if (!cancelled) setJoinedAccounts(apiAccounts)
+        if (!cancelled) {
+          setJoinedAccounts(apiAccounts.length > 0 ? apiAccounts : fallbackAccounts)
+        }
       } catch {
         if (!cancelled) setJoinedAccounts([])
       }

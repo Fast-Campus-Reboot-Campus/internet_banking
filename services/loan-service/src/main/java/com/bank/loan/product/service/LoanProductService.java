@@ -4,6 +4,7 @@ import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.web.BusinessException;
+import com.bank.loan.commonsync.outbox.CommonSyncOutboxAppender;
 import com.bank.loan.product.domain.LoanProduct;
 import com.bank.loan.product.dto.CreateLoanProductRequest;
 import com.bank.loan.product.dto.DiscontinueLoanProductRequest;
@@ -31,6 +32,7 @@ public class LoanProductService {
     private final LoanProductRepository repository;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
+    private final CommonSyncOutboxAppender commonSyncOutboxAppender;
 
     @Transactional(readOnly = true)
     public LoanProductListResponse list(String loanTypeCd, String prodStatusCd, Pageable pageable) {
@@ -86,6 +88,11 @@ public class LoanProductService {
                 .prodTermsUrl(req.prodTermsUrl())
                 .prodTermsHash(req.prodTermsHash())
                 .build());
+
+        // 상품 등록과 동일 트랜잭션에서 common_sync_outbox 적재 (outbox 패턴).
+        // req.productId != null 이면 이미 외부에서 매핑된 상품 — 적재는 동일하게 진행,
+        // 디스패처가 common_db 에서 product_cd 로 멱등 dedupe 처리.
+        commonSyncOutboxAppender.enqueueProductInCurrentTx(saved);
 
         return LoanProductResponse.of(saved);
     }

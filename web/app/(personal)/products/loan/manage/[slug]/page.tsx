@@ -1,442 +1,172 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
-import { api } from '@/lib/api'
+import {
+  loanContractApi, repaymentApi, rateApi, closureApi, loanMiscApi, guaranteeInsuranceApi,
+  getCustomerId, bpsToRate, formatAmount,
+  type LoanContract, type RepaymentSchedule, type Notification,
+} from '@/lib/loan-api'
 
-const inputCls  = "border rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-1 transition-all"
-const inputStyle = { borderColor: '#D1D5DB' }
+// ─── 계약 선택 훅 ─────────────────────────────────────────────
 
-function PrimaryBtn({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} disabled={disabled}
-      className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity disabled:opacity-50"
-      style={{ backgroundColor: '#0D5C47' }}>
-      {children}
-    </button>
-  )
-}
+function useContracts() {
+  const [contracts, setContracts] = useState<LoanContract[]>([])
+  const [selectedId, setSelectedId] = useState<number | null>(null)
 
-function InfoNotice({ lines }: { lines: string[] }) {
-  return (
-    <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
-      style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
-      {lines.map((l, i) => <p key={i} className="text-kb-text-muted">· {l}</p>)}
-    </div>
-  )
-}
-
-/* ── 적용금리조회 ── */
-function RatePage({ cntrId }: { cntrId: string }) {
-  const [rows, setRows] = useState<{ accrualDate: string; dailyInterest: number; cumulativeInterest: number }[]>([])
-  const [searched, setSearched] = useState(false)
-  const [from, setFrom] = useState('')
-  const [to, setTo]     = useState('')
-
-  async function handleSearch() {
-    try {
-      const res = await api.get(`/api/loan-contracts/${cntrId}/interest-accruals`, {
-        params: { from: from.replace(/\./g, ''), to: to.replace(/\./g, '') },
+  useEffect(() => {
+    const cid = getCustomerId()
+    if (!cid) return
+    loanContractApi.list({ customerId: cid, size: 20 })
+      .then(({ data: res }) => {
+        const items: LoanContract[] = res.data?.items ?? []
+        setContracts(items)
+        if (items.length > 0) setSelectedId(items[0].cntrId)
       })
-      setRows(res.data.data?.items ?? [])
-    } catch { setRows([]) }
-    setSearched(true)
-  }
+      .catch(() => {})
+  }, [])
 
+  return { contracts, selectedId, setSelectedId }
+}
+
+// ─── 공용 UI ──────────────────────────────────────────────────
+
+function ContractSelect({ contracts, selectedId, onChange }: {
+  contracts: LoanContract[]; selectedId: number | null; onChange: (id: number) => void
+}) {
   return (
-    <div>
-      <InfoNotice lines={['계약별 일별 이자 누적 내역을 조회합니다.', '조회 기간을 입력하지 않으면 전체 이력이 조회됩니다.']} />
-      <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        {[
-          { label: '계약번호',   content: <span className="text-[13px] font-medium" style={{ color: '#0D5C47' }}>{cntrId || '-'}</span> },
-          { label: '조회기간',   content: (
-            <div className="flex items-center gap-2">
-              <input type="text" value={from} onChange={e => setFrom(e.target.value)} placeholder="YYYY.MM.DD" className={inputCls + ' w-32'} style={inputStyle} />
-              <span className="text-kb-text-muted">~</span>
-              <input type="text" value={to}   onChange={e => setTo(e.target.value)}   placeholder="YYYY.MM.DD" className={inputCls + ' w-32'} style={inputStyle} />
-            </div>
-          )},
-        ].map(({ label, content }, i, arr) => (
-          <div key={label} className="flex items-center"
-            style={{ borderBottom: i < arr.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
-            <div className="w-[160px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-              style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-              {label}
-            </div>
-            <div className="flex-1 px-5 py-2.5">{content}</div>
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-center mb-6"><PrimaryBtn onClick={handleSearch}>조회</PrimaryBtn></div>
-      {searched && (
-        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #E2F5EF' }}>
-                {['일자', '일별 이자', '누적 이자'].map(h => (
-                  <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]" style={{ color: '#0D5C47' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-[13px] text-kb-text-muted">조회된 내역이 없습니다.</td></tr>
-              ) : rows.map((r, i, arr) => (
-                <tr key={r.accrualDate} className="hover:bg-[#F8FFFE]"
-                  style={{ borderBottom: i < arr.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
-                  <td className="px-4 py-3 text-center">{r.accrualDate}</td>
-                  <td className="px-4 py-3 text-right pr-5">{r.dailyInterest.toLocaleString('ko-KR')}원</td>
-                  <td className="px-4 py-3 text-right pr-5 font-medium" style={{ color: '#0D5C47' }}>{r.cumulativeInterest.toLocaleString('ko-KR')}원</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <div className="flex items-center px-5 py-3 gap-6">
+      <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">대출계좌번호</span>
+      {contracts.length === 0 ? (
+        <span className="text-[13px] text-kb-text-muted">해당계좌가 없습니다.</span>
+      ) : (
+        <select value={selectedId ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))}
+          className="border border-kb-border px-3 py-1.5 text-[13px] focus:outline-none min-w-[220px]">
+          {contracts.map(c => (
+            <option key={c.cntrId} value={c.cntrId}>
+              {c.cntrNo} ({formatAmount(c.contractedAmount)})
+            </option>
+          ))}
+        </select>
       )}
     </div>
   )
 }
 
-/* ── 이자/월부금입금 ── */
-function PaymentPage({ cntrId }: { cntrId: string }) {
-  const [amount, setAmount]   = useState('')
-  const [account, setAccount] = useState('')
-  const [done, setDone]       = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-
-  async function handleSubmit() {
-    if (!amount || !account) { setError('모든 항목을 입력해주세요.'); return }
-    setError(''); setLoading(true)
-    try {
-      await api.post(`/api/loan-contracts/${cntrId}/repayments/online`, {
-        paymentAmount: Number(amount.replace(/,/g, '')), accountNo: account,
-      })
-      setDone(true)
-    } catch { setError('납입 처리에 실패했습니다. 잔액을 확인해주세요.') }
-    finally { setLoading(false) }
-  }
-
-  if (done) return (
-    <div className="rounded-xl p-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div>
-        <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>납입이 완료되었습니다.</p>
-        <p className="text-[12px] text-kb-text-muted">{Number(amount.replace(/,/g, '')).toLocaleString('ko-KR')}원이 납입 처리되었습니다.</p>
-      </div>
-    </div>
-  )
-
+function StepIndicator() {
   return (
-    <div>
-      <InfoNotice lines={['이자 및 월부금을 납입합니다.', '납입 후 취소가 불가하오니 금액을 정확히 확인하세요.']} />
-      {SimpleForm([
-        { label: '계약번호', value: cntrId, readOnly: true },
-        { label: '납입금액', value: amount, setter: setAmount, placeholder: '금액 입력 (원)', type: 'number' },
-        { label: '출금계좌', value: account, setter: setAccount, placeholder: '출금 계좌번호 입력' },
-      ])}
-      {error && <p className="text-[13px] mb-4" style={{ color: '#E05555' }}>{error}</p>}
-      <PrimaryBtn onClick={handleSubmit} disabled={loading}>{loading ? '처리 중...' : '납입'}</PrimaryBtn>
-    </div>
-  )
-}
-
-/* ── 대출금상환 ── */
-function RepayPage({ cntrId }: { cntrId: string }) {
-  const [amount, setAmount]   = useState('')
-  const [account, setAccount] = useState('')
-  const [type, setType]       = useState<'PARTIAL' | 'FULL'>('PARTIAL')
-  const [done, setDone]       = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-
-  async function handleSubmit() {
-    if (!account) { setError('출금 계좌를 입력해주세요.'); return }
-    if (type === 'PARTIAL' && !amount) { setError('상환 금액을 입력해주세요.'); return }
-    setError(''); setLoading(true)
-    try {
-      await api.post(`/api/loan-contracts/${cntrId}/repayments/partial`, {
-        repaymentAmount: type === 'FULL' ? undefined : Number(amount.replace(/,/g, '')),
-        repaymentType: type, accountNo: account,
-      })
-      setDone(true)
-    } catch { setError('상환 처리에 실패했습니다.') }
-    finally { setLoading(false) }
-  }
-
-  if (done) return (
-    <div className="rounded-xl p-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div>
-        <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>상환이 완료되었습니다.</p>
-        <p className="text-[12px] text-kb-text-muted">내 대출 현황에서 잔액을 확인하세요.</p>
-      </div>
-    </div>
-  )
-
-  return (
-    <div>
-      <InfoNotice lines={['대출금을 일부 또는 전액 상환합니다.', '1일 일부상환은 20회까지 가능합니다.']} />
-      <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        <div className="flex items-center" style={{ borderBottom: '1px solid #E2F5EF' }}>
-          <div className="w-[160px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-            상환구분
-          </div>
-          <div className="flex-1 px-5 py-3 flex gap-6">
-            {([['PARTIAL', '일부상환'], ['FULL', '완제']] as const).map(([code, label]) => (
-              <label key={code} className="flex items-center gap-1.5 cursor-pointer text-[13px]">
-                <input type="radio" checked={type === code} onChange={() => setType(code)} style={{ accentColor: '#0D5C47' }} />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
-        {type === 'PARTIAL' && (
-          <div className="flex items-center" style={{ borderBottom: '1px solid #E2F5EF' }}>
-            <div className="w-[160px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-              style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-              상환금액
-            </div>
-            <div className="flex-1 px-5 py-2.5 flex items-center gap-2">
-              <input type="text" value={amount} onChange={e => setAmount(e.target.value)} placeholder="금액 입력"
-                className={inputCls + ' max-w-xs'} style={inputStyle} />
-              <span className="text-[13px] text-kb-text-muted">원</span>
-            </div>
-          </div>
-        )}
-        <div className="flex items-center">
-          <div className="w-[160px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-            출금계좌
-          </div>
-          <div className="flex-1 px-5 py-2.5">
-            <input type="text" value={account} onChange={e => setAccount(e.target.value)} placeholder="출금 계좌번호 입력"
-              className={inputCls + ' max-w-xs'} style={inputStyle} />
-          </div>
-        </div>
-      </div>
-      {error && <p className="text-[13px] mb-4" style={{ color: '#E05555' }}>{error}</p>}
-      <PrimaryBtn onClick={handleSubmit} disabled={loading}>{loading ? '처리 중...' : '상환'}</PrimaryBtn>
-    </div>
-  )
-}
-
-/* ── 공통 폼 헬퍼 ── */
-function SimpleForm(rows: { label: string; value: string; readOnly?: boolean; setter?: (v: string) => void; placeholder?: string; type?: string }[]) {
-  return (
-    <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-      {rows.map(({ label, value, readOnly, setter, placeholder, type }, i, arr) => (
-        <div key={label} className="flex items-center"
-          style={{ borderBottom: i < arr.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
-          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-            {label}
-          </div>
-          <div className="flex-1 px-5 py-2.5">
-            {readOnly
-              ? <span className="text-[13px] font-medium" style={{ color: '#0D5C47' }}>{value || '-'}</span>
-              : <input type={type ?? 'text'} value={value} onChange={e => setter?.(e.target.value)}
-                  placeholder={placeholder} className={inputCls + ' max-w-xs'} style={inputStyle} />
-            }
-          </div>
-        </div>
+    <div className="flex items-center gap-1 mb-5">
+      <span className="px-4 py-1.5 text-[13px] font-bold bg-[#3D3D3D] text-white">1. 계좌선택</span>
+      {[2, 3, 4, 5].map(n => (
+        <span key={n} className="px-4 py-1.5 text-[13px] text-kb-text-body border border-kb-border">{n}</span>
       ))}
     </div>
   )
 }
 
-/* ── 대출계약철회/완제 ── */
-function WithdrawPage({ cntrId }: { cntrId: string }) {
-  const [reason, setReason] = useState('NORMAL')
-  const [done, setDone]     = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
+// ─── 적용금리조회 ─────────────────────────────────────────────
 
-  async function handleSubmit() {
-    setError(''); setLoading(true)
+function RateInfo({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [accruals, setAccruals] = useState<any[]>([])
+  const [rateChanges, setRateChanges] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const QUICK = ['당일', '3일', '1주일', '1개월', '3개월']
+  const [period, setPeriod] = useState<string | null>(null)
+
+  async function handleSearch() {
+    if (!selectedId) return
+    setLoading(true); setError('')
     try {
-      await api.post(`/api/loan-contracts/${cntrId}/closure`, { closureReasonCd: reason })
-      setDone(true)
-    } catch { setError('처리에 실패했습니다. 잔액을 확인해주세요.') }
-    finally { setLoading(false) }
+      const [acc, rc] = await Promise.all([
+        rateApi.getInterestAccruals(selectedId),
+        rateApi.getRateChanges(selectedId),
+      ])
+      setAccruals(acc.data?.data?.items ?? [])
+      setRateChanges(rc.data?.data?.items ?? [])
+    } catch {
+      setError('금리 정보를 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (done) return (
-    <div className="rounded-xl p-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div>
-        <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>대출 계약이 종결되었습니다.</p>
-        <p className="text-[12px] text-kb-text-muted">계약 종결 처리가 완료되었습니다.</p>
-      </div>
-    </div>
-  )
+  const contract = contracts.find(c => c.cntrId === selectedId)
 
   return (
     <div>
-      <InfoNotice lines={['대출 계약을 완제(조기상환) 처리합니다.', '잔여 원금 + 이자가 모두 상환된 후 계약이 종결됩니다.']} />
-      <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        <div className="flex items-center">
-          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-            종결 유형
-          </div>
-          <div className="flex-1 px-5 py-3 flex gap-6">
-            {([['NORMAL', '정상종결'], ['EARLY', '조기상환']] as const).map(([code, label]) => (
-              <label key={code} className="flex items-center gap-1.5 cursor-pointer text-[13px]">
-                <input type="radio" checked={reason === code} onChange={() => setReason(code)} style={{ accentColor: '#0D5C47' }} />
-                {label}
-              </label>
+      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
+        <p>· 조회기간을 선택하지 않을 경우에는 현재 적용금리가 조회됩니다.</p>
+        <p>· 대출 잔액이 있는 가계대출에 한하여 조회 가능합니다.</p>
+      </div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+        <div className="flex items-center px-5 py-3 gap-6">
+          <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">조회기간</span>
+          <div className="flex gap-1">
+            {QUICK.map(q => (
+              <button key={q} onClick={() => setPeriod(q)}
+                className={`px-3 py-1 text-[12px] border transition-colors ${period === q ? 'bg-kb-yellow border-kb-border font-bold text-kb-text' : 'border-kb-border text-kb-text-body hover:bg-kb-beige-light'}`}>
+                {q}
+              </button>
             ))}
           </div>
         </div>
       </div>
-      {error && <p className="text-[13px] mb-4" style={{ color: '#E05555' }}>{error}</p>}
-      <PrimaryBtn onClick={handleSubmit} disabled={loading}>{loading ? '처리 중...' : '완제 신청'}</PrimaryBtn>
-    </div>
-  )
-}
-
-/* ── 기한연장 ── */
-function ExtendPage({ cntrId }: { cntrId: string }) {
-  const [months, setMonths]   = useState('12')
-  const [done, setDone]       = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-
-  async function handleSubmit() {
-    setError(''); setLoading(true)
-    try {
-      await api.post(`/api/loan-contracts/${cntrId}/maturity/extend`, { extensionMonths: Number(months) })
-      setDone(true)
-    } catch { setError('기한연장 처리에 실패했습니다.') }
-    finally { setLoading(false) }
-  }
-
-  if (done) return (
-    <div className="rounded-xl p-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSearch} disabled={!selectedId || loading}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {loading ? '조회 중...' : '조회'}
+        </button>
       </div>
-      <div>
-        <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>기한연장이 완료되었습니다.</p>
-        <p className="text-[12px] text-kb-text-muted">{months}개월 연장 처리되었습니다.</p>
-      </div>
-    </div>
-  )
-
-  return (
-    <div>
-      <InfoNotice lines={['대출 만기일을 연장합니다.', '연장 수수료가 발생할 수 있습니다. 사전에 영업점으로 문의하세요.']} />
-      {SimpleForm([
-        { label: '계약번호',   value: cntrId, readOnly: true },
-        { label: '연장 기간',  value: months, setter: setMonths, placeholder: '개월 수 입력', type: 'number' },
-      ])}
-      {error && <p className="text-[13px] mb-4" style={{ color: '#E05555' }}>{error}</p>}
-      <PrimaryBtn onClick={handleSubmit} disabled={loading}>{loading ? '처리 중...' : '기한연장 신청'}</PrimaryBtn>
-    </div>
-  )
-}
-
-/* ── 금리인하요구권 ── */
-function RateCutPage({ cntrId }: { cntrId: string }) {
-  const [reason, setReason] = useState('')
-  const [done, setDone]     = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
-
-  async function handleSubmit() {
-    if (!reason) { setError('인하 요구 사유를 입력해주세요.'); return }
-    setError(''); setLoading(true)
-    try {
-      await api.post(`/api/loan-contracts/${cntrId}/rate-changes`, { changeReason: reason })
-      setDone(true)
-    } catch { setError('신청 처리에 실패했습니다.') }
-    finally { setLoading(false) }
-  }
-
-  if (done) return (
-    <div className="rounded-xl p-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div>
-        <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>금리인하요구권 신청이 완료되었습니다.</p>
-        <p className="text-[12px] text-kb-text-muted">신청 후 10영업일 이내에 결과를 통보받습니다.</p>
-      </div>
-    </div>
-  )
-
-  return (
-    <div>
-      <InfoNotice lines={[
-        '신용 상태 개선(신용점수 상승, 소득 증가 등) 시 금리 인하를 요구할 수 있습니다.',
-        '신청 후 10영업일 이내에 결과를 통보받습니다.',
-      ]} />
-      <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        <div className="flex items-start">
-          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', paddingTop: '14px' }}>
-            인하 요구 사유
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      {contract && (
+        <div className="mt-6 border border-kb-border">
+          <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+            <p className="text-[13px] font-bold text-kb-text">현재 적용금리</p>
           </div>
-          <div className="flex-1 px-5 py-2.5">
-            <textarea value={reason} onChange={e => setReason(e.target.value)}
-              placeholder="예: 신용점수 상승, 소득 증가, 부채 감소 등"
-              rows={4} className="border rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-1 resize-none w-full"
-              style={{ borderColor: '#D1D5DB' }} />
+          <div className="px-5 py-4 space-y-2 text-[13px]">
+            <div className="flex gap-4">
+              <span className="text-kb-text-muted w-32">계약번호</span>
+              <span className="font-medium">{contract.cntrNo}</span>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-kb-text-muted w-32">승인금리</span>
+              <span className="font-bold text-[#1A56DB]">연 {bpsToRate(contract.totalRateBps)}%</span>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-kb-text-muted w-32">승인금액</span>
+              <span>{formatAmount(contract.contractedAmount)}</span>
+            </div>
+            <div className="flex gap-4">
+              <span className="text-kb-text-muted w-32">만기일</span>
+              <span>{contract.cntrEndDate ?? '-'}</span>
+            </div>
           </div>
         </div>
-      </div>
-      {error && <p className="text-[13px] mb-4" style={{ color: '#E05555' }}>{error}</p>}
-      <PrimaryBtn onClick={handleSubmit} disabled={loading}>{loading ? '신청 중...' : '신청'}</PrimaryBtn>
-    </div>
-  )
-}
-
-/* ── 연체정보조회 ── */
-function DelinquencyPage({ cntrId }: { cntrId: string }) {
-  const [rows, setRows]       = useState<{ overdueDays: number; overdueAmount: number; penaltyRate: number }[]>([])
-  const [searched, setSearched] = useState(false)
-
-  async function handleSearch() {
-    try {
-      const res = await api.get(`/api/loan-contracts/${cntrId}/delinquency`)
-      setRows(res.data.data?.items ?? [])
-    } catch { setRows([]) }
-    setSearched(true)
-  }
-
-  return (
-    <div>
-      <InfoNotice lines={['대출 연체 현황을 조회합니다.', '연체 발생 시 즉시 납입하여 추가 불이익을 방지하세요.']} />
-      {SimpleForm([{ label: '계약번호', value: cntrId, readOnly: true }])}
-      <div className="flex justify-center mb-6"><PrimaryBtn onClick={handleSearch}>조회</PrimaryBtn></div>
-      {searched && (
-        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+      )}
+      {rateChanges.length > 0 && (
+        <div className="mt-4 border border-kb-border">
+          <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+            <p className="text-[13px] font-bold text-kb-text">금리변동 내역</p>
+          </div>
           <table className="w-full text-[13px]">
-            <thead>
-              <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #E2F5EF' }}>
-                {['연체일수', '연체금액', '연체이율'].map(h => (
-                  <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]" style={{ color: '#0D5C47' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-[13px] text-kb-text-muted">연체 내역이 없습니다.</td></tr>
-              ) : rows.map((r, i, arr) => (
-                <tr key={i} className="hover:bg-[#F8FFFE]" style={{ borderBottom: i < arr.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
-                  <td className="px-4 py-3 text-center">{r.overdueDays}일</td>
-                  <td className="px-4 py-3 text-right pr-5 font-medium" style={{ color: '#E05555' }}>{r.overdueAmount.toLocaleString('ko-KR')}원</td>
-                  <td className="px-4 py-3 text-center">연 {(r.penaltyRate / 100).toFixed(2)}%</td>
+            <thead><tr className="bg-[#FAFAFA]">
+              <th className="px-4 py-2 text-left font-medium border-b border-kb-border">변경일</th>
+              <th className="px-4 py-2 text-right font-medium border-b border-kb-border">변경 전</th>
+              <th className="px-4 py-2 text-right font-medium border-b border-kb-border">변경 후</th>
+            </tr></thead>
+            <tbody className="divide-y divide-kb-border">
+              {rateChanges.map((r: any, i: number) => (
+                <tr key={i}>
+                  <td className="px-4 py-2">{r.changedAt?.slice(0, 10) ?? '-'}</td>
+                  <td className="px-4 py-2 text-right">{r.prevRateBps ? `${bpsToRate(r.prevRateBps)}%` : '-'}</td>
+                  <td className="px-4 py-2 text-right font-medium">{r.newRateBps ? `${bpsToRate(r.newRateBps)}%` : '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -447,119 +177,1026 @@ function DelinquencyPage({ cntrId }: { cntrId: string }) {
   )
 }
 
-/* ── 증명서 발급 ── */
-function CertificatePage({ cntrId }: { cntrId: string }) {
-  const CERT_TYPES = [
-    { code: 'BALANCE',   label: '대출잔액증명서' },
-    { code: 'DEBT',      label: '채무확인서' },
-    { code: 'REPAYMENT', label: '상환내역증명서' },
-  ]
-  const [certType, setCertType] = useState('BALANCE')
-  const [done, setDone]         = useState(false)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
+// ─── 이자/월부금 납입 ─────────────────────────────────────────
 
-  async function handleIssue() {
-    setError(''); setLoading(true)
+function InterestPaymentForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [schedules, setSchedules] = useState<RepaymentSchedule[]>([])
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+  const today = new Date().toISOString().slice(0, 10)
+
+  async function handleSearch() {
+    if (!selectedId) return
+    setLoading(true); setError('')
     try {
-      await api.post(`/api/loan-contracts/${cntrId}/certificates`, { certificateTypeCd: certType })
+      const { data: res } = await loanContractApi.getRepaymentSchedules(selectedId)
+      setSchedules(res.data?.items ?? [])
+    } catch {
+      setError('상환 스케줄을 불러오지 못했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handlePay(schedule: RepaymentSchedule) {
+    if (!selectedId) return
+    setSubmitting(true); setError('')
+    try {
+      await repaymentApi.pay(selectedId, { paymentAmt: schedule.totalAmt, paymentDt: today })
       setDone(true)
-    } catch { setError('증명서 발급에 실패했습니다.') }
-    finally { setLoading(false) }
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '납입 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (done) return (
-    <div className="rounded-xl p-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div>
-        <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>증명서가 발급되었습니다.</p>
-        <p className="text-[12px] text-kb-text-muted">{CERT_TYPES.find(c => c.code === certType)?.label} 발급이 완료되었습니다.</p>
-      </div>
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">납입 처리 완료</p>
+      <button onClick={() => setDone(false)} className="text-[13px] text-[#1A56DB] hover:underline">다시 조회</button>
     </div>
   )
 
   return (
     <div>
-      <InfoNotice lines={['대출 관련 증명서를 발급합니다.', '발급된 증명서는 마이페이지에서 다운로드할 수 있습니다.']} />
-      <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        <div className="flex items-center" style={{ borderBottom: '1px solid #E2F5EF' }}>
-          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-            계약번호
-          </div>
-          <div className="flex-1 px-5 py-3">
-            <span className="text-[13px] font-medium" style={{ color: '#0D5C47' }}>{cntrId || '-'}</span>
-          </div>
-        </div>
-        <div className="flex items-center">
-          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-            증명서 종류
-          </div>
-          <div className="flex-1 px-5 py-3 flex gap-6">
-            {CERT_TYPES.map(({ code, label }) => (
-              <label key={code} className="flex items-center gap-1.5 cursor-pointer text-[13px]">
-                <input type="radio" checked={certType === code} onChange={() => setCertType(code)} style={{ accentColor: '#0D5C47' }} />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
+      <StepIndicator />
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
-      {error && <p className="text-[13px] mb-4" style={{ color: '#E05555' }}>{error}</p>}
-      <PrimaryBtn onClick={handleIssue} disabled={loading}>{loading ? '발급 중...' : '발급'}</PrimaryBtn>
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSearch} disabled={!selectedId || loading}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {loading ? '조회 중...' : '조회'}
+        </button>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      {schedules.length > 0 && (
+        <div className="mt-6 border border-kb-border">
+          <table className="w-full text-[13px]">
+            <thead><tr className="bg-kb-beige-light">
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">회차</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">납입예정일</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">원금</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">이자</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">납입액</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">상태</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">처리</th>
+            </tr></thead>
+            <tbody className="divide-y divide-kb-border">
+              {schedules.map(s => (
+                <tr key={s.seq} className="hover:bg-kb-beige-light">
+                  <td className="px-4 py-3 text-center">{s.seq}</td>
+                  <td className="px-4 py-3 text-center">{s.scheduledDt?.slice(0, 10)}</td>
+                  <td className="px-4 py-3 text-right">{s.principalAmt.toLocaleString('ko-KR')}원</td>
+                  <td className="px-4 py-3 text-right">{s.interestAmt.toLocaleString('ko-KR')}원</td>
+                  <td className="px-4 py-3 text-right font-bold">{s.totalAmt.toLocaleString('ko-KR')}원</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-[11px] font-bold px-2 py-0.5 ${s.paidYn === 'Y' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                      {s.paidYn === 'Y' ? '납입완료' : '미납'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {s.paidYn !== 'Y' && (
+                      <button onClick={() => handlePay(s)} disabled={submitting}
+                        className="px-3 py-1 text-[11px] bg-kb-yellow text-kb-text font-bold hover:brightness-95 disabled:opacity-50">
+                        납입
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
 
-/* ── PAGE_MAP ── */
-const PAGE_MAP: Record<string, { title: string; breadcrumb: string; Component: React.FC<{ cntrId: string }> }> = {
-  rate:        { title: '적용금리조회',         breadcrumb: '적용금리조회',         Component: RatePage },
-  payment:     { title: '이자/월부금입금',       breadcrumb: '이자/월부금입금',       Component: PaymentPage },
-  repay:       { title: '대출금상환',           breadcrumb: '대출금상환',           Component: RepayPage },
-  withdraw:    { title: '대출계약철회/완제',     breadcrumb: '대출계약철회/완제',     Component: WithdrawPage },
-  extend:      { title: '기한연장',             breadcrumb: '기한연장',             Component: ExtendPage },
-  'rate-cut':  { title: '금리인하요구권',        breadcrumb: '금리인하요구권',        Component: RateCutPage },
-  delinquency: { title: '연체정보조회',          breadcrumb: '연체정보조회',          Component: DelinquencyPage },
-  certificate: { title: '증명서 발급',           breadcrumb: '증명서 발급',           Component: CertificatePage },
+// ─── 대출금 상환 ──────────────────────────────────────────────
+
+function RepayForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [repayType, setRepayType] = useState<'partial' | 'full'>('partial')
+  const [amount, setAmount] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+
+  const AMT_BTNS = ['100만', '50만', '10만', '5만', '1만', '정정']
+  function handleAmtBtn(btn: string) {
+    if (btn === '정정') { setAmount(''); return }
+    const map: Record<string, number> = { '100만': 1000000, '50만': 500000, '10만': 100000, '5만': 50000, '1만': 10000 }
+    const cur = Number(amount.replace(/,/g, '')) || 0
+    setAmount((cur + (map[btn] ?? 0)).toLocaleString())
+  }
+
+  async function handleSubmit() {
+    if (!selectedId) return
+    setSubmitting(true); setError('')
+    const amt = parseInt(amount.replace(/,/g, ''), 10)
+    try {
+      if (repayType === 'partial') {
+        await repaymentApi.partialPrepay(selectedId, { prepaymentAmt: amt })
+      } else {
+        await repaymentApi.fullPrepay(selectedId, {})
+      }
+      setDone(true)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '상환 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) return (
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">상환 처리 완료</p>
+      <button onClick={() => { setDone(false); setAmount('') }} className="text-[13px] text-[#1A56DB] hover:underline">다시 처리</button>
+    </div>
+  )
+
+  return (
+    <div>
+      <StepIndicator />
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <div className="flex items-center px-5 py-3 gap-6">
+          <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">상환구분</span>
+          <div className="flex items-center gap-6">
+            {(['partial', 'full'] as const).map(t => (
+              <label key={t} className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="repayType" checked={repayType === t} onChange={() => setRepayType(t)} className="accent-kb-text" />
+                <span className="text-[13px] text-kb-text-body">{t === 'partial' ? '일부상환' : '완제'}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+        {repayType === 'partial' && (
+          <div className="flex items-start px-5 py-3 gap-6">
+            <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0 pt-2">상환금액</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input type="text" value={amount} onChange={e => setAmount(e.target.value)} placeholder=""
+                  className="border border-kb-border px-3 py-1.5 text-[13px] focus:outline-none w-[200px] text-right" />
+                <span className="text-[13px]">원</span>
+              </div>
+              <div className="flex gap-1">
+                {AMT_BTNS.map(btn => (
+                  <button key={btn} onMouseDown={e => e.preventDefault()} onClick={() => handleAmtBtn(btn)}
+                    className="px-3 py-1 text-[12px] border border-kb-border text-kb-text-body hover:bg-kb-beige-light">
+                    {btn}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSubmit} disabled={submitting || !selectedId || (repayType === 'partial' && !amount)}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {submitting ? '처리 중...' : '상환'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 금리인하요구 ─────────────────────────────────────────────
+
+function RateCutForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit() {
+    if (!selectedId) return
+    setSubmitting(true); setError('')
+    try {
+      const contract = contracts.find(c => c.cntrId === selectedId)
+      const targetBps = contract ? Math.max(0, contract.totalRateBps - 50) : 0
+      await rateApi.requestRateChange(selectedId, { requestedRateBps: targetBps, reasonCd: reason || 'CREDIT_IMPROVED' })
+      setDone(true)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '요청 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) return (
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">금리인하요구 접수 완료</p>
+      <p className="text-[13px] text-kb-text-muted">영업일 기준 3일 이내 처리 결과를 통보해 드립니다.</p>
+    </div>
+  )
+
+  return (
+    <div className="max-w-lg">
+      <div className="bg-[#F5F5F5] border border-kb-border p-4 mb-5 text-[13px] text-kb-text-body">
+        <p>신용 상태가 개선된 경우(신용점수 상승, 소득 증가 등) 금리 인하를 요구할 수 있습니다.</p>
+      </div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+        <div className="flex items-center px-5 py-3 gap-6">
+          <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">요구 사유</span>
+          <select value={reason} onChange={e => setReason(e.target.value)}
+            className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+            <option value="">선택하세요</option>
+            <option value="CREDIT_IMPROVED">신용점수 상승</option>
+            <option value="INCOME_INCREASED">소득 증가</option>
+            <option value="ASSET_INCREASED">자산 증가</option>
+            <option value="JOB_CHANGED">직장 변경(상향)</option>
+          </select>
+        </div>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSubmit} disabled={submitting || !selectedId || !reason}
+          className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
+          style={{ backgroundColor: '#3D3D3D' }}>
+          {submitting ? '처리 중...' : '요구 신청'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 기한연장 ─────────────────────────────────────────────────
+
+function ExtendForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [months, setMonths] = useState('12')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+
+  const contract = contracts.find(c => c.cntrId === selectedId)
+
+  async function handleSubmit() {
+    if (!selectedId || !contract) return
+    setSubmitting(true); setError('')
+    const raw = contract.cntrEndDate ?? ''
+    const newDt = raw.length === 8
+      ? new Date(`${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`)
+      : new Date(raw)
+    newDt.setMonth(newDt.getMonth() + parseInt(months, 10))
+    try {
+      await closureApi.extendMaturity(selectedId, { newMaturityDt: newDt.toISOString().slice(0, 10) })
+      setDone(true)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '기한연장 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) return (
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">기한연장 처리 완료</p>
+    </div>
+  )
+
+  return (
+    <div className="max-w-lg">
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+        {contract && (
+          <div className="flex items-center px-5 py-3 gap-6">
+            <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">현재 만기일</span>
+            <span className="text-[13px]">{contract.cntrEndDate ?? '-'}</span>
+          </div>
+        )}
+        <div className="flex items-center px-5 py-3 gap-6">
+          <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">연장기간</span>
+          <select value={months} onChange={e => setMonths(e.target.value)}
+            className="border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+            {[3, 6, 12].map(m => <option key={m} value={m}>{m}개월</option>)}
+          </select>
+        </div>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSubmit} disabled={submitting || !selectedId}
+          className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
+          style={{ backgroundColor: '#3D3D3D' }}>
+          {submitting ? '처리 중...' : '기한연장 신청'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 통지서비스 ───────────────────────────────────────────────
+
+function NotifyForm() {
+  const [notifs, setNotifs] = useState<Notification[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const cid = getCustomerId()
+    if (!cid) { setLoading(false); return }
+    loanMiscApi.getNotifications(cid)
+      .then(({ data: res }) => setNotifs(res.data?.items ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function toggleRead(notif: Notification) {
+    try {
+      await loanMiscApi.updateNotification(notif.notifId, { readYn: notif.readYn === 'Y' ? 'N' : 'Y' })
+      setNotifs(prev => prev.map(n => n.notifId === notif.notifId ? { ...n, readYn: n.readYn === 'Y' ? 'N' : 'Y' } : n))
+    } catch {}
+  }
+
+  if (loading) return <p className="text-[13px] text-kb-text-muted py-8 text-center">불러오는 중...</p>
+
+  return (
+    <div>
+      {notifs.length === 0 ? (
+        <p className="text-[13px] text-kb-text-muted py-8 text-center">수신된 통지가 없습니다.</p>
+      ) : (
+        <table className="w-full text-[13px] border-t border-kb-text">
+          <thead><tr className="bg-kb-beige-light">
+            <th className="px-4 py-3 text-left font-semibold border-b border-kb-border">제목</th>
+            <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">수신일</th>
+            <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">읽음</th>
+          </tr></thead>
+          <tbody className="divide-y divide-kb-border">
+            {notifs.map(n => (
+              <tr key={n.notifId} className={`hover:bg-kb-beige-light ${n.readYn === 'N' ? 'font-medium' : ''}`}>
+                <td className="px-4 py-3">{n.title}</td>
+                <td className="px-4 py-3 text-center text-kb-text-muted">{n.createdAt?.slice(0, 10)}</td>
+                <td className="px-4 py-3 text-center">
+                  <button onClick={() => toggleRead(n)}
+                    className={`px-3 py-1 text-[11px] border ${n.readYn === 'Y' ? 'border-kb-border text-kb-text-muted' : 'bg-kb-yellow border-kb-border text-kb-text font-bold'}`}>
+                    {n.readYn === 'Y' ? '읽음' : '미읽음'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+// ─── 납입방법 변경 ────────────────────────────────────────────
+
+function PaymentMethodForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [accountNo, setAccountNo] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit() {
+    if (!selectedId || !accountNo) return
+    setSubmitting(true); setError('')
+    try {
+      await loanContractApi.registerRepaymentAccount(selectedId, { accountNo })
+      setDone(true)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '변경 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) return (
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">납입방법 변경 완료</p>
+    </div>
+  )
+
+  return (
+    <div className="max-w-lg">
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+        <div className="flex items-center px-5 py-3 gap-6">
+          <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">새 납입 계좌</span>
+          <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
+            placeholder="계좌번호 입력" className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none" />
+        </div>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSubmit} disabled={submitting || !selectedId || !accountNo}
+          className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
+          style={{ backgroundColor: '#3D3D3D' }}>
+          {submitting ? '처리 중...' : '변경'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 연체정보 조회 ────────────────────────────────────────────
+
+function DelinquencyView({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [dlq, setDlq] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSearch() {
+    if (!selectedId) return
+    setLoading(true); setError('')
+    try {
+      const { data: res } = await loanMiscApi.getDelinquency(selectedId)
+      setDlq(res.data)
+    } catch (err: any) {
+      const msg = err.response?.data?.message ?? ''
+      if (err.response?.status === 404 || msg.includes('LOAN_100')) {
+        setDlq(null)
+        setError('현재 활성 연체 내역이 없습니다.')
+      } else {
+        setError('연체 정보를 불러오지 못했습니다.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const DLQ_STATUS: Record<string, string> = {
+    ACTIVE: '연체중', RESOLVED: '해소완료', WRITTEN_OFF: '대손처리',
+  }
+  const DLQ_STAGE: Record<string, string> = {
+    EARLY: '초기(1~30일)', MID: '중기(31~90일)', LATE: '장기(91일+)',
+  }
+
+  return (
+    <div>
+      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+        <p>· 연체가 발생한 경우 연체 현황을 조회할 수 있습니다.</p>
+        <p>· 연체 해소를 위해 즉시 납입해 주시기 바랍니다.</p>
+      </div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+      </div>
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSearch} disabled={!selectedId || loading}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {loading ? '조회 중...' : '조회'}
+        </button>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      {dlq && (
+        <div className="mt-6 border border-kb-border">
+          <div className="bg-red-50 px-5 py-3 border-b border-kb-border">
+            <p className="text-[13px] font-bold text-red-700">연체 정보</p>
+          </div>
+          <div className="divide-y divide-kb-border text-[13px]">
+            {[
+              ['연체 상태',     DLQ_STATUS[dlq.dlqStatusCd] ?? dlq.dlqStatusCd],
+              ['연체 단계',     DLQ_STAGE[dlq.dlqStageCd] ?? dlq.dlqStageCd ?? '-'],
+              ['연체 시작일',   dlq.dlqStartDate ?? '-'],
+              ['연체 경과일',   dlq.dlqDays != null ? `${dlq.dlqDays}일` : '-'],
+              ['연체 원금',     dlq.dlqPrincipalAmt != null ? `${dlq.dlqPrincipalAmt.toLocaleString('ko-KR')}원` : '-'],
+              ['연체 이자',     dlq.dlqInterestAmt != null ? `${dlq.dlqInterestAmt.toLocaleString('ko-KR')}원` : '-'],
+              ['연체 합계',     dlq.dlqTotalAmt != null ? `${dlq.dlqTotalAmt.toLocaleString('ko-KR')}원` : '-'],
+              ['연체 금리',     dlq.overdueRateBps != null ? `연 ${bpsToRate(dlq.overdueRateBps)}%` : '-'],
+            ].map(([label, val]) => (
+              <div key={label} className="flex">
+                <div className="w-36 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{label}</div>
+                <div className={`px-5 py-3 ${label === '연체 합계' ? 'font-bold text-red-600' : 'text-kb-text-body'}`}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── 상환 취소(역분개) ────────────────────────────────────────
+
+function ReversalForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [txList, setTxList] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [reversing, setReversing] = useState<number | null>(null)
+  const [remark, setRemark] = useState('')
+  const [done, setDone] = useState<number | null>(null)
+
+  async function handleSearch() {
+    if (!selectedId) return
+    setLoading(true); setError('')
+    try {
+      const { data: res } = await repaymentApi.list(selectedId)
+      const items: any[] = res.data?.items ?? []
+      setTxList(items.filter(t => t.rtxStatusCd === 'SUCCESS' && t.rtxTypeCd === 'SCHEDULED'))
+    } catch { setError('거래 목록을 불러오지 못했습니다.') }
+    finally { setLoading(false) }
+  }
+
+  async function handleReverse(rtxId: number) {
+    if (!selectedId) return
+    setError('')
+    try {
+      await repaymentApi.reverse(selectedId, rtxId, { reversalReasonCd: 'MISTAKE', reversalRemark: remark || undefined })
+      setReversing(null); setRemark(''); setDone(rtxId)
+      await handleSearch()
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '역분개 처리 중 오류가 발생했습니다.')
+    }
+  }
+
+  const RTX_TYPE: Record<string, string> = { SCHEDULED: '회차상환', EARLY: '중도상환', PARTIAL: '부분상환' }
+
+  return (
+    <div>
+      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+        <p>· SCHEDULED(회차) 상환 거래만 역분개 가능합니다. 중도상환 역분개는 지원하지 않습니다.</p>
+        <p>· 역분개 시 해당 회차 상태가 PAID → DUE 로 되돌아갑니다.</p>
+      </div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+      </div>
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSearch} disabled={!selectedId || loading}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {loading ? '조회 중...' : '조회'}
+        </button>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      {done && <p className="text-[13px] text-green-600 mt-4 text-center">역분개 처리 완료 (rtxId: {done})</p>}
+      {txList.length > 0 && (
+        <div className="mt-6 border border-kb-border">
+          <table className="w-full text-[13px]">
+            <thead><tr className="bg-kb-beige-light">
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">거래ID</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">유형</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">금액</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">납입일</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">처리</th>
+            </tr></thead>
+            <tbody className="divide-y divide-kb-border">
+              {txList.map((t: any) => (
+                <tr key={t.rtxId} className="hover:bg-kb-beige-light">
+                  <td className="px-4 py-3 text-center text-kb-text-muted">{t.rtxId}</td>
+                  <td className="px-4 py-3 text-center">{RTX_TYPE[t.rtxTypeCd] ?? t.rtxTypeCd}</td>
+                  <td className="px-4 py-3 text-right font-bold">{t.totalAmount?.toLocaleString('ko-KR')}원</td>
+                  <td className="px-4 py-3 text-center text-kb-text-muted">{t.paidAt?.slice(0, 10) ?? '-'}</td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => { setReversing(t.rtxId); setRemark('') }}
+                      className="px-3 py-1 text-[11px] border border-red-400 text-red-600 hover:bg-red-50">
+                      취소
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {txList.length === 0 && !loading && !error && (
+        <p className="text-[13px] text-kb-text-muted mt-6 text-center">조회 버튼을 눌러 상환 거래를 확인하세요.</p>
+      )}
+
+      {reversing !== null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-[400px] p-8">
+            <p className="text-[18px] font-bold text-kb-text mb-2">상환 취소(역분개)</p>
+            <p className="text-[13px] text-kb-text-body mb-4">거래 rtxId: <strong>{reversing}</strong></p>
+            <textarea value={remark} onChange={e => setRemark(e.target.value)}
+              rows={3} placeholder="취소 사유 (선택)"
+              className="w-full border border-kb-border px-3 py-2 text-[13px] focus:outline-none mb-4 resize-none" />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setReversing(null)}
+                className="px-6 py-2 border border-kb-border text-[13px] text-kb-text hover:bg-kb-beige-light">
+                닫기
+              </button>
+              <button onClick={() => handleReverse(reversing)}
+                className="px-6 py-2 bg-red-500 text-[13px] font-bold text-white hover:bg-red-600">
+                취소 확정
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── 보증보험 ─────────────────────────────────────────────────
+
+const GINS_AGENCY = [
+  { code: 'SGI', label: 'SGI서울보증' },
+  { code: 'HUG', label: 'HUG주택도시보증공사' },
+  { code: 'HF',  label: 'HF한국주택금융공사' },
+]
+
+function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [agency, setAgency] = useState('SGI')
+  const [guaranteeAmt, setGuaranteeAmt] = useState('')
+  const [ratioBps, setRatioBps] = useState('10000')
+  const [premium, setPremium] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [issued, setIssued] = useState<any>(null)
+  const [canceling, setCanceling] = useState(false)
+
+  async function handleIssue() {
+    if (!selectedId || !guaranteeAmt) return
+    setSubmitting(true); setError('')
+    try {
+      const { data: res } = await guaranteeInsuranceApi.issue(selectedId, {
+        ginsAgencyCd:     agency,
+        guaranteeAmount:  parseInt(guaranteeAmt.replace(/,/g, '')),
+        guaranteeRatioBps: parseInt(ratioBps),
+        premiumAmount:    premium ? parseInt(premium.replace(/,/g, '')) : 0,
+      })
+      setIssued(res.data)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '보증보험 발급 중 오류가 발생했습니다.')
+    } finally { setSubmitting(false) }
+  }
+
+  async function handleCancel() {
+    if (!selectedId || !issued) return
+    setCanceling(true); setError('')
+    try {
+      const { data: res } = await guaranteeInsuranceApi.cancel(selectedId, issued.ginsId, { cancelReasonCd: 'USER_REQUEST' })
+      setIssued(res.data)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '보증보험 취소 중 오류가 발생했습니다.')
+    } finally { setCanceling(false) }
+  }
+
+  const GINS_STATUS: Record<string, { text: string; cls: string }> = {
+    ISSUED:   { text: '발급완료', cls: 'text-green-700 bg-green-50 border-green-400' },
+    CANCELED: { text: '취소됨',   cls: 'text-gray-500 bg-gray-50 border-gray-300' },
+    EXPIRED:  { text: '만료됨',   cls: 'text-orange-600 bg-orange-50 border-orange-400' },
+  }
+
+  return (
+    <div>
+      <div className="border border-[#b3cce8] bg-[#f0f6ff] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+        <p>· 외부 보증기관(SGI/HUG/HF) stub — 발급 요청 즉시 ISSUED 처리됩니다.</p>
+        <p>· 계약 상태가 SIGNED 또는 ACTIVE인 경우 발급 가능하며, 활성 보증보험이 1건 초과될 수 없습니다.</p>
+      </div>
+
+      {issued ? (
+        <div className="border border-kb-border rounded-xl overflow-hidden">
+          <div className="bg-kb-beige-light px-5 py-3 flex justify-between items-center border-b border-kb-border">
+            <span className="text-[13px] font-bold text-kb-text">증권번호: {issued.ginsPolicyNo}</span>
+            <span className={`text-[11px] px-2 py-0.5 rounded border ${GINS_STATUS[issued.ginsStatusCd]?.cls ?? 'border-kb-border text-kb-text-muted'}`}>
+              {GINS_STATUS[issued.ginsStatusCd]?.text ?? issued.ginsStatusCd}
+            </span>
+          </div>
+          <div className="px-5 py-4 grid grid-cols-2 gap-x-8 gap-y-2 text-[13px] text-kb-text-body">
+            {[
+              ['보증기관', GINS_AGENCY.find(a => a.code === issued.ginsAgencyCd)?.label ?? issued.ginsAgencyCd],
+              ['보증금액', `${issued.guaranteeAmount?.toLocaleString('ko-KR')}원`],
+              ['보증비율', `${(issued.guaranteeRatioBps / 100).toFixed(0)}%`],
+              ['보험료',   `${issued.premiumAmount?.toLocaleString('ko-KR')}원`],
+              ['유효시작', issued.ginsStartDate ?? '-'],
+              ['유효종료', issued.ginsEndDate ?? '-'],
+              ['발급일시', issued.issuedAt?.slice(0, 16).replace('T', ' ') ?? '-'],
+            ].map(([label, val]) => (
+              <div key={label}><span className="font-medium text-kb-text">{label}</span>: {val}</div>
+            ))}
+          </div>
+          {issued.ginsStatusCd === 'ISSUED' && (
+            <div className="px-5 py-3 border-t border-kb-border">
+              <button onClick={handleCancel} disabled={canceling}
+                className="px-5 py-1.5 border border-red-400 text-[12px] text-red-600 hover:bg-red-50 disabled:opacity-50">
+                {canceling ? '처리 중...' : '보증보험 취소'}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="border border-kb-border divide-y divide-kb-border mb-5">
+            <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증기관 <span className="text-kb-red">*</span></span>
+              <div className="flex gap-2">
+                {GINS_AGENCY.map(a => (
+                  <button key={a.code} onClick={() => setAgency(a.code)}
+                    className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
+                      agency === a.code ? 'bg-kb-yellow border-kb-text font-bold text-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                    {a.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증금액 <span className="text-kb-red">*</span></span>
+              <div className="flex items-center gap-2">
+                <input type="text"
+                  value={guaranteeAmt ? parseInt(guaranteeAmt.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
+                  onChange={e => setGuaranteeAmt(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="0" className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                <span className="text-[13px]">원</span>
+              </div>
+            </div>
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증비율</span>
+              <select value={ratioBps} onChange={e => setRatioBps(e.target.value)}
+                className="border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+                <option value="10000">100%</option>
+                <option value="8000">80%</option>
+                <option value="5000">50%</option>
+              </select>
+            </div>
+
+            <div className="flex items-center px-5 py-4 gap-4">
+              <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보험료</span>
+              <div className="flex items-center gap-2">
+                <input type="text"
+                  value={premium ? parseInt(premium.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
+                  onChange={e => setPremium(e.target.value.replace(/[^\d]/g, ''))}
+                  placeholder="0" className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                <span className="text-[13px]">원</span>
+              </div>
+            </div>
+          </div>
+          {error && <p className="text-[13px] text-kb-red mb-4">{error}</p>}
+          <div className="flex justify-center">
+            <button onClick={handleIssue} disabled={!selectedId || !guaranteeAmt || submitting}
+              className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+              {submitting ? '발급 중...' : '보증보험 발급'}
+            </button>
+          </div>
+        </>
+      )}
+      {error && issued && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
+    </div>
+  )
+}
+
+// ─── UI-only 슬러그 (API pending) ─────────────────────────────
+
+function WithdrawForm({ contracts, selectedId, setSelectedId }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit() {
+    if (!selectedId) return
+    setSubmitting(true); setError('')
+    try {
+      await closureApi.close(selectedId, { closureReasonCd: 'WITHDRAWAL' })
+      setDone(true)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) return (
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">계약 철회/완제 처리 완료</p>
+    </div>
+  )
+
+  return (
+    <div className="max-w-lg">
+      <div className="bg-red-50 border border-red-300 p-4 mb-5 text-[13px] text-red-700">
+        <p className="font-bold mb-1">주의</p>
+        <p>계약 철회 시 취소가 불가합니다. 신중하게 진행해 주세요.</p>
+      </div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSubmit} disabled={submitting || !selectedId}
+          className="px-12 py-2.5 text-[14px] font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50">
+          {submitting ? '처리 중...' : '철회/완제 신청'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 단순 조회 공통 폼 ────────────────────────────────────────
+
+function SimpleQueryForm({ contracts, selectedId, setSelectedId, apiCall, renderResult }: {
+  contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+  apiCall: (cntrId: number) => Promise<any>
+  renderResult: (data: any) => React.ReactNode
+}) {
+  const [result, setResult] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSearch() {
+    if (!selectedId) return
+    setLoading(true); setError('')
+    try {
+      const { data: res } = await apiCall(selectedId)
+      setResult(res.data)
+    } catch {
+      setError('조회 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="border border-kb-border divide-y divide-kb-border">
+        <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
+      </div>
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSearch} disabled={!selectedId || loading}
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          {loading ? '조회 중...' : '조회'}
+        </button>
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
+      {result && <div className="mt-6">{renderResult(result)}</div>}
+    </div>
+  )
+}
+
+// ─── 메인 페이지 ──────────────────────────────────────────────
+
+type SlugMeta = { title: string; breadcrumb: string; description?: string }
+
+const PAGE_META: Record<string, SlugMeta> = {
+  rate:           { title: '적용금리조회',                       breadcrumb: '적용금리조회' },
+  payment:        { title: '이자/월부금입금',                     breadcrumb: '이자/월부금입금' },
+  repay:          { title: '대출금상환',                         breadcrumb: '대출금상환' },
+  withdraw:       { title: '대출계약철회 예상조회/완제',            breadcrumb: '대출계약철회', description: '대출계약 철회 처리합니다.' },
+  limit:          { title: '대출한도변경/해지',                   breadcrumb: '대출한도변경/해지', description: '한도형 대출의 한도를 변경하거나 해지합니다.' },
+  extend:         { title: '기한연장',                           breadcrumb: '기한연장', description: '대출 만기일을 연장합니다.' },
+  'rate-cut':     { title: '개인대출 금리인하요구권',              breadcrumb: '금리인하요구권' },
+  closed:         { title: '해지계좌조회',                       breadcrumb: '해지계좌조회', description: '해지된 대출 계좌 내역을 조회합니다.' },
+  'rate-detail':  { title: '금리산정내역서 조회',                 breadcrumb: '금리산정내역서' },
+  'debt-relief':  { title: '소멸시효완성에 따른 채무면제 결과조회', breadcrumb: '채무면제 결과조회' },
+  'auto-interest':{ title: '통장자동대출 이자납입내역 조회',       breadcrumb: '이자납입내역' },
+  notify:         { title: '개인대출 통지서비스',                 breadcrumb: '통지서비스' },
+  'payment-method':{ title: '개인대출 할부금(이자) 납입방법 변경', breadcrumb: '납입방법 변경' },
+  delinquency:     { title: '연체정보조회',                       breadcrumb: '연체정보조회' },
+  reversal:        { title: '상환 취소(역분개)',                   breadcrumb: '상환 취소' },
+  'guarantee-insurance': { title: '보증보험 발급/조회',            breadcrumb: '보증보험' },
+}
+
+function PageContent({ slug, contracts, selectedId, setSelectedId }: {
+  slug: string; contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
+}) {
+  const props = { contracts, selectedId, setSelectedId }
+  switch (slug) {
+    case 'rate':    return <RateInfo {...props} />
+    case 'payment': return <InterestPaymentForm {...props} />
+    case 'repay':   return <RepayForm {...props} />
+    case 'withdraw': return <WithdrawForm {...props} />
+    case 'extend':  return <ExtendForm {...props} />
+    case 'rate-cut': return <RateCutForm {...props} />
+    case 'notify':  return <NotifyForm />
+    case 'payment-method': return <PaymentMethodForm {...props} />
+    case 'delinquency': return <DelinquencyView {...props} />
+    case 'reversal':    return <ReversalForm {...props} />
+    case 'guarantee-insurance': return <GuaranteeInsuranceForm {...props} />
+    case 'closed':
+      return <SimpleQueryForm {...props}
+        apiCall={cntrId => closureApi.getClosure(cntrId)}
+        renderResult={data => (
+          <div className="border border-kb-border p-4 text-[13px]">
+            <p>해지일: {data?.closedAt?.slice(0, 10) ?? '-'}</p>
+            <p>해지사유: {data?.closureReasonCd ?? '-'}</p>
+          </div>
+        )} />
+    case 'rate-detail':
+      return <SimpleQueryForm {...props}
+        apiCall={cntrId => loanMiscApi.getCertificate(cntrId, 'RATE_DETAIL')}
+        renderResult={data => (
+          <div className="border border-kb-border">
+            <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+              <p className="text-[13px] font-bold text-kb-text">금리산정내역서</p>
+            </div>
+            <div className="divide-y divide-kb-border text-[13px]">
+              {data && Object.entries(data).map(([k, v]) => (
+                <div key={k} className="flex">
+                  <div className="w-40 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{k}</div>
+                  <div className="px-5 py-3 text-kb-text-body">{String(v)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )} />
+    case 'debt-relief':
+      return <SimpleQueryForm {...props}
+        apiCall={cntrId => loanMiscApi.getCreditInfoReport(cntrId)}
+        renderResult={data => (
+          <div className="border border-kb-border">
+            <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+              <p className="text-[13px] font-bold text-kb-text">신용정보 결과</p>
+            </div>
+            <div className="divide-y divide-kb-border text-[13px]">
+              {data && Object.entries(data).map(([k, v]) => (
+                <div key={k} className="flex">
+                  <div className="w-40 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{k}</div>
+                  <div className="px-5 py-3 text-kb-text-body">{String(v)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )} />
+    case 'auto-interest':
+      return <SimpleQueryForm {...props}
+        apiCall={cntrId => rateApi.getInterestAccruals(cntrId)}
+        renderResult={data => {
+          const items: any[] = data?.items ?? (Array.isArray(data) ? data : [])
+          return (
+            <div className="border border-kb-border">
+              <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+                <p className="text-[13px] font-bold text-kb-text">이자 발생 내역 ({items.length}건)</p>
+              </div>
+              {items.length === 0 ? (
+                <p className="px-5 py-6 text-[13px] text-kb-text-muted">내역이 없습니다.</p>
+              ) : (
+                <table className="w-full text-[13px]">
+                  <thead><tr className="bg-[#FAFAFA]">
+                    <th className="px-4 py-2 text-left font-medium border-b border-kb-border">발생일</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">원금 잔액</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">이자</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">금리</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-kb-border">
+                    {items.map((item: any, i: number) => (
+                      <tr key={i} className="hover:bg-kb-beige-light">
+                        <td className="px-4 py-2">{item.accrualDate?.slice(0, 10) ?? '-'}</td>
+                        <td className="px-4 py-2 text-right">{item.principalBalance != null ? `${item.principalBalance.toLocaleString('ko-KR')}원` : '-'}</td>
+                        <td className="px-4 py-2 text-right font-medium">{item.interestAmt != null ? `${item.interestAmt.toLocaleString('ko-KR')}원` : '-'}</td>
+                        <td className="px-4 py-2 text-right">{item.dailyRateBps != null ? `${bpsToRate(item.dailyRateBps * 365)}%` : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )
+        }} />
+    case 'limit':
+      return (
+        <div className="max-w-lg border border-kb-border">
+          <div className="flex border-t border-kb-border">
+            <div className="w-48 px-4 py-3 bg-[#F5F5F5] text-[13px] font-medium">한도변경</div>
+            <div className="px-4 py-3 text-[13px] text-kb-text-muted">백엔드 API 개발 예정</div>
+          </div>
+        </div>
+      )
+    default:
+      return <p className="text-[15px] text-kb-text-muted py-20 text-center">페이지를 찾을 수 없습니다.</p>
+  }
 }
 
 export default function ManagePage() {
-  const params       = useParams()
-  const searchParams = useSearchParams()
-  const slug   = params.slug as string
-  const cntrId = searchParams.get('cntrId') ?? ''
-  const meta   = PAGE_MAP[slug]
-
-  if (!meta) return (
-    <main className="pb-16">
-      <div className="max-w-kb-container mx-auto px-6 pt-6 flex gap-8">
-        <LoanSidebar />
-        <div className="flex-1 flex items-center justify-center py-20">
-          <p className="text-[15px] text-kb-text-muted">페이지를 찾을 수 없습니다.</p>
-        </div>
-      </div>
-    </main>
-  )
-
-  const { title, breadcrumb, Component } = meta
+  const params = useParams()
+  const slug = params.slug as string
+  const { contracts, selectedId, setSelectedId } = useContracts()
+  const meta = PAGE_META[slug]
 
   return (
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
         <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/" className="hover:underline">개인뱅킹</Link><span>›</span>
-          <Link href="/products/loan/my" className="hover:underline">대출관리</Link><span>›</span>
-          <span className="text-kb-text font-medium">{breadcrumb}</span>
+          <Link href="/personal" className="hover:underline">개인뱅킹</Link><span>›</span>
+          <Link href="/products/deposit" className="hover:underline">금융상품</Link><span>›</span>
+          <Link href="/products/loan" className="hover:underline">대출</Link><span>›</span>
+          <span className="text-kb-text font-medium">대출관리</span><span>›</span>
+          <span className="text-kb-text font-medium">{meta?.breadcrumb ?? slug}</span>
         </nav>
         <div className="flex gap-8">
           <LoanSidebar />
           <div className="flex-1 min-w-0">
-            <h1 className="text-[22px] font-bold text-kb-text mb-6">{title}</h1>
-            <div className="border-t-2 pt-6" style={{ borderColor: '#0D5C47' }}>
-              <Component cntrId={cntrId} />
+            <h1 className="text-[26px] font-bold text-kb-text mb-2">{meta?.title ?? slug}</h1>
+            {meta?.description && (
+              <p className="text-[13px] text-kb-text-muted mb-6">{meta.description}</p>
+            )}
+            <div className="border-t border-kb-text pt-6">
+              <PageContent slug={slug} contracts={contracts} selectedId={selectedId} setSelectedId={setSelectedId} />
             </div>
           </div>
         </div>

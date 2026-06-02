@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
@@ -167,7 +166,7 @@ export default function CollateralPage() {
         <span className="font-semibold text-kb-text">담보 등록</span>
       </div>
 
-      <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-[#0D5C47]">담보 등록 및 LTV 계산</h1>
+      <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-text">담보 등록 및 LTV 계산</h1>
 
       <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
         <p>· 담보 등록 후 감정평가 및 LTV(담보인정비율) 계산이 자동으로 진행됩니다.</p>
@@ -177,18 +176,18 @@ export default function CollateralPage() {
       {/* 등록된 담보 목록 */}
       {collaterals.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-[#E2F5EF]">등록된 담보물</h2>
+          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">등록된 담보물</h2>
           <div className="space-y-4">
             {collaterals.map(col => {
               const ltv = ltvMap[col.colId]
               const loading = ltvLoading === col.colId
               return (
-                <div key={col.colId} className="border border-[#E2F5EF] rounded-xl overflow-hidden">
-                  <div className="bg-[#F0FAF7] px-5 py-3 flex justify-between items-center border-b border-[#E2F5EF]">
+                <div key={col.colId} className="border border-kb-border rounded-xl overflow-hidden">
+                  <div className="bg-kb-beige-light px-5 py-3 flex justify-between items-center border-b border-kb-border">
                     <span className="text-[13px] font-bold text-kb-text">{col.colNo} · {COL_TYPES.find(t => t.code === col.colTypeCd)?.label ?? col.colTypeCd}</span>
                     <span className={`text-[11px] px-2 py-0.5 rounded border ${
                       col.colStatusCd === 'EVALUATED' ? 'border-green-400 text-green-700 bg-green-50'
-                      : 'border-[#E2F5EF] text-kb-text-muted'}`}>
+                      : 'border-kb-border text-kb-text-muted'}`}>
                       {COL_STATUS_LABEL[col.colStatusCd] ?? col.colStatusCd}
                     </span>
                   </div>
@@ -207,16 +206,16 @@ export default function CollateralPage() {
 
                   {/* LTV 결과 */}
                   {loading ? (
-                    <div className="px-5 py-3 border-t border-[#E2F5EF] text-[13px] text-kb-text-muted">LTV 계산 중...</div>
+                    <div className="px-5 py-3 border-t border-kb-border text-[13px] text-kb-text-muted">LTV 계산 중...</div>
                   ) : ltv ? (
-                    <div className="px-5 py-4 border-t border-[#E2F5EF] bg-[#F0FAF7]">
+                    <div className="px-5 py-4 border-t border-kb-border bg-kb-beige-light">
                       <p className="text-[12px] font-bold text-kb-text mb-3">LTV 계산 결과</p>
                       <div className="grid grid-cols-3 gap-4 text-[12px]">
-                        <div className="border border-[#E2F5EF] bg-white rounded-lg p-3 text-center">
+                        <div className="border border-kb-border bg-white rounded-lg p-3 text-center">
                           <p className="text-kb-text-muted mb-1">LTV 비율</p>
                           <p className="font-bold text-[16px] text-kb-text">{bps(ltv.ltvRatioBps)}%</p>
                         </div>
-                        <div className="border border-[#E2F5EF] bg-white rounded-lg p-3 text-center">
+                        <div className="border border-kb-border bg-white rounded-lg p-3 text-center">
                           <p className="text-kb-text-muted mb-1">한도 내 최대 대출</p>
                           <p className="font-bold text-[14px] text-kb-text">{formatWon(ltv.maxLoanAmount)}</p>
                         </div>
@@ -233,9 +232,9 @@ export default function CollateralPage() {
                       </p>
                     </div>
                   ) : col.colStatusCd === 'EVALUATED' ? (
-                    <div className="px-5 py-3 border-t border-[#E2F5EF] flex items-center gap-3">
+                    <div className="px-5 py-3 border-t border-kb-border flex items-center gap-3">
                       <button onClick={() => handleCalcLtv(col.colId)}
-                        className="px-5 py-1.5 border border-[#0D5C47] text-[12px] text-kb-text hover:bg-[#F0FAF7] transition-colors">
+                        className="px-5 py-1.5 border border-kb-text text-[12px] text-kb-text hover:bg-kb-beige-light transition-colors">
                         LTV 계산
                       </button>
                     </div>
@@ -249,8 +248,8 @@ export default function CollateralPage() {
 
       {/* 담보 등록 폼 */}
       <section className="mb-6">
-        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-[#E2F5EF]">담보물 등록</h2>
-        <div className="border border-[#E2F5EF] divide-y divide-[#E2F5EF] overflow-hidden">
+        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">담보물 등록</h2>
+        <div className="border border-kb-border divide-y divide-kb-border overflow-hidden">
 
           <div className="flex items-center px-5 py-4 gap-4">
             <label className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">
@@ -261,8 +260,8 @@ export default function CollateralPage() {
                 <button key={t.code} onClick={() => setColType(t.code)}
                   className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
                     colType === t.code
-                      ? 'bg-[#0D5C47] border-[#0D5C47] font-bold text-white'
-                      : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
+                      ? 'bg-kb-yellow border-kb-text font-bold text-kb-text'
+                      : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
                   {t.label}
                 </button>
               ))}
@@ -273,14 +272,14 @@ export default function CollateralPage() {
             <label className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">담보명</label>
             <input value={colName} onChange={e => setColName(e.target.value)}
               placeholder="예: 서울시 강남구 아파트"
-              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none max-w-sm" />
+              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none max-w-sm" />
           </div>
 
           <div className="flex items-center px-5 py-4 gap-4">
             <label className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">주소</label>
             <input value={colAddress} onChange={e => setColAddress(e.target.value)}
               placeholder="예: 서울특별시 강남구 테헤란로 123"
-              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none max-w-lg" />
+              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none max-w-lg" />
           </div>
 
           <div className="flex items-center px-5 py-4 gap-4">
@@ -288,7 +287,7 @@ export default function CollateralPage() {
             <div className="flex items-center gap-2">
               <input type="text" value={declaredValue ? parseInt(declaredValue.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
                 onChange={e => setDeclaredValue(e.target.value.replace(/[^\d]/g, ''))}
-                placeholder="0" className="border border-[#E2F5EF] px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                placeholder="0" className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
               <span className="text-[13px] text-kb-text">원</span>
               <span className="text-[12px] text-kb-text-muted">(감정평가액으로 사용됩니다)</span>
             </div>
@@ -301,8 +300,8 @@ export default function CollateralPage() {
                 <button key={t.code} onClick={() => setOwnershipType(t.code)}
                   className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
                     ownershipType === t.code
-                      ? 'bg-[#0D5C47] border-[#0D5C47] font-bold text-white'
-                      : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
+                      ? 'bg-kb-yellow border-kb-text font-bold text-kb-text'
+                      : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
                   {t.label}
                 </button>
               ))}
@@ -317,8 +316,8 @@ export default function CollateralPage() {
                   <button key={v} onClick={() => setSeniorLienYn(v)}
                     className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
                       seniorLienYn === v
-                        ? 'bg-[#0D5C47] border-[#0D5C47] font-bold text-white'
-                        : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
+                        ? 'bg-kb-yellow border-kb-text font-bold text-kb-text'
+                        : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
                     {v === 'N' ? '없음' : '있음'}
                   </button>
                 ))}
@@ -329,7 +328,7 @@ export default function CollateralPage() {
                     value={seniorLienAmt ? parseInt(seniorLienAmt.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
                     onChange={e => setSeniorLienAmt(e.target.value.replace(/[^\d]/g, ''))}
                     placeholder="선순위 금액"
-                    className="border border-[#E2F5EF] px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                    className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
                   <span className="text-[13px] text-kb-text">원</span>
                 </div>
               )}
@@ -342,13 +341,13 @@ export default function CollateralPage() {
 
       <div className="flex justify-center gap-3">
         <Link href={`/loans/apply/result?applId=${applId}`}
-          className="px-10 py-3 border border-[#E2F5EF] text-[14px] text-kb-text hover:bg-[#F0FAF7] transition-colors">
+          className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
           신청 결과로
         </Link>
         <button onClick={handleRegister} disabled={!canSubmit}
           className={`px-14 py-3 text-[14px] font-bold transition-all ${
             canSubmit
-              ? 'bg-[#0D5C47] text-white hover:opacity-85'
+              ? 'bg-kb-yellow text-kb-text hover:brightness-95'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
           {submitting ? '등록 중...' : '담보 등록'}
         </button>

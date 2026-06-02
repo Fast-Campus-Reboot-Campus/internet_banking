@@ -1,12 +1,12 @@
-package com.bank.loan.reversal.service;
+﻿package com.bank.loan.reversal.service;
 
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
 import com.bank.common.persistence.CurrentActorProvider;
 import com.bank.common.security.crypto.CryptoService;
 import com.bank.common.web.BusinessException;
+import com.bank.loan.payment.SystemAccountProvider;
 import com.bank.loan.payment.client.PaymentServiceClient;
-import com.bank.loan.payment.client.PaymentServiceProperties;
 import com.bank.loan.payment.client.dto.PaymentRequest;
 import com.bank.loan.payment.client.dto.PaymentResponse;
 import com.bank.loan.repayment.domain.RepaymentTransaction;
@@ -66,13 +66,13 @@ public class ReversalService {
     private static final String REASON_REVERSED = "REPAYMENT_REVERSED";
     private static final String REASON_PREPAY_REVERSED = "PREPAY_REVERSED";
     private static final String DEFAULT_CHANNEL = "MANUAL";
-    private static final String CHANNEL_INBOUND = "INBOUND";
+    private static final String CHANNEL_OPEN_BANKING = "OPEN_BANKING";
 
     private final RepaymentTransactionRepository txRepository;
     private final RepaymentScheduleRepository scheduleRepository;
     private final RepaymentAccountRepository repaymentAccountRepository;
     private final PaymentServiceClient paymentServiceClient;
-    private final PaymentServiceProperties paymentProps;
+    private final SystemAccountProvider systemAccountProvider;
     private final CryptoService cryptoService;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
@@ -277,14 +277,14 @@ public class ReversalService {
                 + (idempotencyKey != null && !idempotencyKey.isBlank() ? "-" + idempotencyKey : "");
 
         PaymentRequest req = new PaymentRequest(
-                paymentProps.collection().accountNo(),
+                systemAccountProvider.collectionAccount().getAccountNo(),
                 account.getBankCd(),
                 receiverAccountNo,
                 receiverHolderName,
                 BigDecimal.valueOf(target.getTotalAmount()),
                 "대출상환 역분개 환급",
                 "대출환급",
-                CHANNEL_INBOUND,
+                CHANNEL_OPEN_BANKING,
                 String.valueOf(target.getCntrId())
         );
 

@@ -64,8 +64,20 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         }
 
         ServerHttpRequest mutated = exchange.getRequest().mutate()
-                .header("X-Customer-Id", String.valueOf(claims.customerId()))
+                .headers(h -> {
+                    h.remove("X-Customer-Id");
+                    h.remove("X-Customer-Email");
+                    h.remove("X-User-Id");
+                    h.remove("X-User-Role");
+                    h.remove("X-User-Branch");
+                    h.remove("X-User-Grade");
+                })
+                .header("X-Customer-Id",    String.valueOf(claims.customerId()))
                 .header("X-Customer-Email", claims.email() != null ? claims.email() : "")
+                .header("X-User-Id",        String.valueOf(claims.customerId()))
+                .header("X-User-Role",      String.join(",", claims.roles()))
+                .header("X-User-Branch",    claims.branch() != null ? claims.branch() : "")
+                .header("X-User-Grade",     claims.grade()  != null ? claims.grade()  : "")
                 .build();
 
         return chain.filter(exchange.mutate().request(mutated).build());
