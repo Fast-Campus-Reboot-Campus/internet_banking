@@ -6,6 +6,7 @@
 # CASH_FLOW_RECOMMEND 는 PRODUCT_GUIDE 보다 앞에 위치해야 한다
 # (더 구체적인 "내 패턴/현금흐름 분석 기반" 의도이므로)
 _INTENT_PRIORITY: list[str] = [
+    "SAVINGS_GOAL",
     "RATE_GUIDE",
     "JOIN_CONDITION",
     "PRODUCT_COMPARE",
@@ -16,6 +17,13 @@ _INTENT_PRIORITY: list[str] = [
 ]
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
+    "SAVINGS_GOAL": [
+        "모으고 싶", "모으고싶", "모으려고", "모으려 해", "모아야",
+        "저축 목표", "저축목표", "목표 금액", "목표금액",
+        "만원 모으", "억 모으", "천만원 모으",
+        "저축 계획", "저축계획", "얼마 모으", "얼마나 모으",
+        "모을 수 있", "몇 개월이면", "몇년이면",
+    ],
     "RATE_GUIDE": [
         "금리 목록", "금리 보여", "금리 알려줘", "이자율 알려", "금리 현황",
         "금리 알려", "금리 어떻게", "금리가 어떻게", "금리가 얼마", "금리 얼마",

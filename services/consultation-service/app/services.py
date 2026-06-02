@@ -173,7 +173,7 @@ class ChatbotService:
                     customer_no=customer_no,
                     chatbot_consultation_id=chatbot.chatbot_consultation_id,
                 )
-                if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE"):
+                if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL"):
                     response_message = feat_result.message
                     # PRODUCT_COMPARE이면서 개인 추천 의도도 포함된 경우 → 추천도 함께 제공
                     if intent_name == "PRODUCT_COMPARE" and customer_no and self._has_personal_recommend_intent(classify_text):
@@ -503,6 +503,7 @@ class ChatbotService:
             "STAFF_TRANSFER_FLOW": self._execute_staff_transfer_flow,
             "STAFF_CONSULTATION_HISTORY": self._execute_staff_consultation_history,
             "PRODUCT_SEARCH": self._execute_product_search,
+            "SAVINGS_GOAL": self._execute_savings_goal,
         }
         handler = handlers.get(feature_code)
         if not handler:
@@ -1753,6 +1754,15 @@ class ChatbotService:
             message=message,
             data=data,
         )
+
+    def _execute_savings_goal(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        from app.features.savings_goal import SavingsGoalFeatureExecutor
+        executor = SavingsGoalFeatureExecutor(
+            db=self.db,
+            rag=self._rag,
+            llm_adapter=self._llm_adapter,
+        )
+        return executor.execute_savings_goal(request)
 
     def _execute_staff_cash_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no or not request.staff_id:
