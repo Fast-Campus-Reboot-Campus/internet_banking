@@ -17,28 +17,65 @@
       "version": "1.0.0"
     }
   ],
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "graphTooltip": 1,
   "id": null,
   "panels": [
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 100,
       "title": "심사 처리량 · 결정 분포",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}] } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
       "id": 1,
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
       "targets": [
         {
           "expr": "sum(increase(review_decision_total{application=\"ai-service\"}[1h]))",
@@ -49,15 +86,53 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short", "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}] } },
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
       "id": 2,
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
       "targets": [
         {
           "expr": "sum(increase(review_inference_error_total{application=\"ai-service\"}[1h]))",
@@ -68,15 +143,53 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "percentunit", "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 0.7}] } },
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 0.7
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
       "id": 3,
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
       "targets": [
         {
           "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"REJECT\"}[10m])) / sum(rate(review_decision_total{application=\"ai-service\"}[10m]))",
@@ -87,15 +200,53 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "percentunit", "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "green", "value": 0.05}] } },
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.01
+              },
+              {
+                "color": "green",
+                "value": 0.05
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
       "id": 4,
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
       "targets": [
         {
           "expr": "sum(rate(review_inference_error_total{application=\"ai-service\"}[5m])) / (sum(rate(review_decision_total{application=\"ai-service\"}[5m])) + sum(rate(review_inference_error_total{application=\"ai-service\"}[5m])) + 0.001)",
@@ -106,14 +257,28 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "reqps" },
+        "defaults": {
+          "unit": "reqps"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
       "id": 5,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"APPROVE\"}[5m]))",
@@ -132,14 +297,28 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short" },
+        "defaults": {
+          "unit": "short"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
       "id": 6,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "sum(increase(review_inference_error_total{application=\"ai-service\"}[5m]))",
@@ -151,21 +330,64 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
       "id": 101,
       "title": "응답시간 (p50 / p95)",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s", "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}] } },
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 14 },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 14
+      },
       "id": 7,
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
@@ -176,15 +398,53 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s", "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 2}, {"color": "red", "value": 3}] } },
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 14 },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 14
+      },
       "id": 8,
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background"
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
@@ -195,14 +455,28 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s" },
+        "defaults": {
+          "unit": "s"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
       "id": 9,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
@@ -218,20 +492,39 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
       "id": 102,
       "title": "모델 예측 신뢰도 (Score)",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "percentunit" },
+        "defaults": {
+          "unit": "percentunit"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 27 },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
       "id": 10,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (le))",
@@ -259,20 +552,39 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
       "id": 103,
       "title": "데이터 드리프트 감지 (입력 피처 분포)",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "percentunit" },
+        "defaults": {
+          "unit": "percentunit"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
       "id": 11,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(review_input_dsr_bucket{application=\"ai-service\"}[10m])) by (le))",
@@ -287,14 +599,28 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short" },
+        "defaults": {
+          "unit": "short"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
       "id": 12,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.50, sum(rate(review_input_credit_score_bucket{application=\"ai-service\"}[10m])) by (le))",
@@ -310,20 +636,39 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 44 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
       "id": 104,
       "title": "모델 버전별 결과 비교",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "reqps" },
+        "defaults": {
+          "unit": "reqps"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 45 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 45
+      },
       "id": 13,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (modelVersion)",
@@ -342,14 +687,28 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s" },
+        "defaults": {
+          "unit": "s"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 45 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
       "id": 14,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (modelVersion, le))",
@@ -361,20 +720,39 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 53 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
       "id": 105,
       "title": "데이터 품질 (결측치 · 이상치)",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short" },
+        "defaults": {
+          "unit": "short"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 54 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
       "id": 15,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "sum(increase(review_input_missing_total{application=\"ai-service\"}[5m])) by (field)",
@@ -385,14 +763,28 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "bfmta2uf2mebka" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfmta2uf2mebka"
+      },
       "fieldConfig": {
-        "defaults": { "unit": "short" },
+        "defaults": {
+          "unit": "short"
+        },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 54 },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
       "id": 16,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "expr": "sum(increase(review_input_outlier_total{application=\"ai-service\"}[5m])) by (field)",
@@ -405,8 +797,16 @@
   ],
   "refresh": "30s",
   "schemaVersion": 38,
-  "tags": ["ml", "loan", "review", "ai-service"],
-  "time": { "from": "now-1h", "to": "now" },
+  "tags": [
+    "ml",
+    "loan",
+    "review",
+    "ai-service"
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "ML 대출 심사 모니터링",

@@ -36,9 +36,8 @@ class PolicyIndexTest {
                 "A_V1", new PolicyIndex.PolicyEntry("정책 A", "src-1")
         ));
 
-        var entry = idx.get("A_V1");
-        assertThat(entry).isPresent();
-        assertThat(entry.get().text()).isEqualTo("정책 A");
-        assertThat(entry.get().source()).isEqualTo("src-1");
+        var entry = idx.get("A_V1").orElseThrow();
+        assertThat(entry.text()).isEqualTo("정책 A");
+        assertThat(entry.source()).isEqualTo("src-1");
     }
 }

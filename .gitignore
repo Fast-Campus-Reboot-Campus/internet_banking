@@ -3,6 +3,9 @@
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
+# OTel Java Agent (빌드 시 자동 다운로드)
+libs/opentelemetry-javaagent.jar
+
 # IDE
 .idea/
 *.iml
@@ -25,6 +28,7 @@ Thumbs.db
 .env.prod
 *.local
 *.bak
+infra/alertmanager/alertmanager.yml
 .venv/
 venv/
 env/
@@ -35,6 +39,7 @@ logs/
 
 # Local service launchers
 services/consultation-service/start-*.bat
+start-*.bat
 
 # Java
 *.class

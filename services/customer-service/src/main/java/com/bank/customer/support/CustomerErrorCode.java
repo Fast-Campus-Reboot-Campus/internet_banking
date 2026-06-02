@@ -25,7 +25,19 @@ public enum CustomerErrorCode implements ErrorCode {
     CUST_013(HttpStatus.UNAUTHORIZED, "비밀번호가 만료되었습니다."),
 
     // 설정
-    CUST_020(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다.");
+    CUST_020(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다."),
+
+    // 인증서 로그인 (030-039)
+    CUST_030(HttpStatus.NOT_FOUND,     "인증서를 찾을 수 없습니다."),
+    CUST_031(HttpStatus.UNAUTHORIZED,  "인증서가 만료되었습니다."),
+    CUST_032(HttpStatus.FORBIDDEN,     "폐기된 인증서입니다."),
+    CUST_033(HttpStatus.UNAUTHORIZED,  "인증서 PIN이 올바르지 않습니다."),
+    CUST_034(HttpStatus.FORBIDDEN,     "인증서가 잠겨 있습니다."),
+
+    // QR 로그인 (040-049)
+    CUST_040(HttpStatus.NOT_FOUND,   "QR 토큰을 찾을 수 없습니다."),
+    CUST_041(HttpStatus.GONE,        "QR 코드가 만료되었습니다."),
+    CUST_042(HttpStatus.CONFLICT,    "이미 처리된 QR 코드입니다.");
 
     private final HttpStatus status;
     private final String message;

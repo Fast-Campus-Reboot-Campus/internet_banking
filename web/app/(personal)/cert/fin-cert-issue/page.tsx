@@ -1,7 +1,8 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { api } from '@/lib/api'
 
 const SIDEBAR_MENUS = [
   {
@@ -35,8 +36,13 @@ export default function FinCertIssuePage() {
   const [checkedTerms, setCheckedTerms] = useState<Set<number>>(new Set())
   const [allChecked, setAllChecked] = useState(false)
   const [userId, setUserId] = useState('')
-  const [rrnFront, setRrnFront] = useState('')
+  const [rrn1, setRrn1] = useState('')
+  const [rrn2, setRrn2] = useState('')
+  const [password, setPassword] = useState('')
   const [mouseInput, setMouseInput] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [issuedCert, setIssuedCert] = useState<{ serialNumber: string; expiryDate: string } | null>(null)
 
   function toggleTerm(i: number) {
     setExpandedTerms((prev) => {
@@ -50,8 +56,7 @@ export default function FinCertIssuePage() {
     setCheckedTerms((prev) => {
       const next = new Set(prev)
       if (next.has(i)) { next.delete(i) } else { next.add(i) }
-      const allNow = next.size === TERMS.length
-      setAllChecked(allNow)
+      setAllChecked(next.size === TERMS.length)
       return next
     })
   }
@@ -63,6 +68,35 @@ export default function FinCertIssuePage() {
     } else {
       setCheckedTerms(new Set(TERMS.map((_, i) => i)))
       setAllChecked(true)
+    }
+  }
+
+  async function handleIssue() {
+    if (checkedTerms.size !== TERMS.length) { setError('필수 약관에 모두 동의해 주세요.'); return }
+    if (!userId) { setError('아이디를 입력해 주세요.'); return }
+    if (rrn1.length !== 6 || rrn2.length !== 7) { setError('주민등록번호를 올바르게 입력해 주세요.'); return }
+    if (!password) { setError('비밀번호를 입력해 주세요.'); return }
+    setError(''); setLoading(true)
+    try {
+      const { data: res } = await api.post('/api/v1/auth/cert/issue', {
+        loginId: userId,
+        password,
+        certType: 'CERT_FIN',
+      })
+      const cert = res.data
+      localStorage.setItem('issuedFinCert', JSON.stringify({
+        serialNumber: cert.serialNumber,
+        certType: cert.certType,
+        user: userId,
+        expiry: `${cert.expiryDate.slice(0,4)}.${cert.expiryDate.slice(4,6)}.${cert.expiryDate.slice(6,8)}`,
+        issuer: cert.issuerName,
+      }))
+      setIssuedCert(cert)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '인증서 발급 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -86,7 +120,7 @@ export default function FinCertIssuePage() {
                   href={item.href}
                   className={`block px-5 py-2.5 text-caption border-b border-kb-border transition-colors
                     ${item.active
-                      ? 'bg-kb-yellow font-bold text-kb-text'
+                      ? 'bg-[#0D5C47] font-bold text-white'
                       : 'text-kb-text-body hover:bg-kb-beige-light'
                     }`}
                 >
@@ -111,7 +145,7 @@ export default function FinCertIssuePage() {
         </div>
 
         {/* 페이지 제목 */}
-        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-kb-text pb-3">
+        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-[#0D5C47] pb-3">
           인증서 발급/재발급
         </h2>
 
@@ -140,12 +174,11 @@ export default function FinCertIssuePage() {
               <div key={term.label}>
                 <div className="flex items-center px-4 py-3 gap-3">
                   <CheckBox checked={checkedTerms.has(i)} onChange={() => checkTerm(i)} />
-                  <span className="text-caption text-kb-blue font-medium mr-1">[필수]</span>
+                  <span className="text-caption text-[#0D5C47] font-medium mr-1">[필수]</span>
                   <span className="flex-1 text-caption text-kb-text">{term.label}</span>
                   <button
                     onClick={() => toggleTerm(i)}
                     className="text-caption text-kb-text-muted hover:text-kb-text transition-colors px-2"
-                    aria-expanded={expandedTerms.has(i)}
                   >
                     {expandedTerms.has(i) ? '▲' : '▼'}
                   </button>
@@ -161,75 +194,142 @@ export default function FinCertIssuePage() {
         </section>
 
         {/* 사용자 확인 */}
-        <section>
-          <h3 className="text-body font-bold text-kb-text mb-4">사용자 확인</h3>
-          <div className="border border-kb-border divide-y divide-kb-border">
+        <section className="border border-kb-border">
+          <h3 className="text-body font-bold text-kb-text px-6 py-4 border-b border-kb-border">사용자 확인</h3>
 
-            {/* 사용자 ID */}
-            <div className="flex items-center px-6 py-4 gap-4">
-              <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">
-                사용자 ID
-              </label>
-              <div className="flex-1 flex items-center gap-4">
-                <input
-                  type="text"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  className="flex-1 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe"
-                  placeholder="사용자 ID 입력"
-                />
-                <Link href="#" className="text-caption text-kb-blue hover:underline whitespace-nowrap">
-                  ID를 모르시는 경우
-                </Link>
-              </div>
+          {/* 사용자 ID */}
+          <div className="flex items-center px-6 py-4 gap-4 border-b border-kb-border">
+            <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">사용자 ID</label>
+            <div className="flex-1 flex items-center gap-4">
+              <input
+                type="text"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                className="flex-1 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe"
+                placeholder="사용자 ID 입력"
+              />
+              <Link href="#" className="text-caption text-[#0D5C47] hover:underline whitespace-nowrap">
+                ID를 모르시는 경우
+              </Link>
             </div>
+          </div>
 
-            {/* 주민등록번호 */}
-            <div className="flex items-center px-6 py-4 gap-4">
-              <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">
-                주민등록번호
-              </label>
-              <div className="flex-1 flex items-center gap-3">
+          {/* 주민등록번호 */}
+          <div className="flex items-center px-6 py-4 gap-4 border-b border-kb-border">
+            <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">주민등록번호</label>
+            <div className="flex-1 flex items-center gap-3">
+              <input
+                type="text"
+                value={rrn1}
+                onChange={(e) => setRrn1(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                maxLength={6}
+                className="w-28 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe text-center tracking-widest"
+                placeholder="생년월일"
+              />
+              <span className="text-kb-text-muted">-</span>
+              {mouseInput ? (
                 <input
-                  type="text"
-                  value={rrnFront}
-                  onChange={(e) => setRrnFront(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  maxLength={6}
+                  type="password"
+                  value={rrn2}
+                  onChange={(e) => setRrn2(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                  maxLength={7}
                   className="w-28 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe text-center tracking-widest"
-                  placeholder="생년월일"
                 />
-                <span className="text-kb-text-muted">-</span>
-                {/* 뒷자리: 마우스 입력 전용 */}
+              ) : (
                 <div className="flex items-center gap-1">
                   {Array.from({ length: 7 }).map((_, j) => (
-                    <div
-                      key={j}
-                      className="w-7 h-8 border border-kb-border bg-kb-beige-light flex items-center justify-center"
-                    >
+                    <div key={j} className="w-7 h-8 border border-kb-border bg-kb-beige-light flex items-center justify-center">
                       <span className="text-kb-text-muted text-body">●</span>
                     </div>
                   ))}
                 </div>
-                <label className="flex items-center gap-1.5 cursor-pointer select-none ml-2">
-                  <CheckBox checked={mouseInput} onChange={() => setMouseInput(!mouseInput)} />
-                  <span className="text-caption text-kb-text-body">마우스로 입력</span>
-                </label>
-              </div>
+              )}
+              <label className="flex items-center gap-1.5 cursor-pointer select-none ml-2">
+                <CheckBox checked={mouseInput} onChange={() => setMouseInput(!mouseInput)} />
+                <span className="text-caption text-kb-text-body">마우스로 입력</span>
+              </label>
             </div>
+          </div>
+
+          {/* 비밀번호 */}
+          <div className="flex items-center px-6 py-4 gap-4">
+            <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">비밀번호</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="로그인 비밀번호"
+              className="flex-1 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-[#0D5C47]"
+            />
           </div>
         </section>
 
+        {error && <p className="text-[12px] text-red-500">{error}</p>}
+
+        {/* 발급 완료 화면 */}
+        {issuedCert && (
+          <div className="border-2 border-[#0D5C47] bg-[#F0FAF7] p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D5C47" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/>
+              </svg>
+              <p className="text-[14px] font-bold text-[#0D5C47]">금융인증서 발급이 완료되었습니다</p>
+            </div>
+            <div className="bg-white border border-[#C8E8DF] p-4 space-y-1.5 text-[12px]">
+              <div className="flex gap-3">
+                <span className="w-20 text-kb-text-muted flex-shrink-0">일련번호</span>
+                <span className="text-kb-text font-medium break-all">{issuedCert.serialNumber}</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="w-20 text-kb-text-muted flex-shrink-0">인증서 유형</span>
+                <span className="text-kb-text">금융인증서</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="w-20 text-kb-text-muted flex-shrink-0">유효기간</span>
+                <span className="text-kb-text">
+                  {issuedCert.expiryDate.slice(0,4)}.{issuedCert.expiryDate.slice(4,6)}.{issuedCert.expiryDate.slice(6,8)} 까지 (3년)
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-kb-text-muted">
+              발급된 인증서는 로그인 화면의 &lsquo;공동·금융인증서&rsquo; 탭에서 사용할 수 있습니다.
+            </p>
+          </div>
+        )}
+
         {/* 버튼 */}
         <div className="flex justify-center gap-3 pt-2">
-          <Link
-            href="/cert"
-            className="px-14 py-3 border border-kb-border text-body text-kb-text hover:bg-kb-beige-light transition-colors"
-          >
-            취소
-          </Link>
-          <button className="px-14 py-3 bg-kb-yellow text-body font-bold text-kb-text hover:brightness-95 transition-all">
-            확인
-          </button>
+          {issuedCert ? (
+            <>
+              <Link
+                href="/login"
+                className="px-14 py-3 text-body font-bold text-white hover:opacity-90 transition-all"
+                style={{ backgroundColor: '#0D5C47' }}
+              >
+                로그인 화면으로
+              </Link>
+              <Link
+                href="/cert/cert-management"
+                className="px-14 py-3 border border-kb-border text-body text-kb-text hover:bg-kb-beige-light transition-colors"
+              >
+                인증서 관리
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/cert" className="px-14 py-3 border border-kb-border text-body text-kb-text hover:bg-kb-beige-light transition-colors">
+                취소
+              </Link>
+              <button
+                onClick={handleIssue}
+                disabled={loading}
+                className="px-14 py-3 text-body font-bold text-white hover:opacity-90 transition-all disabled:opacity-50"
+                style={{ backgroundColor: '#0D5C47' }}
+              >
+                {loading ? '발급 중...' : '확인'}
+              </button>
+            </>
+          )}
         </div>
 
         {/* OTP 안내 */}
@@ -240,10 +340,10 @@ export default function FinCertIssuePage() {
           <div className="space-y-1">
             <p className="text-body font-bold text-kb-text">보안카드/OTP가 없으신가요?</p>
             <p className="text-caption text-kb-text-muted leading-relaxed">
-              AXful인증서(기업)를 이용하시면 OTP 없이도 안전하게 금융거래를 하실 수 있습니다.
+              AXful인증서를 발급받으시면 OTP 없이도 안전하게 금융거래를 하실 수 있습니다.
             </p>
-            <Link href="/cert-biz" className="text-caption text-kb-blue hover:underline">
-              AXful인증서(기업) 발급받기 &gt;
+            <Link href="/cert/axful-cert-issue" className="text-caption text-[#0D5C47] hover:underline">
+              AXful인증서 발급받기 &gt;
             </Link>
           </div>
         </div>
@@ -259,11 +359,11 @@ function CheckBox({ checked, onChange }: { checked: boolean; onChange: () => voi
       type="button"
       onClick={onChange}
       className={`w-4 h-4 border flex-shrink-0 flex items-center justify-center transition-colors
-        ${checked ? 'bg-kb-yellow border-kb-taupe' : 'bg-white border-kb-border'}`}
+        ${checked ? 'bg-[#0D5C47] border-[#0D5C47]' : 'bg-white border-kb-border'}`}
     >
       {checked && (
         <svg viewBox="0 0 12 10" fill="none" className="w-3 h-3">
-          <path d="M1 5l3 3 7-7" stroke="#333" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M1 5l3 3 7-7" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       )}
     </button>

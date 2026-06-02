@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -139,7 +139,7 @@ export default function AdminSidebar() {
       <div className="flex items-stretch gap-2.5 px-4 py-4" style={{ backgroundColor: '#122550', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="w-[3px] rounded-full bg-kb-yellow self-stretch" />
         <div className="flex flex-col leading-none gap-1">
-          <span className="text-[15px] font-bold text-white tracking-wide">AX풀뱅크</span>
+          <span className="text-[15px] font-bold text-white tracking-wide">AXful Bank</span>
           <span className="text-[9px] font-medium tracking-[0.18em] uppercase" style={{ color: 'rgba(255,255,255,0.45)' }}>Admin Console</span>
         </div>
       </div>

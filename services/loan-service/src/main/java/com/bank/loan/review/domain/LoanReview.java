@@ -52,6 +52,7 @@ public class LoanReview extends BaseEntity {
     public static final String STATUS_PENDING_APPROVER  = "PENDING_APPROVER";
     public static final String STATUS_COMPLETED         = "COMPLETED";
     public static final String STATUS_EXPIRED           = "EXPIRED";
+    public static final String STATUS_ESCALATED_TO_HQ   = "ESCALATED_TO_HQ";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -129,6 +130,12 @@ public class LoanReview extends BaseEntity {
 
     @Column(name = "rev_ai_rationale", columnDefinition = "TEXT")
     private String revAiRationale;
+
+    @Column(name = "owner_id")
+    private Long ownerId;
+
+    @Column(name = "escalated_at")
+    private OffsetDateTime escalatedAt;
 
     public boolean isApproved() {
         return DECISION_APPROVED.equals(revDecisionCd);
@@ -273,6 +280,16 @@ public class LoanReview extends BaseEntity {
      */
     public void expire() {
         this.revStatusCd = STATUS_EXPIRED;
+    }
+
+    public boolean isEscalated() {
+        return escalatedAt != null;
+    }
+
+    /** 이상거래 본사 상신. escalated_at 기록 + 상태 전이. */
+    public void escalateToHq(OffsetDateTime at) {
+        this.escalatedAt = at;
+        this.revStatusCd = STATUS_ESCALATED_TO_HQ;
     }
 
     /**

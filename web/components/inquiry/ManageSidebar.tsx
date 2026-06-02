@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -12,29 +12,17 @@ const NAV: SidebarItem[] = [
     label: '제증명발급',
     expandable: true,
     children: [
-      { label: '연말정산증명서',           href: '/manage/certificates/year-end' },
-      { label: '통장사본',                 href: '#' },
-      { label: '예금잔액증명서',            href: '#' },
-      { label: '금융거래확인서',            href: '#' },
-      { label: '원천징수영수증 발급',        href: '#' },
-      { label: '금융소득종합과세 조회',       href: '#' },
-      { label: '증명서/서류목록',           href: '#' },
+      { label: '연말정산증명서', href: '/manage/certificates/year-end' },
     ],
   },
-  { label: '계좌관리',         href: '#' },
   {
     label: '인터넷 뱅킹관리',
     expandable: true,
     children: [
       { label: '첫 방문 고객을 위한 안내', href: '/banking/first-visit' },
       { label: '이체한도 변경',           href: '/banking/transfer-limit' },
-      { label: '인터넷뱅킹 FAQ',         href: '#' },
-      { label: '이용시간 안내',           href: '#' },
-      { label: '인터넷뱅킹 이용안내',     href: '#' },
-      { label: '이용수수료 안내',         href: '#' },
     ],
   },
-  { label: '계좌종합관리서비스', href: '#' },
 ]
 
 export default function ManageSidebar() {
@@ -57,33 +45,33 @@ export default function ManageSidebar() {
   }
 
   return (
-    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-base font-bold text-kb-text mb-3 px-1">뱅킹관리</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2 bg-white">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: "#0D5C47" }}>뱅킹관리</h2>
       <nav>
         {NAV.map((item) => (
-          <div key={item.label}>
+          <div key={item.label} className="border-b border-kb-border last:border-b-0">
             {item.expandable ? (
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text"
+                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] rounded-sm transition-colors duration-150"
                 >
                   <span>{item.label}</span>
                   <span className="text-[10px] text-kb-text-muted">
-                    {openSections.has(item.label) ? '˄' : '˅'}
+                    {openSections.has(item.label) ? '▴' : '▾'}
                   </span>
                 </button>
                 {openSections.has(item.label) && item.children && (
-                  <ul className="mb-1">
+                  <ul className="mb-2 pl-1">
                     {item.children.map((child) => {
                       const active = child.href !== '#' && pathname.startsWith(child.href)
                       return (
                         <li key={child.label}>
                           <Link href={child.href}
-                            className={`block px-3 py-1.5 text-[13px] ${
+                            className={`block py-1.5 text-[13px] transition-colors duration-150 ${
                               active
-                                ? 'bg-kb-yellow font-semibold text-kb-text'
-                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                                ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
+                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
                             }`}>
                             {child.label}
                           </Link>
@@ -95,7 +83,7 @@ export default function ManageSidebar() {
               </>
             ) : (
               <Link href={item.href ?? '#'}
-                className="block px-2 py-2 text-[13px] text-kb-text-muted hover:text-kb-text">
+                className="block px-2 py-2.5 text-[13px] text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7] transition-colors duration-150">
                 {item.label}
               </Link>
             )}

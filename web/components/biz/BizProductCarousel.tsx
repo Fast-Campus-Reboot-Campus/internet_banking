@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -14,7 +14,7 @@ const SLIDES: SlideItem[][] = [
       iconBg: '#E879A0',
     },
     {
-      title: 'AX풀뱅크 특별출연\n수출입금융 지원안내',
+      title: 'AXful Bank 특별출연\n수출입금융 지원안내',
       desc: '수출입 중소·중견기업\n지원을 위한!',
       icon: '🧾',
       iconBg: '#7B9DC8',

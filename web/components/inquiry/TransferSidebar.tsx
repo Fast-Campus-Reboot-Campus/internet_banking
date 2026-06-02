@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -12,52 +12,14 @@ const NAV: SidebarItem[] = [
     label: '계좌이체',
     expandable: true,
     children: [
-      { label: '계좌이체',                   href: '/transfer/account' },
-      { label: '다른금융 계좌이체',            href: '/transfer/other-bank' },
-      { label: '다계좌이체',                  href: '#' },
-      { label: '잔액 모으기',                 href: '#' },
-      { label: '잔액 모으기 예약',             href: '#' },
-      { label: '잔액 모으기 예약 관리',         href: '#' },
-      { label: '퇴직급여(개인형IRP)이체',       href: '#' },
-      { label: '계좌종합관리 이체',             href: '#' },
+      { label: '계좌이체', href: '/transfer/account' },
     ],
   },
   {
     label: '이체결과 조회',
     expandable: true,
     children: [
-      { label: '계좌이체결과조회',              href: '/transfer/inquiry' },
-      { label: '다른금융계좌 이체결과조회',       href: '#' },
-      { label: '잔액 모으기 예약 결과조회',       href: '#' },
-      { label: '전화승인결과조회',              href: '#' },
-      { label: '계좌종합관리 이체결과와 조회',    href: '#' },
-    ],
-  },
-  {
-    label: '자동이체',
-    expandable: true,
-    children: [
-      { label: '자동이체 등록',       href: '#' },
-      { label: '자동이체 변경/해지',   href: '#' },
-      { label: '자동이체 내역조회',    href: '#' },
-      { label: '자동이체 결과조회',    href: '#' },
-    ],
-  },
-  {
-    label: '에스크로 이체',
-    expandable: true,
-    children: [
-      { label: '에스크로 이체 신청',   href: '#' },
-      { label: '에스크로 내역조회',    href: '#' },
-    ],
-  },
-  {
-    label: '자동이체 서비스',
-    expandable: true,
-    children: [
-      { label: '자동이체 서비스 신청', href: '#' },
-      { label: '자동이체 서비스 조회', href: '#' },
-      { label: '자동이체 서비스 해지', href: '#' },
+      { label: '계좌이체결과조회', href: '/transfer/inquiry' },
     ],
   },
 ]
@@ -82,33 +44,33 @@ export default function TransferSidebar() {
   }
 
   return (
-    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-base font-bold text-kb-text mb-3 px-1">이체</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2 bg-white">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: "#0D5C47" }}>이체</h2>
       <nav>
         {NAV.map((item) => (
-          <div key={item.label}>
+          <div key={item.label} className="border-b border-kb-border last:border-b-0">
             {item.expandable ? (
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text"
+                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] rounded-sm transition-colors duration-150"
                 >
                   <span>{item.label}</span>
                   <span className="text-[10px] text-kb-text-muted">
-                    {openSections.has(item.label) ? '˄' : '˅'}
+                    {openSections.has(item.label) ? '▴' : '▾'}
                   </span>
                 </button>
                 {openSections.has(item.label) && item.children && (
-                  <ul className="mb-1">
+                  <ul className="mb-2 pl-1">
                     {item.children.map((child) => {
                       const active = child.href !== '#' && pathname.startsWith(child.href)
                       return (
                         <li key={child.label}>
                           <Link href={child.href}
-                            className={`block px-3 py-1.5 text-[13px] ${
+                            className={`block py-1.5 text-[13px] transition-colors duration-150 ${
                               active
-                                ? 'bg-kb-yellow font-semibold text-kb-text'
-                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                                ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
+                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
                             }`}>
                             {child.label}
                           </Link>
@@ -120,18 +82,13 @@ export default function TransferSidebar() {
               </>
             ) : (
               <Link href={item.href ?? '#'}
-                className="block px-2 py-2 text-[13px] text-kb-text-muted hover:text-kb-text">
+                className="block px-2 py-2.5 text-[13px] text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7] transition-colors duration-150">
                 {item.label}
               </Link>
             )}
           </div>
         ))}
       </nav>
-      <hr className="border-kb-border my-3" />
-      <Link href="/cert"
-        className="flex items-center gap-2 mx-2 border border-kb-border px-3 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
-        🔒 인증센터
-      </Link>
     </aside>
   )
 }

@@ -11,6 +11,7 @@ import com.bank.customer.settings.dto.ChangePasswordRequest;
 import com.bank.customer.settings.dto.SettingsResponse;
 import com.bank.customer.settings.dto.UpdateNotificationRequest;
 import com.bank.customer.settings.dto.UpdateProfileRequest;
+import com.bank.customer.settings.dto.WithdrawRequest;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -76,6 +77,22 @@ public class SettingsService {
         }
 
         credential.changePassword(passwordEncoder.encode(req.newPassword()));
+        redisTemplate.delete(RT_KEY_PREFIX + customerId);
+    }
+
+    @Transactional
+    public void withdraw(Long customerId, WithdrawRequest req) {
+        Customer customer = findActiveCustomer(customerId);
+
+        Credential credential = credentialRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+
+        if (!passwordEncoder.matches(req.currentPassword(), credential.getPasswordHash())) {
+            throw new BusinessException(CustomerErrorCode.CUST_020);
+        }
+
+        customer.close(java.time.OffsetDateTime.now(), "CUST_WITHDRAW");
+        credential.close();
         redisTemplate.delete(RT_KEY_PREFIX + customerId);
     }
 

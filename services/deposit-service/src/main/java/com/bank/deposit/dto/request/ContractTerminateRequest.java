@@ -1,5 +1,6 @@
 package com.bank.deposit.dto.request;
 
 public record ContractTerminateRequest(
-        String terminationReason
+        String terminationReason,
+        Long targetAccountId
 ) {}

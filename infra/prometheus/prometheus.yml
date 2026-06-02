@@ -5,64 +5,126 @@ global:
 rule_files:
   - "alerts.yml"
 
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['host.docker.internal:9090']
+
+  - job_name: 'gateway-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8080']
 
   - job_name: 'customer-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['localhost:8081']
+      - targets: ['host.docker.internal:8081']
 
   - job_name: 'deposit-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['localhost:8082']
+      - targets: ['host.docker.internal:8082']
 
   - job_name: 'loan-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['localhost:8083']
+      - targets: ['host.docker.internal:8083']
 
   - job_name: 'payment-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['localhost:8080']
+      - targets: ['host.docker.internal:8084']
 
   - job_name: 'master-service'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['localhost:8085']
+      - targets: ['host.docker.internal:8085']
 
   - job_name: 'auto-loan-review'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['localhost:8086']
+      - targets: ['host.docker.internal:8086']
 
   - job_name: 'windows-exporter'
     static_configs:
-      - targets: ['localhost:9182']
+      - targets: ['host.docker.internal:9182']
 
   - job_name: 'kafka-exporter-kftc'
     static_configs:
-      - targets: ['localhost:9308']
+      - targets: ['host.docker.internal:9308']
         labels:
           cluster: kftc
 
   - job_name: 'kafka-exporter-bok'
     static_configs:
-      - targets: ['localhost:9309']
+      - targets: ['host.docker.internal:9309']
         labels:
           cluster: bok
 
   - job_name: 'kafka-exporter-internal'
     static_configs:
-      - targets: ['localhost:9310']
+      - targets: ['host.docker.internal:9310']
         labels:
           cluster: internal
 
   - job_name: 'consultation-service'
     metrics_path: /metrics
     static_configs:
-      - targets: ['localhost:8087']
+      - targets: ['host.docker.internal:8087']
+
+  - job_name: 'review-ai-gateway'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8088']
+
+  - job_name: 'auto-loan-review'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8089']
+
+  # --- 모니터링 스택 직접 메트릭 ---
+
+  - job_name: 'alertmanager'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          component: monitoring-stack
+
+  - job_name: 'grafana'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          component: monitoring-stack
+
+  - job_name: 'loki'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['loki:3100']
+        labels:
+          component: monitoring-stack
+
+  # --- Blackbox HTTP 프로브 ---
+
+  - job_name: 'monitoring-stack-probe'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://langfuse:3000/api/public/health
+        labels:
+          component: monitoring-stack
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

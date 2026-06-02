@@ -1,5 +1,5 @@
 server:
-  port: ${AI_APP_PORT:8086}
+  port: ${AUTO_LOAN_REVIEW_APP_PORT:8089}
 
 spring:
   application:
@@ -12,7 +12,7 @@ spring:
 
   # ---- PostgreSQL (B1 Audit Log) ----
   datasource:
-    url: ${AI_DB_URL:jdbc:postgresql://localhost:5432/ai_db}
+    url: ${AI_DB_URL:jdbc:postgresql://localhost:5437/ai_db}
     username: ${AI_DB_USER:ai}
     password: ${AI_DB_PASSWORD:ai}
     driver-class-name: org.postgresql.Driver
@@ -86,6 +86,8 @@ ai:
     psi-critical-threshold: 0.20
     fairness-gap-threshold: 0.05
     bucket-count: 6
+    psi-cron: ${AI_DRIFT_PSI_CRON:0 0 2 * * MON}       # 매주 월요일 02:00 실행
+    fairness-cron: ${AI_DRIFT_FAIRNESS_CRON:0 0 3 1 * *}  # 매월 1일 03:00 실행
 
   # ---- B1: Audit Log ----
   audit:
@@ -228,6 +230,19 @@ ai:
       enable-auto-commit: false
     listener:
       ack-mode: MANUAL_IMMEDIATE
+
+logging:
+  file:
+    name: ${LOG_DIR:C:/logs/internet-banking}/auto-loan-review.log
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+langfuse:
+  enabled: ${LANGFUSE_ENABLED:false}
+  secret-key: ${LANGFUSE_SECRET_KEY:}
+  public-key: ${LANGFUSE_PUBLIC_KEY:}
+  host: ${LANGFUSE_HOST:http://localhost:3001}
+
 
 management:
   endpoints:

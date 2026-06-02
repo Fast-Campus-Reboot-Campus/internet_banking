@@ -210,6 +210,10 @@ public class TransactionService {
         if (original.getStatus() == TransactionStatus.CANCELED) {
             throw new BusinessException(ErrorCode.ALREADY_CANCELED);
         }
+        if (original.getTransactionType() != TransactionType.WITHDRAW
+                && original.getTransactionType() != TransactionType.TRANSFER) {
+            throw new BusinessException(ErrorCode.INVALID_STATUS, "출금 또는 이체 거래만 취소할 수 있습니다.");
+        }
 
         Account account = getActiveAccountForUpdate(original.getAccountId());
         BigDecimal before = account.getBalance();
@@ -260,6 +264,6 @@ public class TransactionService {
 
     private String generateTxnNumber(String prefix) {
         return prefix + "-" + LocalDate.now(clock).format(DATE_FMT) + "-"
-                + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                + UUID.randomUUID().toString().replace("-", "").toUpperCase();
     }
 }

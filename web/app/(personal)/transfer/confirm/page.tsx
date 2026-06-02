@@ -5,8 +5,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
+import { createInstantTransfer } from '@/lib/payment-api'
 
 type PendingTransfer = {
+  fromAccountId?: number
+  fromAccountViewId?: string
   fromNumber: string
   fromName: string
   toBank: string
@@ -47,8 +50,19 @@ export default function TransferConfirmPage() {
       const next = [...pin, key]
       setPin(next)
       if (next.length === 6) {
-        setTimeout(() => {
+        setTimeout(async () => {
           setShowCertModal(false)
+          if (data?.fromAccountId) {
+            try {
+              await createInstantTransfer({
+                fromAccountId: data.fromAccountId,
+                toAccountNumber: data.toAccount,
+                amount: data.amount,
+                toBankCode: data.toBank,
+                memo: '인터넷이체',
+              })
+            } catch (e) { console.error('이체 실패:', e) }
+          }
           router.push('/transfer/result')
         }, 400)
       }
@@ -184,13 +198,13 @@ export default function TransferConfirmPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-[13px]">
                   <span className="text-gray-400">●●</span>
-                  <input type="text" maxLength={2} value={cardInput1} onChange={e => { setCardInput1(e.target.value); setPasswordError(false) }}
+                  <input type="text" maxLength={2} value={cardInput1} onChange={e => { setCardInput1(e.target.value.replace(/\D/g, '')); setPasswordError(false) }}
                     className="border border-kb-border w-16 px-2 py-1 text-center text-[13px]" />
                   <span className="text-kb-text-muted">[33] 앞의 두자리</span>
                 </div>
                 <div className="flex items-center gap-3 text-[13px]">
                   <span className="text-gray-400">●●</span>
-                  <input type="text" maxLength={2} value={cardInput2} onChange={e => { setCardInput2(e.target.value); setPasswordError(false) }}
+                  <input type="text" maxLength={2} value={cardInput2} onChange={e => { setCardInput2(e.target.value.replace(/\D/g, '')); setPasswordError(false) }}
                     className="border border-kb-border w-16 px-2 py-1 text-center text-[13px]" />
                   <span className="text-kb-text-muted">[10] 뒤의 두자리</span>
                 </div>

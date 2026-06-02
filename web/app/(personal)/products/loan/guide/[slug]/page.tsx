@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { use } from 'react'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 
 type PageMeta = { title: string; breadcrumb: string; content: React.ReactNode }
@@ -17,28 +16,31 @@ function RateTable() {
   return (
     <div>
       <p className="text-[13px] text-kb-text-muted mb-4">단위: 연%, 2026.05.25 기준 / 세전 / 우대금리 미포함</p>
-      <table className="w-full text-[13px] border-t border-kb-text">
-        <thead>
-          <tr className="bg-[#F5F5F5]">
-            <th className="px-4 py-3 text-left font-medium border-b border-kb-border">상품명</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">최저금리</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">최고금리</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">평균금리</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">기준일</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-kb-border">
-          {rows.map(r => (
-            <tr key={r.product} className="hover:bg-kb-beige-light">
-              <td className="px-4 py-3">{r.product}</td>
-              <td className="px-4 py-3 text-center">연 {r.min}%</td>
-              <td className="px-4 py-3 text-center">연 {r.max}%</td>
-              <td className="px-4 py-3 text-center font-bold" style={{ color: '#C09B3A' }}>연 {r.avg}%</td>
-              <td className="px-4 py-3 text-center text-kb-text-muted">{r.date}</td>
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #0D5C47' }}>
+              <th className="px-4 py-3 text-left font-semibold" style={{ color: '#0D5C47' }}>상품명</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>최저금리</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>최고금리</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>평균금리</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>기준일</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.product} className="hover:bg-[#F8FFFE] transition-colors"
+                style={{ borderBottom: i < rows.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
+                <td className="px-4 py-3">{r.product}</td>
+                <td className="px-4 py-3 text-center">연 {r.min}%</td>
+                <td className="px-4 py-3 text-center">연 {r.max}%</td>
+                <td className="px-4 py-3 text-center font-bold" style={{ color: '#0D5C47' }}>연 {r.avg}%</td>
+                <td className="px-4 py-3 text-center text-kb-text-muted">{r.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -52,24 +54,27 @@ function FeeTable() {
     { fee: '계좌 관리 수수료', desc: '한도형 대출 유지비', amount: '없음' },
   ]
   return (
-    <table className="w-full text-[13px] border-t border-kb-text">
-      <thead>
-        <tr className="bg-[#F5F5F5]">
-          <th className="px-4 py-3 text-left font-medium border-b border-kb-border">수수료 종류</th>
-          <th className="px-4 py-3 text-left font-medium border-b border-kb-border">부과 사유</th>
-          <th className="px-4 py-3 text-center font-medium border-b border-kb-border">금액</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-kb-border">
-        {rows.map(r => (
-          <tr key={r.fee} className="hover:bg-kb-beige-light">
-            <td className="px-4 py-3 font-medium">{r.fee}</td>
-            <td className="px-4 py-3 text-kb-text-muted">{r.desc}</td>
-            <td className="px-4 py-3 text-center">{r.amount}</td>
+    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+      <table className="w-full text-[13px]">
+        <thead>
+          <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #0D5C47' }}>
+            <th className="px-4 py-3 text-left font-semibold" style={{ color: '#0D5C47' }}>수수료 종류</th>
+            <th className="px-4 py-3 text-left font-semibold" style={{ color: '#0D5C47' }}>부과 사유</th>
+            <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>금액</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.fee} className="hover:bg-[#F8FFFE] transition-colors"
+              style={{ borderBottom: i < rows.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
+              <td className="px-4 py-3 font-medium">{r.fee}</td>
+              <td className="px-4 py-3 text-kb-text-muted">{r.desc}</td>
+              <td className="px-4 py-3 text-center">{r.amount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -77,8 +82,8 @@ function TextContent({ sections }: { sections: { heading: string; body: string }
   return (
     <div className="space-y-6 max-w-2xl text-[13px] text-kb-text-body leading-relaxed">
       {sections.map(s => (
-        <div key={s.heading}>
-          <h3 className="font-bold text-kb-text mb-2">{s.heading}</h3>
+        <div key={s.heading} className="rounded-xl p-5" style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
+          <h3 className="font-bold mb-2" style={{ color: '#0D5C47' }}>{s.heading}</h3>
           <p>{s.body}</p>
         </div>
       ))}
@@ -96,39 +101,36 @@ function LateFeeTable() {
   return (
     <div>
       <p className="text-[13px] text-kb-text-muted mb-3">연체이율 10% 기준 예시 (원금 기준)</p>
-      <table className="w-full text-[13px] border-t border-kb-text">
-        <thead>
-          <tr className="bg-[#F5F5F5]">
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">연체기간</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">100만원</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">1,000만원</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">5,000만원</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-kb-border">
-          {rows.map(r => (
-            <tr key={r.period} className="hover:bg-kb-beige-light">
-              <td className="px-4 py-3 text-center">{r.period}</td>
-              <td className="px-4 py-3 text-center">{r.amount100}</td>
-              <td className="px-4 py-3 text-center">{r.amount1000}</td>
-              <td className="px-4 py-3 text-center text-red-600 font-medium">{r.amount5000}</td>
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #0D5C47' }}>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>연체기간</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>100만원</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>1,000만원</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>5,000만원</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.period} className="hover:bg-[#F8FFFE] transition-colors"
+                style={{ borderBottom: i < rows.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
+                <td className="px-4 py-3 text-center">{r.period}</td>
+                <td className="px-4 py-3 text-center">{r.amount100}</td>
+                <td className="px-4 py-3 text-center">{r.amount1000}</td>
+                <td className="px-4 py-3 text-center text-red-600 font-medium">{r.amount5000}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
 
 const PAGE_MAP: Record<string, PageMeta> = {
-  rate: {
-    title: '가계대출금리', breadcrumb: '가계대출금리',
-    content: <RateTable />,
-  },
-  fee: {
-    title: '대출관련 수수료', breadcrumb: '대출관련 수수료',
-    content: <FeeTable />,
-  },
+  rate: { title: '가계대출금리', breadcrumb: '가계대출금리', content: <RateTable /> },
+  fee: { title: '대출관련 수수료', breadcrumb: '대출관련 수수료', content: <FeeTable /> },
   'rate-cut': {
     title: '금리인하요구권', breadcrumb: '금리인하요구권',
     content: <TextContent sections={[
@@ -137,9 +139,15 @@ const PAGE_MAP: Record<string, PageMeta> = {
       { heading: '신청 방법', body: '스타뱅킹, 인터넷뱅킹, 영업점 방문을 통해 신청할 수 있으며, 신청 후 10영업일 이내에 결과를 통보받습니다.' },
     ]} />,
   },
-  'late-fee': {
-    title: '대출연체시 지연배상금액 예시', breadcrumb: '지연배상금액 예시',
-    content: <LateFeeTable />,
+  'late-fee': { title: '대출연체시 지연배상금액 예시', breadcrumb: '지연배상금액 예시', content: <LateFeeTable /> },
+  'debt-adjustment': {
+    title: '채무조정 지원제도 안내', breadcrumb: '채무조정 지원제도 안내',
+    content: <TextContent sections={[
+      { heading: '채무조정 지원제도란?', body: '일시적인 어려움으로 대출 상환이 어려운 경우, 원리금 감면·분할상환·상환유예 등을 통해 정상적인 경제활동을 회복할 수 있도록 지원하는 제도입니다.' },
+      { heading: '신청 대상', body: '실직·폐업·질병 등으로 소득이 감소하여 정상 상환이 곤란한 개인 대출 고객. 3개월 이상 연체 발생 전·후 모두 신청 가능합니다.' },
+      { heading: '지원 내용', body: '① 상환유예: 원금 상환을 일정 기간 유예 (이자만 납부)  ② 분할상환: 일시 상환 조건을 분할 상환으로 전환  ③ 이자율 감면: 경영 위기 등 특별한 사유 인정 시 이자율 인하  ④ 원금 일부 감면: 심각한 재정 위기 상황에서 채무조정 위원회 심의 후 결정' },
+      { heading: '신청 방법', body: '가까운 영업점 방문 또는 고객센터(1588-9999)를 통해 신청하실 수 있습니다. 신청 시 소득 감소를 증명하는 서류(해고통지서, 폐업확인서, 진단서 등)를 지참하시기 바랍니다.' },
+    ]} />,
   },
   benefits: {
     title: '부가서비스', breadcrumb: '부가서비스',
@@ -167,8 +175,8 @@ const PAGE_MAP: Record<string, PageMeta> = {
   },
 }
 
-export default function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params)
+export default function GuidePage({ params }: { params: { slug: string } }) {
+  const { slug } = params
   const meta = PAGE_MAP[slug]
 
   if (!meta) {
@@ -190,7 +198,7 @@ export default function GuidePage({ params }: { params: Promise<{ slug: string }
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
         <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/personal" className="hover:underline">개인뱅킹</Link><span>›</span>
+          <Link href="/" className="hover:underline">개인뱅킹</Link><span>›</span>
           <Link href="/products/deposit" className="hover:underline">금융상품</Link><span>›</span>
           <Link href="/products/loan" className="hover:underline">대출</Link><span>›</span>
           <span className="text-kb-text font-medium">대출 가이드</span><span>›</span>
@@ -199,8 +207,8 @@ export default function GuidePage({ params }: { params: Promise<{ slug: string }
         <div className="flex gap-8">
           <LoanSidebar />
           <div className="flex-1 min-w-0">
-            <h1 className="text-[26px] font-bold text-kb-text mb-6">{meta.title}</h1>
-            <div className="border-t border-kb-text pt-6">
+            <h1 className="text-[22px] font-bold text-kb-text mb-6">{meta.title}</h1>
+            <div className="border-t-2 pt-6" style={{ borderColor: '#0D5C47' }}>
               {meta.content}
             </div>
           </div>

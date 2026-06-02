@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { MOCK_BANKS, formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, DepositViewAccount, fetchTransactions, DepositTransaction } from '@/lib/deposit-api'
@@ -11,6 +11,8 @@ const AMOUNT_SHORTCUTS = ['100만', '50만', '10만', '5만', '1만', '전액', 
 
 export default function TransferAccountPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestedFromAccount = searchParams.get('from') || ''
   const [activeRecipientTab, setActiveRecipientTab] = useState('최근입금계좌')
   const [fromAccount, setFromAccount] = useState('')
   const [toBank, setToBank] = useState('AXful')
@@ -22,17 +24,39 @@ export default function TransferAccountPage() {
   const [mouseInput, setMouseInput] = useState(false)
   const [accounts, setAccounts] = useState<DepositViewAccount[]>([])
   const [recentAccounts, setRecentAccounts] = useState<{ bank: string; name: string; number: string }[]>([])
+  const [validationMessage, setValidationMessage] = useState('')
+  const [innerBankTab, setInnerBankTab] = useState<'own' | 'other'>('own')
 
   useEffect(() => {
     async function loadAccounts() {
+      let loadedAccounts: DepositViewAccount[] = []
       try {
         const customerId = getCurrentDepositCustomerId()
         const accs = await fetchDepositAccountViewModels(customerId)
+        loadedAccounts = accs
         setAccounts(accs)
-        if (accs.length > 0 && !fromAccount) {
-          setFromAccount(accs[0].id)
+        if (accs.length > 0) {
+          const requestedAccountKey = requestedFromAccount || fromAccount
+          const requestedAccount = accs.find(a =>
+            a.id === requestedAccountKey ||
+            a.number === requestedAccountKey ||
+            String(a.apiAccountId) === requestedAccountKey
+          )
+          if (requestedAccount?.type === '입출금') {
+            setFromAccount(requestedAccount.id)
+          } else if (!fromAccount && !requestedFromAccount) {
+            setFromAccount(accs[0].id)
+          }
         }
-        const txs = await fetchTransactions({ customerId })
+      } catch {
+        setAccounts([])
+      }
+      try {
+        const recentSourceAccount =
+          loadedAccounts.find(a => a.id === fromAccount) ?? loadedAccounts[0]
+        const firstAccId = recentSourceAccount?.apiAccountId
+        if (!firstAccId) return
+        const txs = await fetchTransactions({ accountId: firstAccId })
         const seen = new Set<string>()
         const recent = txs
           .filter((t: DepositTransaction) => t.transactionType === 'TRANSFER' && t.directionType === 'OUT' && t.counterpartyAccountNo)
@@ -45,14 +69,18 @@ export default function TransferAccountPage() {
           }, [])
           .slice(0, 5)
         setRecentAccounts(recent)
-      } catch {
-        setAccounts([])
-      }
+      } catch {}
     }
     loadAccounts()
-  }, [])
+  }, [fromAccount, requestedFromAccount])
 
-  const fromAcc = accounts.find(a => a.id === fromAccount) ?? accounts[0]
+  const transferableAccounts = accounts.filter(a => a.type === '입출금')
+  const fromAcc = transferableAccounts.find(a => a.id === fromAccount) ?? (requestedFromAccount ? undefined : transferableAccounts[0])
+  const isFromAccountLocked = Boolean(requestedFromAccount)
+  const withdrawalAccounts =
+    isFromAccountLocked && fromAcc
+      ? [fromAcc]
+      : transferableAccounts
 
   function handleAmountShortcut(label: string) {
     const map: Record<string, number> = {
@@ -78,9 +106,27 @@ export default function TransferAccountPage() {
 
   function handleConfirm() {
     const amountNum = parseInt(amount.replace(/,/g, '')) || 0
-    if (!toAccount || amountNum === 0) return
+    setValidationMessage('')
+    if (!fromAcc) {
+      setValidationMessage('출금계좌를 선택해 주세요.')
+      return
+    }
+    if (!toAccount) {
+      setValidationMessage('입금계좌번호를 입력해 주세요.')
+      return
+    }
+    if (amountNum === 0) {
+      setValidationMessage('이체금액을 입력해 주세요.')
+      return
+    }
+    if (amountNum > fromAcc.availableBalance) {
+      setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
+      return
+    }
     const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
     const data = {
+      fromAccountId: fromAcc?.apiAccountId,
+      fromAccountViewId: fromAcc?.id ?? '',
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
@@ -120,7 +166,7 @@ export default function TransferAccountPage() {
           {/* 최근입금계좌 탭 영역 */}
           <div className="border border-kb-border-dark rounded-xl mb-5 overflow-hidden">
             <div className="flex border-b border-kb-border">
-              {['최근입금계좌', '자주쓰는계좌', '내계좌', '단축이체'].map(tab => (
+              {['최근입금계좌', '자주쓰는계좌', '단축이체'].map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveRecipientTab(tab)}
@@ -181,30 +227,6 @@ export default function TransferAccountPage() {
               </div>
             )}
 
-            {/* 내계좌 */}
-            {activeRecipientTab === '내계좌' && (
-              <div className="p-4">
-                <p className="text-[12px] mb-4" style={{ color: '#2563EB' }}>
-                  * AX풀뱅크 내 계좌로 이체 시 계좌비밀번호, 보안매체, 인증서, 추가인증 없이 이체 가능합니다.
-                </p>
-                <div className="flex gap-3 flex-wrap">
-                  {accounts.map(acc => (
-                    <button
-                      key={acc.id}
-                      onClick={() => { setToBank('AXful'); setToAccount(acc.number) }}
-                      className={`border px-4 py-3 text-left text-[12px] hover:border-kb-yellow transition-colors ${
-                        toAccount === acc.number ? 'border-kb-yellow bg-yellow-50' : 'border-kb-border'
-                      }`}
-                      style={{ minWidth: 160 }}
-                    >
-                      <p className="font-semibold text-[13px]" style={{ color: '#2563EB' }}>{acc.name}</p>
-                      <p className="text-kb-text-muted mt-1">{acc.number}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* 단축이체 */}
             {activeRecipientTab === '단축이체' && (
               <div className="p-8 flex flex-col items-center gap-3">
@@ -224,15 +246,24 @@ export default function TransferAccountPage() {
                   <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[140px] whitespace-nowrap">출금계좌번호</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <select
-                        value={fromAccount}
-                        onChange={e => setFromAccount(e.target.value)}
-                        className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px]"
-                      >
-                        {accounts.filter(a => a.availableBalance > 0 || a.balance > 0).map(a => (
-                          <option key={a.id} value={a.id}>{a.number}</option>
-                        ))}
-                      </select>
+                      {isFromAccountLocked && fromAcc ? (
+                        <input
+                          type="text"
+                          readOnly
+                          value={`${fromAcc.number} (${fromAcc.name}) - ${fromAcc.balance.toLocaleString()}원`}
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px] bg-kb-beige-light"
+                        />
+                      ) : (
+                        <select
+                          value={fromAccount}
+                          onChange={e => setFromAccount(e.target.value)}
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-[280px]"
+                        >
+                          {withdrawalAccounts.map(a => (
+                            <option key={a.id} value={a.id}>{a.number} ({a.name}) - {a.balance.toLocaleString()}원</option>
+                          ))}
+                        </select>
+                      )}
                       <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
                         출금가능금액
                       </button>
@@ -243,39 +274,66 @@ export default function TransferAccountPage() {
                   </td>
                 </tr>
                 <tr className="border-b border-kb-border">
-                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap">입금기관</td>
+                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap align-top pt-4">입금계좌</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={toBank}
-                        readOnly
-                        className="border border-kb-border px-3 py-1.5 text-[13px] w-28 bg-kb-beige-light"
-                      />
+                    {/* 당행 / 타행 토글 */}
+                    <div className="flex border border-kb-border rounded overflow-hidden w-fit mb-3">
                       <button
-                        onClick={() => setShowBankModal(true)}
-                        className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light"
+                        type="button"
+                        onClick={() => { setInnerBankTab('own'); setToBank('AXful'); setToAccount('') }}
+                        className={`px-5 py-1.5 text-[13px] font-bold transition ${innerBankTab === 'own' ? 'bg-kb-text text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige-light'}`}
                       >
-                        기관선택
+                        당행
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setInnerBankTab('other'); setToBank(''); setToAccount('') }}
+                        className={`px-5 py-1.5 text-[13px] font-bold transition ${innerBankTab === 'other' ? 'bg-kb-text text-white' : 'bg-white text-kb-text-muted hover:bg-kb-beige-light'}`}
+                      >
+                        타행
                       </button>
                     </div>
-                  </td>
-                </tr>
-                <tr className="border-b border-kb-border">
-                  <td className="bg-kb-beige-light px-4 py-3 font-semibold text-kb-text whitespace-nowrap">입금계좌번호</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={toAccount}
-                        onChange={e => setToAccount(e.target.value)}
-                        placeholder="계좌번호 입력"
-                        className="border border-kb-border px-3 py-1.5 text-[13px] w-52"
-                      />
-                      <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
-                        사기의심계좌여부 조회
-                      </button>
-                    </div>
+
+                    {/* 당행: 내 계좌 드롭다운 */}
+                    {innerBankTab === 'own' && (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={toAccount}
+                          onChange={e => { setToBank('AXful'); setToAccount(e.target.value) }}
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-[300px] outline-none bg-white"
+                        >
+                          <option value="">계좌 선택</option>
+                          {accounts.filter(acc => acc.id !== fromAcc?.id).map(acc => (
+                            <option key={acc.id} value={acc.number}>
+                              {acc.name} — {acc.number} ({acc.balance.toLocaleString()}원)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* 타행: 은행 선택 + 계좌번호 입력 */}
+                    {innerBankTab === 'other' && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowBankModal(true)}
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-28 text-left hover:bg-kb-beige-light"
+                        >
+                          {toBank || '은행 선택'}
+                        </button>
+                        <input
+                          type="text"
+                          value={toAccount}
+                          onChange={e => setToAccount(e.target.value)}
+                          placeholder="계좌번호 입력"
+                          className="border border-kb-border px-3 py-1.5 text-[13px] w-52 outline-none"
+                        />
+                        <button className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
+                          사기의심계좌여부 조회
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
                 <tr className="border-b border-kb-border">
@@ -342,12 +400,17 @@ export default function TransferAccountPage() {
 
           {/* 확인 버튼 */}
           <div className="flex justify-center mb-8">
-            <button
-              onClick={handleConfirm}
-              className="bg-kb-yellow px-24 py-3 text-[15px] font-bold text-kb-text hover:brightness-95"
-            >
-              확인
-            </button>
+            <div className="flex flex-col items-center gap-3">
+              {validationMessage && (
+                <p className="text-[13px] font-medium text-kb-red">{validationMessage}</p>
+              )}
+              <button
+                onClick={handleConfirm}
+                className="bg-kb-yellow px-24 py-3 text-[15px] font-bold text-kb-text hover:brightness-95"
+              >
+                확인
+              </button>
+            </div>
           </div>
 
           {/* 이체수수료 안내 */}
