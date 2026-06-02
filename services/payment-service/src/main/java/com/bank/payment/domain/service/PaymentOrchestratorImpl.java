@@ -15,6 +15,7 @@ import com.bank.payment.domain.Ledger;
 import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.outbound.feign.DepositAccountClient;
 import com.bank.payment.outbound.feign.DepositBalanceClient;
+import com.bank.payment.outbound.feign.DepositErrorMapper;
 import com.bank.payment.outbound.feign.dto.AccountInquiryData;
 import com.bank.payment.outbound.feign.dto.BalanceInquiryData;
 import com.bank.payment.outbound.feign.dto.BalanceTxData;
@@ -379,12 +380,19 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         String receiver = command.receiverAccountNo();
 
         // A-1 계좌조회 (송신계좌)
-        DepositResponse<AccountInquiryData> senderAccountResp = depositAccountClient.getAccount(sender);
-        recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/accounts/" + sender, senderAccountResp.code());
-        AccountInquiryData senderAccount = senderAccountResp.data();
+        AccountInquiryData senderAccount;
+        try {
+            senderAccount = depositAccountClient.getAccount(sender);
+            recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
+                    "/api/accounts/" + sender, "SUCCESS");
+        } catch (DepositInboundFailureException e) {
+            recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
+                    "/api/accounts/" + sender, e.getDepositResponseCode(), "FAIL");
+            throw new PaymentValidationException(
+                    DepositErrorMapper.toFailureCategory(e.getDepositResponseCode()), e.getMessage());
+        }
         if (!"ACTIVE".equals(senderAccount.accountStatus())) {
-            // CLOSED → ACCOUNT_CLOSED, FROZEN/DORMANT 등 → ACCOUNT_RESTRICTED
+            // CLOSED → ACCOUNT_CLOSED, SUSPENDED/DORMANT 등 → ACCOUNT_RESTRICTED
             String fc = "CLOSED".equals(senderAccount.accountStatus()) ? "ACCOUNT_CLOSED" : "ACCOUNT_RESTRICTED";
             throw new PaymentValidationException(fc,
                     "송신계좌 비활성: " + senderAccount.accountStatus());
@@ -395,12 +403,19 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         // A-1 계좌조회 (수신계좌) — 자행만. 타행은 수신계좌가 타 은행 관할이므로 deposit 검증 생략
         if (Boolean.TRUE.equals(pi.getIsIntraBank())) {
-            DepositResponse<AccountInquiryData> receiverAccountResp = depositAccountClient.getAccount(receiver);
-            recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
-                    "/api/v1/accounts/" + receiver, receiverAccountResp.code());
-            AccountInquiryData receiverAccount = receiverAccountResp.data();
+            AccountInquiryData receiverAccount;
+            try {
+                receiverAccount = depositAccountClient.getAccount(receiver);
+                recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
+                        "/api/accounts/" + receiver, "SUCCESS");
+            } catch (DepositInboundFailureException e) {
+                recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
+                        "/api/accounts/" + receiver, e.getDepositResponseCode(), "FAIL");
+                throw new PaymentValidationException(
+                        DepositErrorMapper.toFailureCategory(e.getDepositResponseCode()), e.getMessage());
+            }
             if (!"ACTIVE".equals(receiverAccount.accountStatus())) {
-                // CLOSED → ACCOUNT_CLOSED, FROZEN/DORMANT 등 → ACCOUNT_RESTRICTED
+                // CLOSED → ACCOUNT_CLOSED, SUSPENDED/DORMANT 등 → ACCOUNT_RESTRICTED
                 String fc = "CLOSED".equals(receiverAccount.accountStatus()) ? "ACCOUNT_CLOSED" : "ACCOUNT_RESTRICTED";
                 throw new PaymentValidationException(fc,
                         "수신계좌 비활성: " + receiverAccount.accountStatus());
@@ -411,19 +426,18 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         }
 
         // A-2 예금주조회 (송신계좌)
-        DepositResponse<HolderInquiryData> senderHolderResp = depositAccountClient.getHolder(sender);
+        HolderInquiryData senderHolder = depositAccountClient.getHolder(sender);
         recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/accounts/" + sender + "/holder", senderHolderResp.code());
-        String senderHolderName = senderHolderResp.data().holderName();
+                "/api/v1/accounts/" + sender + "/holder", "SUCCESS");
+        String senderHolderName = senderHolder.holderName();
 
         // A-2 예금주조회 (수신계좌) — 자행만. 타행은 요청값 그대로 박제 (KFTC가 수신측 검증)
         String receiverHolderName;
         if (Boolean.TRUE.equals(pi.getIsIntraBank())) {
             LocalDateTime receiverHolderInquiryAt = LocalDateTime.now();
-            DepositResponse<HolderInquiryData> receiverHolderResp = depositAccountClient.getHolder(receiver);
+            HolderInquiryData receiverHolder = depositAccountClient.getHolder(receiver);
             recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "RECEIVER", "deposit", "GET",
-                    "/api/v1/accounts/" + receiver + "/holder", receiverHolderResp.code());
-            HolderInquiryData receiverHolder = receiverHolderResp.data();
+                    "/api/v1/accounts/" + receiver + "/holder", "SUCCESS");
             if (Boolean.TRUE.equals(receiverHolder.deceasedFlag())) {
                 throw new PaymentValidationException("OWNER_INQUIRY_FAILED", "수신 예금주 사망");
             }
@@ -456,10 +470,17 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         String sender = command.senderAccountId();
 
         // A-1 계좌조회 (송신계좌) — ACTIVE 여부 + 사고신고 확인
-        DepositResponse<AccountInquiryData> senderAccountResp = depositAccountClient.getAccount(sender);
-        recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/accounts/" + sender, senderAccountResp.code(), "SUCCESS", attempt);
-        AccountInquiryData senderAccount = senderAccountResp.data();
+        AccountInquiryData senderAccount;
+        try {
+            senderAccount = depositAccountClient.getAccount(sender);
+            recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
+                    "/api/accounts/" + sender, "SUCCESS", "SUCCESS", attempt);
+        } catch (DepositInboundFailureException e) {
+            recordCall(piId, "ACCOUNT_INQUIRY", "SENDER", "deposit", "GET",
+                    "/api/accounts/" + sender, e.getDepositResponseCode(), "FAIL", attempt);
+            throw new PaymentValidationException(
+                    DepositErrorMapper.toFailureCategory(e.getDepositResponseCode()), e.getMessage());
+        }
         if (!"ACTIVE".equals(senderAccount.accountStatus())) {
             String fc = "CLOSED".equals(senderAccount.accountStatus()) ? "ACCOUNT_CLOSED" : "ACCOUNT_RESTRICTED";
             throw new PaymentValidationException(fc, "송신계좌 비활성(실행시): " + senderAccount.accountStatus());
@@ -469,10 +490,10 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         }
 
         // A-2 예금주조회 (송신계좌) — 실행 시 fresh 조회로 senderHolderName 확보
-        DepositResponse<HolderInquiryData> senderHolderResp = depositAccountClient.getHolder(sender);
+        HolderInquiryData senderHolder = depositAccountClient.getHolder(sender);
         recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/accounts/" + sender + "/holder", senderHolderResp.code(), "SUCCESS", attempt);
-        String senderHolderName = senderHolderResp.data().holderName();
+                "/api/v1/accounts/" + sender + "/holder", "SUCCESS", "SUCCESS", attempt);
+        String senderHolderName = senderHolder.holderName();
 
         // receiver: 등록 시 박제된 snapshot 을 그대로 사용 (재조회/덮어쓰기 없음)
         return new ExternalValidationResult(senderHolderName, pi.getReceiverHolderNameSnap());
@@ -528,10 +549,17 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                         command.receiverBankCode(), command.receiverAccountNo(), command.receiverHolderName()),
                 command.senderMemo());
 
-        DepositResponse<BalanceTxData> resp = depositBalanceClient.withdraw(callIdemKey, request);
+        BalanceTxData tx;
+        try {
+            tx = depositBalanceClient.withdraw(callIdemKey, request);
+        } catch (DepositInboundFailureException e) {
+            recordCall(piId, "BALANCE_WITHDRAW", "SENDER", "deposit", "POST",
+                    "/api/transactions/withdraw", e.getDepositResponseCode(), "FAIL");
+            throw e;
+        }
         String callId = recordCall(piId, "BALANCE_WITHDRAW", "SENDER", "deposit", "POST",
-                "/api/v1/balances/withdraw", resp.code());
-        return new WithdrawStepResult(resp.data(), callId);
+                "/api/transactions/withdraw", "SUCCESS");
+        return new WithdrawStepResult(tx, callId);
     }
 
     // ── Step 3b: 입금 (B-4, 트랜잭션 밖, 자행 수신) ──────────────────────────
@@ -548,15 +576,17 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                         command.receiverPassbookSenderDisplay()),
                 command.receiverMemo());
 
-        DepositResponse<BalanceTxData> resp = depositBalanceClient.deposit(callIdemKey, request);
-        boolean success = "DEP-0000".equals(resp.code());
-        recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
-                "/api/v1/balances/deposit", resp.code(), success ? "SUCCESS" : "FAIL");
-        if (!success) {
-            throw new DepositInboundFailureException(resp.code(),
-                    "B-4 입금 실패: " + resp.code() + " / " + resp.message());
+        BalanceTxData tx;
+        try {
+            tx = depositBalanceClient.deposit(callIdemKey, request);
+        } catch (DepositInboundFailureException e) {
+            recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
+                    "/api/transactions/deposit", e.getDepositResponseCode(), "FAIL");
+            throw e;
         }
-        return resp.data();
+        recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
+                "/api/transactions/deposit", "SUCCESS");
+        return tx;
     }
 
     // ── Step 3c: 출금취소 (B-5, 트랜잭션 밖, F8 보상 전용) ──────────────────

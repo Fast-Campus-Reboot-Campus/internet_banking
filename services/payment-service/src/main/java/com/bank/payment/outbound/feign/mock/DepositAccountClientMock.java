@@ -2,7 +2,6 @@ package com.bank.payment.outbound.feign.mock;
 
 import com.bank.payment.outbound.feign.DepositAccountClient;
 import com.bank.payment.outbound.feign.dto.AccountInquiryData;
-import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.HolderInquiryData;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
@@ -47,42 +46,38 @@ public class DepositAccountClientMock implements DepositAccountClient {
     public void resetAllClosed()               { closedAccounts.clear(); }
 
     @Override
-    public DepositResponse<AccountInquiryData> getAccount(String accountNo) {
+    public AccountInquiryData getAccount(String accountNo) {
         // 동적 CLOSED 우선 처리 (테스트에서 closeAccount 호출 시 CLOSED 반환)
         if (closedAccounts.contains(accountNo)) {
-            AccountInquiryData data = new AccountInquiryData(
-                    accountNo, "DEMAND", "CLOSED", "DP-2025-001",
+            return new AccountInquiryData(accountNo, "DEMAND", "CLOSED", "DP-2025-001",
                     "2024-03-15T09:00:00Z", "2026-01-01T00:00:00Z", "0001", false, 1);
-            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
         }
+        // IN-03: 사고신고(fraudFlag=true) + FROZEN → E2001 거절 (오케스트레이터가 accountStatus 체크)
         if (IN03_FROZEN_RECEIVER.equals(accountNo)) {
-            AccountInquiryData data = new AccountInquiryData(
-                    accountNo, "DEMAND", "FROZEN", "DP-2025-001",
+            return new AccountInquiryData(accountNo, "DEMAND", "FROZEN", "DP-2025-001",
                     "2024-03-15T09:00:00Z", null, "0001", true, 1);
-            return new DepositResponse<>("E2001", "사고신고 계좌", "2026-05-16T14:30:00Z", data);
         }
         // 케이스 5: CLOSED 수신계좌 → ACCOUNT_CLOSED
         if (CLOSED_RECEIVER.equals(accountNo)) {
-            AccountInquiryData data = new AccountInquiryData(
-                    accountNo, "DEMAND", "CLOSED", "DP-2025-001",
+            return new AccountInquiryData(accountNo, "DEMAND", "CLOSED", "DP-2025-001",
                     "2024-03-15T09:00:00Z", "2026-01-01T00:00:00Z", "0001", false, 1);
-            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
         }
         // 케이스 6: ACTIVE + fraudFlag=true → ACCOUNT_RESTRICTED
         if (FRAUD_RECEIVER.equals(accountNo)) {
-            AccountInquiryData data = new AccountInquiryData(
-                    accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
+            return new AccountInquiryData(accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
                     "2024-03-15T09:00:00Z", null, "0001", true, 1);
-            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
         }
-        AccountInquiryData data = new AccountInquiryData(
-                accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
+        return new AccountInquiryData(accountNo, "DEMAND", "ACTIVE", "DP-2025-001",
                 "2024-03-15T09:00:00Z", null, "0001", false, 1);
-        return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
     }
 
+    // A-2 예금주조회 — D-REQ-5: deposit 미제공. mock 하네스 유지.
     @Override
-    public DepositResponse<HolderInquiryData> getHolder(String accountNo) {
+    public HolderInquiryData getHolder(String accountNo) {
+        if (HOLDER_MISMATCH_RECEIVER.equals(accountNo)) {
+            // 케이스 4: 예금주명 "홍길동" 반환 — 요청값(성춘향)과 불일치 → OWNER_INQUIRY_FAILED
+            return new HolderInquiryData(accountNo, "홍길동", "INDIVIDUAL", "CUST-0002", false, 1);
+        }
         String holder;
         if (F8_FAIL_RECEIVER.equals(accountNo)) {
             holder = "홍판서";
@@ -90,16 +85,9 @@ public class DepositAccountClientMock implements DepositAccountClient {
             holder = "변학도";
         } else if (RECEIVER.equals(accountNo)) {
             holder = "성춘향";
-        } else if (HOLDER_MISMATCH_RECEIVER.equals(accountNo)) {
-            // 케이스 4: 예금주명 "홍길동" 반환 — 요청값(성춘향)과 불일치 → OWNER_INQUIRY_FAILED
-            HolderInquiryData data = new HolderInquiryData(
-                    accountNo, "홍길동", "INDIVIDUAL", "CUST-0002", false, 1);
-            return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
         } else {
             holder = "이몽룡";
         }
-        HolderInquiryData data = new HolderInquiryData(
-                accountNo, holder, "INDIVIDUAL", "CUST-0001", false, 1);
-        return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
+        return new HolderInquiryData(accountNo, holder, "INDIVIDUAL", "CUST-0001", false, 1);
     }
 }

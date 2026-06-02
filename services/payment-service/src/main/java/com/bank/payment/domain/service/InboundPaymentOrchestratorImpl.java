@@ -6,9 +6,9 @@ import com.bank.payment.domain.PaymentInstruction;
 import com.bank.payment.outbound.feign.DepositAccountClient;
 import com.bank.payment.outbound.feign.DepositBalanceClient;
 import com.bank.payment.outbound.feign.dto.AccountInquiryData;
+import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.outbound.feign.dto.BalanceTxData;
 import com.bank.payment.outbound.feign.dto.DepositRequest;
-import com.bank.payment.outbound.feign.dto.DepositResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,19 +36,23 @@ public class InboundPaymentOrchestratorImpl implements InboundPaymentOrchestrato
         String receiverAccountNo = pi.getReceiverAccountNo();
 
         // A-1: 수신계좌 검증
-        DepositResponse<AccountInquiryData> accountResp = depositAccountClient.getAccount(receiverAccountNo);
-        recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
-                "/api/v1/accounts/" + receiverAccountNo, accountResp.code());
-        AccountInquiryData account = accountResp.data();
+        AccountInquiryData account;
+        try {
+            account = depositAccountClient.getAccount(receiverAccountNo);
+            recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
+                    "/api/accounts/" + receiverAccountNo, "SUCCESS");
+        } catch (DepositInboundFailureException e) {
+            recordCall(piId, "ACCOUNT_INQUIRY", "RECEIVER", "deposit", "GET",
+                    "/api/accounts/" + receiverAccountNo, e.getDepositResponseCode(), "FAIL");
+            txService.txInboundReject(pi, command, e.getDepositResponseCode(), e.getMessage());
+            log.info("[IN] IN-03 거절 완결(계좌조회 실패): piId={} clearingNo={} rejectCode={}",
+                    piId, command.clearingNo(), e.getDepositResponseCode());
+            return;
+        }
 
         if (!"ACTIVE".equals(account.accountStatus()) || Boolean.TRUE.equals(account.fraudFlag())) {
-            // mock이 E2001 반환하면 그대로 사용, 아니면 조건에서 매핑 (향후 다른 거절코드 대비)
-            String rejectCode = "DEP-0000".equals(accountResp.code()) ? "E2001" : accountResp.code();
-            String rejectMsg  = "DEP-0000".equals(accountResp.code())
-                    ? "수신계좌 제한: " + account.accountStatus()
-                    : accountResp.message();
-            txService.txInboundReject(pi, command, rejectCode, rejectMsg);
-            log.info("[IN] IN-03 거절 완결: piId={} clearingNo={} rejectCode={}", piId, command.clearingNo(), rejectCode);
+            txService.txInboundReject(pi, command, "E2001", "수신계좌 제한: " + account.accountStatus());
+            log.info("[IN] IN-03 거절 완결: piId={} clearingNo={} rejectCode=E2001", piId, command.clearingNo());
             return;
         }
 
@@ -69,18 +73,20 @@ public class InboundPaymentOrchestratorImpl implements InboundPaymentOrchestrato
                         pi.getReceiverPassbookSenderDisplay()),
                 pi.getReceiverPassbookSenderDisplay());
 
-        DepositResponse<BalanceTxData> depositResp = depositBalanceClient.deposit(callIdemKey, depositReq);
-        boolean depositOk = "DEP-0000".equals(depositResp.code());
-        recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
-                "/api/v1/balances/deposit", depositResp.code(), depositOk ? "SUCCESS" : "FAIL");
-
-        if (!depositOk) {
-            log.warn("[IN] TODO step③-c: 입금 실패. piId={} code={}", piId, depositResp.code());
+        BalanceTxData depositTx;
+        try {
+            depositTx = depositBalanceClient.deposit(callIdemKey, depositReq);
+            recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
+                    "/api/transactions/deposit", "SUCCESS");
+        } catch (DepositInboundFailureException e) {
+            recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
+                    "/api/transactions/deposit", e.getDepositResponseCode(), "FAIL");
+            log.warn("[IN] TODO step③-c: 입금 실패. piId={} code={}", piId, e.getDepositResponseCode());
             return;
         }
 
         // TX-IN-DEP: 분개 + CT + COMPLETED + Outbox
-        txService.txInboundDeposit(pi, depositResp.data(), command);
+        txService.txInboundDeposit(pi, depositTx, command);
 
         log.info("[IN] IN-01 완결: piId={} clearingNo={}", piId, command.clearingNo());
     }
