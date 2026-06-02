@@ -17,32 +17,63 @@ _INTENT_PRIORITY: list[str] = [
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
     "RATE_GUIDE": [
-        "금리", "이자율", "이율", "금리는", "금리가", "금리 알", "금리 얼마", "이자 얼마",
+        "금리 목록", "금리 보여", "금리 알려줘", "이자율 알려", "금리 현황",
+        "금리 알려", "금리 어떻게", "금리가 어떻게", "금리가 얼마", "금리 얼마",
+        "이자 얼마", "이자율이", "금리 비교", "어떤 금리", "금리 정보",
+        "모든 금리", "전체 금리", "상품 금리", "금리 보여줘",
+        "금리 말해줘", "금리들", "금리 다", "금리 전부",
     ],
     "JOIN_CONDITION": [
-        "가입 조건", "가입조건", "가입 자격", "가입할 수", "가입 가능",
-        "조건 알려", "조건이 뭐", "조건은",
+        "가입 조건", "가입조건", "가입 자격", "가입 대상",
+        "가입할 수 있", "가입 가능", "가입이 가능",
     ],
     "PRODUCT_COMPARE": [
-        "비교", "차이", "어떻게 달라", "뭐가 나아", "뭐가 좋아",
+        "비교해줘", "비교해 줘", "어떻게 달라",
+        "차이", "차이가", "차이점", "다른 점", "다른점", "다른가", "다른지",
+        "뭐가 달라", "뭐가 다른", "어떻게 다른", "차이를 알려", "차이 알려",
+        "무슨 차이", "어떤 차이", "어떤 점이 다른",
     ],
     "TERMS_RAG": [
-        "약관", "중도해지", "수수료", "해지하면", "해지 시", "해지할 경우",
+        "약관", "중도해지", "수수료",
     ],
     "CASH_FLOW_RECOMMEND": [
-        "내 패턴", "현금 흐름 분석", "현금흐름 분석", "내 소비 패턴", "내 거래 패턴",
-        "내 상황에 맞", "나한테 맞는", "나에게 맞는", "내 수입", "내 지출",
-        "맞춤 추천", "내 상황 분석", "분석해서 추천", "패턴 분석",
+        "내 패턴", "현금흐름 분석", "내 소비 패턴", "내 거래 패턴",
+        "나한테 맞는", "나에게 맞는", "분석해서 추천", "패턴 분석",
+        "내 상황에 맞는", "내 상황에 적합", "맞춤 추천",
+        "장점순", "유리한 순", "좋은 순", "추천 순", "랭킹", "순위대로",
+        "순위별", "순위별로", "순서별", "1위부터", "상품 순위", "추천 순위",
+        "어떤 게 좋아", "어떤게 좋아", "뭐가 좋아", "뭐가 나아", "뭐가 더 좋",
+        "어느 게 좋", "어느게 좋", "어떤 상품이 좋",
+        "뭐가 더 적합", "어떤 게 적합", "어느 게 적합", "어느 쪽이 적합",
+        "뭐가 좋을지", "어느 것이 좋", "어느 게 더", "어떤 게 더",
+        "뭐가 더 나", "어떤 게 나", "어느 게 나",
+        "무엇이 좋", "무엇이 더", "무엇이 적합",
     ],
     "PRODUCT_GUIDE": [
-        "상품 추천", "상품 알려", "어떤 상품", "예금 상품", "적금 상품", "청약 상품",
-        "상품 종류", "상품 뭐가", "상품 뭐", "어떤 예금", "어떤 적금",
-        "예금 알려", "적금 알려", "청약 알려", "추천해줘", "추천해 줘",
+        "상품 목록", "상품 보여줘", "예금 상품 알려", "적금 상품 알려", "청약 상품 알려",
+        "적금 종류", "예금 종류", "청약 종류", "상품 종류", "종류 알려", "어떤 종류",
+        "적금 뭐가 있", "예금 뭐가 있", "청약 뭐가 있", "어떤 상품 있", "상품 뭐가 있",
+        "적금 알려줘", "예금 알려줘", "청약 알려줘",
+        "적금 목록", "예금 목록", "청약 목록",
+        "적금 소개", "예금 소개", "상품 소개",
+        "상품 추천", "상품 있", "예금 상품 있", "적금 상품 있",
     ],
     "FAQ": [
-        "자주 묻는", "faq", "FAQ", "자주하는 질문",
+        "자주 묻는", "faq", "FAQ",
     ],
 }
+
+
+_PRODUCT_TYPES = ["예금", "적금", "청약", "저축"]
+_PERSONAL_RECOMMEND_WORDS = [
+    "나한테", "나에게", "내게", "내한테", "저한테", "저에게",
+    "나한", "나에", "나는", "저는", "내가",
+]
+_RECOMMEND_WORDS = [
+    "맞는", "맞춰", "맞춤", "적합", "적합한", "알맞", "알맞은",
+    "추천", "좋은", "좋아", "좋아요", "나은", "낫", "유리",
+    "어울리", "어울려", "맞아", "맞지", "골라", "선택",
+]
 
 
 class IntentClassifier:
@@ -50,9 +81,48 @@ class IntentClassifier:
 
     def classify(self, message: str) -> str | None:
         msg = message.lower()
+
+        has_personal = any(w in msg for w in _PERSONAL_RECOMMEND_WORDS)
+        has_recommend = any(w in msg for w in _RECOMMEND_WORDS)
+
+        # 1. 등록된 키워드 매칭 — 단, PRODUCT_COMPARE는 개인 추천 의도가 없을 때만
         for feature_code in _INTENT_PRIORITY:
             if any(kw in msg for kw in _INTENT_KEYWORDS[feature_code]):
+                # 비교 질문이지만 개인 추천 의도가 함께 있으면 CASH_FLOW_RECOMMEND로
+                if feature_code == "PRODUCT_COMPARE" and (has_personal or has_recommend):
+                    return "CASH_FLOW_RECOMMEND"
                 return feature_code
+
+        has_product = any(p in msg for p in _PRODUCT_TYPES)
+        has_personal = any(w in msg for w in _PERSONAL_RECOMMEND_WORDS)
+        has_recommend = any(w in msg for w in _RECOMMEND_WORDS)
+
+        # 2. "둘 중" / "어느 쪽" / "뭐가 더" 비교 후속 질문 → 이전 대화 맥락으로 현금흐름 추천
+        _COMPARE_FOLLOW_UP = [
+            "둘 중", "어느 쪽", "어느쪽", "어떤 쪽", "어떤쪽", "둘다", "둘 다",
+            "그 중", "그중", "이 중", "이중",
+            "뭐가 더 나", "뭐가 더 적합", "뭐가 더 좋", "뭐가 더 유리",
+            "어떤 게 더 나", "어느 게 더 나", "더 나은 게", "더 적합한 게",
+            "하나만", "딱 하나", "하나 골라", "하나 추천",
+        ]
+        if any(w in msg for w in _COMPARE_FOLLOW_UP):
+            return "CASH_FLOW_RECOMMEND"
+
+        # 3. "예금"과 "적금"이 같이 나올 때: 추천 의도가 있을 때만 CASH_FLOW_RECOMMEND
+        #    (차이/비교 질문은 이미 위 PRODUCT_COMPARE 키워드에서 처리됨)
+        if "예금" in msg and "적금" in msg and (has_personal or has_recommend):
+            return "CASH_FLOW_RECOMMEND"
+
+        # 4. 패턴 기반: 상품 + 나한테/나에게 + 맞는/적합/추천 조합
+        if has_product and has_personal and has_recommend:
+            return "CASH_FLOW_RECOMMEND"
+
+        # 5. 상품 단독 입력 ("적금", "예금", "청약") → 상품 목록 안내
+        _PRODUCT_ONLY = ["예금", "적금", "청약"]
+        if any(msg.strip() == p or msg.strip().startswith(p + " ") or msg.strip().endswith(" " + p)
+               for p in _PRODUCT_ONLY):
+            return "PRODUCT_GUIDE"
+
         return None
 
 
@@ -80,37 +150,47 @@ class FeatureAnswerFormatter:
         return f"조회된 정보가 {len(data)}건 있습니다. 더 자세한 내용은 상담사 연결을 이용해 주세요."
 
     def _rate(self, data: list[dict]) -> str:
-        lines = ["[금리 안내]\n"]
-        for row in data[:6]:
-            name      = row.get("product_name", "")
-            rate      = row.get("interest_rate", "")
-            rate_type = "기본금리" if row.get("rate_type") == "BASE" else "우대금리"
-            min_m     = row.get("minimum_contract_period", "")
-            max_m     = row.get("maximum_contract_period", "")
-            cond      = row.get("condition_description", "")
-            lines.append(f"- {name} [{rate_type}] {rate}% ({min_m}~{max_m}개월)")
-            if cond:
-                lines.append(f"  ({cond})")
+        lines = ["[상품별 금리 안내]\n"]
+        # 상품명 기준으로 그룹핑
+        from collections import defaultdict
+        grouped: dict = defaultdict(list)
+        for row in data:
+            grouped[row.get("product_name", "")].append(row)
+        for name, rows in grouped.items():
+            base_rows = [r for r in rows if r.get("rate_type") == "BASE"]
+            pref_rows = [r for r in rows if r.get("rate_type") != "BASE"]
+            base = base_rows[0] if base_rows else rows[0]
+            rate = base.get("interest_rate", "")
+            min_m = base.get("minimum_contract_period", "")
+            max_m = base.get("maximum_contract_period", "")
+            period_str = f" ({min_m}~{max_m}개월)" if min_m and max_m else ""
+            pref_str = ""
+            if pref_rows:
+                pref_rates = [str(r.get("interest_rate","")) for r in pref_rows]
+                pref_str = f" / 우대금리 최대 {max(pref_rates)}%"
+            lines.append(f"- {name}: 기본금리 {rate}%{pref_str}{period_str}")
         lines.append("\n상세 조건은 영업점 또는 앱에서 확인해 주세요.")
         return "\n".join(lines)
 
+    _TYPE_KO = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}
+
     def _products(self, data: list[dict]) -> str:
-        # 현금흐름 기반 추천 여부 판단 (match_score 필드 존재 시)
         is_personalized = any("match_score" in row for row in data)
-        header = "[맞춤 상품 추천]\n" if is_personalized else "[수신 상품 목록]\n"
+        header = "[맞춤 상품 추천]\n" if is_personalized else "[판매 중인 상품 목록]\n"
         lines = [header]
-        for row in data[:5]:
-            name   = row.get("product_name", "")
-            ptype  = row.get("product_type", "")
+        for row in data:  # 전체 표시, 제한 없음
+            name   = row.get("product_name") or row.get("deposit_product_name", "")
+            ptype  = row.get("product_type") or row.get("deposit_product_type", "")
+            ptype_ko = self._TYPE_KO.get(ptype, ptype)
             rate   = row.get("base_interest_rate", "")
             reason = row.get("recommend_reason", "")
             score  = row.get("match_score", "")
+            rate_str = f" · 기본금리 {rate}%" if rate else ""
             if is_personalized and reason:
-                lines.append(f"- {name} ({ptype}) 기본금리 {rate}%")
+                lines.append(f"- [{ptype_ko}] {name}{rate_str}")
                 lines.append(f"  ✓ {reason} (적합도 {score}점)")
             else:
-                status = row.get("product_status", "")
-                lines.append(f"- {name} ({ptype}) 기본금리 {rate}%  [{status}]")
+                lines.append(f"- [{ptype_ko}] {name}{rate_str}")
         lines.append("\n특정 상품에 대해 더 알고 싶으시면 질문해 주세요.")
         return "\n".join(lines)
 
@@ -176,9 +256,15 @@ from app.metrics import (
 
 _SYSTEM_PROMPT = """당신은 인터넷 뱅킹 고객 상담 챗봇입니다.
 예금, 적금, 청약 등 수신 금융상품에 대한 질문에 친절하고 정확하게 답변하세요.
-모르는 내용이거나 본인 계좌/계약 조회처럼 인증이 필요한 경우에는
-'상담사 연결이 필요합니다'라고 안내하세요.
-답변은 한국어로, 간결하게 작성하세요."""
+
+규칙:
+1. 고객의 자연어 질문을 의도에 맞게 해석하세요. 구어체·줄임말도 이해하세요.
+2. [참고 정보]에 추천 상품 목록이 있으면, 해당 상품에 대한 후속 질문으로 간주하고 그 정보를 바탕으로 답하세요.
+3. 예금과 적금의 차이, 금리 개념, 가입 방법 등 일반 금융 질문에는 간단명료하게 설명하세요.
+4. '제일 좋은', '가장 좋은', '최고의', '1위', '어떤 게 나아', '골라줘', '추천해줘' 등 단일 추천을 묻는 질문에는 상품 1개만 지정해서 답하세요.
+5. 장점·특징·이유 등을 묻는 후속 질문에는 bullet point로 구체적으로 답하세요.
+6. 본인 계좌/계약 조회처럼 인증이 필요한 경우에는 '상담사 연결이 필요합니다'라고 안내하세요.
+7. 답변은 한국어로, 간결하게 (300자 이내) 작성하세요."""
 
 
 class LlmAdapter:
@@ -294,10 +380,19 @@ class LlmAdapter:
                 "고객에게 가장 알맞은 금융 상품을 구체적으로 추천하세요.\n"
                 "규칙:\n"
                 "1. 추천 근거를 반드시 명시하세요 (잔액·잉여자금·거래 패턴과 연계)\n"
-                "2. 상품명과 금리를 구체적으로 언급하세요\n"
-                "3. 고객이 대출·보험·펀드 등 수신 외 상품을 요청하면 "
+                "2. 상품명과 금리는 구체적인 상품 추천 요청 시에만 언급하세요. "
+                "'예금과 적금 중 어느 게 맞나요?' 같은 **상품 유형 비교 질문**에는 상품명을 나열하지 말고 "
+                "예금/적금 중 어느 유형이 더 적합한지만 간결하게 답하세요.\n"
+                "3. '예금과 적금 중 나한테 적합한 거', '뭐가 더 나아?', '뭐가 더 적합해?' 같은 유형 비교 질문은 "
+                "반드시 예금 또는 적금 중 **하나의 유형만 선택**해서 이유와 함께 답하세요. "
+                "상품 목록 나열 금지. '둘 다 가능합니다' 절대 금지. "
+                "기준: 월 잉여자금 30만원 이상→적금, 잔액 1000만원 이상→예금, 둘 다면 적금 우선.\n"
+                "4. '하나만 추천해줘', '하나만 골라줘' 요청 시에만 구체적인 AXful 상품명을 추천하세요. 군인 전용(장병) 상품 추천 금지.\n"
+                "5. '둘 중', '어느 쪽이', '뭐가 더' 같은 후속 질문은 이전 대화 이력을 참고해 맥락을 파악하고 답변하세요\n"
+                "6. 거래 내역이 부족할 때도 질문 의도에 맞게 일반적인 기준으로 답변하세요\n"
+                "7. 고객이 대출·보험·펀드 등 수신 외 상품을 요청하면 "
                 "'해당 상품은 담당 창구 또는 앱에서 안내 가능합니다'라고 안내하세요\n"
-                "4. 답변은 한국어로, 친절하고 간결하게 (400자 이내)"
+                "8. 답변은 한국어로, 친절하고 간결하게 (400자 이내)"
             )
 
             # ── 메시지 조립 ──────────────────────────────────────────────────────

@@ -1,54 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { fetchDepositProducts, DepositProduct } from '@/lib/deposit-api'
 
-const DEPOSIT_SLIDES = [
-  {
-    badge: '예금', category: '예금',
-    sub: 'Digital AXful의 대표 정기예금',
-    title: 'AXful 정기예금',
-    field1Label: '기간', field1: '1~36개월',
-    field2Label: '금액', field2: '제한없음',
-    rate: '연 2.4% ~ 2.9%', rateNote: '2026.05.25 기준, 세금공제전',
-    href: '/products/deposit/list?tab=예금',
-  },
-  {
-    badge: '적금', category: '적금',
-    sub: '어린이/청년 무료 보험가입',
-    title: 'AXful Young Youth 적금',
-    field1Label: '기간', field1: '1년',
-    field2Label: '금액', field2: '3백만원 이내',
-    rate: '연 2.1% ~ 3.4%', rateNote: '2026.05.25 기준, 세금공제전, 우대금리포함',
-    href: '/products/deposit/list?tab=자유적금',
-  },
-  {
-    badge: '적금', category: '적금',
-    sub: '누구나 쉽게 우대받는 DIY',
-    title: 'AXful 내맘대로적금',
-    field1Label: '기간', field1: '6~36개월',
-    field2Label: '금액', field2: '1만원 이상',
-    rate: '연 2.95% ~ 3.55%', rateNote: '2026.05.25 기준, 세금공제전, 우대금리포함',
-    href: '/products/deposit/list?tab=자유적금',
-  },
-  {
-    badge: '입출금자유', category: '입출금자유',
-    sub: '저금통 기능과 수수료면제 서비스 제공',
-    title: 'AXful Young Youth 통장',
-    field1Label: '기간', field1: '제한없음',
-    field2Label: '금액', field2: '제한없음',
-    rate: '연 2%', rateNote: '2026.05.25 기준, 세금공제전, 우대금리포함',
-    href: '/products/deposit/list?tab=입출금자유',
-  },
-  {
-    badge: '주택청약', category: '주택청약',
-    sub: '내 집 마련의 꿈을 응원합니다',
-    title: 'AXful 주택청약종합저축',
-    field1Label: '기간', field1: '24개월 기준',
-    field2Label: '금액', field2: '제한없음',
-    rate: '연 3.1%', rateNote: '2026.05.25 기준, 세금공제전',
-    href: '/products/deposit/list?tab=주택청약',
-  },
+type Slide = {
+  badge: string; category: string; sub: string; title: string
+  field1Label: string; field1: string; field2Label: string; field2: string
+  rate: string; rateNote: string; href: string
+}
+
+function productToSlide(p: DepositProduct, category: string, badge: string, tab: string): Slide {
+  const rate = p.baseInterestRate != null ? `연 ${p.baseInterestRate}%` : '-'
+  const period = p.minPeriodMonth != null
+    ? (p.maxPeriodMonth && p.maxPeriodMonth !== p.minPeriodMonth
+        ? `${p.minPeriodMonth}~${p.maxPeriodMonth}개월`
+        : `${p.minPeriodMonth}개월`)
+    : '제한없음'
+  const minAmt = p.minJoinAmount != null
+    ? `${Number(p.minJoinAmount).toLocaleString('ko-KR')}원 이상`
+    : '제한없음'
+  return {
+    badge, category,
+    sub: p.description || badge + ' 상품',
+    title: p.productName,
+    field1Label: '기간', field1: period,
+    field2Label: '금액', field2: minAmt,
+    rate, rateNote: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '') + ' 기준, 세금공제전',
+    href: `/products/deposit/list?tab=${tab}`,
+  }
+}
+
+const FALLBACK_SLIDES: Slide[] = [
+  { badge: '예금', category: '예금', sub: 'Digital AXful의 대표 정기예금', title: 'AXful 정기예금', field1Label: '기간', field1: '1~36개월', field2Label: '금액', field2: '제한없음', rate: '연 2.4%', rateNote: '세금공제전', href: '/products/deposit/list?tab=예금' },
+  { badge: '적금', category: '적금', sub: '누구나 쉽게 우대받는 DIY', title: 'AXful 내맘대로적금', field1Label: '기간', field1: '6~36개월', field2Label: '금액', field2: '1만원 이상', rate: '연 2.95%', rateNote: '세금공제전, 우대금리포함', href: '/products/deposit/list?tab=자유적금' },
+  { badge: '입출금자유', category: '입출금자유', sub: '입금과 출금을 내 마음대로', title: 'AXful 입출금자유 통장', field1Label: '기간', field1: '제한없음', field2Label: '금액', field2: '제한없음', rate: '연 2%', rateNote: '세금공제전', href: '/products/deposit/list?tab=입출금자유' },
+  { badge: '주택청약', category: '주택청약', sub: '내 집 마련의 꿈을 위한', title: 'AXful 주택청약종합저축', field1Label: '기간', field1: '24개월 기준', field2Label: '금액', field2: '제한없음', rate: '연 3.1%', rateNote: '세금공제전', href: '/products/deposit/list?tab=주택청약' },
 ]
 
 const DEPOSIT_CATEGORIES = [
@@ -119,9 +106,34 @@ export default function ProductShowcase() {
   const [activeTab, setActiveTab] = useState<Tab>('수신')
   const [depositSlide, setDepositSlide] = useState(0)
   const [loanSlide, setLoanSlide] = useState(0)
+  const [depositSlides, setDepositSlides] = useState<Slide[]>(FALLBACK_SLIDES)
+
+  useEffect(() => {
+    fetchDepositProducts({ productStatus: 'SELLING' }).then(products => {
+      const TYPE_MAP: { type: string; category: string; badge: string; tab: string }[] = [
+        { type: 'DEPOSIT',      category: '예금',      badge: '예금',      tab: '예금' },
+        { type: 'SAVINGS',      category: '적금',      badge: '적금',      tab: '자유적금' },
+        { type: 'DEPOSIT',      category: '입출금자유', badge: '입출금자유', tab: '입출금자유' },
+        { type: 'SUBSCRIPTION', category: '주택청약',  badge: '주택청약',  tab: '주택청약' },
+      ]
+      const slides: Slide[] = []
+      TYPE_MAP.forEach(({ type, category, badge, tab }) => {
+        const isChecking = category === '입출금자유'
+        const filtered = products.filter(p =>
+          p.productType === type &&
+          (isChecking
+            ? (p.productName?.includes('통장') || p.productName?.includes('입출금'))
+            : !p.productName?.includes('통장'))
+        )
+        const pick = filtered[0]
+        if (pick) slides.push(productToSlide(pick, category, badge, tab))
+      })
+      if (slides.length > 0) setDepositSlides(slides)
+    }).catch(() => {})
+  }, [])
 
   const isDeposit = activeTab === '수신'
-  const slides = isDeposit ? DEPOSIT_SLIDES : LOAN_SLIDES
+  const slides = isDeposit ? depositSlides : LOAN_SLIDES
   const categories = isDeposit ? DEPOSIT_CATEGORIES : LOAN_CATEGORIES
   const slide = isDeposit ? depositSlide : loanSlide
   const setSlide = isDeposit ? setDepositSlide : setLoanSlide
