@@ -32,4 +32,21 @@ public class GatewayMetrics {
                 .register(registry)
                 .increment(outputTokens);
     }
+
+    /** 분석 결과 건수 (conclusion 태그: BIAS_SUSPECTED, NO_BIAS_DETECTED, VIOLATION_SUSPECTED, COMPLIANT, INSUFFICIENT_DATA) */
+    public void recordAnalysisResult(String analysisType, String conclusion) {
+        Counter.builder("aigateway.analysis.result.total")
+                .tag("type", analysisType)
+                .tag("conclusion", conclusion)
+                .register(registry)
+                .increment();
+    }
+
+    /** 최대 턴 초과로 INSUFFICIENT_DATA 폴백된 건수 */
+    public void recordLoopTimeout(String analysisType) {
+        Counter.builder("aigateway.loop.timeout.total")
+                .tag("type", analysisType)
+                .register(registry)
+                .increment();
+    }
 }

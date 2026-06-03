@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { use, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import { loanApplicationApi } from '@/lib/loan-api'
@@ -62,12 +61,12 @@ function BizPlanForm({ applId }: { applId: number | null }) {
       <div className="flex gap-3 mb-6">
         <button onClick={() => setMode('view')}
           className={`px-6 py-2 text-[13px] font-bold border transition-colors
-            ${mode === 'view' ? 'bg-[#0D5C47] text-white border-[#0D5C47]' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
+            ${mode === 'view' ? 'bg-kb-text text-white border-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
           조회
         </button>
         <button onClick={() => setMode('write')}
           className={`px-6 py-2 text-[13px] font-bold border transition-colors
-            ${mode === 'write' ? 'bg-[#0D5C47] text-white border-[#0D5C47]' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
+            ${mode === 'write' ? 'bg-kb-text text-white border-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
           작성
         </button>
       </div>
@@ -81,20 +80,20 @@ function BizPlanForm({ applId }: { applId: number | null }) {
           )}
           {applId && loading && <p className="py-8 text-center text-[13px] text-kb-text-muted">불러오는 중...</p>}
           {applId && !loading && (
-            <table className="w-full text-[13px] border-t-2 border-[#0D5C47]">
+            <table className="w-full text-[13px] border-t border-kb-text">
               <thead>
-                <tr className="bg-[#F0FAF7]">
-                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">제출일</th>
-                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">서류 유형</th>
-                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">처리 상태</th>
-                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">검토 부서</th>
+                <tr className="bg-[#F5F5F5]">
+                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">제출일</th>
+                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">서류 유형</th>
+                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">처리 상태</th>
+                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">검토 부서</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2F5EF]">
+              <tbody className="divide-y divide-kb-border">
                 {docs.length === 0 ? (
                   <tr><td colSpan={4} className="py-8 text-center text-kb-text-muted">제출된 서류가 없습니다.</td></tr>
                 ) : docs.map((d: any) => (
-                  <tr key={d.docId} className="hover:bg-[#F0FAF7]">
+                  <tr key={d.docId} className="hover:bg-kb-beige-light">
                     <td className="px-4 py-3 text-center">
                       {(d.uploadedAt ?? d.createdAt)?.slice(0, 10).replace(/-/g, '.') ?? '-'}
                     </td>
@@ -112,14 +111,14 @@ function BizPlanForm({ applId }: { applId: number | null }) {
           )}
         </>
       ) : (
-        <div className="max-w-lg border border-[#E2F5EF] p-5 space-y-4">
+        <div className="max-w-lg border border-kb-border p-5 space-y-4">
           {msg && <p className="text-[13px] text-green-600 font-medium">{msg}</p>}
           {err && <p className="text-[13px] text-red-500">{err}</p>}
           <div className="flex items-start gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0 pt-2">업체현황 내용</label>
             <textarea rows={5} value={content} onChange={e => setContent(e.target.value)}
               placeholder="업체 현황을 입력하세요"
-              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none focus:border-[#0D5C47] resize-none" />
+              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text resize-none" />
           </div>
           <div className="flex items-center gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">파일 첨부</label>
@@ -129,7 +128,7 @@ function BizPlanForm({ applId }: { applId: number | null }) {
           </div>
           <div className="flex justify-center pt-2">
             <button onClick={handleSubmit} disabled={submitting}
-              className="px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: '#0D5C47' }}>
+              className="px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: '#3D3D3D' }}>
               {submitting ? '제출 중...' : '제출'}
             </button>
           </div>
@@ -181,18 +180,18 @@ function FatiSubmitForm({ applId }: { applId: number | null }) {
       </div>
       {msg && <p className="mb-3 text-[13px] text-green-600 font-medium">{msg}</p>}
       {err && <p className="mb-3 text-[13px] text-red-500">{err}</p>}
-      <div className="border border-[#E2F5EF] p-5 space-y-4">
+      <div className="border border-kb-border p-5 space-y-4">
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">자료 유형</label>
           <select value={fatiType} onChange={e => setFatiType(e.target.value)}
-            className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
             {FATI_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">기준연도</label>
           <select value={year} onChange={e => setYear(e.target.value)}
-            className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
             {YEARS.map(y => <option key={y}>{y}</option>)}
           </select>
         </div>
@@ -205,7 +204,7 @@ function FatiSubmitForm({ applId }: { applId: number | null }) {
       </div>
       <div className="flex justify-center mt-5">
         <button onClick={handleSubmit} disabled={submitting}
-          className="px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: '#0D5C47' }}>
+          className="px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50" style={{ backgroundColor: '#3D3D3D' }}>
           {submitting ? '제출 중...' : '제출'}
         </button>
       </div>
@@ -244,20 +243,20 @@ function FatiHistoryTable({ applId }: { applId: number | null }) {
   if (loading) return <p className="py-8 text-center text-[13px] text-kb-text-muted">불러오는 중...</p>
 
   return (
-    <table className="w-full text-[13px] border-t-2 border-[#0D5C47]">
+    <table className="w-full text-[13px] border-t border-kb-text">
       <thead>
-        <tr className="bg-[#F0FAF7]">
-          <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">제출일</th>
-          <th className="px-4 py-3 text-left font-medium border-b border-[#E2F5EF]">자료 유형</th>
-          <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">기준연도</th>
-          <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">처리 상태</th>
+        <tr className="bg-[#F5F5F5]">
+          <th className="px-4 py-3 text-center font-medium border-b border-kb-border">제출일</th>
+          <th className="px-4 py-3 text-left font-medium border-b border-kb-border">자료 유형</th>
+          <th className="px-4 py-3 text-center font-medium border-b border-kb-border">기준연도</th>
+          <th className="px-4 py-3 text-center font-medium border-b border-kb-border">처리 상태</th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-[#E2F5EF]">
+      <tbody className="divide-y divide-kb-border">
         {docs.length === 0 ? (
           <tr><td colSpan={4} className="py-8 text-center text-kb-text-muted">제출된 내역이 없습니다.</td></tr>
         ) : docs.map((d: any) => (
-          <tr key={d.docId} className="hover:bg-[#F0FAF7]">
+          <tr key={d.docId} className="hover:bg-kb-beige-light">
             <td className="px-4 py-3 text-center">
               {(d.uploadedAt ?? d.createdAt)?.slice(0, 10).replace(/-/g, '.') ?? '-'}
             </td>
@@ -276,8 +275,8 @@ function FatiHistoryTable({ applId }: { applId: number | null }) {
 }
 
 /* ─── Page ─── */
-
-function CreditEvalContent({ slug }: { slug: string }) {
+export default function CreditEvalPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params)
   const searchParams = useSearchParams()
   const applIdRaw = searchParams.get('applId')
   const applId = applIdRaw ? parseInt(applIdRaw) : null
@@ -340,21 +339,12 @@ function CreditEvalContent({ slug }: { slug: string }) {
                 ※ 신청번호를 조회하려면 URL에 ?applId=신청ID 를 입력하세요.
               </p>
             )}
-            <div className="border-t-2 border-[#0D5C47] pt-6">
+            <div className="border-t border-kb-text pt-6">
               {meta.content}
             </div>
           </div>
         </div>
       </div>
     </main>
-  )
-}
-
-export default function CreditEvalPage({ params }: { params: { slug: string } }) {
-  const { slug } = params
-  return (
-    <Suspense fallback={<div className="max-w-kb-container mx-auto px-6 py-16 text-center text-kb-text-muted">로딩 중...</div>}>
-      <CreditEvalContent slug={slug} />
-    </Suspense>
   )
 }

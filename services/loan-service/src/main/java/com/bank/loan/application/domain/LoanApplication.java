@@ -86,6 +86,9 @@ public class LoanApplication extends BaseEntity {
     @Column(name = "idempotency_key", length = 100, unique = true)
     private String idempotencyKey;
 
+    @Column(name = "branch_id", length = 10)
+    private String branchId;
+
     /**
      * 고객이 본인 신청을 취소할 수 있는 단계.
      * 심사 결과(승인·거절) 이후 또는 이미 취소/철회된 건은 본 메서드로 변경하지 않는다.

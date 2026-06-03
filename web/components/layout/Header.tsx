@@ -89,29 +89,32 @@ export const GNB_MENUS = [
         href: '/support/customer-info/online-join',
         items: [
           { label: '온라인고객 신규가입', href: '/support/customer-info/online-join' },
-          { label: '회원탈퇴',           href: '/support/customer-info/withdraw' },
           { label: '개인정보 수정',       href: '/settings' },
+          { label: '회원탈퇴',           href: '/support/customer-info/withdraw' },
         ],
       },
       {
         title: '계좌관리',
-        href: '/banking/transfer-limit',
+        href: '/banking/withdrawal-account',
         items: [
-          { label: '이체한도 조회/변경', href: '/banking/transfer-limit' },
+          { label: '출금계좌 등록/삭제/순위변경', href: '/banking/withdrawal-account' },
+          { label: '이체한도 조회/변경',          href: '/banking/transfer-limit' },
         ],
       },
       {
         title: '인터넷 뱅킹관리',
-        href: '/banking/first-visit',
+        href: '/support/customer-info/id-password',
         items: [
           { label: 'ID조회/사용자암호 설정', href: '/support/customer-info/id-password' },
+          { label: '인터넷뱅킹 해지',        href: '/support/customer-info/internet-banking-cancel' },
         ],
       },
       {
         title: '이용안내',
-        href: '/support/internet-banking-guide',
+        href: '/banking/first-visit',
         items: [
           { label: '첫 방문 고객을 위한 안내', href: '/banking/first-visit' },
+          { label: '인터넷뱅킹 FAQ',          href: '/support/faq' },
           { label: '인터넷뱅킹 이용안내',      href: '/support/internet-banking-guide' },
           { label: '이용수수료 안내',          href: '/support/fee-guide' },
         ],
@@ -326,7 +329,7 @@ export default function Header() {
                   <div key={category.title}
                     className={ci > 0 ? 'border-l border-kb-border pl-6 text-center' : 'text-center'}>
                     <Link
-                      href={category.href}
+                      href={category.items[0]?.href ?? category.href}
                       onClick={() => setActiveMenu(null)}
                       className="block text-[17px] font-bold text-kb-text mb-1 hover:text-kb-taupe"
                     >

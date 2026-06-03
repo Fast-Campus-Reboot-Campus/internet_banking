@@ -1,4 +1,4 @@
-package com.bank.common.security.jwt;
+﻿package com.bank.common.security.jwt;
 
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;
@@ -42,7 +42,9 @@ public class JwtProvider {
         return generateAccessToken(customerId, email, roles, null, null);
     }
 
-    public String generateAccessToken(Long customerId, String email, List<String> roles, String branch, String grade) {
+    /** 직원 로그인 시 지점(branch)·직급(grade) claim 포함 버전. */
+    public String generateAccessToken(Long customerId, String email, List<String> roles,
+                                      String branch, String grade) {
         long now = System.currentTimeMillis();
         var builder = Jwts.builder()
                 .subject(String.valueOf(customerId))

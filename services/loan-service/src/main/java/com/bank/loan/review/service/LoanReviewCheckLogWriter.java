@@ -21,8 +21,8 @@ public class LoanReviewCheckLogWriter {
     private final ReviewCheckLogger reviewCheckLogger;
 
     public void logManual(Long revId, CreditEvaluation ceval, DsrCalculation dsr,
-                          LoanProduct product, boolean approved, RunReviewRequest req) {
-        Long checkerId = req.reviewerId();
+                          LoanProduct product, boolean approved, RunReviewRequest req,
+                          Long checkerId) {
 
         reviewCheckLogger.log(revId,
                 ReviewCheckLog.ITEM_PRESCREEN_PASS, ReviewCheckLog.RESULT_PASS,

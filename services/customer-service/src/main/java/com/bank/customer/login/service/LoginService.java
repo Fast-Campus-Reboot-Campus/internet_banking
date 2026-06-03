@@ -1,4 +1,4 @@
-package com.bank.customer.login.service;
+﻿package com.bank.customer.login.service;
 
 import com.bank.common.security.jwt.JwtClaims;
 import com.bank.common.security.jwt.JwtProperties;
@@ -6,11 +6,12 @@ import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.security.jwt.TokenType;
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;
+import com.bank.customer.config.EmployeeDirectoryProperties;
+import com.bank.customer.config.EmployeeDirectoryProperties.EmployeeEntry;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
-import com.bank.customer.login.config.EmployeeDirectoryProperties;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.dto.RefreshRequest;
@@ -78,13 +79,7 @@ public class LoginService {
 
         credential.recordLoginSuccess();
 
-        var emp = employeeDirectory.findById(customer.getCustomerId());
-        var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
-        var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
-        var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
-
-        String accessToken  = jwtProvider.generateAccessToken(
-                customer.getCustomerId(), customer.getEmail(), roles, branch, grade);
+        String accessToken = buildAccessToken(customer);
         String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
 
         storeRefreshToken(customer.getCustomerId(), refreshToken);
@@ -120,18 +115,23 @@ public class LoginService {
                 .findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
 
-        var emp2   = employeeDirectory.findById(customerId);
-        var roles2  = emp2.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
-        var branch2 = emp2.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
-        var grade2  = emp2.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
-
-        String newAccessToken  = jwtProvider.generateAccessToken(
-                customerId, customer.getEmail(), roles2, branch2, grade2);
+        String newAccessToken  = buildAccessToken(customer);
         String newRefreshToken = jwtProvider.generateRefreshToken(customerId);
 
         storeRefreshToken(customerId, newRefreshToken);
 
         return new LoginResponse(customerId, newAccessToken, newRefreshToken);
+    }
+
+    /** 직원이면 직원 roles+branch+grade, 일반 고객이면 ROLE_CUSTOMER 토큰 발급. */
+    private String buildAccessToken(Customer customer) {
+        return employeeDirectory.find(customer.getCustomerId())
+                .map(emp -> jwtProvider.generateAccessToken(
+                        customer.getCustomerId(), customer.getEmail(),
+                        emp.roles(), emp.branch(), emp.grade()))
+                .orElseGet(() -> jwtProvider.generateAccessToken(
+                        customer.getCustomerId(), customer.getEmail(),
+                        List.of("ROLE_CUSTOMER")));
     }
 
     private void storeRefreshToken(Long customerId, String refreshToken) {

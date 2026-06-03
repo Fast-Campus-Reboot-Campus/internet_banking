@@ -2,8 +2,10 @@ package com.bank.loan.repayment.repository;
 
 import com.bank.loan.repayment.domain.RepaymentTransaction;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -120,4 +122,10 @@ public interface RepaymentTransactionRepository extends JpaRepository<RepaymentT
     boolean existsLaterEarly(@Param("cntrId") Long cntrId,
                              @Param("targetRtxId") Long targetRtxId,
                              @Param("targetPaidAt") java.time.OffsetDateTime targetPaidAt);
+
+    /** common_db 동기화 후 브리지 컬럼 백필. */
+    @Modifying
+    @Transactional
+    @Query("UPDATE RepaymentTransaction t SET t.transactionId = :commonId WHERE t.rtxId = :rtxId")
+    int updateTransactionId(@Param("rtxId") Long rtxId, @Param("commonId") Long commonId);
 }

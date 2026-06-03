@@ -79,6 +79,8 @@ public class CertIssueService {
         String publicKey   = "MOCK_PUBLIC_KEY_" + serial;
         String purposeCode = "FINANCIAL";
 
+        String certPinHash = passwordEncoder.encode(request.certPin());
+
         // 4. certificate 생성
         certificateRepository.save(Certificate.builder()
                 .customerId(customerId)
@@ -93,6 +95,7 @@ public class CertIssueService {
                 .certificateIssuedDate(todayStr)
                 .certificateExpiryDate(expiryStr)
                 .certificateStatusCode(Certificate.STATUS_ACTIVE)
+                .certPinHash(certPinHash)
                 .certLoginFailureCount(0)
                 .maxCertLoginFailureCount(5)
                 .build());

@@ -25,6 +25,11 @@ import com.bank.loan.review.dto.LoanReviewResponse;
 import com.bank.loan.review.dto.ReviewStatsResponse;
 import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
+import com.bank.loan.audit.domain.AccessAuditLog;
+import com.bank.loan.audit.store.BreakGlassGrantStore;
+import com.bank.loan.security.LoanActorContext;
+import com.bank.loan.security.LoanRole;
+import com.bank.loan.security.PiiLevel;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +42,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -79,6 +83,7 @@ public class LoanReviewService {
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationOutboxAppender outboxAppender;
     private final ObjectMapper objectMapper;
+    private final BreakGlassGrantStore breakGlassGrantStore;
 
     @Value("${loan.review.bias-check.enabled:true}")
     private boolean biasCheckEnabled;
@@ -168,12 +173,12 @@ public class LoanReviewService {
                 .approvedPeriodMo(approvedPeriod)
                 .rejectReasonCd(approved ? null : req.rejectReasonCd())
                 .revRemark(req.revRemark())
-                .reviewerId(req.reviewerId())
+                .reviewerId(actorId)
                 .reviewedAt(now)
                 .approvedAt(approvedAt)
                 .build());
 
-        checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req);
+        checkLogWriter.logManual(saved.getRevId(), ceval, dsr, product, approved, req, actorId);
 
         // 심사원 결정 이력
         statusHistoryPublisher.publish(StatusChangeEvent.of(
@@ -270,12 +275,72 @@ public class LoanReviewService {
     }
 
     @Transactional(readOnly = true)
-    public LoanReviewResponse get(Long applId) {
-        applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+    public LoanReviewResponse get(Long applId, LoanActorContext actor) {
+        LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
-        return repository.findByApplIdAndDeletedAtIsNull(applId)
-                .map(LoanReviewResponse::of)
+        LoanReview review = repository.findByApplIdAndDeletedAtIsNull(applId)
                 .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+
+        boolean isBreakGlass = checkScope(application, review, actor);
+
+        PiiLevel level = isBreakGlass ? PiiLevel.MASKED : actor.piiLevel(application, review);
+        return LoanReviewResponse.of(review, application, level);
+    }
+
+    /**
+     * 접근 판정식.
+     *  1. 라인 참여자 (담당·심사·승인자) — 본인 건
+     *  2. 고객 — 본인 신청 건
+     *  3. 같은 지점 지점장 — 지점 전체 조회
+     *  4. 본사 담당자 — 상신(ESCALATED) 건만
+     * OPS/INTERNAL/ADMIN 은 별도 차단 없이 통과.
+     */
+    /**
+     * 접근 판정 — true 반환 시 break-glass 임시 접근, false 는 정상 접근.
+     * 접근 불가 시 LOAN_202 예외.
+     */
+    private boolean checkScope(LoanApplication application, LoanReview review, LoanActorContext actor) {
+        Long actorId = actor.actorId();
+
+        // OPS·INTERNAL·ADMIN — 전체 접근 허용
+        if (actor.hasRole(LoanRole.OPS)
+                || actor.hasRole(LoanRole.INTERNAL)
+                || actor.hasRole(LoanRole.ADMIN)) {
+            return false;
+        }
+
+        // 라인 참여자 (담당자·심사자·승인자)
+        if (actorId != null && (actorId.equals(review.getOwnerId())
+                || actorId.equals(review.getReviewerId())
+                || actorId.equals(review.getApproverId()))) {
+            return false;
+        }
+
+        // 고객 — 본인 신청 건
+        if (actor.hasRole(LoanRole.CUSTOMER)
+                && actorId != null && actorId.equals(application.getCustomerId())) {
+            return false;
+        }
+
+        // 같은 지점 지점장
+        if (actor.hasRole(LoanRole.BRANCH_MANAGER)
+                && actor.branch() != null
+                && actor.branch().equals(application.getBranchId())) {
+            return false;
+        }
+
+        // 본사 담당자 — 상신 건만
+        if (actor.hasRole(LoanRole.HQ_REVIEWER) && review.isEscalated()) {
+            return false;
+        }
+
+        // break-glass 임시 접근 (1시간 TTL, 사유 기록 필수)
+        if (actorId != null && breakGlassGrantStore.hasGrant(
+                actorId, AccessAuditLog.TARGET_LOAN_APPLICATION, application.getApplId())) {
+            return true;
+        }
+
+        throw new BusinessException(LoanErrorCode.LOAN_202);
     }
 
     /**
@@ -289,25 +354,64 @@ public class LoanReviewService {
         OffsetDateTime fromAt = fromDate.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
         OffsetDateTime toAt = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
 
-        List<LoanReview> rows = repository
-                .findByReviewedAtGreaterThanEqualAndReviewedAtLessThanAndDeletedAtIsNull(fromAt, toAt);
+        long total = repository.countByReviewedAtBetween(fromAt, toAt);
 
         Map<String, Long> byTypeDecision = new LinkedHashMap<>();
-        Map<String, Long> byStatus = new LinkedHashMap<>();
-        Map<String, Long> byRejectReason = new LinkedHashMap<>();
-
-        for (LoanReview r : rows) {
-            String typeDec = r.getRevTypeCd() + "_"
-                    + (r.getRevDecisionCd() != null ? r.getRevDecisionCd() : "NONE");
-            byTypeDecision.merge(typeDec, 1L, Long::sum);
-            byStatus.merge(r.getRevStatusCd(), 1L, Long::sum);
-            if (r.getRejectReasonCd() != null) {
-                byRejectReason.merge(r.getRejectReasonCd(), 1L, Long::sum);
-            }
+        for (Object[] row : repository.countGroupByTypeAndDecision(fromAt, toAt)) {
+            String key = row[0] + "_" + (row[1] != null ? row[1] : "NONE");
+            byTypeDecision.put(key, (Long) row[2]);
         }
 
-        return new ReviewStatsResponse(fromYyyyMMdd, toYyyyMMdd, rows.size(),
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        for (Object[] row : repository.countGroupByStatus(fromAt, toAt)) {
+            byStatus.put((String) row[0], (Long) row[1]);
+        }
+
+        Map<String, Long> byRejectReason = new LinkedHashMap<>();
+        for (Object[] row : repository.countGroupByRejectReason(fromAt, toAt)) {
+            byRejectReason.put((String) row[0], (Long) row[1]);
+        }
+
+        return new ReviewStatsResponse(fromYyyyMMdd, toYyyyMMdd, total,
                 byTypeDecision, byStatus, byRejectReason);
+    }
+
+    /**
+     * 이상거래 본사 상신.
+     * 지점장이 심사 진행 중인 건에서 의심 거래를 발견했을 때 호출한다.
+     * 상신 후 ROLE_HQ_REVIEWER 만 해당 건을 조회할 수 있다.
+     */
+    @Transactional
+    public LoanReviewResponse escalateToHq(Long applId, LoanActorContext actor, String escalateReason) {
+        LoanApplication application = applicationRepository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_012));
+        LoanReview review = repository.findByApplIdAndDeletedAtIsNull(applId)
+                .orElseThrow(() -> new BusinessException(LoanErrorCode.LOAN_042));
+
+        if (review.isEscalated()) {
+            throw new BusinessException(LoanErrorCode.LOAN_203);
+        }
+        if (LoanReview.STATUS_COMPLETED.equals(review.getRevStatusCd())
+                || LoanReview.STATUS_EXPIRED.equals(review.getRevStatusCd())) {
+            throw new BusinessException(LoanErrorCode.LOAN_204);
+        }
+
+        review.escalateToHq(OffsetDateTime.now(ZoneOffset.UTC));
+        repository.save(review);
+
+        PiiLevel level = actor.piiLevel(application, review);
+        return LoanReviewResponse.of(review, application, level);
+    }
+
+    /**
+     * 본사 담당자 상신 건 목록 조회.
+     * ROLE_HQ_REVIEWER 전용 — SecurityConfig 에서 선제 차단.
+     */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<LoanReviewResponse> listEscalated(
+            org.springframework.data.domain.Pageable pageable) {
+        return repository.findByEscalatedAtIsNotNullAndDeletedAtIsNull(pageable)
+                .map(LoanReviewResponse::of);
     }
 
 }

@@ -1,4 +1,4 @@
-package com.bank.loan.execution.service;
+﻿package com.bank.loan.execution.service;
 
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;
@@ -19,9 +19,10 @@ import com.bank.loan.notification.channel.KafkaChannelAdapter;
 import com.bank.loan.notification.channel.StubEmailAdapter;
 import com.bank.loan.notification.channel.StubKakaoAdapter;
 import com.bank.loan.notification.channel.StubSmsAdapter;
+import com.bank.loan.commonsync.outbox.CommonSyncOutboxAppender;
 import com.bank.loan.notification.outbox.NotificationOutboxAppender;
+import com.bank.loan.payment.SystemAccountProvider;
 import com.bank.loan.payment.client.PaymentServiceClient;
-import com.bank.loan.payment.client.PaymentServiceProperties;
 import com.bank.loan.payment.client.dto.PaymentRequest;
 import com.bank.loan.payment.client.dto.PaymentResponse;
 import com.bank.loan.product.repository.LoanProductRepository;
@@ -60,7 +61,7 @@ public class LoanExecutionService {
     private static final String DEFAULT_CURRENCY = "KRW";
     private static final String REASON_FIRST_DRAWDOWN = "FIRST_DRAWDOWN";
     private static final String EVENT_LOAN_DISBURSED  = "LOAN_DISBURSED";
-    private static final String CHANNEL_INBOUND = "INBOUND";
+    private static final String CHANNEL_OPEN_BANKING = "OPEN_BANKING";
 
     private final LoanExecutionRepository repository;
     private final LoanContractRepository contractRepository;
@@ -71,11 +72,12 @@ public class LoanExecutionService {
     private final GuaranteeInsuranceRepository guaranteeInsuranceRepository;
     private final RepaymentScheduleService repaymentScheduleService;
     private final NotificationOutboxAppender outboxAppender;
+    private final CommonSyncOutboxAppender commonSyncOutboxAppender;
     private final StatusHistoryPublisher statusHistoryPublisher;
     private final CurrentActorProvider currentActor;
     private final CryptoService cryptoService;
     private final PaymentServiceClient paymentServiceClient;
-    private final PaymentServiceProperties paymentProps;
+    private final SystemAccountProvider systemAccountProvider;
 
     // FAILED 기록을 유지하기 위해 BusinessException 발생 시에도 커밋
     @Transactional(noRollbackFor = BusinessException.class)
@@ -146,14 +148,14 @@ public class LoanExecutionService {
         String payIdemKey = "EXEC-" + contract.getCntrId() + "-"
                 + (idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : saved.getExecId());
         PaymentRequest payReq = new PaymentRequest(
-                paymentProps.disbursement().accountId(),
+                systemAccountProvider.disbursementAccount().getAccountNo(),
                 req.disbursementBankCd(),
                 req.disbursementAccountNo(),
                 contract.getCntrNo(),
                 BigDecimal.valueOf(requested),
                 "대출실행 " + contract.getCntrNo(),
                 "대출실행",
-                CHANNEL_INBOUND,
+                CHANNEL_OPEN_BANKING,
                 contract.getCntrNo()
         );
         PaymentResponse payResp = paymentServiceClient.pay(payIdemKey, payReq);
@@ -172,6 +174,10 @@ public class LoanExecutionService {
                         currentActor.currentActorId()
                 ));
                 repaymentScheduleService.generateForFirstDrawdown(contract);
+
+                // 계약 ACTIVE 전이와 동일 트랜잭션에서 common_sync_outbox 적재 (outbox 패턴).
+                // 디스패처가 common_contract upsert + loan_contract.contract_id 백필을 비동기 처리.
+                commonSyncOutboxAppender.enqueueContractInCurrentTx(contract);
 
                 String payload = String.format(
                         "{\"cntrId\":%d,\"cntrNo\":\"%s\",\"customerId\":%d,\"executedAmount\":%d}",

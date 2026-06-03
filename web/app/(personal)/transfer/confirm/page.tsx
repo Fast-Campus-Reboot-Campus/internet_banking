@@ -5,8 +5,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
+import { createInstantTransfer } from '@/lib/payment-api'
 
 type PendingTransfer = {
+  fromAccountId?: number
+  fromAccountViewId?: string
   fromNumber: string
   fromName: string
   toBank: string
@@ -47,8 +50,19 @@ export default function TransferConfirmPage() {
       const next = [...pin, key]
       setPin(next)
       if (next.length === 6) {
-        setTimeout(() => {
+        setTimeout(async () => {
           setShowCertModal(false)
+          if (data?.fromAccountId) {
+            try {
+              await createInstantTransfer({
+                fromAccountId: data.fromAccountId,
+                toAccountNumber: data.toAccount,
+                amount: data.amount,
+                toBankCode: data.toBank,
+                memo: '인터넷이체',
+              })
+            } catch (e) { console.error('이체 실패:', e) }
+          }
           router.push('/transfer/result')
         }, 400)
       }

@@ -1,238 +1,361 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { use, useRef, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
-import { api } from '@/lib/api'
+import { loanApplicationApi, loanContractApi } from '@/lib/loan-api'
 
-const inputCls  = "border rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-1 transition-all"
-const inputStyle = { borderColor: '#D1D5DB' }
+// ─── 사후 서류 제출 ─────────────────────────────────────────
 
-function DocsPage({ applId }: { applId: string }) {
-  const DOC_LIST = ['재직증명서', '소득확인서류', '건강보험료 납부확인서']
-  const [files, setFiles] = useState<Record<string, File | null>>(
-    Object.fromEntries(DOC_LIST.map(d => [d, null]))
-  )
-  const [msg, setMsg] = useState('')
+function DocsUpload({ applId }: { applId: number | null }) {
+  const [files, setFiles] = useState<Record<string, File>>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit() {
-    if (!Object.values(files).some(Boolean)) { setMsg('제출할 서류를 선택해주세요.'); return }
-    setMsg('서류가 제출되었습니다. 심사 담당자가 검토 후 안내 드립니다.')
+  const docs = [
+    { code: 'EMPLOYMENT_CERT', name: '재직증명서', required: true },
+    { code: 'INCOME_CERT', name: '소득확인서류', required: true },
+    { code: 'HEALTH_INSURANCE', name: '건강보험료 납부확인서', required: false },
+  ]
+
+  async function handleSubmit() {
+    if (!applId) { setError('신청번호를 확인할 수 없습니다.'); return }
+    setSubmitting(true)
+    setError('')
+    try {
+      for (const [code, file] of Object.entries(files)) {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('docTypeCd', code)
+        await loanApplicationApi.uploadDocument(applId, fd)
+      }
+      setDone(true)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '제출 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
+
+  if (done) return (
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">서류 제출 완료</p>
+      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+    </div>
+  )
 
   return (
     <div>
-      <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
-        style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
-        <p className="text-kb-text-muted">· 대출 실행 후 요구된 사후 서류를 제출합니다.</p>
-        <p className="text-kb-text-muted">· 파일 형식: PDF, JPG, PNG (최대 10MB)</p>
-        {applId && <p className="font-medium" style={{ color: '#0D5C47' }}>· 신청번호: {applId}</p>}
-      </div>
-      <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #E2F5EF' }}>
-              {['서류명', '필수여부', '파일 선택'].map(h => (
-                <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]" style={{ color: '#0D5C47' }}>{h}</th>
-              ))}
+      <p className="text-[13px] text-kb-text-muted mb-4">대출 실행 후 요구된 사후 서류를 제출합니다.</p>
+      {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
+      <table className="w-full text-[13px] border-t border-kb-text mb-5">
+        <thead>
+          <tr className="bg-[#F5F5F5]">
+            <th className="px-4 py-3 text-left font-medium border-b border-kb-border">서류명</th>
+            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">필수여부</th>
+            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">파일선택</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-kb-border">
+          {docs.map(d => (
+            <tr key={d.code} className="hover:bg-kb-beige-light">
+              <td className="px-4 py-3">{d.name}</td>
+              <td className="px-4 py-3 text-center">
+                <span className={`text-[11px] font-bold px-2 py-0.5 ${d.required ? 'bg-red-500 text-white' : 'bg-kb-border text-kb-text-muted'}`}>
+                  {d.required ? '필수' : '선택'}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-center">
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) setFiles(prev => ({ ...prev, [d.code]: f })) }}
+                  className="text-[11px]" />
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {DOC_LIST.map((name, i, arr) => (
-              <tr key={name} className="hover:bg-[#F8FFFE]"
-                style={{ borderBottom: i < arr.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
-                <td className="px-4 py-3">{name}</td>
-                <td className="px-4 py-3 text-center">
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${i < 2 ? 'text-white' : 'text-kb-text-muted'}`}
-                    style={i < 2 ? { backgroundColor: '#E05555' } : { border: '1px solid #E2F5EF' }}>
-                    {i < 2 ? '필수' : '선택'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <input type="file" accept=".pdf,.jpg,.png"
-                    onChange={e => setFiles(prev => ({ ...prev, [name]: e.target.files?.[0] ?? null }))}
-                    className="text-[12px] text-kb-text-muted" />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+        </tbody>
+      </table>
+      {error && <p className="text-[13px] text-kb-red mb-3">{error}</p>}
+      <div className="flex justify-center">
+        <button onClick={handleSubmit} disabled={submitting || !applId}
+          className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
+          style={{ backgroundColor: '#3D3D3D' }}>
+          {submitting ? '제출 중...' : '제출'}
+        </button>
       </div>
-      {msg && <p className="text-[13px] mb-4 font-medium" style={{ color: '#0D5C47' }}>{msg}</p>}
-      <button onClick={handleSubmit}
-        className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-        style={{ backgroundColor: '#0D5C47' }}>제출</button>
     </div>
   )
 }
 
-function SignPage({ applId }: { applId: string }) {
-  const [agreed, setAgreed] = useState(false)
-  const [signed, setSigned] = useState(false)
-  const [loading, setLoading] = useState(false)
+// ─── 동의 폼 ────────────────────────────────────────────────
+
+function ConsentForm({ title, consentTypeCd, fields, applId }: {
+  title: string; consentTypeCd: string; fields: string[]; applId: number | null
+}) {
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit() {
+    if (!applId) { setError('신청번호를 확인할 수 없습니다.'); return }
+    setSubmitting(true)
+    setError('')
+    try {
+      await loanApplicationApi.submitConsent(applId, { consentTypeCd, agreedYn: 'Y' })
+      setDone(true)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '제출 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) return (
+    <div className="py-12 text-center">
+      <p className="text-[16px] font-bold text-green-600 mb-2">동의 제출 완료</p>
+      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+    </div>
+  )
+
+  return (
+    <div className="max-w-lg">
+      {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
+      <div className="bg-[#F5F5F5] border border-kb-border p-4 mb-5 text-[13px] text-kb-text-body">
+        <p className="font-bold mb-1">{title} 동의</p>
+        <p>금융거래 목적으로 개인(신용)정보를 제3자에게 제공하는 것에 동의합니다.</p>
+      </div>
+      <div className="border border-kb-border p-5 space-y-4">
+        {fields.map(field => (
+          <div key={field} className="flex items-center gap-4">
+            <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">{field}</label>
+            <input type="text" placeholder="입력하세요"
+              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+          </div>
+        ))}
+      </div>
+      {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSubmit} disabled={submitting || !applId}
+          className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
+          style={{ backgroundColor: '#3D3D3D' }}>
+          {submitting ? '처리 중...' : '동의 제출'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── 전자서명 ────────────────────────────────────────────────
+
+function ESignForm({ applId }: { applId: number | null }) {
+  const [step, setStep] = useState<'sign' | 'account' | 'done'>('sign')
+  const [journey, setJourney] = useState<any>(null)
+  const [cntrNo, setCntrNo] = useState('')
+  const [accountNo, setAccountNo] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [certType, setCertType] = useState('금융인증서')
 
   async function handleSign() {
-    if (!agreed) return
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 800))
-    setSigned(true)
-    setLoading(false)
+    if (!applId) { setError('신청번호를 확인할 수 없습니다.'); return }
+    setSubmitting(true); setError('')
+    try {
+      await loanApplicationApi.submitConsent(applId, { consentTypeCd: 'ESIGN', agreedYn: 'Y' })
+      const { data: res } = await loanApplicationApi.journey(applId)
+      setJourney(res.data)
+      setStep('account')
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '전자서명 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  if (signed) return (
-    <div className="rounded-xl p-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-      </div>
-      <div>
-        <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>전자서명이 완료되었습니다.</p>
-        <p className="text-[12px] text-kb-text-muted">약정이 체결되었으며 대출 실행을 진행할 수 있습니다.</p>
-      </div>
-    </div>
-  )
-
-  return (
-    <div>
-      <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
-        style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
-        <p className="text-kb-text-muted">· 대출 약정서에 전자서명합니다. 금융인증서가 필요합니다.</p>
-        {applId && <p className="font-medium" style={{ color: '#0D5C47' }}>· 신청번호: {applId}</p>}
-      </div>
-      <div className="rounded-xl p-5 mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        <p className="text-[14px] font-bold text-kb-text mb-3">전자서명 원문</p>
-        <div className="space-y-1.5 text-[13px] text-kb-text-muted mb-4">
-          <p>· 본인은 대출 약정의 모든 조건을 확인하고 이해하였습니다.</p>
-          <p>· 이자 및 원금 상환 의무를 성실히 이행할 것을 확인합니다.</p>
-          <p>· 개인정보 수집·이용 및 제3자 제공에 동의합니다.</p>
-        </div>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
-            className="w-4 h-4" style={{ accentColor: '#0D5C47' }} />
-          <span className="text-[13px] font-medium text-kb-text">위 내용을 모두 확인하고 동의합니다.</span>
-        </label>
-      </div>
-      <button onClick={handleSign} disabled={!agreed || loading}
-        className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity disabled:opacity-40"
-        style={{ backgroundColor: '#0D5C47' }}>
-        {loading ? '서명 중...' : '금융인증서로 서명'}
-      </button>
-    </div>
-  )
-}
-
-function ExecutePage({ applId }: { applId: string }) {
-  const [account, setAccount] = useState('')
-  const [step, setStep]       = useState<'form' | 'done'>('form')
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-
   async function handleExecute() {
-    if (!account) { setError('입금 계좌를 입력해주세요.'); return }
-    setError(''); setLoading(true)
+    if (!journey || !accountNo) return
+    setSubmitting(true); setError('')
+    const appl = journey.application
+    const rateBps = journey.creditEvaluation?.rateBps ?? journey.prescreening?.rateBps ?? 500
     try {
-      await api.post(`/api/loan-contracts/${applId}/executions`, { depositAccountNo: account })
+      const { data: contractRes } = await loanContractApi.create(appl.applId, {
+        contractedAmount: appl.requestedAmount,
+        contractedPeriodMo: appl.requestedPeriodMo,
+        baseRateBps: rateBps,
+        spreadBps: 0,
+        rateTypeCd: 'FIXED',
+        repaymentMethodCd: appl.repaymentMethodCd ?? 'INSTALLMENT',
+      })
+      const newCntrId = contractRes.data?.cntrId
+      setCntrNo(contractRes.data?.cntrNo ?? '')
+      await loanContractApi.execute(newCntrId, {
+        executedAmount: appl.requestedAmount,
+        disbursementAccountNo: accountNo,
+      })
       setStep('done')
-    } catch {
-      setError('대출 실행에 실패했습니다. 고객센터(1588-9999)로 문의해주세요.')
-    } finally { setLoading(false) }
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? '대출 실행 처리 중 오류가 발생했습니다.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (step === 'done') return (
-    <div>
-      <div className="rounded-xl p-6 flex items-center gap-5 mb-6" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-        <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-        </div>
-        <div>
-          <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>대출 실행이 완료되었습니다.</p>
-          <p className="text-[12px] text-kb-text-muted">신청하신 계좌로 대출금이 지급됩니다. 입금까지 수 분이 소요될 수 있습니다.</p>
-        </div>
+    <div className="py-12 text-center">
+      <div className="w-16 h-16 rounded-full bg-kb-yellow flex items-center justify-center mx-auto mb-3">
+        <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
+          <path d="M8 20l8 8 16-16" stroke="#333" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
-      <Link href="/products/loan/my"
-        className="px-8 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-        style={{ backgroundColor: '#0D5C47' }}>내 대출 현황 확인</Link>
+      <p className="text-[16px] font-bold text-kb-text mb-1">대출 실행 완료</p>
+      {cntrNo && <p className="text-[13px] text-kb-text-muted mb-1">계약번호: {cntrNo}</p>}
+      <p className="text-[13px] text-kb-text-muted mb-4">지정 계좌로 대출금이 지급됩니다.</p>
+      <Link href="/products/loan/manage/payment" className="text-[13px] text-[#1A56DB] hover:underline mr-4">상환 스케줄 확인</Link>
+      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
+
+  if (step === 'account') {
+    const appl = journey?.application
+    return (
+      <div className="max-w-lg">
+        <div className="bg-[#FFF9E6] border border-[#C09B3A] p-4 mb-5 text-[13px] text-kb-text-body">
+          <p className="font-bold mb-1">전자서명 완료 — 대출 실행 정보를 입력해 주세요.</p>
+          <p>지정 계좌로 대출금이 즉시 지급됩니다.</p>
+        </div>
+        <div className="border border-kb-border divide-y divide-kb-border">
+          {appl && (
+            <>
+              <div className="flex items-center px-5 py-3 gap-6">
+                <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">실행 금액</span>
+                <span className="text-[13px] font-bold">{appl.requestedAmount.toLocaleString('ko-KR')}원</span>
+              </div>
+              <div className="flex items-center px-5 py-3 gap-6">
+                <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">대출 기간</span>
+                <span className="text-[13px]">{appl.requestedPeriodMo}개월</span>
+              </div>
+            </>
+          )}
+          <div className="flex items-center px-5 py-3 gap-6">
+            <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">입금 계좌번호 <span className="text-kb-red">*</span></span>
+            <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
+              placeholder="계좌번호 입력 (예: 123-456-789012)"
+              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+          </div>
+        </div>
+        {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
+        <div className="flex justify-center mt-5 gap-3">
+          <button onClick={() => { setStep('sign'); setError('') }}
+            className="px-8 py-2.5 text-[13px] border border-kb-border text-kb-text hover:bg-kb-beige-light">
+            이전
+          </button>
+          <button onClick={handleExecute} disabled={submitting || !accountNo}
+            className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
+            style={{ backgroundColor: '#3D3D3D' }}>
+            {submitting ? '처리 중...' : '대출 실행'}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
-        style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
-        <p className="text-kb-text-muted">· 승인된 대출을 실행합니다. 대출금이 지정 계좌로 즉시 지급됩니다.</p>
-        <p className="font-medium" style={{ color: '#E05555' }}>· 실행 후에는 취소가 불가합니다. 계좌를 반드시 확인하세요.</p>
-        {applId && <p className="font-medium" style={{ color: '#0D5C47' }}>· 신청번호: {applId}</p>}
+    <div className="max-w-lg">
+      {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
+      <div className="bg-[#FFF9E6] border border-[#C09B3A] p-4 mb-5 text-[13px] text-kb-text-body">
+        <p className="font-bold mb-1">전자서명 안내</p>
+        <p>약정 체결을 위한 전자서명 후 지정 계좌로 대출금이 지급됩니다.</p>
       </div>
-      <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-        <div className="flex items-center">
-          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0"
-            style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-            입금 계좌번호
-          </div>
-          <div className="flex-1 px-5 py-3">
-            <input type="text" value={account} onChange={e => setAccount(e.target.value)}
-              placeholder="입금받을 계좌번호 입력" className={inputCls + ' w-full max-w-sm'} style={inputStyle} />
-          </div>
+      <div className="border border-kb-border p-5 space-y-4">
+        <div className="flex items-center gap-4">
+          <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">신청번호</label>
+          <span className="text-[13px] text-kb-text font-bold">{applId ?? '-'}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">인증 수단</label>
+          <select value={certType} onChange={e => setCertType(e.target.value)}
+            className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+            <option>금융인증서</option>
+            <option>공동인증서 (구 공인인증서)</option>
+          </select>
         </div>
       </div>
-      {error && <p className="text-[13px] mb-4" style={{ color: '#E05555' }}>{error}</p>}
-      <button onClick={handleExecute} disabled={loading}
-        className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity disabled:opacity-50"
-        style={{ backgroundColor: '#0D5C47' }}>
-        {loading ? '실행 중...' : '대출 실행'}
-      </button>
+      {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
+      <div className="flex justify-center mt-5">
+        <button onClick={handleSign} disabled={submitting || !applId}
+          className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
+          style={{ backgroundColor: '#3D3D3D' }}>
+          {submitting ? '처리 중...' : '전자서명 진행'}
+        </button>
+      </div>
     </div>
   )
 }
 
-const PAGE_META: Record<string, { title: string; breadcrumb: string }> = {
-  docs:    { title: '사후서류제출',         breadcrumb: '사후서류제출' },
-  sign:    { title: '전자서명 (약정 체결)', breadcrumb: '전자서명' },
-  execute: { title: '대출 실행',            breadcrumb: '대출 실행' },
+// ─── 페이지 라우팅 ────────────────────────────────────────────
+
+type SlugMeta = { title: string; breadcrumb: string }
+
+const PAGE_META: Record<string, SlugMeta> = {
+  docs:       { title: '사후서류제출',          breadcrumb: '사후서류제출' },
+  spouse:     { title: '배우자정보제공동의',      breadcrumb: '배우자정보제공동의' },
+  household:  { title: '세대원정보제공동의',      breadcrumb: '세대원정보제공동의' },
+  collateral: { title: '제3자담보정보제공동의',   breadcrumb: '제3자담보정보제공동의' },
+  sign:       { title: '전자서명',               breadcrumb: '전자서명' },
 }
 
-export default function StatusSlugPage() {
-  const params       = useParams()
-  const searchParams = useSearchParams()
-  const slug   = params.slug as string
-  const applId = searchParams.get('applId') ?? ''
-  const meta   = PAGE_META[slug]
+function PageContent({ slug, applId }: { slug: string; applId: number | null }) {
+  switch (slug) {
+    case 'docs':
+      return <DocsUpload applId={applId} />
+    case 'spouse':
+      return <ConsentForm title="배우자정보제공" consentTypeCd="SPOUSE" fields={['배우자 성명', '배우자 주민번호', '배우자 연락처']} applId={applId} />
+    case 'household':
+      return <ConsentForm title="세대원정보제공" consentTypeCd="HOUSEHOLD" fields={['세대원 성명', '세대원 주민번호', '관계']} applId={applId} />
+    case 'collateral':
+      return <ConsentForm title="제3자담보정보제공" consentTypeCd="COLLATERAL" fields={['담보 제공자 성명', '담보 제공자 주민번호', '담보 제공자 연락처']} applId={applId} />
+    case 'sign':
+      return <ESignForm applId={applId} />
+    default:
+      return <p className="text-[15px] text-kb-text-muted py-20 text-center">페이지를 찾을 수 없습니다.</p>
+  }
+}
 
-  if (!meta) return (
-    <main className="pb-16">
-      <div className="max-w-kb-container mx-auto px-6 pt-6 flex gap-8">
-        <LoanSidebar />
-        <div className="flex-1 flex items-center justify-center py-20">
-          <p className="text-[15px] text-kb-text-muted">페이지를 찾을 수 없습니다.</p>
-        </div>
-      </div>
-    </main>
-  )
+function StatusSlugContent({ slug }: { slug: string }) {
+  const searchParams = useSearchParams()
+  const applIdRaw = searchParams.get('applId')
+  const applId = applIdRaw ? parseInt(applIdRaw, 10) : null
+  const meta = PAGE_META[slug]
 
   return (
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
         <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/" className="hover:underline">개인뱅킹</Link><span>›</span>
+          <Link href="/personal" className="hover:underline">개인뱅킹</Link><span>›</span>
+          <Link href="/products/deposit" className="hover:underline">금융상품</Link><span>›</span>
+          <Link href="/products/loan" className="hover:underline">대출</Link><span>›</span>
           <Link href="/products/loan/status" className="hover:underline">대출진행현황</Link><span>›</span>
-          <span className="text-kb-text font-medium">{meta.breadcrumb}</span>
+          <span className="text-kb-text font-medium">{meta?.breadcrumb ?? slug}</span>
         </nav>
         <div className="flex gap-8">
           <LoanSidebar />
           <div className="flex-1 min-w-0">
-            <h1 className="text-[22px] font-bold text-kb-text mb-6">{meta.title}</h1>
-            <div className="border-t-2 pt-6" style={{ borderColor: '#0D5C47' }}>
-              {slug === 'docs'    && <DocsPage    applId={applId} />}
-              {slug === 'sign'    && <SignPage    applId={applId} />}
-              {slug === 'execute' && <ExecutePage applId={applId} />}
+            <h1 className="text-[26px] font-bold text-kb-text mb-6">{meta?.title ?? slug}</h1>
+            <div className="border-t border-kb-text pt-6">
+              <PageContent slug={slug} applId={applId} />
             </div>
           </div>
         </div>
       </div>
     </main>
+  )
+}
+
+export default function StatusSlugPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params)
+  return (
+    <Suspense fallback={<div className="max-w-kb-container mx-auto px-6 py-16 text-center text-kb-text-muted">로딩 중...</div>}>
+      <StatusSlugContent slug={slug} />
+    </Suspense>
   )
 }
