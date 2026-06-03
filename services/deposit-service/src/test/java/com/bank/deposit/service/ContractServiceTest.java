@@ -10,6 +10,7 @@ import com.bank.deposit.repository.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -17,6 +18,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,7 +43,15 @@ class ContractServiceTest {
     @Mock private ProductRepository productRepository;
     @Mock private ContractAppliedRateRepository appliedRateRepository;
     @Mock private ContractSpecialTermAgreementRepository agreementRepository;
+    @Mock private TransactionRepository transactionRepository;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private Clock clock;
+
+    @BeforeEach
+    void setUpClock() {
+        org.mockito.Mockito.lenient().when(clock.instant()).thenReturn(Instant.parse("2026-01-01T00:00:00Z"));
+        org.mockito.Mockito.lenient().when(clock.getZone()).thenReturn(ZoneId.of("Asia/Seoul"));
+    }
 
     @Nested
     @DisplayName("계약 목록 조회")
@@ -120,7 +132,7 @@ class ContractServiceTest {
             Contract result = contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(1_000_000), 12,
                     JoinChannel.WEB, null, null, null, false, false, null,
-                    null, null, null, "1234");
+                    null, null, null, null, "1234");
 
             assertThat(result.getCustomerId()).isEqualTo("CUST-001");
             assertThat(result.getContractNumber()).startsWith("CTR-");
@@ -141,7 +153,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(1_000_000), 12,
                     null, null, null, null, false, false, null,
-                    null, null, null, "1234"))
+                    null, null, null, null, "1234"))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -153,7 +165,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(1_000_000), 12,
                     null, null, null, null, false, false, null,
-                    null, null, null, null))
+                    null, null, null, null, null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -173,7 +185,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(100), 12,
                     JoinChannel.WEB, null, null, null, false, false, null,
-                    null, null, null, "1234"))
+                    null, null, null, null, "1234"))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("최소 가입금액");
         }
@@ -194,7 +206,7 @@ class ContractServiceTest {
             assertThatThrownBy(() -> contractService.createContract(
                     "CUST-001", 1L, BigDecimal.valueOf(200_000_000), 12,
                     JoinChannel.WEB, null, null, null, false, false, null,
-                    null, null, null, "1234"))
+                    null, null, null, null, "1234"))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("최대 가입금액");
         }

@@ -4,12 +4,13 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
-import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import { executeDepositTransfer, fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 type PendingTransfer = {
   fromAccountId?: number
   fromAccountViewId?: string
+  toAccountId?: number
   fromNumber: string
   fromName: string
   toBank: string
@@ -17,90 +18,139 @@ type PendingTransfer = {
   amount: number
   receiverName: string
   fee: number
+  transferType?: 'INTERNAL' | 'EXTERNAL' | 'AUTO' | 'SCHEDULED'
+}
+
+type BalanceAccount = {
+  id: string
+  apiAccountId?: number
+  number: string
+  balance: number
 }
 
 export default function TransferResultPage() {
   const router = useRouter()
   const loadedTransferRef = useRef(false)
   const [data, setData] = useState<PendingTransfer | null>(null)
-  const [accounts, setAccounts] = useState<{ id: string; apiAccountId?: number; number: string; balance: number }[]>([])
+  const [accounts, setAccounts] = useState<BalanceAccount[]>([])
+  const [transferError, setTransferError] = useState('')
+  const [transferComplete, setTransferComplete] = useState(false)
+
+  async function refreshAccounts() {
+    const accs = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+    setAccounts(accs.map(a => ({
+      id: a.id,
+      apiAccountId: a.apiAccountId,
+      number: a.number,
+      balance: Number(a.balance),
+    })))
+  }
 
   useEffect(() => {
-    fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-      .then(accs => setAccounts(accs.map(a => ({
-        id: a.id,
-        apiAccountId: a.apiAccountId,
-        number: a.number,
-        balance: Number(a.balance),
-      }))))
-      .catch(() => {})
+    refreshAccounts().catch(() => {})
   }, [])
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
-    if (!raw) { router.push('/transfer/account'); return }
-    const transfer = JSON.parse(raw)
+    if (!raw) {
+      router.push('/transfer/account')
+      return
+    }
+
+    const transfer = JSON.parse(raw) as PendingTransfer
     setData(transfer)
 
-    // 이체 기록을 localStorage 히스토리에 저장
-    try {
-      const prev = JSON.parse(localStorage.getItem('transferHistory') || '[]')
-      const now = new Date()
-      const datetime =
-        `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}\n` +
-        `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
-      prev.unshift({
-        id: String(now.getTime()),
-        datetime,
-        bank: transfer.toBank,
-        account: transfer.toAccount,
-        receiver: transfer.receiverName,
-        amount: transfer.amount,
-        memo: '',
-      })
-      localStorage.setItem('transferHistory', JSON.stringify(prev.slice(0, 50)))
-    } catch {}
+    if (loadedTransferRef.current) return
+    loadedTransferRef.current = true
 
-    sessionStorage.removeItem('pendingTransfer')
+    async function executeTransfer() {
+      try {
+        if (!transfer.fromAccountId) {
+          throw new Error('출금계좌 ID가 없습니다.')
+        }
+
+        await executeDepositTransfer({
+          fromAccountId: transfer.fromAccountId,
+          toAccountId: transfer.toAccountId,
+          toAccountNo: transfer.toAccount,
+          amount: transfer.amount,
+          transferType: transfer.transferType || (transfer.toAccountId ? 'INTERNAL' : 'EXTERNAL'),
+          counterpartyBankCode: transfer.toBank === 'AXful' ? '001' : undefined,
+          counterpartyBankName: transfer.toBank,
+          counterpartyName: transfer.receiverName,
+        })
+
+        setTransferComplete(true)
+        await refreshAccounts()
+
+        try {
+          const prev = JSON.parse(localStorage.getItem('transferHistory') || '[]')
+          const now = new Date()
+          const datetime =
+            `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}\n` +
+            `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+
+          prev.unshift({
+            id: String(now.getTime()),
+            datetime,
+            bank: transfer.toBank,
+            account: transfer.toAccount,
+            receiver: transfer.receiverName,
+            amount: transfer.amount,
+            memo: '',
+          })
+          localStorage.setItem('transferHistory', JSON.stringify(prev.slice(0, 50)))
+        } catch {}
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } }; message?: string }
+        setTransferError(error.response?.data?.message || error.message || '이체 처리 중 오류가 발생했습니다.')
+      } finally {
+        sessionStorage.removeItem('pendingTransfer')
+      }
+    }
+
+    executeTransfer()
   }, [router])
 
   if (!data) return null
 
   const fromAcc = accounts.find(a =>
-    a.apiAccountId === data?.fromAccountId ||
-    a.id === data?.fromAccountViewId ||
-    a.number === data?.fromNumber
+    a.apiAccountId === data.fromAccountId ||
+    a.id === data.fromAccountViewId ||
+    a.number === data.fromNumber
   )
-  const remainingBalance = (fromAcc?.balance ?? 0) - (data?.amount ?? 0)
+  const remainingBalance = transferComplete
+    ? (fromAcc?.balance ?? 0)
+    : (fromAcc?.balance ?? 0) - data.amount
 
   return (
     <div className="max-w-kb-container mx-auto px-6">
       <div className="flex">
         <TransferSidebar />
 
-        {/* ===== 본문 ===== */}
         <main className="flex-1 pl-8 pt-4 pb-12">
           <h1 className="text-[20px] font-bold text-kb-text mb-5">계좌이체</h1>
 
-          {/* 완료 메시지 */}
           <div className="border border-kb-border p-5 mb-6 flex items-center gap-5">
-            {/* PC + 체크 아이콘 */}
             <div className="flex-shrink-0 relative w-16 h-16">
               <svg viewBox="0 0 64 64" fill="none" className="w-16 h-16">
-                <rect x="6" y="10" width="40" height="28" rx="2" fill="#D8D8D8" stroke="#BBBBBB" strokeWidth="1.5"/>
-                <rect x="18" y="38" width="16" height="5" rx="1" fill="#BBBBBB"/>
-                <rect x="12" y="43" width="28" height="3" rx="1" fill="#BBBBBB"/>
-                <circle cx="48" cy="14" r="10" fill="#FFCC00" stroke="white" strokeWidth="2"/>
-                <polyline points="43,14 47,18 54,10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <rect x="6" y="10" width="40" height="28" rx="2" fill="#D8D8D8" stroke="#BBBBBB" strokeWidth="1.5" />
+                <rect x="18" y="38" width="16" height="5" rx="1" fill="#BBBBBB" />
+                <rect x="12" y="43" width="28" height="3" rx="1" fill="#BBBBBB" />
+                <circle cx="48" cy="14" r="10" fill="#FFCC00" stroke="white" strokeWidth="2" />
+                <polyline points="43,14 47,18 54,10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div>
-              <p className="text-[15px] font-bold mb-1" style={{ color: '#2563EB' }}>즉시이체가 완료되었습니다.</p>
-              <p className="text-[12px] text-kb-text-muted">* 타행계좌로의 이체는 해당 은행의 사정에 따라 입금이 다소 지연될 수 있습니다.</p>
+              <p className={`text-[15px] font-bold mb-1 ${transferError ? 'text-kb-red' : 'text-kb-blue'}`}>
+                {transferError || '즉시이체가 완료되었습니다.'}
+              </p>
+              <p className="text-[12px] text-kb-text-muted">
+                * 타행계좌로의 이체는 해당 은행의 사정에 따라 입금이 다소 지연될 수 있습니다.
+              </p>
             </div>
           </div>
 
-          {/* 이체결과 확인 */}
           <div className="mb-5">
             <div className="flex justify-between items-center mb-2">
               <p className="text-[14px] font-bold text-kb-text">이체결과 확인</p>
@@ -115,11 +165,11 @@ export default function TransferResultPage() {
                   <th className="border border-kb-border px-3 py-2 text-center font-semibold">출금계좌번호</th>
                   <th className="border border-kb-border px-3 py-2 text-center font-semibold">입금계좌번호</th>
                   <th className="border border-kb-border px-3 py-2 text-center font-semibold">
-                    이체금액(원)<br/>
-                    <span className="font-normal text-kb-text-muted">수수료(원)</span>
+                    이체금액(원)<br />
+                    <span className="font-normal text-kb-text-muted">수수료</span>
                   </th>
                   <th className="border border-kb-border px-3 py-2 text-center font-semibold">
-                    받는분 예금주명<br/>
+                    받는분 예금주명<br />
                     <span className="font-normal text-kb-text-muted">(실제 예금주명)</span>
                   </th>
                   <th className="border border-kb-border px-3 py-2 text-center font-semibold">결과</th>
@@ -133,7 +183,8 @@ export default function TransferResultPage() {
                     <p>{data.toAccount}</p>
                     <button className="text-[11px] border border-kb-border px-1.5 py-0.5 mt-1 text-kb-text-muted hover:bg-kb-beige-light">
                       <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 inline" stroke="currentColor" strokeWidth="1.5">
-                        <rect x="4" y="4" width="9" height="10" rx="1"/><rect x="2" y="2" width="9" height="10" rx="1" fill="white"/>
+                        <rect x="4" y="4" width="9" height="10" rx="1" />
+                        <rect x="2" y="2" width="9" height="10" rx="1" fill="white" />
                       </svg>
                     </button>
                   </td>
@@ -143,11 +194,13 @@ export default function TransferResultPage() {
                   </td>
                   <td className="border border-kb-border px-3 py-3 text-center">{data.receiverName}</td>
                   <td className="border border-kb-border px-3 py-3 text-center">
-                    <p className="font-semibold text-kb-text">정상</p>
+                    <p className={`font-semibold ${transferError ? 'text-kb-red' : 'text-kb-text'}`}>
+                      {transferError ? '오류' : '정상'}
+                    </p>
                     <button className="text-[11px] border border-kb-border px-2 py-0.5 mt-1 text-kb-text-muted hover:bg-kb-beige-light flex items-center gap-0.5 mx-auto">
                       알림
                       <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M2 10L10 2M10 2H5M10 2v5"/>
+                        <path d="M2 10L10 2M10 2H5M10 2v5" />
                       </svg>
                     </button>
                   </td>
@@ -159,7 +212,6 @@ export default function TransferResultPage() {
             </p>
           </div>
 
-          {/* 버튼 그룹 */}
           <div className="flex justify-center gap-2 mb-6">
             <Link href="/transfer/inquiry"
               className="bg-kb-yellow px-8 py-2.5 text-[14px] font-bold text-kb-text hover:brightness-95">
@@ -174,13 +226,12 @@ export default function TransferResultPage() {
             </Link>
           </div>
 
-          {/* 안내 박스 */}
           <div className="border border-kb-border p-4 text-[12px] space-y-1.5">
-            <p className="text-kb-text-muted">* 인터넷뱅킹 종료 시 안전한 금융거래를 위하여 반드시 [로그아웃] 버튼을 눌러 종료하시기 바랍니다.</p>
+            <p className="text-kb-text-muted">* 인터넷뱅킹 종료 전 안전한 금융거래를 위하여 반드시 [로그아웃] 버튼을 눌러 종료하시기 바랍니다.</p>
             <p>
-              <span className="text-kb-text-muted">· 고객님의 소중한 </span>
+              <span className="text-kb-text-muted">* 고객님의 소중한 </span>
               <span className="underline text-kb-text-body cursor-pointer">금융자산</span>
-              <span className="text-kb-text-muted"> 보호를 위해 이체한도 조회 후 평소 이체금액을 감안하여 이체한도를 조정할 수 있습니다.</span>
+              <span className="text-kb-text-muted"> 보호를 위해 이체한도 조회 및 감소 이체금액을 감안하여 이체한도를 조정하시기 바랍니다.</span>
             </p>
             <Link href="/banking/transfer-limit"
               className="inline-block border border-kb-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light mt-1">

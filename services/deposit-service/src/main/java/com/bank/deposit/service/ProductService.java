@@ -2,6 +2,7 @@ package com.bank.deposit.service;
 
 import com.bank.deposit.domain.entity.*;
 import com.bank.deposit.domain.enums.*;
+import com.bank.deposit.dto.response.ProductResponse;
 import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.exception.ErrorCode;
 import com.bank.deposit.repository.*;
@@ -11,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +43,21 @@ public class ProductService {
     public Product findById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
+    }
+
+    public List<ProductResponse> findAllResponses(ProductType productType, ProductStatus productStatus) {
+        List<Product> products = findAll(productType, productStatus);
+        Map<Long, BigDecimal> bestRateByProductId = calculateBestRates(products);
+        return products.stream()
+                .map(product -> ProductResponse.from(product, bestRateByProductId.get(product.getProductId())))
+                .toList();
+    }
+
+    public ProductResponse findResponseById(Long id) {
+        Product product = findById(id);
+        BigDecimal bestRate = calculateBestRate(product,
+                interestRateRepository.findByProductIdAndIsActive(id, true));
+        return ProductResponse.from(product, bestRate);
     }
 
     @Transactional
@@ -212,6 +230,57 @@ public class ProductService {
     // InterestRates
     public List<ProductInterestRate> findInterestRates(Long productId) {
         return interestRateRepository.findByProductId(productId);
+    }
+
+    private Map<Long, BigDecimal> calculateBestRates(List<Product> products) {
+        if (products.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, Product> productById = products.stream()
+                .filter(product -> product.getProductId() != null)
+                .collect(Collectors.toMap(Product::getProductId, product -> product));
+        if (productById.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, List<ProductInterestRate>> ratesByProductId = interestRateRepository
+                .findByProductIdInAndIsActive(productById.keySet().stream().toList(), true)
+                .stream()
+                .collect(Collectors.groupingBy(ProductInterestRate::getProductId));
+
+        return ratesByProductId.entrySet().stream()
+                .map(entry -> new java.util.AbstractMap.SimpleEntry<>(
+                        entry.getKey(),
+                        calculateBestRate(productById.get(entry.getKey()), entry.getValue())))
+                .filter(entry -> entry.getValue() != null)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private BigDecimal calculateBestRate(Product product, List<ProductInterestRate> rates) {
+        if (rates == null || rates.isEmpty()) {
+            return null;
+        }
+
+        BigDecimal baseRate = rates.stream()
+                .filter(rate -> rate.getRateType() == RateType.BASE || rate.getRateType() == RateType.PERIOD_BASE)
+                .map(ProductInterestRate::getRate)
+                .max(BigDecimal::compareTo)
+                .orElse(null);
+
+        BigDecimal preferentialRate = rates.stream()
+                .filter(rate -> rate.getRateType() == RateType.PREFERENTIAL)
+                .map(ProductInterestRate::getRate)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (baseRate == null) {
+            if (preferentialRate.compareTo(BigDecimal.ZERO) <= 0) {
+                return null;
+            }
+            baseRate = product.getBaseInterestRate() != null ? product.getBaseInterestRate() : BigDecimal.ZERO;
+        }
+
+        return baseRate.add(preferentialRate);
     }
 
     public ProductInterestRate findInterestRate(Long productId, Long rateId) {

@@ -11,6 +11,12 @@ const MONTH_BUTTONS = ['05월', '04월', '03월']
 const YEARS = ['2026', '2025', '2024']
 const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12']
 
+function displayTransferMemo(memo?: string) {
+  const value = memo?.trim()
+  if (value === '이체' || value === '인터넷이체') return '인터넷 이체'
+  return value ?? ''
+}
+
 export default function TransactionsPage() {
   const [selectedAccount, setSelectedAccount] = useState('')
   const [calAccount, setCalAccount] = useState('')
@@ -38,6 +44,12 @@ export default function TransactionsPage() {
       try {
         const accs = await fetchDepositAccountViewModels(customerId)
         setAccounts(accs)
+        if (accs.length > 0) {
+          const firstTransferable = accs.find(account => account.rawAccountType === 'DEPOSIT' && account.isWithdrawable !== false)
+          const defaultAccount = firstTransferable ?? accs[0]
+          setSelectedAccount(defaultAccount.id)
+          setCalAccount(defaultAccount.id)
+        }
       } catch {
         setAccounts([])
       } finally {
@@ -507,6 +519,7 @@ export default function TransactionsPage() {
                         const isExpanded = expandedTxId === tx.transactionId
                         const isIn = tx.directionType === 'IN'
                         const amt = Number(tx.amount)
+                        const transferMemo = displayTransferMemo(tx.transactionMemo)
                         return (
                           <Fragment key={tx.transactionId}>
                             <tr
@@ -525,8 +538,10 @@ export default function TransactionsPage() {
                               <td className="border border-kb-border px-2 py-2 text-right text-kb-blue">
                                 {isIn ? formatNumber(amt) : ''}
                               </td>
-                              <td className="border border-kb-border px-2 py-2 text-right">-</td>
-                              <td className="border border-kb-border px-2 py-2 text-center">{tx.transactionMemo ?? ''}</td>
+                              <td className="border border-kb-border px-2 py-2 text-right">
+                                {tx.balanceAfter !== undefined ? formatNumber(Number(tx.balanceAfter)) : '-'}
+                              </td>
+                              <td className="border border-kb-border px-2 py-2 text-center">{transferMemo}</td>
                               <td className="border border-kb-border px-2 py-2 text-center"></td>
                             </tr>
                             {isExpanded && (
@@ -556,10 +571,10 @@ export default function TransactionsPage() {
                                         <span className="text-kb-text-muted w-20">적요</span>
                                         <span className="text-kb-text">{tx.transactionSummary || tx.transactionType}</span>
                                       </div>
-                                      {tx.transactionMemo && (
+                                      {transferMemo && (
                                         <div className="flex gap-3">
                                           <span className="text-kb-text-muted w-20">송금메모</span>
-                                          <span className="text-kb-text">{tx.transactionMemo}</span>
+                                          <span className="text-kb-text">{transferMemo}</span>
                                         </div>
                                       )}
                                       <div className="flex gap-3">
