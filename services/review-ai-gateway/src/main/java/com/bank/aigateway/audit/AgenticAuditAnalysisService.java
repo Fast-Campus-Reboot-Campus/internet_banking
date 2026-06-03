@@ -82,7 +82,7 @@ public class AgenticAuditAnalysisService {
 
             metrics.recordTokens(req.analysisType(), loopResult.inputTokens(), loopResult.outputTokens());
 
-            if (loopResult.turnsUsed() >= AgenticLoop.MAX_TURNS) {
+            if (loopResult.timedOut()) {
                 metrics.recordLoopTimeout(req.analysisType());
             }
 
