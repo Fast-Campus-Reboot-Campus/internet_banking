@@ -18,7 +18,6 @@ const NAV: SidebarItem[] = [
       { label: '자동차대출',           href: '/products/loan/auto' },
       { label: '집단중도금/이주비대출', href: '/products/loan/group' },
       { label: '주택도시기금대출',      href: '/products/loan/khfc' },
-      { label: '개인사업자대출',        href: '/products/loan/biz' },
     ],
   },
   {
