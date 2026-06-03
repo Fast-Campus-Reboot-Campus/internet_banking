@@ -190,6 +190,200 @@ services:
       retries: 5
 
   # =============================================================
+  # Application Services
+  # =============================================================
+
+  customer-service:
+    build:
+      context: .
+      dockerfile: services/customer-service/Dockerfile
+    container_name: ib-customer-service
+    environment:
+      CUSTOMER_APP_PORT: 8081
+      CUSTOMER_DB_HOST: customer-db
+      CUSTOMER_DB_PORT: 5432
+      CUSTOMER_DB_NAME: ${CUSTOMER_DB_NAME:-customer_db}
+      CUSTOMER_DB_USER: ${CUSTOMER_DB_USER:-customer}
+      CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:-customer}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
+      LOG_DIR: /logs
+    depends_on:
+      customer-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  deposit-service:
+    build:
+      context: .
+      dockerfile: services/deposit-service/Dockerfile
+    container_name: ib-deposit-service
+    environment:
+      DEPOSIT_APP_PORT: 8082
+      DEPOSIT_DB_HOST: deposit-db
+      DEPOSIT_DB_PORT: 5432
+      DEPOSIT_DB_NAME: ${DEPOSIT_DB_NAME:-deposit_db}
+      DEPOSIT_DB_USER: ${DEPOSIT_DB_USER:-deposit}
+      DEPOSIT_DB_PASSWORD: ${DEPOSIT_DB_PASSWORD:-deposit}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOG_DIR: /logs
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  loan-service:
+    build:
+      context: .
+      dockerfile: services/loan-service/Dockerfile
+    container_name: ib-loan-service
+    environment:
+      LOAN_APP_PORT: 8083
+      LOAN_DB_HOST: loan-db
+      LOAN_DB_PORT: 5432
+      LOAN_DB_NAME: ${LOAN_DB_NAME:-loan_db}
+      LOAN_DB_USER: ${LOAN_DB_USER:-loan}
+      LOAN_DB_PASSWORD: ${LOAN_DB_PASSWORD:-loan}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOG_DIR: /logs
+    depends_on:
+      loan-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: ib-payment-service
+    environment:
+      PAYMENT_APP_PORT: 8084
+      PAYMENT_DB_HOST: payment-db
+      PAYMENT_DB_PORT: 5432
+      PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+      PAYMENT_DB_USER: ${PAYMENT_DB_USER:-payment}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment}
+      KFTC_KAFKA_BOOTSTRAP: kafka:29092
+      BOK_KAFKA_BOOTSTRAP: kafka:29092
+      INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
+      LOG_DIR: /logs
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  master-service:
+    build:
+      context: .
+      dockerfile: services/master-service/Dockerfile
+    container_name: ib-master-service
+    environment:
+      MASTER_APP_PORT: 8085
+      MASTER_DB_HOST: master-db
+      MASTER_DB_PORT: 5432
+      MASTER_DB_NAME: ${MASTER_DB_NAME:-master_db}
+      MASTER_DB_USER: ${MASTER_DB_USER:-master}
+      MASTER_DB_PASSWORD: ${MASTER_DB_PASSWORD:-master}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_DIR: /logs
+    depends_on:
+      master-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8085/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai-service/Dockerfile
+    container_name: ib-ai-service
+    environment:
+      AI_APP_PORT: 8086
+      AI_DB_HOST: ai-db
+      AI_DB_PORT: 5432
+      AI_DB_NAME: ${AI_DB_NAME:-ai_db}
+      AI_DB_USER: ${AI_DB_USER:-ai}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:-ai}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_DIR: /logs
+    depends_on:
+      ai-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  consultation-service:
+    build:
+      context: services/consultation-service
+      dockerfile: Dockerfile
+    container_name: ib-consultation-service
+    ports:
+      - "${CONSULTATION_APP_PORT:-8087}:8087"
+    environment:
+      CONSULTATION_DATABASE_URL: postgresql+psycopg://${DEPOSIT_DB_USER:-deposit}:${DEPOSIT_DB_PASSWORD:-deposit}@deposit-db:5432/${DEPOSIT_DB_NAME:-deposit_db}
+      CONSULTATION_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONSULTATION_KAFKA_ENABLED: "false"
+      CONSULTATION_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      LOG_DIR: /logs
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # =============================================================
   # Monitoring — Metrics (Prometheus + Grafana)
   # =============================================================
 
@@ -351,7 +545,7 @@ services:
   gateway-service:
     build:
       context: .
-      dockerfile: services/gateway-service/Dockerfile
+      dockerfile: services/api-gateway/Dockerfile
     container_name: ib-gateway
     ports:
       - "${GATEWAY_APP_PORT:-8080}:8080"
@@ -361,18 +555,30 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
       CUSTOMER_SERVICE_HOST: customer-service
-      CUSTOMER_APP_PORT: ${CUSTOMER_APP_PORT:-8081}
+      CUSTOMER_SERVICE_PORT: 8081
       DEPOSIT_SERVICE_HOST: deposit-service
-      DEPOSIT_APP_PORT: ${DEPOSIT_APP_PORT:-8082}
+      DEPOSIT_SERVICE_PORT: ${DEPOSIT_APP_PORT:-8082}
       LOAN_SERVICE_HOST: loan-service
-      LOAN_APP_PORT: ${LOAN_APP_PORT:-8083}
+      LOAN_SERVICE_PORT: ${LOAN_APP_PORT:-8083}
       PAYMENT_SERVICE_HOST: payment-service
-      PAYMENT_APP_PORT: ${PAYMENT_APP_PORT:-8084}
+      PAYMENT_SERVICE_PORT: ${PAYMENT_APP_PORT:-8084}
       MASTER_SERVICE_HOST: master-service
-      MASTER_APP_PORT: ${MASTER_APP_PORT:-8085}
+      MASTER_SERVICE_PORT: ${MASTER_APP_PORT:-8085}
       AI_SERVICE_HOST: ai-service
-      AI_APP_PORT: ${AI_APP_PORT:-8086}
+      AI_SERVICE_PORT: ${AI_APP_PORT:-8086}
     depends_on:
+      customer-service:
+        condition: service_healthy
+      deposit-service:
+        condition: service_healthy
+      loan-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      master-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
