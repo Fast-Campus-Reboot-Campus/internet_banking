@@ -47,7 +47,7 @@ class AgenticAuditAnalysisServiceTest {
     void BIAS_DETECTION_분석_정상_반환() {
         AuditAnalysisRequest req = biasRequest();
         when(agenticLoop.run(any(), any(), any(), any()))
-                .thenReturn(new AgenticLoopResult("{}", 100, 80, 2));
+                .thenReturn(new AgenticLoopResult("{}", 100, 80, 2, false));
         when(parser.parse("{}"))
                 .thenReturn(new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "편향 의심", 0.85, List.of()));
 
@@ -64,7 +64,7 @@ class AgenticAuditAnalysisServiceTest {
     void COMPLIANCE_VERIFICATION_분석_정상_반환() {
         AuditAnalysisRequest req = complianceRequest();
         when(agenticLoop.run(any(), any(), any(), any()))
-                .thenReturn(new AgenticLoopResult("{}", 120, 90, 1));
+                .thenReturn(new AgenticLoopResult("{}", 120, 90, 1, false));
         when(parser.parse("{}"))
                 .thenReturn(new AuditResponseParser.ParsedAuditResult("COMPLIANT", "규정 준수", 0.93, List.of()));
 
@@ -88,7 +88,7 @@ class AgenticAuditAnalysisServiceTest {
     void agenticLoop에_toolRegistry_정의_전달() {
         AuditAnalysisRequest req = biasRequest();
         when(agenticLoop.run(any(), any(), any(), any()))
-                .thenReturn(new AgenticLoopResult("{}", 50, 40, 1));
+                .thenReturn(new AgenticLoopResult("{}", 50, 40, 1, false));
         when(parser.parse(any()))
                 .thenReturn(new AuditResponseParser.ParsedAuditResult("NO_BIAS_DETECTED", "", 0.9, List.of()));
 
@@ -103,7 +103,7 @@ class AgenticAuditAnalysisServiceTest {
     void 토큰_메트릭_기록() {
         AuditAnalysisRequest req = biasRequest();
         when(agenticLoop.run(any(), any(), any(), any()))
-                .thenReturn(new AgenticLoopResult("{}", 300, 150, 3));
+                .thenReturn(new AgenticLoopResult("{}", 300, 150, 3, false));
         when(parser.parse(any()))
                 .thenReturn(new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "", 0.7, List.of()));
 
@@ -121,7 +121,7 @@ class AgenticAuditAnalysisServiceTest {
                 List.of()
         );
         when(agenticLoop.run(any(), any(), any(), any()))
-                .thenReturn(new AgenticLoopResult("{}", 100, 80, 1));
+                .thenReturn(new AgenticLoopResult("{}", 100, 80, 1, false));
         when(parser.parse(any()))
                 .thenReturn(new AuditResponseParser.ParsedAuditResult("BIAS_SUSPECTED", "", 0.8, List.of()));
 
