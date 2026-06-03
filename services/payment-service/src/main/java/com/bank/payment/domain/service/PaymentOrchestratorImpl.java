@@ -17,12 +17,10 @@ import com.bank.payment.outbound.feign.DepositAccountClient;
 import com.bank.payment.outbound.feign.DepositBalanceClient;
 import com.bank.payment.outbound.feign.DepositErrorMapper;
 import com.bank.payment.outbound.feign.dto.AccountInquiryData;
-import com.bank.payment.outbound.feign.dto.BalanceInquiryData;
 import com.bank.payment.outbound.feign.dto.BalanceTxData;
 import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.HolderInquiryData;
-import com.bank.payment.outbound.feign.dto.LimitInquiryData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
@@ -425,11 +423,12 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             }
         }
 
-        // A-2 예금주조회 (송신계좌)
-        HolderInquiryData senderHolder = depositAccountClient.getHolder(sender);
-        recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/accounts/" + sender + "/holder", "SUCCESS");
-        String senderHolderName = senderHolder.holderName();
+        // A-2 예금주조회 (송신계좌) — deposit by-number 응답(AccountInquiryData)에 holderName 없음,
+        // deposit holder API도 미제공(D-REQ-5: 예금주명은 customer-service 영역). 호출 생략,
+        // 요청 신원(command.userId())으로 박제. 수신 타행 박제 패턴과 동일.
+        String senderHolderName = command.userId();
+        recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "internal", "GET",
+                "internal:command.userId", "SUCCESS");
 
         // A-2 예금주조회 (수신계좌) — 자행만. 타행은 요청값 그대로 박제 (KFTC가 수신측 검증)
         String receiverHolderName;
@@ -489,11 +488,11 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             throw new PaymentValidationException("ACCOUNT_RESTRICTED", "송신계좌 사고신고(실행시)");
         }
 
-        // A-2 예금주조회 (송신계좌) — 실행 시 fresh 조회로 senderHolderName 확보
-        HolderInquiryData senderHolder = depositAccountClient.getHolder(sender);
-        recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/accounts/" + sender + "/holder", "SUCCESS", "SUCCESS", attempt);
-        String senderHolderName = senderHolder.holderName();
+        // A-2 예금주조회 (송신계좌) — deposit holder API 미제공으로 호출 생략.
+        // 요청 신원(command.userId())으로 박제 (등록 시와 동일 패턴).
+        String senderHolderName = command.userId();
+        recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "internal", "GET",
+                "internal:command.userId", "SUCCESS", "SUCCESS", attempt);
 
         // receiver: 등록 시 박제된 snapshot 을 그대로 사용 (재조회/덮어쓰기 없음)
         return new ExternalValidationResult(senderHolderName, pi.getReceiverHolderNameSnap());
@@ -502,38 +501,48 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     /**
      * Step 2b: B 검증 (잔액·한도). 즉시이체 전용 — 예약등록 경로에서는 호출하지 않음.
      * B-1 잔액 → B-2 한도. 트랜잭션 밖.
+     *
+     * deposit 실서비스에 별도 /balances·/limits 엔드포인트 없음(D-REQ-3/4 미해소) →
+     * 계좌조회 응답(AccountInquiryData)의 balance/dailyWithdrawLimit로 검증.
      */
     private void step2b_executeValidation(PaymentInstruction pi, PaymentCommand command) {
         String piId = pi.getPaymentInstructionId();
         String sender = command.senderAccountId();
+        BigDecimal needed = command.transferAmount();
+        String byNumberPath = "/api/accounts/by-number/" + sender;
 
-        // B-1 잔액조회 (송신계좌) — 결과 확인 후 박제 (FAIL/SUCCESS 분기)
-        DepositResponse<BalanceInquiryData> balanceResp = depositBalanceClient.getBalance(sender);
-        BalanceInquiryData balance = balanceResp.data();
-        long needed = command.transferAmount().longValueExact();
-        if (balance.availableBalance() < needed) {
+        AccountInquiryData senderAcc;
+        try {
+            senderAcc = depositAccountClient.getAccountByNo(sender);
+        } catch (DepositInboundFailureException e) {
             recordCall(piId, "BALANCE_INQUIRY", "SENDER", "deposit", "GET",
-                    "/api/v1/balances/" + sender, balanceResp.code(), "FAIL");
+                    byNumberPath, e.getDepositResponseCode(), "FAIL");
+            throw new PaymentValidationException(
+                    DepositErrorMapper.toFailureCategory(e.getDepositResponseCode()), e.getMessage());
+        }
+
+        // B-1 잔액검증 — balance=availableBalance (D-REQ-3: deposit 가용잔액 별도 없음, balance로 대체).
+        BigDecimal balance = senderAcc.balance();
+        if (balance == null || balance.compareTo(needed) < 0) {
+            recordCall(piId, "BALANCE_INQUIRY", "SENDER", "deposit", "GET",
+                    byNumberPath, "DEP-0000", "FAIL");
             throw new PaymentValidationException("INSUFFICIENT_BALANCE",
-                    "잔액 부족: 가용 " + balance.availableBalance() + " < 필요 " + needed);
+                    "잔액 부족: 가용 " + balance + " < 필요 " + needed);
         }
         recordCall(piId, "BALANCE_INQUIRY", "SENDER", "deposit", "GET",
-                "/api/v1/balances/" + sender, balanceResp.code());
+                byNumberPath, "DEP-0000");
 
-        // B-2 한도조회 (송신계좌)
-        DepositResponse<LimitInquiryData> limitResp = depositBalanceClient.getLimit(sender, null);
+        // B-2 한도검증 — Account.dailyWithdrawLimit (BigDecimal nullable). null=한도 미설정 → 스킵.
+        // D-REQ-4 미해소: perTx/daily/monthly 분리 없음. dailyWithdrawLimit 단일 한도로 단순 비교.
+        BigDecimal dailyLimit = senderAcc.dailyWithdrawLimit();
+        if (dailyLimit != null && needed.compareTo(dailyLimit) > 0) {
+            recordCall(piId, "LIMIT_CHECK", "SENDER", "deposit", "GET",
+                    byNumberPath, "DEP-0000", "FAIL");
+            throw new PaymentValidationException("LIMIT_EXCEEDED",
+                    "이체 한도 초과: 요청 " + needed + " > 1일 한도 " + dailyLimit);
+        }
         recordCall(piId, "LIMIT_CHECK", "SENDER", "deposit", "GET",
-                "/api/v1/limits/" + sender, limitResp.code());
-        LimitInquiryData limit = limitResp.data();
-        if (needed > limit.perTxLimit()) {
-            throw new PaymentValidationException("LIMIT_EXCEEDED", "1회 한도 초과");
-        }
-        if (needed > limit.dailyRemaining()) {
-            throw new PaymentValidationException("LIMIT_EXCEEDED", "일일 한도 초과");
-        }
-        if (needed > limit.monthlyRemaining()) {
-            throw new PaymentValidationException("LIMIT_EXCEEDED", "월 한도 초과");
-        }
+                byNumberPath, "DEP-0000");
     }
 
     // ── Step 3: 출금 (B-3, 트랜잭션 밖) ─────────────────────────────────────
@@ -565,8 +574,10 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     "/api/transactions/withdraw", e.getDepositResponseCode(), "FAIL");
             throw e;
         }
+        // ★deposit 응답 박제: BalanceTxData(transactionId Long PK 포함) → response_body JSONB
+        // B-5 PATCH /transactions/{transactionId}/cancel 재시작 시 tx.transactionId 복원용
         String callId = recordCall(piId, "BALANCE_WITHDRAW", "SENDER", "deposit", "POST",
-                "/api/transactions/withdraw", "SUCCESS");
+                "/api/transactions/withdraw", "SUCCESS", (Object) tx);
         return new WithdrawStepResult(tx, callId);
     }
 
@@ -600,8 +611,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     "/api/transactions/deposit", e.getDepositResponseCode(), "FAIL");
             throw e;
         }
+        // ★deposit 응답 박제: BalanceTxData → response_body JSONB
         recordCall(piId, "BALANCE_DEPOSIT", "RECEIVER", "deposit", "POST",
-                "/api/transactions/deposit", "SUCCESS");
+                "/api/transactions/deposit", "SUCCESS", (Object) tx);
         return tx;
     }
 
@@ -623,7 +635,8 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         var resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
         recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
                 "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
-                originalWithdrawCallId);  // ← compensation_target_call_id = 원 B-3 callId
+                originalWithdrawCallId,  // ← compensation_target_call_id = 원 B-3 callId
+                (Object) resp.data());   // ★박제: WithdrawCancelData → response_body JSONB
     }
 
     // ── F2: KFTC 거절 보상 ────────────────────────────────────────────────────
@@ -1098,22 +1111,39 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         DepositResponse<WithdrawCancelData> resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
         recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
                 "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
-                originalCallId);
+                originalCallId, (Object) resp.data());  // ★박제: WithdrawCancelData
         return resp.data();
     }
 
     /**
-     * B-5 응답 JSON에서 depositTransactionNo 추출.
-     * mock에서는 responseBody가 "{}"이므로 "" fallback.
+     * B-3 응답 박제(JSONB)에서 deposit transactionNumber 추출.
+     * BalanceTxData는 @JsonProperty("transactionNumber") 매핑 → 직렬화 키도 "transactionNumber".
+     * 응답 박제 전(혹은 빈객체)이면 "" 반환.
      */
     private String extractDepositTxNo(ExternalCall call) {
         if (call == null) return "";
         try {
             JsonNode body = objectMapper.readTree(call.getResponseBody());
-            return body.path("depositTransactionNo").asText("");
+            return body.path("transactionNumber").asText("");
         } catch (Exception e) {
-            log.warn("[F2] depositTransactionNo 파싱 실패, 빈값 사용. callId={}", call.getCallId());
+            log.warn("[F2] transactionNumber 파싱 실패, 빈값 사용. callId={}", call.getCallId());
             return "";
+        }
+    }
+
+    /**
+     * B-3 응답 박제(JSONB)에서 deposit transactionId(Long PK) 추출. B-5 PATCH 취소용.
+     * 응답 박제 전(혹은 빈객체)이면 null 반환.
+     */
+    private Long extractTransactionId(ExternalCall call) {
+        if (call == null) return null;
+        try {
+            JsonNode body = objectMapper.readTree(call.getResponseBody());
+            JsonNode node = body.path("transactionId");
+            return node.isNumber() ? node.asLong() : null;
+        } catch (Exception e) {
+            log.warn("[B-5] transactionId 파싱 실패, null 사용. callId={}", call.getCallId());
+            return null;
         }
     }
 
@@ -1136,7 +1166,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         DepositResponse<WithdrawCancelData> resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
         recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
                 "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
-                originalCallId);
+                originalCallId, (Object) resp.data());  // ★박제: WithdrawCancelData
         return resp.data();
     }
 
@@ -1151,29 +1181,51 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                               String targetSystem, String httpMethod, String endpointUrl,
                               String responseCode) {
         return recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl,
-                responseCode, "SUCCESS");
+                responseCode, "SUCCESS", 1, null);
+    }
+
+    /** 응답 객체 박제 오버로드: SUCCESS 경로에서 deposit 응답을 response_body JSON으로 보존. */
+    private String recordCall(String piId, String callType, String accountRole,
+                              String targetSystem, String httpMethod, String endpointUrl,
+                              String responseCode, Object responseBody) {
+        return recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl,
+                responseCode, "SUCCESS", 1, responseBody);
     }
 
     private String recordCall(String piId, String callType, String accountRole,
                               String targetSystem, String httpMethod, String endpointUrl,
                               String responseCode, String result) {
         return recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl,
-                responseCode, result, 1);
+                responseCode, result, 1, null);
     }
 
     /** attempt 오버로드: 등록=1, 실행=2. call_idempotency_key = {piId}-{callType}-{accountRole}-{attempt} */
     private String recordCall(String piId, String callType, String accountRole,
                               String targetSystem, String httpMethod, String endpointUrl,
                               String responseCode, String result, int attempt) {
+        return recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl,
+                responseCode, result, attempt, null);
+    }
+
+    /**
+     * 최하위 ORIGINAL 박제 — responseBody 객체를 ObjectMapper로 JSON 직렬화해 response_body 컬럼에 보존.
+     * CLAUDE.md §5(외부 응답 박제) 준수. 직렬화 실패 시 "{}" 로 fallback (JSONB cast 보장).
+     * @param responseBody deposit/KFTC 응답 DTO. null 이면 "{}".
+     */
+    private String recordCall(String piId, String callType, String accountRole,
+                              String targetSystem, String httpMethod, String endpointUrl,
+                              String responseCode, String result, int attempt,
+                              Object responseBody) {
         LocalDateTime now = LocalDateTime.now();
         String callId = idGenerator.nextCallId();
         String callIdemKey = piId + "-" + callType + "-" + accountRole + "-" + attempt;
+        String responseBodyJson = serializeResponseBody(responseBody, callType);
         ExternalCall ec = ExternalCall.of(
                 callId, callIdemKey, piId,
                 callType, targetSystem, endpointUrl, httpMethod,
                 UUID.randomUUID().toString(), "{}", "{}", "",
                 500, now);
-        ec.recordResponse(200, "{}", "{}", responseCode, result, result, 50, now);
+        ec.recordResponse(200, "{}", responseBodyJson, responseCode, result, result, 50, now);
         txService.recordExternalCall(ec);
         return callId;
     }
@@ -1182,16 +1234,41 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     private String recordCall(String piId, String callType, String accountRole,
                               String targetSystem, String httpMethod, String endpointUrl,
                               String responseCode, String result, String compensationTargetCallId) {
+        return recordCall(piId, callType, accountRole, targetSystem, httpMethod, endpointUrl,
+                responseCode, result, compensationTargetCallId, null);
+    }
+
+    /** 보상 박제 + responseBody 객체 직렬화 (B-5 SUCCESS 경로). */
+    private String recordCall(String piId, String callType, String accountRole,
+                              String targetSystem, String httpMethod, String endpointUrl,
+                              String responseCode, String result, String compensationTargetCallId,
+                              Object responseBody) {
         LocalDateTime now = LocalDateTime.now();
         String callId = idGenerator.nextCallId();
         String callIdemKey = piId + "-" + callType + "-" + accountRole + "-1";
+        String responseBodyJson = serializeResponseBody(responseBody, callType);
         ExternalCall ec = ExternalCall.ofCompensation(
                 callId, callIdemKey, piId, compensationTargetCallId,
                 callType, targetSystem, endpointUrl, httpMethod,
                 UUID.randomUUID().toString(), "{}", "{}", "",
                 500, now);
-        ec.recordResponse(200, "{}", "{}", responseCode, result, result, 50, now);
+        ec.recordResponse(200, "{}", responseBodyJson, responseCode, result, result, 50, now);
         txService.recordExternalCall(ec);
         return callId;
+    }
+
+    /**
+     * 응답 DTO → JSON 직렬화. ★String.format 금지(사용자 memo 등 사용자 입력이 들어갈 수 있어
+     * JSON injection 위험) → ObjectMapper 사용. 직렬화 실패 시 JSONB cast 안전을 위해 "{}".
+     */
+    private String serializeResponseBody(Object responseBody, String callType) {
+        if (responseBody == null) return "{}";
+        try {
+            return objectMapper.writeValueAsString(responseBody);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.warn("[recordCall] responseBody 직렬화 실패, '{}' 사용. callType={} error={}",
+                    "{}", callType, e.getMessage());
+            return "{}";
+        }
     }
 }

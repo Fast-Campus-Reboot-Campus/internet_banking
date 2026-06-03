@@ -80,6 +80,7 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
         BigDecimal before = BigDecimal.valueOf(2000000000L);
         BigDecimal amount = request.amount();
         return new BalanceTxData(
+                100045678L,
                 "T-20260516-A-00045678", String.valueOf(request.accountId()),
                 amount, before, before.subtract(amount),
                 "2026-05-16T14:30:00Z", "TRANSFER_OUT");
@@ -95,6 +96,7 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
         BigDecimal before = BigDecimal.valueOf(1000000L);
         BigDecimal amount = request.amount();
         return new BalanceTxData(
+                100067890L,
                 "T-20260516-B-00067890", String.valueOf(request.accountId()),
                 amount, before, before.add(amount),
                 "2026-05-16T14:30:00Z", "TRANSFER_IN");
