@@ -17,15 +17,7 @@ const NAV: SidebarItem[] = [
       { label: '예금해지',         href: '/products/deposit/inquiry/terminate' },
       { label: '해지결과/내역 조회', href: '/products/deposit/inquiry/terminate-result' },
     ],
-  },
-  {
-    label: '예금 관리',
-    expandable: true,
-    children: [
-      { label: '예금전환', href: '/products/deposit/manage/convert' },
-    ],
-  },
-]
+  },]
 
 export default function DepositSidebar() {
   const pathname = usePathname()

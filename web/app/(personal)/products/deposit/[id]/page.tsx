@@ -12,7 +12,6 @@ const DEPOSIT_SIDEBAR = [
   { label: '예금 상품/가입', href: '/products/deposit', active: true },
   { label: '판매중지상품', href: '#' },
   { label: '예금 조회/해지', href: '/products/deposit/inquiry/new' },
-  { label: '예금 관리', href: '/products/deposit/manage/convert' },
   { label: '예금 가이드', href: '#' },
 ]
 
@@ -31,8 +30,8 @@ type ProductInfo = {
 const PRODUCTS: Record<string, ProductInfo> = {
   'axful-regular': {
     name: 'AXful 정기예금',
-    label: 'Digital AXful의 대표 정기예금 / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
+    label: 'Digital AXful의 대표 정기예금 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '1~36개월',
     minAmount: '1백만원 이상',
     rate: '연 2.4%~2.9%',
@@ -58,8 +57,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   },
   'axful-youth': {
     name: 'AXful 청년도약계좌',
-    label: '청년의 자산형성을 응원합니다 / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
+    label: '청년의 자산형성을 응원합니다 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '60개월',
     minAmount: '월 1천원 이상',
     rate: '연 3.5%~6.0%',
@@ -68,8 +67,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   // ── 적금 ──────────────────────────────────────────────────────────────────
   'axful-free': {
     name: 'AXful 내맘대로적금',
-    label: '누구나 쉽게 자유롭게 DIY / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
+    label: '누구나 쉽게 자유롭게 DIY / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '6~36개월',
     minAmount: '월 1만원 이상',
     rate: '연 2.95%~3.55%',
@@ -77,8 +76,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   },
   'axful-dollar': {
     name: 'AXful 달러자적금',
-    label: '달러 가치상승 응원하는 두배이율 / 스타뱅킹',
-    channel: '스타뱅킹',
+    label: '달러 가치상승 응원하는 두배이율 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '6개월',
     minAmount: '월 1만원 이상',
     rate: '연 1%~7.2%',
@@ -86,8 +85,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   },
   'axful-green': {
     name: 'AXful 맑은하늘적금',
-    label: '맑은하늘 인증코드 금리도 Up / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
+    label: '맑은하늘 인증코드 금리도 Up / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '6~36개월',
     minAmount: '월 1만원 이상',
     rate: '연 2.85%~3.85%',
@@ -95,8 +94,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   },
   'axful-soldier': {
     name: 'AXful 장병내일준비적금',
-    label: '국군장병 미래대비 앞날준비 / 스타뱅킹',
-    channel: '스타뱅킹',
+    label: '국군장병 미래대비 앞날준비 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '24개월',
     minAmount: '월 1만원 이상',
     rate: '연 5%~10.5%',
@@ -104,8 +103,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   },
   'axful-star-savings': {
     name: 'AXful 특★한 적금',
-    label: '고객 모두의 높은 수익을 위한 특별한 준비 / 스타뱅킹',
-    channel: '스타뱅킹',
+    label: '고객 모두의 높은 수익을 위한 특별한 준비 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '1~12개월',
     minAmount: '월 1만원 이상',
     rate: '연 2%~6%',
@@ -114,8 +113,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   // ── 입출금자유 ────────────────────────────────────────────────────────────
   'axful-youth-account': {
     name: 'AXful 청년우대통장',
-    label: '만 19~34세 청년을 위한 우대금리 제공 / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
+    label: '만 19~34세 청년을 위한 우대금리 제공 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '기간 제한 없음',
     minAmount: '제한 없음',
     rate: '연 0.1%~2.0%',
@@ -124,8 +123,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   // ── 주택청약 ──────────────────────────────────────────────────────────────
   'housing-savings': {
     name: '주택청약종합저축',
-    label: '내 집 마련의 꿈을 응원합니다 / 인터넷·스타뱅킹',
-    channel: '인터넷·스타뱅킹',
+    label: '내 집 마련의 꿈을 응원합니다 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '24개월 기준',
     minAmount: '월 2만원 이상',
     rate: '연 3.1%',
@@ -133,8 +132,8 @@ const PRODUCTS: Record<string, ProductInfo> = {
   },
   'youth-housing': {
     name: '청년 주택드림 청약통장',
-    label: '청년의 내 집 마련을 응원합니다 / 스타뱅킹',
-    channel: '스타뱅킹',
+    label: '청년의 내 집 마련을 응원합니다 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
     period: '24개월 기준',
     minAmount: '월 2만원 이상',
     rate: '연 3.1%~4.5%',

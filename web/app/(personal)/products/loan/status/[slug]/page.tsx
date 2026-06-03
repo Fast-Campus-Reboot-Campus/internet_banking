@@ -42,7 +42,7 @@ function DocsUpload({ applId }: { applId: number | null }) {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">서류 제출 완료</p>
-      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+      <Link href="/products/loan/status" className="text-[13px] text-[#0D5C47] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
 
@@ -114,7 +114,7 @@ function ConsentForm({ title, consentTypeCd, fields, applId }: {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">동의 제출 완료</p>
-      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+      <Link href="/products/loan/status" className="text-[13px] text-[#0D5C47] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
 
@@ -210,8 +210,8 @@ function ESignForm({ applId }: { applId: number | null }) {
       <p className="text-[16px] font-bold text-kb-text mb-1">대출 실행 완료</p>
       {cntrNo && <p className="text-[13px] text-kb-text-muted mb-1">계약번호: {cntrNo}</p>}
       <p className="text-[13px] text-kb-text-muted mb-4">지정 계좌로 대출금이 지급됩니다.</p>
-      <Link href="/products/loan/manage/payment" className="text-[13px] text-[#1A56DB] hover:underline mr-4">상환 스케줄 확인</Link>
-      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+      <Link href="/products/loan/manage/payment" className="text-[13px] text-[#0D5C47] hover:underline mr-4">상환 스케줄 확인</Link>
+      <Link href="/products/loan/status" className="text-[13px] text-[#0D5C47] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
 

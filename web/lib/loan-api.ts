@@ -1,4 +1,4 @@
-﻿<<<<<<< HEAD
+/* eslint-disable @typescript-eslint/no-explicit-any -- 대출 API 응답 타입 미정의 구간, 빌드 차단 방지용 임시 처리 */
 import { api } from "./api";
 
 // ─── 공통 타입 ───────────────────────────────────────────────

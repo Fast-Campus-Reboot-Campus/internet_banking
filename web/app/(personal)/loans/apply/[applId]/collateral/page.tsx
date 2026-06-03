@@ -168,7 +168,7 @@ export default function CollateralPage() {
 
       <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-[#0D5C47]">담보 등록 및 LTV 계산</h1>
 
-      <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
+      <div className="border border-[#E2F5EF] bg-[#F0FAF7] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
         <p>· 담보 등록 후 감정평가 및 LTV(담보인정비율) 계산이 자동으로 진행됩니다.</p>
         <p>· LTV = 신청금액 ÷ 감정가 × 100. 기본 한도 70%(7,000bps).</p>
       </div>

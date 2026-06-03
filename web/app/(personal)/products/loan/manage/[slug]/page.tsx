@@ -137,7 +137,7 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
             </div>
             <div className="flex gap-4">
               <span className="text-kb-text-muted w-32">승인금리</span>
-              <span className="font-bold text-[#1A56DB]">연 {bpsToRate(contract.totalRateBps)}%</span>
+              <span className="font-bold text-[#0D5C47]">연 {bpsToRate(contract.totalRateBps)}%</span>
             </div>
             <div className="flex gap-4">
               <span className="text-kb-text-muted w-32">승인금액</span>
@@ -218,7 +218,7 @@ function InterestPaymentForm({ contracts, selectedId, setSelectedId }: {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">납입 처리 완료</p>
-      <button onClick={() => setDone(false)} className="text-[13px] text-[#1A56DB] hover:underline">다시 조회</button>
+      <button onClick={() => setDone(false)} className="text-[13px] text-[#0D5C47] hover:underline">다시 조회</button>
     </div>
   )
 
@@ -318,7 +318,7 @@ function RepayForm({ contracts, selectedId, setSelectedId }: {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">상환 처리 완료</p>
-      <button onClick={() => { setDone(false); setAmount('') }} className="text-[13px] text-[#1A56DB] hover:underline">다시 처리</button>
+      <button onClick={() => { setDone(false); setAmount('') }} className="text-[13px] text-[#0D5C47] hover:underline">다시 처리</button>
     </div>
   )
 
@@ -851,7 +851,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-[#b3cce8] bg-[#f0f6ff] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+      <div className="border border-[#E2F5EF] bg-[#F0FAF7] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
         <p>· 외부 보증기관(SGI/HUG/HF) stub — 발급 요청 즉시 ISSUED 처리됩니다.</p>
         <p>· 계약 상태가 SIGNED 또는 ACTIVE인 경우 발급 가능하며, 활성 보증보험이 1건 초과될 수 없습니다.</p>
       </div>

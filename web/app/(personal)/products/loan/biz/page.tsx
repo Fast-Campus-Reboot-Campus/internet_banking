@@ -15,14 +15,14 @@ const FILTER_TABS = [
 ]
 
 const PRODUCT_TYPES = ['전체', '운전자금대출', '시설자금대출', '부동산담보대출', '보증부대출']
-const JOIN_METHODS  = ['전체', '인터넷뱅킹', '스타뱅킹', '영업점']
+const JOIN_METHODS  = ['전체', '인터넷뱅킹', '영업점']
 
 const MOCK_PRODUCTS = [
   { id: 1, badge: '영업점',    badgeColor: 'olive', name: 'AXful 사업자 운전자금대출',     desc: '개인사업자 운영자금을 위한 신용대출',                     limit: '2억원',   rate: '연 5.5% ~ 10.0%' },
   { id: 2, badge: '인터넷뱅킹', badgeColor: 'blue',  name: 'AXful 소상공인 간편대출',       desc: '연 매출 10억 이하 소상공인 전용, 비대면 신청',            limit: '5,000만원', rate: '연 6.0% ~ 11.0%' },
   { id: 3, badge: '영업점',    badgeColor: 'olive', name: 'AXful 사업자 부동산담보대출',   desc: '사업장 또는 보유 부동산을 담보로 자금 지원',               limit: '10억원',  rate: '연 4.5% ~ 7.5%' },
   { id: 4, badge: '영업점',    badgeColor: 'olive', name: 'AXful 보증부 사업자대출',       desc: '신용보증기금·기술보증기금 보증서 담보 대출',               limit: '3억원',   rate: '연 4.0% ~ 6.5%' },
-  { id: 5, badge: '스타뱅킹',  badgeColor: 'gold',  name: 'AXful 사업자 시설자금대출',    desc: '설비·기계 구입 등 시설투자 자금 지원',                     limit: '5억원',   rate: '연 4.8% ~ 8.0%' },
+  { id: 5, badge: '인터넷뱅킹', badgeColor: 'blue',  name: 'AXful 사업자 시설자금대출',    desc: '설비·기계 구입 등 시설투자 자금 지원',                     limit: '5억원',   rate: '연 4.8% ~ 8.0%' },
 ]
 
 const BADGE_STYLE: Record<string, string> = {

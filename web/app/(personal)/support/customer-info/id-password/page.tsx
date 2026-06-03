@@ -134,7 +134,7 @@ export default function IdPasswordPage() {
     setStep('verify')
     setName(''); setAccountNo(''); setAccountPw(''); setLoginId('')
     setNewPw(''); setNewPwConfirm(''); setOldPw('')
-    setSecInput1(''); setSecInput2(''); setError('')
+    setError('')
   }
 
   return (

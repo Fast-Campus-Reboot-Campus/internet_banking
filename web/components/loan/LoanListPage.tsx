@@ -15,7 +15,7 @@ const FILTER_TABS = [
 ]
 
 const PRODUCT_TYPES = ['전체', '직장인', '전문직', '사업자', '연금수급자']
-const JOIN_METHODS  = ['전체', '인터넷뱅킹', '스타뱅킹', '영업점', '스마트대출']
+const JOIN_METHODS  = ['전체', '인터넷뱅킹', '영업점', '스마트대출']
 
 interface Product {
   prodId: number
@@ -170,7 +170,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                     <div key={product.prodId} className="py-5 flex items-center gap-5">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-[11px] font-bold px-2 py-0.5 bg-[#1A56DB] text-white">
+                          <span className="text-[11px] font-bold px-2 py-0.5 bg-[#0D5C47] text-white">
                             인터넷뱅킹
                           </span>
                           <Link href={`${activeHref}/${product.prodId}`}

@@ -12,7 +12,7 @@ const STATUS_LABEL: Record<string, string> = {
   APPROVED: '승인', REJECTED: '거절', CANCELLED: '취소', EXPIRED: '만료',
 }
 const STATUS_COLOR: Record<string, string> = {
-  SUBMITTED: 'text-[#1A56DB]', PRESCREENED: 'text-[#1A56DB]', REVIEWING: 'text-[#C09B3A]',
+  SUBMITTED: 'text-[#0D5C47]', PRESCREENED: 'text-[#0D5C47]', REVIEWING: 'text-[#C09B3A]',
   APPROVED: 'text-green-600', REJECTED: 'text-red-500', CANCELLED: 'text-kb-text-muted', EXPIRED: 'text-kb-text-muted',
 }
 
@@ -108,7 +108,7 @@ export default function LoanStatusPage() {
                         </td>
                         <td className="border border-[#E2F5EF] px-4 py-3 text-center">
                           <Link href={`/loans/apply/result?applId=${appl.applId}`}
-                            className="text-[#1A56DB] hover:underline font-medium">
+                            className="text-[#0D5C47] hover:underline font-medium">
                             {appl.applNo ?? appl.applId}
                           </Link>
                         </td>

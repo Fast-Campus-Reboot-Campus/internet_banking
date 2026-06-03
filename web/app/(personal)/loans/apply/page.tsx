@@ -160,7 +160,7 @@ export default function LoanApplyPage() {
                 className={`border rounded-xl p-6 text-left transition-colors ${
                   selectedProdId === p.prodId ? 'border-kb-text bg-[#0D5C47]/20' : 'border-[#E2F5EF] hover:bg-[#F0FAF7]'}`}>
                 <p className="text-[14px] font-bold text-kb-text mb-1">{p.prodName}</p>
-                <p className="text-[12px] text-kb-blue font-medium">연 {bpsToRate(p.minRateBps)}% ~ {bpsToRate(p.maxRateBps)}%</p>
+                <p className="text-[12px] text-[#0D5C47] font-medium">연 {bpsToRate(p.minRateBps)}% ~ {bpsToRate(p.maxRateBps)}%</p>
                 <p className="text-[12px] text-kb-text-muted mt-1">최대 {formatMax(p.maxAmount)}</p>
               </button>
             ))}
@@ -266,7 +266,7 @@ export default function LoanApplyPage() {
               {previewResult.creditScore != null && (
                 <div className="flex">
                   <div className="w-36 px-5 py-3 bg-[#F0FAF7] font-medium text-kb-text flex-shrink-0">신용점수</div>
-                  <div className="px-5 py-3 font-bold text-[#1A56DB]">{previewResult.creditScore}점</div>
+                  <div className="px-5 py-3 font-bold text-[#0D5C47]">{previewResult.creditScore}점</div>
                 </div>
               )}
               {previewResult.estimatedLimitAmt != null && (

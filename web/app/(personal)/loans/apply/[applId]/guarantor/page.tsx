@@ -139,7 +139,7 @@ export default function GuarantorPage() {
 
       <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-[#0D5C47]">보증인 동의</h1>
 
-      <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
+      <div className="border border-[#E2F5EF] bg-[#F0FAF7] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
         <p>· 보증인을 등록한 후 전자서명을 완료해야 보증이 유효합니다.</p>
         <p>· 보증인의 실명·휴대폰 번호는 마스킹 처리됩니다.</p>
       </div>
