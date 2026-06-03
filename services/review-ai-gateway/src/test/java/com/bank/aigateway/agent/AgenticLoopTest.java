@@ -40,6 +40,7 @@ class AgenticLoopTest {
         assertThat(result.turnsUsed()).isEqualTo(1);
         assertThat(result.inputTokens()).isEqualTo(100);
         assertThat(result.outputTokens()).isEqualTo(80);
+        assertThat(result.timedOut()).isFalse();
         verify(llmClient, times(1)).completeWithTools(any(), any(), any());
     }
 
@@ -74,6 +75,7 @@ class AgenticLoopTest {
 
         assertThat(result.text()).contains("INSUFFICIENT_DATA");
         assertThat(result.turnsUsed()).isEqualTo(AgenticLoop.MAX_TURNS);
+        assertThat(result.timedOut()).isTrue();
         verify(llmClient, times(AgenticLoop.MAX_TURNS)).completeWithTools(any(), any(), any());
     }
 
