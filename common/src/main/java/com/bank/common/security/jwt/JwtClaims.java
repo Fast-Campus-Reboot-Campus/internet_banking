@@ -1,4 +1,4 @@
-﻿package com.bank.common.security.jwt;
+package com.bank.common.security.jwt;
 
 import java.util.List;
 

@@ -7,6 +7,8 @@ import com.bank.customer.cert.repository.CertificateRepository;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.history.domain.CertificateUse;
+import com.bank.customer.history.repository.CertificateUseRepository;
 import com.bank.customer.login.config.EmployeeDirectoryProperties;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.support.CustomerErrorCode;
@@ -22,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -30,83 +33,132 @@ public class CertLoginService {
 
     private static final String RT_KEY_PREFIX = "RT:";
 
-    private final CertificateRepository certificateRepository;
-    private final CredentialRepository credentialRepository;
-    private final CustomerRepository customerRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtProvider jwtProvider;
-    private final JwtProperties jwtProperties;
-    private final StringRedisTemplate redisTemplate;
+    private final CertificateRepository     certificateRepository;
+    private final CredentialRepository      credentialRepository;
+    private final CustomerRepository        customerRepository;
+    private final CertificateUseRepository  certificateUseRepository;
+    private final PasswordEncoder           passwordEncoder;
+    private final JwtProvider               jwtProvider;
+    private final JwtProperties             jwtProperties;
+    private final StringRedisTemplate       redisTemplate;
     private final EmployeeDirectoryProperties employeeDirectory;
 
     /**
      * 인증서 로그인.
      * PIN 검증은 MVP 단계에서 credential.passwordHash 로 위임한다.
-     * (공동인증서·금융인증서·AXful인증서 모두 동일 플로우)
+     * 성공/실패 모두 certificate_use 이력에 기록한다.
      */
     @SuppressWarnings("null")
     @Transactional(noRollbackFor = BusinessException.class)
-    public LoginResponse certLogin(CertLoginRequest request) {
+    public LoginResponse certLogin(CertLoginRequest request, String ip) {
 
         Certificate cert = certificateRepository
                 .findByCertificateSerialNumberAndDeletedAtIsNull(request.certSerialNumber())
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_030));
 
-        if (cert.isLocked()) {
-            throw new BusinessException(CustomerErrorCode.CUST_034);
-        }
-        if (!cert.isActive()) {
-            if (Certificate.STATUS_REVOKED.equals(cert.getCertificateStatusCode())) {
-                throw new BusinessException(CustomerErrorCode.CUST_032);
+        try {
+            if (cert.isLocked()) {
+                throw new BusinessException(CustomerErrorCode.CUST_034);
             }
-            throw new BusinessException(CustomerErrorCode.CUST_031);
-        }
-        if (cert.isExpired()) {
-            throw new BusinessException(CustomerErrorCode.CUST_031);
-        }
+            if (!cert.isActive()) {
+                if (Certificate.STATUS_REVOKED.equals(cert.getCertificateStatusCode())) {
+                    throw new BusinessException(CustomerErrorCode.CUST_032);
+                }
+                throw new BusinessException(CustomerErrorCode.CUST_031);
+            }
+            if (cert.isExpired()) {
+                throw new BusinessException(CustomerErrorCode.CUST_031);
+            }
 
-        // certPinHash 있으면 인증서 암호로 검증, 없으면 로그인 비밀번호로 fallback
-        boolean pinValid;
-        if (cert.getCertPinHash() != null) {
-            pinValid = passwordEncoder.matches(request.pin(), cert.getCertPinHash());
-        } else {
-            var credential = credentialRepository
+            boolean pinValid;
+            if (cert.getCertPinHash() != null) {
+                pinValid = passwordEncoder.matches(request.pin(), cert.getCertPinHash());
+            } else {
+                var credential = credentialRepository
+                        .findByCustomerIdAndDeletedAtIsNull(cert.getCustomerId())
+                        .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_010));
+                pinValid = passwordEncoder.matches(request.pin(), credential.getPasswordHash());
+            }
+
+            if (!pinValid) {
+                cert.recordLoginFailure();
+                String resultCode = cert.isLocked()
+                        ? CertificateUse.RESULT_FAIL_LOCKED
+                        : CertificateUse.RESULT_FAIL_PIN;
+                saveCertUse(cert, ip, resultCode,
+                        cert.isLocked() ? CustomerErrorCode.CUST_034.getCode()
+                                        : CustomerErrorCode.CUST_033.getCode());
+                throw new BusinessException(
+                        cert.isLocked() ? CustomerErrorCode.CUST_034 : CustomerErrorCode.CUST_033);
+            }
+
+            Customer customer = customerRepository
                     .findByCustomerIdAndDeletedAtIsNull(cert.getCustomerId())
-                    .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_010));
-            pinValid = passwordEncoder.matches(request.pin(), credential.getPasswordHash());
+                    .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+
+            if (!customer.isActive()) {
+                throw new BusinessException(CustomerErrorCode.CUST_012);
+            }
+
+            cert.recordLoginSuccess();
+            saveCertUse(cert, ip, CertificateUse.RESULT_SUCCESS, null);
+
+            var emp    = employeeDirectory.findById(customer.getCustomerId());
+            var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
+            var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
+            var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
+
+            String accessToken  = jwtProvider.generateAccessToken(
+                    customer.getCustomerId(), customer.getEmail(), roles, branch, grade);
+            String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
+
+            redisTemplate.opsForValue().set(
+                    RT_KEY_PREFIX + customer.getCustomerId(),
+                    sha256(refreshToken),
+                    Duration.ofMillis(jwtProperties.refreshTokenValidity()));
+
+            return new LoginResponse(customer.getCustomerId(), accessToken, refreshToken);
+
+        } catch (BusinessException e) {
+            // PIN 실패 이외의 실패(만료, 폐기, 잠금 선제 확인)는 여기서 이력 저장
+            if (cert.getCertificateStatusCode() != null) {
+                String resultCode = resolveFailResultCode(e);
+                if (resultCode != null) {
+                    saveCertUse(cert, ip, resultCode, e.getErrorCode().getCode());
+                }
+            }
+            throw e;
         }
+    }
 
-        if (!pinValid) {
-            cert.recordLoginFailure();
-            throw new BusinessException(
-                    cert.isLocked() ? CustomerErrorCode.CUST_034 : CustomerErrorCode.CUST_033);
-        }
+    private void saveCertUse(Certificate cert, String ip, String resultCode, String failureReason) {
+        // MVP: signedDataHash = serial + ip + timestamp 해시, signatureValue = certPinHash 또는 "N/A"
+        String signedData = sha256(cert.getCertificateSerialNumber() + ip + OffsetDateTime.now());
+        String sigValue   = cert.getCertPinHash() != null ? cert.getCertPinHash() : "N/A";
 
-        Customer customer = customerRepository
-                .findByCustomerIdAndDeletedAtIsNull(cert.getCustomerId())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+        certificateUseRepository.save(CertificateUse.builder()
+                .certificateId(cert.getCertificateId())
+                .customerId(cert.getCustomerId())
+                .purposeCode(CertificateUse.PURPOSE_LOGIN)
+                .signedDataHash(signedData)
+                .signatureValue(sigValue)
+                .verificationResultCode(resultCode)
+                .failureReasonCode(failureReason)
+                .requestIp(ip)
+                .requestChannelCode(CertificateUse.CHANNEL_WEB)
+                .usedAt(OffsetDateTime.now())
+                .build());
+    }
 
-        if (!customer.isActive()) {
-            throw new BusinessException(CustomerErrorCode.CUST_012);
-        }
-
-        cert.recordLoginSuccess();
-
-        var emp    = employeeDirectory.findById(customer.getCustomerId());
-        var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
-        var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
-        var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
-
-        String accessToken  = jwtProvider.generateAccessToken(
-                customer.getCustomerId(), customer.getEmail(), roles, branch, grade);
-        String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
-
-        redisTemplate.opsForValue().set(
-                RT_KEY_PREFIX + customer.getCustomerId(),
-                sha256(refreshToken),
-                Duration.ofMillis(jwtProperties.refreshTokenValidity()));
-
-        return new LoginResponse(customer.getCustomerId(), accessToken, refreshToken);
+    /** BusinessException 코드에서 certificate_use 결과 코드 매핑. 이미 saveCertUse를 호출한 경우 null 반환. */
+    private String resolveFailResultCode(BusinessException e) {
+        String code = e.getErrorCode().getCode();
+        return switch (code) {
+            case "CUST_031" -> CertificateUse.RESULT_FAIL_EXPIRED;
+            case "CUST_032" -> CertificateUse.RESULT_FAIL_REVOKED;
+            case "CUST_034" -> null; // PIN 실패 경로에서 이미 저장
+            default         -> null;
+        };
     }
 
     private static String sha256(String input) {

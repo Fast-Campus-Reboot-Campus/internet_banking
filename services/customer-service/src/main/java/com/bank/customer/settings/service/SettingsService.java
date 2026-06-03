@@ -3,8 +3,12 @@ package com.bank.customer.settings.service;
 import com.bank.common.web.BusinessException;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
+import com.bank.customer.customer.domain.CustomerStatusHistory;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.customer.repository.CustomerStatusHistoryRepository;
+import com.bank.customer.history.domain.PasswordHistory;
+import com.bank.customer.history.repository.PasswordHistoryRepository;
 import com.bank.customer.party.domain.Party;
 import com.bank.customer.party.repository.PartyRepository;
 import com.bank.customer.settings.dto.ChangePasswordRequest;
@@ -23,13 +27,17 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SettingsService {
 
-    private static final String RT_KEY_PREFIX = "RT:";
+    private static final String RT_KEY_PREFIX    = "RT:";
+    private static final String CHANNEL_WEB      = "WEB";
+    private static final String REASON_USER_REQ  = "USER_REQUEST";
 
-    private final CustomerRepository customerRepository;
-    private final PartyRepository partyRepository;
-    private final CredentialRepository credentialRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final StringRedisTemplate redisTemplate;
+    private final CustomerRepository               customerRepository;
+    private final PartyRepository                  partyRepository;
+    private final CredentialRepository             credentialRepository;
+    private final CustomerStatusHistoryRepository  customerStatusHistoryRepository;
+    private final PasswordHistoryRepository        passwordHistoryRepository;
+    private final PasswordEncoder                  passwordEncoder;
+    private final StringRedisTemplate              redisTemplate;
 
     @Transactional(readOnly = true)
     public SettingsResponse getSettings(Long customerId) {
@@ -68,13 +76,23 @@ public class SettingsService {
     }
 
     @Transactional
-    public void changePassword(Long customerId, ChangePasswordRequest req) {
+    public void changePassword(Long customerId, ChangePasswordRequest req, String ip) {
         Credential credential = credentialRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
 
         if (!passwordEncoder.matches(req.currentPassword(), credential.getPasswordHash())) {
             throw new BusinessException(CustomerErrorCode.CUST_020);
         }
+
+        // 변경 전 해시를 이력에 먼저 저장
+        passwordHistoryRepository.save(PasswordHistory.builder()
+                .credentialId(credential.getCredentialId())
+                .customerId(customerId)
+                .passwordHash(credential.getPasswordHash())
+                .passwordChangeChannelCode(CHANNEL_WEB)
+                .passwordChangeReasonCode(REASON_USER_REQ)
+                .passwordChangeIp(ip)
+                .build());
 
         credential.changePassword(passwordEncoder.encode(req.newPassword()));
         redisTemplate.delete(RT_KEY_PREFIX + customerId);
@@ -91,9 +109,18 @@ public class SettingsService {
             throw new BusinessException(CustomerErrorCode.CUST_020);
         }
 
-        customer.close(java.time.OffsetDateTime.now(), "CUST_WITHDRAW");
+        java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
+        customer.close(now, "CUST_WITHDRAW");
         credential.close();
         redisTemplate.delete(RT_KEY_PREFIX + customerId);
+
+        customerStatusHistoryRepository.save(
+                CustomerStatusHistory.ofTransition(
+                        customerId, null,
+                        Customer.STATUS_ACTIVE, Customer.STATUS_CLOSED,
+                        CustomerStatusHistory.REASON_CUST_REQ,
+                        "고객 자발적 해지",
+                        now, false));
     }
 
     private Customer findActiveCustomer(Long customerId) {

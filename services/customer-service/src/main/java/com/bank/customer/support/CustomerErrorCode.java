@@ -41,7 +41,49 @@ public enum CustomerErrorCode implements ErrorCode {
 
     // 출금계좌 관리 (050-059)
     CUST_050(HttpStatus.NOT_FOUND,  "출금계좌를 찾을 수 없습니다."),
-    CUST_051(HttpStatus.CONFLICT,   "이미 등록된 출금계좌입니다.");
+    CUST_051(HttpStatus.CONFLICT,   "이미 등록된 출금계좌입니다."),
+
+    // FDS (060-069)
+    CUST_060(HttpStatus.FORBIDDEN,  "비정상 접근이 감지되어 요청이 차단되었습니다."),
+    CUST_061(HttpStatus.CONFLICT,   "이미 존재하는 FDS 룰 코드입니다."),
+    CUST_062(HttpStatus.NOT_FOUND,  "FDS 탐지 결과를 찾을 수 없습니다."),
+    CUST_063(HttpStatus.CONFLICT,   "이미 사고 처리가 등록된 탐지 결과입니다."),
+    CUST_064(HttpStatus.NOT_FOUND,  "FDS 룰을 찾을 수 없습니다."),
+
+    // 등록기기 (070-079)
+    CUST_070(HttpStatus.NOT_FOUND,  "등록된 기기를 찾을 수 없습니다."),
+    CUST_071(HttpStatus.BAD_REQUEST,"지정 PC는 PC 타입 기기만 설정할 수 있습니다."),
+
+    // PIN (080-089)
+    CUST_080(HttpStatus.NOT_FOUND,  "등록된 PIN을 찾을 수 없습니다."),
+    CUST_081(HttpStatus.CONFLICT,   "이미 PIN이 등록된 기기입니다."),
+    CUST_082(HttpStatus.UNAUTHORIZED,"PIN이 올바르지 않습니다."),
+    CUST_083(HttpStatus.FORBIDDEN,  "PIN이 잠겨 있습니다."),
+
+    // 휴대폰 인증 (090-099)
+    CUST_090(HttpStatus.NOT_FOUND,  "인증 요청을 찾을 수 없습니다."),
+    CUST_091(HttpStatus.GONE,       "인증 코드가 만료되었습니다."),
+    CUST_092(HttpStatus.BAD_REQUEST,"인증 코드가 올바르지 않습니다."),
+    CUST_093(HttpStatus.CONFLICT,   "이미 검증된 인증 요청입니다."),
+
+    // 세션 (100-109)
+    CUST_100(HttpStatus.NOT_FOUND,  "세션을 찾을 수 없습니다."),
+
+    // 관계자 역할·관계·컴플라이언스 (110-119)
+    CUST_110(HttpStatus.CONFLICT,   "이미 활성 상태인 역할입니다."),
+    CUST_111(HttpStatus.NOT_FOUND,  "역할을 찾을 수 없습니다."),
+    CUST_112(HttpStatus.BAD_REQUEST,"자기 자신과의 관계는 등록할 수 없습니다."),
+    CUST_113(HttpStatus.CONFLICT,   "이미 존재하는 관계입니다."),
+    CUST_114(HttpStatus.NOT_FOUND,  "관계를 찾을 수 없습니다."),
+    CUST_115(HttpStatus.NOT_FOUND,  "컴플라이언스 정보를 찾을 수 없습니다."),
+
+    // 개인정보·외국인·납세 (120-129)
+    CUST_120(HttpStatus.NOT_FOUND,  "외국인 정보를 찾을 수 없습니다."),
+    CUST_121(HttpStatus.NOT_FOUND,  "납세거주 정보를 찾을 수 없습니다."),
+
+    // 인증수단 (130-139)
+    CUST_130(HttpStatus.NOT_FOUND,  "인증수단을 찾을 수 없습니다."),
+    CUST_131(HttpStatus.BAD_REQUEST,"주 인증수단은 비활성화할 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;

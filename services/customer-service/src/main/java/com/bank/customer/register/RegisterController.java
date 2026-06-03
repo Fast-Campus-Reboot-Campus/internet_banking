@@ -1,8 +1,10 @@
 package com.bank.customer.register;
 
 import com.bank.common.web.ApiResponse;
+import com.bank.customer.register.dto.CorporateRegisterRequest;
 import com.bank.customer.register.dto.RegisterRequest;
 import com.bank.customer.register.dto.RegisterResponse;
+import com.bank.customer.register.service.CorporateRegisterService;
 import com.bank.customer.register.service.RegisterService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +20,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class RegisterController {
 
-    private final RegisterService registerService;
+    private final RegisterService          registerService;
+    private final CorporateRegisterService corporateRegisterService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegisterResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
-        RegisterResponse response = registerService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(registerService.register(request)));
+    }
+
+    @PostMapping("/register/corporate")
+    public ResponseEntity<ApiResponse<RegisterResponse>> registerCorporate(
+            @Valid @RequestBody CorporateRegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(corporateRegisterService.register(request)));
     }
 }
