@@ -109,7 +109,7 @@ export default function AccountsPage() {
   const [allFxOpen, setAllFxOpen] = useState(true)
   const [allInsOpen, setAllInsOpen] = useState(true)
   const [allRetireOpen, setAllRetireOpen] = useState(true)
-  const [joinedAccounts, setJoinedAccounts] = useState<Account[]>([])
+  const [joinedAccounts, setJoinedAccounts] = useState<DepositViewAccount[]>([])
   const [accountOverrides, setAccountOverrides] = useState<Record<string, number>>({})
 
   useEffect(() => {

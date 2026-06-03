@@ -124,9 +124,11 @@ export default function TransferAccountPage() {
       return
     }
     const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
+    const toAcc = accounts.find(acc => acc.number === toAccount)
     const data = {
       fromAccountId: fromAcc?.apiAccountId,
       fromAccountViewId: fromAcc?.id ?? '',
+      toAccountId: toAcc?.apiAccountId,
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,

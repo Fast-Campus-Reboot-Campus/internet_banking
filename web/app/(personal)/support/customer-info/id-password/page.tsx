@@ -133,8 +133,7 @@ export default function IdPasswordPage() {
   function reset() {
     setStep('verify')
     setName(''); setAccountNo(''); setAccountPw(''); setLoginId('')
-    setNewPw(''); setNewPwConfirm(''); setOldPw('')
-    setSecInput1(''); setSecInput2(''); setError('')
+    setNewPw(''); setNewPwConfirm(''); setOldPw(''); setError('')
   }
 
   return (

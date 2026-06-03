@@ -4,12 +4,13 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
-import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import { executeDepositTransfer, fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 type PendingTransfer = {
   fromAccountId?: number
   fromAccountViewId?: string
+  toAccountId?: number
   fromNumber: string
   fromName: string
   toBank: string
@@ -39,6 +40,9 @@ export default function TransferResultPage() {
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
     if (!raw) { router.push('/transfer/account'); return }
+    if (loadedTransferRef.current) return
+    loadedTransferRef.current = true
+
     const transfer = JSON.parse(raw)
     setData(transfer)
 
@@ -60,6 +64,23 @@ export default function TransferResultPage() {
       })
       localStorage.setItem('transferHistory', JSON.stringify(prev.slice(0, 50)))
     } catch {}
+
+    const customerId = getCurrentDepositCustomerId()
+    if (transfer.fromAccountId) {
+      executeDepositTransfer(customerId, {
+        fromAccountId: transfer.fromAccountId,
+        toAccountId: transfer.toAccountId,
+        toAccountNo: transfer.toAccount,
+        amount: transfer.amount,
+        transferType: transfer.toAccountId ? 'INTERNAL' : 'EXTERNAL',
+        counterpartyBankCode: transfer.toBank,
+        counterpartyBankName: transfer.toBank,
+        counterpartyName: transfer.receiverName,
+        transactionMemo: '인터넷이체',
+      }).catch((error) => {
+        console.error('deposit 이체 실행 실패:', error)
+      })
+    }
 
     sessionStorage.removeItem('pendingTransfer')
   }, [router])
