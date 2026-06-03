@@ -22,7 +22,7 @@ function EmptyState({ message, subMessage, actionHref, actionLabel }: {
   actionLabel?: string
 }) {
   return (
-    <div className="border border-kb-border rounded-lg px-6 py-5 flex items-center gap-5 bg-white">
+    <div className="border border-[#E2F5EF] rounded-lg px-6 py-5 flex items-center gap-5 bg-white">
       <div className="flex-shrink-0">
         <svg viewBox="0 0 56 56" fill="none" className="w-12 h-12">
           <rect x="8" y="6" width="32" height="40" rx="2" fill="#E8E8E8" stroke="#CCCCCC" strokeWidth="1.5"/>
@@ -42,7 +42,7 @@ function EmptyState({ message, subMessage, actionHref, actionLabel }: {
       </div>
       {actionHref && actionLabel && (
         <Link href={actionHref}
-          className="flex-shrink-0 border border-kb-border px-5 py-1.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light whitespace-nowrap">
+          className="flex-shrink-0 border border-[#E2F5EF] px-5 py-1.5 text-[13px] text-kb-text-body hover:bg-[#F0FAF7] whitespace-nowrap">
           {actionLabel}
         </Link>
       )}
@@ -61,7 +61,7 @@ function SectionHeader({ dotColor, label, count, balance, open, onToggle, showOr
   showOrder?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between mb-3 pb-2 border-b border-kb-border">
+    <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#E2F5EF]">
       <div className="flex items-center gap-2">
         <span className={`w-2.5 h-2.5 rounded-full ${dotColor} inline-block flex-shrink-0`} />
         <span className="text-[13px] font-bold text-kb-text">{label} ({count}계좌)</span>
@@ -109,7 +109,7 @@ export default function AccountsPage() {
   const [allFxOpen, setAllFxOpen] = useState(true)
   const [allInsOpen, setAllInsOpen] = useState(true)
   const [allRetireOpen, setAllRetireOpen] = useState(true)
-  const [joinedAccounts, setJoinedAccounts] = useState<Account[]>([])
+  const [joinedAccounts, setJoinedAccounts] = useState<DepositViewAccount[]>([])
   const [accountOverrides, setAccountOverrides] = useState<Record<string, number>>({})
 
   useEffect(() => {
@@ -198,7 +198,7 @@ export default function AccountsPage() {
           </div>
 
           {/* 계좌 탭 */}
-          <div className="flex border-b border-kb-border mb-4">
+          <div className="flex border-b border-[#E2F5EF] mb-4">
             {ACCOUNT_TABS.map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-4 py-2 text-[13px] border-b-2 -mb-px transition-colors ${
@@ -256,7 +256,7 @@ export default function AccountsPage() {
                   {' '}원
                   <span className="text-kb-text-muted font-normal text-[13px] ml-1">({depositTabCount}계좌)</span>
                 </p>
-                <button className="flex items-center gap-1.5 border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-muted hover:bg-kb-beige-light">
+                <button className="flex items-center gap-1.5 border border-[#E2F5EF] px-3 py-1.5 text-[12px] text-kb-text-muted hover:bg-[#F0FAF7]">
                   <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="1.5">
                     <rect x="1" y="1" width="6" height="6" rx="0.5"/><rect x="9" y="1" width="6" height="6" rx="0.5"/>
                     <rect x="1" y="9" width="6" height="6" rx="0.5"/><rect x="9" y="9" width="6" height="6" rx="0.5"/>
@@ -296,12 +296,12 @@ export default function AccountsPage() {
                       <div className="flex-shrink-0">
                         <div className="grid grid-cols-2 gap-1 mb-1">
                           <Link href="/inquiry/transactions"
-                            className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">
+                            className="border border-[#E2F5EF] px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-[#F0FAF7] text-center">
                             조회
                           </Link>
                           {canTransferFrom(account) && (
                             <Link href={`/transfer/account?from=${account.id}`}
-                              className="border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center">
+                              className="border border-[#E2F5EF] px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-[#F0FAF7] text-center">
                               이체
                             </Link>
                           )}
@@ -309,15 +309,15 @@ export default function AccountsPage() {
                         <div className="relative mb-1">
                           <button
                             onClick={() => setMgmtOpen(mgmtOpen === account.id ? null : account.id)}
-                            className="w-full border border-kb-border px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light text-center"
+                            className="w-full border border-[#E2F5EF] px-5 py-1.5 text-[12px] text-kb-text-body hover:bg-[#F0FAF7] text-center"
                           >
                             계좌관리
                           </button>
                           {mgmtOpen === account.id && (
-                            <div className="absolute right-0 top-full mt-1 bg-white border border-kb-border shadow-md z-50 w-[200px] py-2">
+                            <div className="absolute right-0 top-full mt-1 bg-white border border-[#E2F5EF] shadow-md z-50 w-[200px] py-2">
                               {MANAGEMENT_ITEMS.map((item) => (
                                 <button key={item}
-                                  className="block w-full text-left px-4 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
+                                  className="block w-full text-left px-4 py-1.5 text-[12px] text-kb-text-body hover:bg-[#F0FAF7]">
                                   · {item}
                                 </button>
                               ))}
@@ -336,8 +336,8 @@ export default function AccountsPage() {
 
 
               {/* 하단 버튼 */}
-              <div className="flex justify-center gap-2 pt-5 border-t border-kb-border">
-                <button className="border border-kb-border px-6 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
+              <div className="flex justify-center gap-2 pt-5 border-t border-[#E2F5EF]">
+                <button className="border border-[#E2F5EF] px-6 py-2 text-[13px] text-kb-text-body hover:bg-[#F0FAF7]">
                   카테고리 순서변경
                 </button>
                 <button className="px-6 py-2 text-[13px] text-white font-semibold hover:opacity-90 flex items-center gap-1.5"
@@ -348,7 +348,7 @@ export default function AccountsPage() {
                   </svg>
                   저장
                 </button>
-                <button className="border border-kb-border px-6 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light flex items-center gap-1">
+                <button className="border border-[#E2F5EF] px-6 py-2 text-[13px] text-kb-text-body hover:bg-[#F0FAF7] flex items-center gap-1">
                   인쇄
                   <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5">
                     <path d="M2 10L10 2M10 2H5M10 2v5"/>
@@ -388,7 +388,7 @@ export default function AccountsPage() {
             <div className="mb-8 space-y-3">
 
               {/* ── 예금 ── */}
-              <div className="border border-kb-border">
+              <div className="border border-[#E2F5EF]">
                 <button onClick={() => setAllDepOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F3F0] text-left">
                   <div className="flex items-center gap-2">
@@ -401,22 +401,22 @@ export default function AccountsPage() {
                 {allDepOpen && (
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-[#F0EDEA] border-b border-kb-border">
+                      <tr className="bg-[#F0EDEA] border-b border-[#E2F5EF]">
                         {['계좌번호', '계좌명', '신규일', '만기일', '잔액'].map(col => (
-                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-kb-border">{col}</th>
+                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-[#E2F5EF]">{col}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {depositTabAccounts.map((acc) => (
-                        <tr key={acc.id} className="border-b last:border-b-0 border-kb-border hover:bg-kb-beige-light">
-                          <td className="px-4 py-3 text-[13px] text-center border-r border-kb-border">
+                        <tr key={acc.id} className="border-b last:border-b-0 border-[#E2F5EF] hover:bg-[#F0FAF7]">
+                          <td className="px-4 py-3 text-[13px] text-center border-r border-[#E2F5EF]">
                             <Link href="/inquiry/transactions" className="text-kb-blue hover:underline">{acc.number}</Link>
                             {acc.badge && <span className="ml-1 text-[11px] border border-gray-400 text-gray-500 px-1">{acc.badge}</span>}
                           </td>
-                          <td className="px-4 py-3 text-[13px] text-center border-r border-kb-border">{acc.name}</td>
-                          <td className="px-4 py-3 text-[13px] text-center border-r border-kb-border">{acc.createdAt}</td>
-                          <td className="px-4 py-3 text-[13px] text-center border-r border-kb-border">{acc.maturityDate || ''}</td>
+                          <td className="px-4 py-3 text-[13px] text-center border-r border-[#E2F5EF]">{acc.name}</td>
+                          <td className="px-4 py-3 text-[13px] text-center border-r border-[#E2F5EF]">{acc.createdAt}</td>
+                          <td className="px-4 py-3 text-[13px] text-center border-r border-[#E2F5EF]">{acc.maturityDate || ''}</td>
                           <td className="px-4 py-3 text-[13px] text-right pr-4">{bal(acc.balance)}</td>
                         </tr>
                       ))}
@@ -426,7 +426,7 @@ export default function AccountsPage() {
               </div>
 
               {/* ── 펀드 ── */}
-              <div className="border border-kb-border">
+              <div className="border border-[#E2F5EF]">
                 <button onClick={() => setAllFundOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F3F0] text-left">
                   <div className="flex items-center gap-2">
@@ -440,9 +440,9 @@ export default function AccountsPage() {
                 {allFundOpen && (
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-[#F0EDEA] border-b border-kb-border">
+                      <tr className="bg-[#F0EDEA] border-b border-[#E2F5EF]">
                         {['계좌번호', '펀드명', '신규일', '만기일', '수익률', '종가액'].map(col => (
-                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-kb-border">{col}</th>
+                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-[#E2F5EF]">{col}</th>
                         ))}
                       </tr>
                     </thead>
@@ -454,7 +454,7 @@ export default function AccountsPage() {
               </div>
 
               {/* ── 신탁 ── */}
-              <div className="border border-kb-border">
+              <div className="border border-[#E2F5EF]">
                 <button onClick={() => setAllTrustOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F3F0] text-left">
                   <div className="flex items-center gap-2">
@@ -468,9 +468,9 @@ export default function AccountsPage() {
                 {allTrustOpen && (
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-[#F0EDEA] border-b border-kb-border">
+                      <tr className="bg-[#F0EDEA] border-b border-[#E2F5EF]">
                         {['계좌번호', '계좌명', '잔액', '평가액', '수익률'].map(col => (
-                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-kb-border">{col}</th>
+                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-[#E2F5EF]">{col}</th>
                         ))}
                       </tr>
                     </thead>
@@ -482,7 +482,7 @@ export default function AccountsPage() {
               </div>
 
               {/* ── 대출 ── */}
-              <div className="border border-kb-border">
+              <div className="border border-[#E2F5EF]">
                 <button onClick={() => setAllLoanAllOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F3F0] text-left">
                   <div className="flex items-center gap-2">
@@ -495,9 +495,9 @@ export default function AccountsPage() {
                 {allLoanAllOpen && (
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-[#F0EDEA] border-b border-kb-border">
+                      <tr className="bg-[#F0EDEA] border-b border-[#E2F5EF]">
                         {['계좌번호', '계좌명', '만기일', '대출잔액'].map(col => (
-                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-kb-border">{col}</th>
+                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-[#E2F5EF]">{col}</th>
                         ))}
                       </tr>
                     </thead>
@@ -509,7 +509,7 @@ export default function AccountsPage() {
               </div>
 
               {/* ── 외화/골드 ── */}
-              <div className="border border-kb-border">
+              <div className="border border-[#E2F5EF]">
                 <button onClick={() => setAllFxOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F3F0] text-left">
                   <div className="flex items-center gap-2">
@@ -523,9 +523,9 @@ export default function AccountsPage() {
                 {allFxOpen && (
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-[#F0EDEA] border-b border-kb-border">
+                      <tr className="bg-[#F0EDEA] border-b border-[#E2F5EF]">
                         {['계좌번호', '상품', '통화/잔액'].map(col => (
-                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-kb-border">{col}</th>
+                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-[#E2F5EF]">{col}</th>
                         ))}
                       </tr>
                     </thead>
@@ -537,7 +537,7 @@ export default function AccountsPage() {
               </div>
 
               {/* ── 보험/공제 ── */}
-              <div className="border border-kb-border">
+              <div className="border border-[#E2F5EF]">
                 <button onClick={() => setAllInsOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F3F0] text-left">
                   <div className="flex items-center gap-2">
@@ -550,9 +550,9 @@ export default function AccountsPage() {
                   <>
                     <table className="w-full border-collapse">
                       <thead>
-                        <tr className="bg-[#F0EDEA] border-b border-kb-border">
+                        <tr className="bg-[#F0EDEA] border-b border-[#E2F5EF]">
                           {['보험계좌번호', '보험사명', '상품명', '계약년월일'].map(col => (
-                            <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-kb-border">{col}</th>
+                            <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-[#E2F5EF]">{col}</th>
                           ))}
                         </tr>
                       </thead>
@@ -566,7 +566,7 @@ export default function AccountsPage() {
               </div>
 
               {/* ── 퇴직연금 ── */}
-              <div className="border border-kb-border">
+              <div className="border border-[#E2F5EF]">
                 <button onClick={() => setAllRetireOpen(v => !v)}
                   className="w-full flex items-center justify-between px-4 py-3 bg-[#F5F3F0] text-left">
                   <div className="flex items-center gap-2">
@@ -578,9 +578,9 @@ export default function AccountsPage() {
                 {allRetireOpen && (
                   <table className="w-full border-collapse">
                     <thead>
-                      <tr className="bg-[#F0EDEA] border-b border-kb-border">
+                      <tr className="bg-[#F0EDEA] border-b border-[#E2F5EF]">
                         {['계좌번호', '고객명', '제도상세구분', '평가금액'].map(col => (
-                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-kb-border">{col}</th>
+                          <th key={col} className="px-4 py-2.5 text-[12px] text-kb-text-body font-medium text-center border-r last:border-r-0 border-[#E2F5EF]">{col}</th>
                         ))}
                       </tr>
                     </thead>
@@ -592,7 +592,7 @@ export default function AccountsPage() {
               </div>
 
               {/* 하단 버튼 */}
-              <div className="flex justify-center gap-2 pt-5 border-t border-kb-border">
+              <div className="flex justify-center gap-2 pt-5 border-t border-[#E2F5EF]">
                 <button className="px-6 py-2 text-[13px] text-white font-semibold hover:opacity-90 flex items-center gap-1.5"
                   style={{ backgroundColor: '#3D6B45' }}>
                   <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="1.5">
@@ -600,7 +600,7 @@ export default function AccountsPage() {
                   </svg>
                   저장
                 </button>
-                <button className="border border-kb-border px-6 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light flex items-center gap-1">
+                <button className="border border-[#E2F5EF] px-6 py-2 text-[13px] text-kb-text-body hover:bg-[#F0FAF7] flex items-center gap-1">
                   인쇄
                   <svg viewBox="0 0 12 12" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5">
                     <path d="M2 10L10 2M10 2H5M10 2v5"/>
