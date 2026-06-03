@@ -20,7 +20,6 @@ import com.bank.payment.outbound.feign.dto.AccountInquiryData;
 import com.bank.payment.outbound.feign.dto.BalanceTxData;
 import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
-import com.bank.payment.outbound.feign.dto.HolderInquiryData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
@@ -123,14 +122,20 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()), "DRAFT");
 
         } catch (DepositInboundFailureException e) {
-            // B-4 입금 실패: B-3 출금은 성공 → 자금변동 발생 → 보상 필수 (P-002)
-            // withdrawStep은 B-3 성공 후 B-4 실패이므로 non-null 보장
+            // step2a/2b(authorize 전, DRAFT) 실패 = 자금변동 없음 → txStepFail로 FAILED 직행.
+            // step3b(authorize 후, AUTHORIZED) 실패 = B-3 출금 성공 후 B-4 실패 → 보상 필수 (P-002).
             String piId = pi.getPaymentInstructionId();
+            PaymentInstruction freshPi = txService.selectById(piId);
 
             // 이중보상 가드: 이미 FAILED/CANCELED이면 skip (합의서 시트15 1차 방어)
-            PaymentInstruction freshPi = txService.selectById(piId);
             if ("FAILED".equals(freshPi.getStatus()) || "CANCELED".equals(freshPi.getStatus())) {
                 return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", null);
+            }
+
+            // DRAFT 분기: authorize 전 deposit 호출 실패. 보상 진입 금지(withdrawStep=null, B-3 미도달).
+            if ("DRAFT".equals(freshPi.getStatus())) {
+                String fc = DepositErrorMapper.toFailureCategory(e.getDepositResponseCode());
+                return txService.txStepFail(freshPi, fc, failedEventTypeFor(fc), "DRAFT");
             }
 
             // TX-A: AUTHORIZED→REVERSING + 이력 2건
@@ -430,28 +435,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
         recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "internal", "GET",
                 "internal:command.userId", "SUCCESS");
 
-        // A-2 예금주조회 (수신계좌) — 자행만. 타행은 요청값 그대로 박제 (KFTC가 수신측 검증)
-        String receiverHolderName;
-        if (Boolean.TRUE.equals(pi.getIsIntraBank())) {
-            LocalDateTime receiverHolderInquiryAt = LocalDateTime.now();
-            HolderInquiryData receiverHolder = depositAccountClient.getHolder(receiver);
-            recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "RECEIVER", "deposit", "GET",
-                    "/api/v1/accounts/" + receiver + "/holder", "SUCCESS");
-            if (Boolean.TRUE.equals(receiverHolder.deceasedFlag())) {
-                throw new PaymentValidationException("OWNER_INQUIRY_FAILED", "수신 예금주 사망");
-            }
-            if (!receiverHolder.holderName().equals(command.receiverHolderName())) {
-                throw new PaymentValidationException("OWNER_INQUIRY_FAILED",
-                        "수신자명 불일치: 입력=" + command.receiverHolderName()
-                        + ", 조회=" + receiverHolder.holderName());
-            }
-            receiverHolderName = receiverHolder.holderName();
-            txService.updateReceiverHolderSnap(piId, receiverHolderName, receiverHolderInquiryAt);
-        } else {
-            // 타행: 수신 예금주명은 요청값 그대로 박제 (holderInquiryAt=null, V8 nullable)
-            receiverHolderName = command.receiverHolderName();
-            txService.updateReceiverHolderSnap(piId, receiverHolderName, null);
-        }
+        // A-2 예금주조회 (수신계좌) — deposit holder API 미제공(D-REQ-5: customer-service 영역).
+        // 자행/타행 공통으로 요청값 박제(송신 패턴과 동일, holderInquiryAt=null V8 nullable).
+        // 자행 수신 사전검증(deceasedFlag/holderName 일치)은 customer-service 도입 시점 복원.
+        String receiverHolderName = command.receiverHolderName();
+        recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "RECEIVER", "internal", "GET",
+                "internal:command.receiverHolderName", "SUCCESS");
+        txService.updateReceiverHolderSnap(piId, receiverHolderName, null);
 
         return new ExternalValidationResult(senderHolderName, receiverHolderName);
     }
