@@ -76,7 +76,6 @@ const NAV: SidebarItem[] = [
       { label: '「FATI (재무 및 세무자료)」제출내역조회', href: '/products/loan/credit-eval/fati-history' },
     ],
   },
-  { label: '🔒 인증센터', href: '/cert' },
 ]
 
 function getDefaultOpen(pathname: string): string[] {
@@ -122,8 +121,8 @@ export default function LoanSidebar() {
   }
 
   return (
-    <aside className="w-[180px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-base font-bold text-kb-text mb-3 px-1">대출</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: '#0D5C47' }}>대출</h2>
       <nav>
         {NAV.map((item) => (
           <div key={item.label}>
@@ -131,7 +130,7 @@ export default function LoanSidebar() {
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text hover:bg-kb-beige-light transition-colors"
+                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] transition-colors"
                 >
                   <span className="text-left leading-tight">{item.label}</span>
                   <span className="text-[11px] text-kb-text-muted ml-1 flex-shrink-0 font-bold">
@@ -151,8 +150,8 @@ export default function LoanSidebar() {
                             href={child.href}
                             className={`block pl-5 pr-2 py-1.5 text-[12px] leading-snug transition-colors ${
                               isActive(child.href)
-                                ? 'bg-kb-yellow font-semibold text-kb-text'
-                                : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'
+                                ? 'pl-[17px] pr-2 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
+                                : 'pl-5 pr-2 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
                             }`}
                           >
                             {child.label}
