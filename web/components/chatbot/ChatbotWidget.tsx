@@ -314,6 +314,10 @@ export default function ChatbotWidget() {
 
   useEffect(() => {
     setMounted(true)
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+    const cid = localStorage.getItem('customerId')
+    if (token) setIsLoggedIn(true)
+    if (cid) setCustomerNo(cid)
   }, [])
 
   useEffect(() => {
@@ -394,6 +398,56 @@ export default function ChatbotWidget() {
   function pushProductSearchResult(result: ChatbotFeatureExecuteResponse) {
     saveRecommendContext(result)
     pushMessages([addFeatureResult(result)])
+  }
+
+  function answerProductCompare(text: string): string | null {
+    const normalized = text.replace(/\s+/g, '').toLowerCase()
+    const hasCompareIntent = ['비교', '차이', '뭐가더', '어느쪽', 'compare', 'difference'].some(keyword => normalized.includes(keyword))
+    const hasFitIntent = ['맞아', '적합', '나한테', '나에게', '내게', '저한테', 'forme'].some(keyword => normalized.includes(keyword))
+    const hasProductContext = ['상품', '예금', '적금', '청약', 'product'].some(keyword => normalized.includes(keyword))
+    const isCompare = hasCompareIntent || (hasFitIntent && hasProductContext)
+    if (!isCompare) return null
+
+    const wantsDeposit = normalized.includes('예금')
+    const wantsSavings = normalized.includes('적금')
+    const wantsSubscription = normalized.includes('청약')
+    const wantsPersonal = ['나한테', '나에게', '내게', '저한테', '맞아', '적합', 'forme'].some(keyword => normalized.includes(keyword))
+
+    const products = [
+      { type: '적금', name: 'AXful 직장인우대적금', rate: '3.20%', period: '12~36개월', fit: '매달 일정 금액을 모으는 목적에 적합합니다.' },
+      { type: '적금', name: 'AXful 꿈적금', rate: '3.00%', period: '12~36개월', fit: '목표 금액을 정해 꾸준히 저축할 때 좋습니다.' },
+      { type: '예금', name: 'AXful 정기예금', rate: '2.15%', period: '1~36개월', fit: '이미 모아둔 목돈을 안정적으로 맡길 때 적합합니다.' },
+      { type: '예금', name: 'AXful 수퍼정기예금(개인)', rate: '2.10%', period: '1~36개월', fit: '목돈 운용 기간을 유연하게 가져가고 싶을 때 좋습니다.' },
+      { type: '청약', name: '주택청약종합저축', rate: '3.10%', period: '24~600개월', fit: '주택 마련 준비가 목적일 때 적합합니다.' },
+    ]
+
+    const selected = products.filter(product => {
+      if (!wantsDeposit && !wantsSavings && !wantsSubscription) return true
+      if (wantsDeposit && product.type === '예금') return true
+      if (wantsSavings && product.type === '적금') return true
+      if (wantsSubscription && product.type === '청약') return true
+      return false
+    })
+
+    const intro = wantsPersonal
+      ? [
+          '정확한 맞춤 판단은 계좌/거래내역이 있어야 하지만, 일반 기준으로 비교하면 이렇게 볼 수 있어요.',
+          '',
+          '- 매달 꾸준히 모으는 목적이면 적금이 더 잘 맞습니다.',
+          '- 이미 목돈이 있다면 예금이 더 잘 맞습니다.',
+          '- 주택 마련 준비가 목적이면 청약이 더 잘 맞습니다.',
+        ]
+      : ['비교해볼 만한 상품을 기준별로 나열해드릴게요.']
+
+    const lines = [...intro, '', '상품 비교 결과입니다.', '']
+    selected.slice(0, 5).forEach((product, index) => {
+      lines.push(`${index + 1}. ${product.name}`)
+      lines.push(`   - 유형: ${product.type}`)
+      lines.push(`   - 기본금리: ${product.rate}`)
+      lines.push(`   - 기간: ${product.period}`)
+      lines.push(`   - 판단 기준: ${product.fit}`)
+    })
+    return lines.join('\n')
   }
 
   const BEST_KEYWORDS = ['제일 좋', '가장 좋', '최고', '1위', '1순위', '뭐가 좋', '어떤 게 좋', '어떤게 좋', '뭘 선택', '어떤 상품', '뭐 추천', '제일이', '제일을', '제일은', '어떤 걸', '골라줘', '골라 줘', '선택해줘', '선택해 줘', '추천해줘', '추천해 줘']
@@ -521,6 +575,16 @@ export default function ChatbotWidget() {
   async function handleScenarioMessage(text: string, buttonValue?: string) {
     // 예금/적금/청약 목록 조회 → handleFeature로 라우팅 (상품 카드 표시)
     const trimmed = text.trim()
+    const compareAnswer = answerProductCompare(trimmed)
+    if (compareAnswer) {
+      setExpandedRow(null)
+      setDataPages({})
+      setMessages([
+        { id: messageId('user'), role: 'user', text },
+        { id: messageId('bot'), role: 'bot', text: compareAnswer },
+      ])
+      return
+    }
     // 단순 상품 목록 조회만 라우팅 (다른 의도가 섞인 긴 문장은 제외)
     const hasOtherIntent = ['비교', '차이', '맞는', '적합', '추천', '나한테', '나에게', '뭐가 더', '어느'].some(w => trimmed.includes(w))
     const productGuideMatch = !hasOtherIntent && PRODUCT_GUIDE_PATTERNS.find(p =>
@@ -1599,22 +1663,25 @@ export default function ChatbotWidget() {
                 {productSearchState.step === 'type' && (
                   <div className="space-y-3">
                     <p className="text-xs font-bold text-kb-text">상품 유형을 선택해주세요</p>
-                    {([['DEPOSIT','예금','💳'],['SAVINGS','적금','🪙'],['SUBSCRIPTION','청약','🏠']] as const).map(([val, label, icon]) => (
+                    {([
+                      ['ALL', '전체 추천', '✨'] as const,
+                      ['DEPOSIT', '예금', '💳'] as const,
+                      ['SAVINGS', '적금', '🪙'] as const,
+                    ]).map(([val, label, icon]) => (
                       <button key={val} type="button"
                         onClick={async () => {
-                          if (val === 'SUBSCRIPTION') {
-                            // 청약: purpose 없이 바로 호출
-                            const snap = { ...productSearchState, productType: val }
+                          if (val === 'ALL') {
+                            // 전체 추천: product_type 없이 바로 호출
+                            const snap = { ...productSearchState }
                             setProductSearchState(null)
                             setLoading(true)
                             const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
-                            pushMessages([{ id: messageId('user'), role: 'user', text: `청약 상품 안내 요청` }])
+                            pushMessages([{ id: messageId('user'), role: 'user', text: '전체 상품 추천 요청' }])
                             try {
                               const result = await executeChatbotFeature('PRODUCT_SEARCH', {
                                 customer_no: cid,
                                 period: Number(snap.period) || undefined,
                                 amount: Number(snap.amount.replace(/[^0-9]/g, '')) || undefined,
-                                product_type: 'SUBSCRIPTION',
                               })
                               pushProductSearchResult(result)
                             } catch {
@@ -1623,7 +1690,7 @@ export default function ChatbotWidget() {
                               setLoading(false)
                             }
                           } else {
-                            setProductSearchState(s => s && { ...s, productType: val, step: 'purpose' })
+                            setProductSearchState(s => s && { ...s, productType: val as 'DEPOSIT' | 'SAVINGS', step: 'purpose' })
                           }
                         }}
                         className="w-full rounded border border-kb-border px-3 py-2 text-xs font-bold text-left hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
