@@ -1,4 +1,5 @@
 import DaonHeader from '@/components/other-bank/DaonHeader'
+import DaonMyMenu from '@/components/other-bank/DaonMyMenu'
 import Link from 'next/link'
 
 const FOOTER_LINKS_TOP = [
@@ -66,6 +67,8 @@ export default function OtherBankLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </footer>
+
+      <DaonMyMenu />
     </div>
   )
 }
