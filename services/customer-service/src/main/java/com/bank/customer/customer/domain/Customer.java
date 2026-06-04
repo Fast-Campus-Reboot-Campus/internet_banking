@@ -164,6 +164,16 @@ public class Customer extends BaseEntity {
         this.dormantAt          = null;
     }
 
+    public void updateGrade(String newGradeCode) {
+        this.customerGradeCode = newGradeCode;
+    }
+
+    public void updateCreditRating(String ratingCode, String evaluationDate, String agencyCode) {
+        this.creditRatingCode      = ratingCode;
+        this.creditEvaluationDate  = evaluationDate;
+        this.creditAgencyCode      = agencyCode;
+    }
+
     public void recordTransaction(OffsetDateTime at) {
         this.lastTransactionAt = at;
     }

@@ -87,7 +87,7 @@ class AutoReviewEventListenerTest {
                 new AuditLogProperties(true, false),
                 metricsRecorder,
                 objectMapper);
-        lenient().when(ragRetrievalService.retrieve(any(), any(), any()))
+        lenient().when(ragRetrievalService.retrieve(any(), any(), any(), any(), any()))
                 .thenReturn(List.of());
     }
 

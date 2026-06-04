@@ -1,220 +1,279 @@
-# Internet Banking MVP
+﻿# Internet Banking MVP
 
-작성자: 정혜영
-
-AX풀뱅크 인터넷뱅킹 MVP는 개인뱅킹 화면, 예금/적금 상품 가입과 해지, 계좌조회, 계좌이체, 챗봇 상담, 현금흐름 기반 상품 추천을 하나의 시연 흐름으로 연결한 금융 서비스 프로젝트입니다.
-
-이 저장소는 Next.js 프론트엔드와 Spring Boot/FastAPI 기반 백엔드 서비스를 함께 포함한 멀티 모듈 구조입니다.
+MSA 구조 기반 인터넷뱅킹 플랫폼. 수신·여신·결제·고객·상담 도메인을 독립 서비스로 분리하고, AI/RAG 기반 자동심사·유사사례 검색·편향검증을 통합한다.
 
 ---
 
-## 프로젝트 구성
+## 서비스 구성
 
-| 경로 | 기술 | 역할 |
+| 서비스 | 언어 / 프레임워크 | 포트 | 역할 |
+|---|---|---|---|
+| `gateway-service` | Java 17 / Spring Cloud Gateway | 8080 | API 게이트웨이, 라우팅, Rate-limit |
+| `customer-service` | Java 17 / Spring Boot 3.x | 8081 | 고객 정보, 인증 |
+| `deposit-service` | Java 17 / Spring Boot 3.x | 8082 | 예금상품·계약·계좌·거래·상품추천 |
+| `loan-service` | Java 17 / Spring Boot 3.x | 8083 | 대출 신청~상환 전 생애주기 + RAG |
+| `master-service` | Java 17 / Spring Boot 3.x | 8085 | 공통 코드·마스터 데이터 |
+| `ai-service` | Java 17 / Spring Boot 3.x | 8086 | AI 모델 서빙, 임베딩, RAG 벡터검색 |
+| `auto-loan-review` | Java 17 / Spring Boot 3.x | 8086 | 자동심사 에이전트, 편향검증, 4-eye 승인 |
+| `review-ai-gateway` | Java 17 / Spring Boot 3.x | 8088 | 심사 AI 라우팅 게이트웨이 |
+| `payment-service` | Java 17 / Spring Boot 3.x | — | 결제·이체 처리, Kafka 이벤트 |
+| `api-gateway` | Java 17 / Spring Cloud Gateway | — | (보조 게이트웨이) |
+| `consultation-service` | Python 3.11 / FastAPI | 8090 | 챗봇·상담사 채팅, LLM 폴백 |
+| `web` | Next.js 15 / TypeScript | 3001 | 고객·어드민 통합 프런트엔드 |
+| `common` | Java | — | 서비스 공통 모듈 |
+| `infra` | Docker Compose | — | PostgreSQL 16, Redis 7, Prometheus, Grafana |
+
+---
+
+## 기술 스택
+
+| 구분 | 기술 |
+|---|---|
+| 백엔드 | Java 17, Spring Boot 3.x, Gradle Multi-module |
+| 챗봇 | Python 3.11, FastAPI, SQLAlchemy, Pydantic v2 |
+| 프런트엔드 | Next.js 15, TypeScript, TanStack Query, Tailwind CSS |
+| DB | PostgreSQL 16 (서비스별 독립 DB), pgvector (AI/RAG) |
+| 캐시 | Redis 7 |
+| 메시지 큐 | Apache Kafka 3.8, Confluent Schema Registry |
+| AI/LLM | Spring AI, OpenAI GPT-4o-mini |
+| 모니터링 | Prometheus, Grafana, Loki, Promtail |
+| 테스트 | JUnit 5, Mockito, @SpringBootTest / pytest 8 |
+| 패키지 루트 | `com.bank` |
+
+---
+
+## 모듈 구조
+
+```
+internet_banking/
+├── docker-compose.yml              # 전체 인프라 (DB×6, Kafka, Redis, Prometheus, Grafana, Gateway)
+├── common/                         # 공통 모듈 (Java)
+├── services/
+│   ├── gateway-service/            # Spring Cloud Gateway
+│   ├── customer-service/           # 고객 도메인
+│   ├── deposit-service/            # 수신 도메인
+│   │   ├── controller/             # REST 컨트롤러
+│   │   ├── service/                # 비즈니스 로직
+│   │   ├── domain/                 # 엔티티, Enum
+│   │   ├── repository/             # JPA Repository
+│   │   ├── dto/                    # 요청/응답 DTO
+│   │   └── exception/              # 예외 처리
+│   ├── loan-service/               # 여신 도메인 (대출 전 생애주기 + RAG)
+│   ├── master-service/             # 공통 마스터 코드
+│   ├── ai-service/                 # AI 서빙 + 벡터 DB
+│   ├── auto-loan-review/           # 자동심사 에이전트
+│   ├── review-ai-gateway/          # 심사 AI 라우팅
+│   ├── payment-service/            # 결제·이체
+│   ├── api-gateway/                # (보조 게이트웨이)
+│   └── consultation-service/       # Python FastAPI — 챗봇·상담
+│       ├── app/
+│       │   ├── main.py             # FastAPI 앱, 라우터, CORS
+│       │   ├── services.py         # ChatbotService (추천 포함), ChatService
+│       │   ├── features/           # 기능별 Feature 모듈
+│       │   ├── models.py           # SQLAlchemy 모델
+│       │   ├── schemas.py          # Pydantic 스키마
+│       │   ├── database.py         # DB 연결
+│       │   └── kafka.py            # Kafka 이벤트 발행
+│       └── tests/                  # pytest 테스트 (325개)
+├── web/                            # Next.js 프런트엔드
+│   ├── app/
+│   │   ├── (personal)/             # 개인뱅킹 라우트 그룹
+│   │   └── (admin)/                # 어드민 라우트 그룹
+│   ├── components/
+│   │   └── chatbot/ChatbotWidget.tsx  # 챗봇 위젯 (consultation-service 연동)
+│   └── lib/
+│       ├── deposit-api.ts          # deposit-service 클라이언트
+│       ├── consultation-api.ts     # consultation-service 클라이언트
+│       ├── loan-api.ts             # loan-service 클라이언트
+│       ├── advisory-api.ts         # advisory-service 클라이언트
+│       ├── master-api.ts           # master-service 클라이언트
+│       ├── payment-api.ts          # payment-service 클라이언트
+│       └── ai-api.ts               # ai-service 클라이언트
+├── infra/                          # Prometheus·Grafana·Loki 설정
+└── docs/                           # 가이드 문서
+```
+
+---
+
+## loan-service 주요 기능
+
+대출 신청부터 상환·만기까지 전 생애주기를 처리한다.
+
+### 대출 심사 흐름
+
+```
+신청(application) → 가심사(prescreening) → DSR 계산 → 신용평가(creditevaluation)
+→ 신용점수(creditscore) → 본심사(review) → 담보(collateral) / LTV 계산
+→ 보증인(guarantor) / 보증보험(guaranteeinsurance) → 서류(document)
+→ 전자서명(consent) → 본인확인(IDV) → 약정실행(execution)
+```
+
+### 대출 관리 흐름
+
+```
+계약(contract) → 상환(repayment) / 부분상환(partialrepayment) / 선납(prepayment)
+→ 연체(delinquency) → 금리변경(ratechange) → 만기(maturity) → 해지(closure)
+```
+
+### Agentic RAG (유사사례 검색)
+
+대출심사 시 유사한 과거 심사 사례를 벡터 검색으로 조회해 심사위원 참고 자료로 제공한다.
+
+| 컴포넌트 | 위치 | 역할 |
 |---|---|---|
-| `web` | Next.js 14, TypeScript, Tailwind CSS | 개인/관리자 인터넷뱅킹 화면, 챗봇 UI |
-| `services/deposit-service` | Java 17, Spring Boot, JPA | 예금상품, 계약, 계좌, 거래, 해지 |
-| `services/consultation-service` | Python, FastAPI | 챗봇, 상담, 고객 금융정보 조회 |
-| `common` | Java | 공통 예외, 보안, 유틸리티 |
-| `infra` | Docker Compose | PostgreSQL, Redis, Prometheus, Grafana |
+| `SimilarCaseExporter` | `loan-service/rag/` | 심사 완료 건을 청크로 변환, 임베딩·저장 |
+| `SimilarCaseChunkTemplate` | `loan-service/rag/` | 청크 텍스트 템플릿 |
+| `ai-service` | `services/ai-service/` | pgvector 기반 유사도 검색 |
+
+### 자동심사·편향검증
+
+`auto-loan-review` 서비스가 규칙 기반 + LLM 심사 의견을 생성하고, 편향검증 에이전트가 성별·나이·지역 편향 여부를 검사한다. 임계치 초과 시 4-eye 승인 프로세스로 에스컬레이션한다.
 
 ---
 
-## 서비스 실행
+## deposit-service 주요 기능
 
-### 전체 서비스 한 번에 시작
+### 계약 관리
 
-프로젝트 루트에서 PowerShell 실행:
+- 계약 생성·조회·상태변경·해지·만기 처리
+- 가입금액 검증: `minJoinAmount` 이상, `maxJoinAmount` 이하
+- 계좌 자동 생성, 우대금리 이력, 특약 동의 관리
+
+### 상품 추천 (RecommendAgentService)
+
+고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다.
+
+```
+순현금흐름(netCashFlow) / periodMonth → estimatedSavingsAmount
+→ minJoinAmount 이상 상품 필터 → bestRate 내림차순 최대 5개 반환
+```
+
+```
+GET /api/products/recommend-agent?customerId={customerId}&periodMonth={periodMonth}
+X-Customer-Id: {customerId}
+```
+
+---
+
+## consultation-service 주요 기능
+
+- 16개 기능 코드 (PRODUCT_ADVICE / USER_FINANCE / STAFF_SUPPORT)
+- 시나리오 기반 챗봇, 키워드 Intent 분류, OpenAI GPT-4o-mini 폴백
+- 상담사 실시간 채팅, Kafka 이벤트 발행
+
+```
+GET  /chatbot/features
+POST /chatbot/features/{feature_code}/execute
+POST /chatbot/consultations/start
+POST /chatbot/consultations/{id}/messages
+POST /chat/consultations/{id}/connect
+```
+
+---
+
+## 로컬 실행
+
+### 사전 조건
+
+- Java 17+
+- Docker Desktop
+- Python 3.11 (consultation-service)
+- Node.js 20+ (web)
+
+### 인프라 실행
 
 ```powershell
-.\start-all.ps1
+docker compose up -d
 ```
 
-각 서비스가 별도 터미널 창으로 실행됩니다. 기동 완료까지 약 30초 소요됩니다.
+컨테이너: PostgreSQL×6 (5432~5437), pgvector, Kafka (9092), Schema Registry (8081), Redis (6379), Prometheus (9090), Grafana (3000), Gateway (8080)
 
-| 서비스 | 포트 | URL |
+### 백엔드 서비스 실행
+
+```powershell
+# 각 서비스 개별 실행
+.\gradlew :services:customer-service:bootRun   # 8081
+.\gradlew :services:deposit-service:bootRun    # 8082
+.\gradlew :services:loan-service:bootRun       # 8083
+.\gradlew :services:master-service:bootRun     # 8085
+.\gradlew :services:ai-service:bootRun         # 8086
+```
+
+Swagger UI: `http://localhost:{port}/swagger-ui/index.html`
+
+### consultation-service 실행
+
+```powershell
+cd services/consultation-service
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+```
+
+또는 스크립트 사용:
+
+```powershell
+.\scripts\start.ps1
+```
+
+기본 포트: `8090`  
+Swagger UI: `http://localhost:8090/docs`  
+헬스 체크: `http://localhost:8090/health`
+
+### 프런트엔드 실행
+
+```powershell
+cd web
+npm install
+npm run dev   # http://localhost:3001
+```
+
+> `.env.local` 파일이 없으면 아래 내용으로 생성:
+>
+> ```env
+> NEXT_PUBLIC_API_URL=http://localhost:8080
+> NEXT_PUBLIC_DEPOSIT_API_URL=http://localhost:8082/api
+> NEXT_PUBLIC_CONSULTATION_API_URL=http://localhost:8090
+> NEXT_PUBLIC_LOAN_API_URL=http://localhost:8083
+> NEXT_PUBLIC_ADVISORY_API_URL=http://localhost:8084
+> NEXT_PUBLIC_MASTER_API_URL=http://localhost:8085
+> NEXT_PUBLIC_AI_API_URL=http://localhost:8086
+> NEXT_PUBLIC_PAYMENT_API_URL=http://localhost:8087
+> ```
+
+---
+
+## 테스트 실행
+
+```powershell
+# deposit-service (236개)
+.\gradlew :services:deposit-service:test
+
+# loan-service
+.\gradlew :services:loan-service:test
+
+# consultation-service (325개)
+cd services/consultation-service
+python -m pytest tests/ -q
+```
+
+---
+
+## 모니터링
+
+| 도구 | 주소 | 설명 |
 |---|---|---|
-| Web (Next.js) | 3001 | http://localhost:3001 |
-| Deposit Service (Spring Boot) | 8082 | http://localhost:8082/api |
-| Consultation Service (FastAPI) | 8087 | http://localhost:8087 |
+| Prometheus | `http://localhost:9090` | 메트릭 수집 |
+| Grafana | `http://localhost:3000` | 대시보드 |
 
-### 개별 실행
-
-```bash
-# Web
-cd web && npm run dev
-
-# Deposit Service
-./gradlew :services:deposit-service:bootRun
-
-# Consultation Service
-cd services/consultation-service
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8087 --reload
-```
-
-> **주의**: 세 서비스가 모두 실행 중이어야 이체, 해지, 챗봇 등 모든 기능이 정상 동작합니다.
+loan-service 메트릭 명세·PromQL·SLO: [`docs/loan-service-metrics.md`](docs/loan-service-metrics.md)
 
 ---
 
-## 주요 기능
+## 주의사항
 
-### 개인뱅킹 사이트
+- `main` 브랜치 직접 커밋/푸시 금지
+- `.env` 파일 커밋 금지
+- 운영/스테이징 DB 접속 명령 금지
+- AI 모델명·세션 링크를 커밋 메시지·PR에 삽입 금지
 
-#### 계좌조회
-- 전체 계좌 목록 조회 (예금·적금·청약·입출금)
-- 계좌별 잔액, 거래내역, 만기일 확인
-- 계좌 상세에서 이체 바로가기
-
-#### 계좌이체
-- **당행/타행 선택**: 입금계좌 행에서 당행(내 계좌 드롭다운) / 타행(은행 선택 + 계좌번호 입력) 직접 선택
-- **보안카드 입력**: 앞 2자리, 뒤 2자리 (숫자만 입력)
-- **금융인증서 인증**: 전자서명 원문 확인 → YESKEY PIN 6자리 입력 → 이체 실행
-- 출금 계좌와 동일한 계좌는 입금 대상에서 자동 제외
-
-#### 예금/적금 가입
-- 상품별 약관 동의, 가입 정보 입력, 계좌 비밀번호 설정
-- 가입 완료 시 deposit-service DB에 즉시 저장
-- 저장 실패 시 에러 안내 (localStorage 폴백 없음)
-
-#### 예금/적금 해지
-- 계좌 선택 → 입금 방식 선택(당행/타행/현금) → **보안카드 입력** → **금융인증서 PIN** → 해지 실행
-- 당행 입금 시 해지 계좌 자신은 입금 계좌 목록에서 자동 제외
-- 해지 후 계좌 목록 자동 갱신
-
----
-
-### 챗봇 (AXful 상담 챗봇)
-
-챗봇은 사이트 우측 하단 CHATBOT 버튼으로 접근합니다. 로그인 필요 기능은 챗봇 내 인라인 로그인 폼을 제공합니다.
-
-#### 상품 안내 (로그인 불필요)
-- 예금·적금·청약 상품 목록 조회
-- 상품 비교: "예금과 적금 차이" 질문 시 개념 설명 + 현금흐름 기반 추천 동시 제공
-- 금리 안내, 가입 조건 안내
-
-#### 상품 추천 (로그인 필요)
-- 가입 기간·금액·상품 유형·목적 단계별 입력 후 맞춤 추천
-- 추천 결과에서 금리, 기간, 추천 이유 확인
-- 후속 질문 (1위 이유, 각 상품 장점 등) 대화 지속 가능
-
-#### 내 상품 조회 (로그인 필요)
-- 가입된 전체 계좌 목록 조회 (deposit-service DB 기준)
-- 입출금·예금·적금·청약 계좌별 잔액, 만기일 확인
-
-#### 챗봇 이체 (로그인 필요)
-- 내 상품 목록에서 입출금 계좌의 **이체** 버튼 클릭
-- **당행**: 내 계좌 목록에서 선택 (출금 계좌 자동 제외)
-- **타행**: 은행 선택 + 계좌번호 직접 입력
-- 이체 금액, 메모 입력 → 내용 확인
-- **보안카드** (앞·뒤 2자리) → **금융인증서 전자서명 원문 확인** → **PIN 6자리** → 이체 실행
-- 이체 성공 후 내 상품 목록 자동 갱신
-
-#### 챗봇 해지 (로그인 필요)
-- 내 상품 목록에서 **해지** 버튼 클릭
-- 입금 방식 선택 (당행 계좌 입금 / 타행 계좌 입금 / 현금 수령)
-  - 당행: 내 전체 계좌에서 선택 (해지 계좌 자동 제외)
-  - 타행: 은행 선택 + 계좌번호 입력
-- **보안카드** → **금융인증서 원문 확인** → **PIN 6자리** → 해지 실행
-- 해지 후 내 상품 목록 자동 갱신
-
-#### 상담원 연결
-- 상담원 연결 버튼 또는 대화 중 상담원 요청 시 라이브 채팅으로 연결
-
----
-
-## 아키텍처
-
-```
-[브라우저]
-    │
-    ▼
-[Next.js Web :3001]
-    ├─ /api/consultation/* → proxy → Consultation Service :8087
-    └─ /api/v1/*           → proxy → Deposit Service :8082 (또는 직접)
-
-[Consultation Service :8087] ── FastAPI, PostgreSQL
-    ├─ 챗봇 대화 처리 (intent 분류 → feature 실행 → LLM 폴백)
-    ├─ 상품 추천 (PRODUCT_COMPARE, CASH_FLOW_RECOMMEND, PRODUCT_SEARCH)
-    ├─ 챗봇 이체 (deposit_accounts 직접 쿼리)
-    └─ Kafka 이벤트 발행 (KAFKA_ENABLED=true 시 활성화)
-
-[Deposit Service :8082] ── Spring Boot, JPA, PostgreSQL
-    ├─ 계좌/계약/거래 CRUD
-    ├─ 상품 가입 (createContract)
-    └─ 해지 처리 (terminate: 해지계좌 CLOSE + 입금계좌 잔액 증가)
-```
-
----
-
-## Kafka 검증 (선택)
-
-챗봇-Kafka 연동을 검증하려면:
-
-### 1. Kafka 브로커 실행
-
-```bash
-cd services/consultation-service
-docker-compose up -d zookeeper kafka kafka-ui
-```
-
-Kafka UI: http://localhost:8090
-
-### 2. Kafka 활성화
-
-`services/consultation-service/.env`:
-```
-CONSULTATION_KAFKA_ENABLED=true
-```
-
-### 3. Consultation 서비스 재시작
-
-```bash
-cd services/consultation-service
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8087 --reload
-```
-
-### 4. 챗봇 동작 후 토픽 확인
-
-http://localhost:8090 에서 아래 토픽에 메시지 수신 확인:
-
-| 토픽 | 이벤트 |
-|---|---|
-| `consultation.chatbot.events` | ChatbotConsultationStarted, ChatbotMessageHandled, ChatbotAgentTransferRequested |
-| `consultation.chat.events` | 상담사 채팅 이벤트 |
-
-> 검증 완료 후 `.env`를 `CONSULTATION_KAFKA_ENABLED=false`로 원복하면 기존 기능에 영향 없습니다.
-
----
-
-## 환경 변수
-
-### Consultation Service (`services/consultation-service/.env`)
-
-| 변수 | 기본값 | 설명 |
-|---|---|---|
-| `CONSULTATION_DATABASE_URL` | `postgresql+psycopg://deposit:deposit@localhost:5432/deposit_db` | DB 연결 |
-| `CONSULTATION_KAFKA_ENABLED` | `false` | Kafka 이벤트 발행 활성화 |
-| `CONSULTATION_KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka 브로커 주소 |
-| `CONSULTATION_OPENAI_API_KEY` | - | LLM 폴백용 OpenAI 키 |
-
-### Deposit Service
-
-`services/deposit-service/src/main/resources/application.yml` 참조. 기본값으로 `localhost:5432/deposit_db` 사용.
-
----
-
-## 데이터베이스
-
-PostgreSQL (포트 5432, DB: `deposit_db`, 사용자: `deposit`)
-
-주요 테이블:
-
-| 테이블 | 설명 |
-|---|---|
-| `deposit_banking_products` | 예금/적금/청약 상품 목록 |
-| `deposit_contracts` | 고객 가입 계약 |
-| `deposit_accounts` | 계좌 (잔액, 상태) |
-| `deposit_transactions` | 거래 내역 |
-| `chatbot_consultations` | 챗봇 상담 이력 |
-| `chat_message_history` | 챗봇 메시지 이력 |
-| `consultations` | 전체 상담 이력 |
+공통 AI 작업 가이드: [`docs/AI_GUIDELINES.md`](docs/AI_GUIDELINES.md)  
+Claude Code 추가 설정: [`CLAUDE.md`](CLAUDE.md)

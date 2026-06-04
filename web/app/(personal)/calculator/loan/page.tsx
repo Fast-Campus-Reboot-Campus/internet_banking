@@ -69,6 +69,9 @@ export default function LoanCalculatorPage() {
 
   function fmtN(n: number) { return n.toLocaleString('ko-KR') }
 
+  const focusCls = 'border-[#0D5C47] bg-[#F0FAF7]'
+  const blurCls  = 'border-kb-border'
+
   return (
     <div className="max-w-kb-container mx-auto px-8 py-10">
       <h1 className="text-[24px] font-bold text-kb-text mb-1">대출 계산기</h1>
@@ -112,7 +115,7 @@ export default function LoanCalculatorPage() {
               onFocus={() => setFocusedInput('principal')}
               onBlur={() => setFocusedInput(null)}
               className={`border px-3 py-1.5 w-28 outline-none text-right text-[13px] transition-colors ${
-                focusedInput === 'principal' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-kb-border'
+                focusedInput === 'principal' ? focusCls : blurCls
               }`} />
             <span className="text-kb-text">대출금액 만원을</span>
 
@@ -122,7 +125,7 @@ export default function LoanCalculatorPage() {
               onFocus={() => setFocusedInput('years')}
               onBlur={() => setFocusedInput(null)}
               className={`border px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${
-                focusedInput === 'years' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-kb-border'
+                focusedInput === 'years' ? focusCls : blurCls
               }`} />
             <span className="text-kb-text">년 동안</span>
 
@@ -132,13 +135,13 @@ export default function LoanCalculatorPage() {
               onFocus={() => setFocusedInput('rate')}
               onBlur={() => setFocusedInput(null)}
               className={`border px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${
-                focusedInput === 'rate' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-kb-border'
+                focusedInput === 'rate' ? focusCls : blurCls
               }`} />
             <span className="text-kb-text">%로 대출 받으면?</span>
 
             <button onClick={handleCalc}
               className="ml-auto text-white text-[12px] font-bold px-5 py-1.5 hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: '#5A504A' }}>
+              style={{ backgroundColor: '#0D5C47' }}>
               결과보기
             </button>
           </div>
@@ -186,23 +189,33 @@ export default function LoanCalculatorPage() {
         {/* 결과 영역 */}
         {calcResult && (
           <div className="border-t border-kb-border">
-            <p className="px-6 py-4 text-[13px] text-kb-text-body">
-              상환 예정 금액은 <span className="font-bold text-kb-text">{CALC_TABS[calcTab]}</span> 기준 매월 약{' '}
-              <span className="font-bold text-kb-text">{fmtN(calcResult.total)}원</span>이에요.
-            </p>
-            <div className="mx-6 mb-2 border border-kb-border">
-              <div className="bg-kb-beige-light px-4 py-2 border-b border-kb-border flex items-center justify-between">
-                <p className="text-[13px] font-bold text-kb-text">상환예정금액</p>
-                <p className="text-[11px] text-kb-text-muted">대출계산결과</p>
+            <div className="px-6 py-4 flex items-center gap-3">
+              <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4 flex-shrink-0" stroke="#0D5C47" strokeWidth="1.8">
+                <polyline points="2 10 6 6 10 9 14 4"/>
+              </svg>
+              <p className="text-[13px] text-kb-text-body">
+                상환 예정 금액은 <span className="font-bold text-kb-text">{CALC_TABS[calcTab]}</span> 기준 매월 약{' '}
+                <span className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>{fmtN(calcResult.total)}원</span>이에요.
+              </p>
+            </div>
+            <div className="mx-6 mb-2 border border-kb-border overflow-hidden rounded-sm">
+              <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: '#0D5C47' }}>
+                <p className="text-[13px] font-bold text-white">상환예정금액</p>
+                <p className="text-[11px] text-white/70">대출계산결과</p>
               </div>
-              <div className="grid grid-cols-3 divide-x divide-kb-border border-b border-kb-border bg-[#f8f8f8]">
+              <div className="grid grid-cols-3 divide-x divide-kb-border border-b border-kb-border bg-[#F5F6F8]">
                 {['상환원금', '이자금액', '월 납부금액'].map(label => (
-                  <p key={label} className="px-4 py-2 text-[12px] text-kb-text-muted text-center">{label}</p>
+                  <p key={label} className="px-4 py-2 text-[12px] text-kb-text-muted text-center font-medium">{label}</p>
                 ))}
               </div>
-              <div className="grid grid-cols-3 divide-x divide-kb-border">
+              <div className="grid grid-cols-3 divide-x divide-kb-border bg-white">
                 {[calcResult.principal, calcResult.interest, calcResult.total].map((val, i) => (
-                  <p key={i} className="px-4 py-3 text-[14px] font-bold text-kb-text text-right">{fmtN(val)}원</p>
+                  <p key={i} className={`px-4 py-3 text-right font-bold ${
+                    i === 2 ? 'text-[16px]' : 'text-[14px] text-kb-text'
+                  }`}
+                    style={i === 2 ? { color: '#0D5C47', fontSize: '16px' } : undefined}>
+                    {fmtN(val)}원
+                  </p>
                 ))}
               </div>
             </div>

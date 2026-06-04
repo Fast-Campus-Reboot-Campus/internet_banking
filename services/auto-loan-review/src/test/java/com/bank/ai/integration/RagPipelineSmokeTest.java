@@ -10,6 +10,7 @@ import com.bank.ai.review.dto.ReviewReportUpdateRequest;
 import com.bank.ai.review.service.AutoReviewService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +32,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * RAG 파이프라인 E2E 스모크 테스트 — phase-d-rag.md D4-3.
+ * RAG 파이프라인 E2E 스모크 테스트 — phase-e-elasticsearch.md E4-3.
  *
- * <p>5 케이스: Track1/2/3 각 1 + RAG 검색 empty 1 + ai.rag.enabled=false fallback 1.
+ * <p>6 케이스: Track1/2/3 각 1 + RAG 검색 empty 1 + ai.rag.enabled=false fallback 1
+ * (TC5 — {@link RagKillSwitchTest}) + ES 다운 fallback 1 ({@link EsDownFallbackSmokeTest}).
  *
  * <p>인프라 스터빙:
  * <ul>
@@ -105,7 +107,7 @@ class RagPipelineSmokeTest {
     @BeforeEach
     void setUp() {
         when(autoReviewService.review(any())).thenReturn(TRACK1_INFERENCE);
-        when(ragRetrievalService.retrieve(any(), any(), any())).thenReturn(RAG_CHUNKS);
+        when(ragRetrievalService.retrieve(any(), any(), any(), any(), any())).thenReturn(RAG_CHUNKS);
     }
 
     @AfterEach
@@ -178,7 +180,7 @@ class RagPipelineSmokeTest {
 
     @Test
     void RAG_검색_empty_인라인_정책_fallback_DONE_콜백() {
-        when(ragRetrievalService.retrieve(any(), any(), any())).thenReturn(List.of());
+        when(ragRetrievalService.retrieve(any(), any(), any(), any(), any())).thenReturn(List.of());
 
         restTemplate.postForEntity("/api/ai/auto-review/evaluate",
                 track1Request(204L), String.class);
@@ -190,6 +192,71 @@ class RagPipelineSmokeTest {
         ReviewReportUpdateRequest req = captor.getValue();
         assertThat(req.status()).isEqualTo("DONE");
         assertThat(req.agentOpinionJson()).isNotNull().contains("schema_version");
+    }
+
+    // ── TC 5: ai.rag.enabled=false 킬스위치 — 인라인 정책 fallback ─────────
+
+    /**
+     * RAG kill switch ({@code ai.rag.enabled=false}) 하에서도 인라인 정책으로
+     * DONE 콜백이 전송되는지 검증. RagRetrievalService 는 실제 빈 사용.
+     */
+    @Nested
+    @SpringBootTest(
+            webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+            properties = {
+                    "ai.llm.provider=stub",
+                    "ai.rag.enabled=false",
+                    "spring.datasource.url=jdbc:h2:mem:ragkilldb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;NON_KEYWORDS=VALUE,YEAR",
+                    "spring.datasource.username=sa",
+                    "spring.datasource.password=",
+                    "spring.datasource.driver-class-name=org.h2.Driver",
+                    "spring.flyway.locations=classpath:db/h2-migration",
+                    "spring.autoconfigure.exclude=" +
+                            "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration," +
+                            "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration," +
+                            "org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiTextEmbeddingAutoConfiguration"
+            }
+    )
+    class RagKillSwitchTest {
+
+        @MockBean
+        private AutoReviewService autoReviewService;
+
+        @MockBean
+        private LoanServiceClient loanServiceClient;
+
+        @Autowired
+        private TestRestTemplate restTemplate;
+
+        @Autowired
+        @Qualifier("llmExecutor")
+        private ThreadPoolTaskExecutor llmExecutor;
+
+        @BeforeEach
+        void setUp() {
+            when(autoReviewService.review(any())).thenReturn(TRACK1_INFERENCE);
+        }
+
+        @AfterEach
+        void drainAsyncTasks() {
+            await().atMost(5, TimeUnit.SECONDS)
+                   .until(() -> llmExecutor.getThreadPoolExecutor().getActiveCount() == 0
+                             && llmExecutor.getThreadPoolExecutor().getQueue().isEmpty());
+        }
+
+        @Test
+        void RAG_킬스위치_비활성_시_인라인_정책으로_DONE_콜백() {
+            restTemplate.postForEntity("/api/ai/auto-review/evaluate",
+                    track1Request(205L), String.class);
+
+            var captor = ArgumentCaptor.forClass(ReviewReportUpdateRequest.class);
+            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
+                    verify(loanServiceClient).updateReport(eq(205L), captor.capture()));
+
+            ReviewReportUpdateRequest req = captor.getValue();
+            assertThat(req.status()).isEqualTo("DONE");
+            assertThat(req.agentOpinionJson()).isNotNull().contains("schema_version");
+        }
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────

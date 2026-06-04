@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { use, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import { loanApplicationApi } from '@/lib/loan-api'
@@ -62,12 +61,12 @@ function BizPlanForm({ applId }: { applId: number | null }) {
       <div className="flex gap-3 mb-6">
         <button onClick={() => setMode('view')}
           className={`px-6 py-2 text-[13px] font-bold border transition-colors
-            ${mode === 'view' ? 'bg-[#0D5C47] text-white border-[#0D5C47]' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
+            ${mode === 'view' ? 'bg-kb-text text-white border-kb-text' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
           조회
         </button>
         <button onClick={() => setMode('write')}
           className={`px-6 py-2 text-[13px] font-bold border transition-colors
-            ${mode === 'write' ? 'bg-[#0D5C47] text-white border-[#0D5C47]' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
+            ${mode === 'write' ? 'bg-kb-text text-white border-kb-text' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
           작성
         </button>
       </div>
@@ -83,14 +82,14 @@ function BizPlanForm({ applId }: { applId: number | null }) {
           {applId && !loading && (
             <table className="w-full text-[13px] border-t-2 border-[#0D5C47]">
               <thead>
-                <tr className="bg-[#F0FAF7]">
+                <tr className="bg-[#F5F5F5]">
                   <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">제출일</th>
                   <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">서류 유형</th>
                   <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">처리 상태</th>
                   <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">검토 부서</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E2F5EF]">
+              <tbody className="divide-y divide-kb-border">
                 {docs.length === 0 ? (
                   <tr><td colSpan={4} className="py-8 text-center text-kb-text-muted">제출된 서류가 없습니다.</td></tr>
                 ) : docs.map((d: any) => (
@@ -119,7 +118,7 @@ function BizPlanForm({ applId }: { applId: number | null }) {
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0 pt-2">업체현황 내용</label>
             <textarea rows={5} value={content} onChange={e => setContent(e.target.value)}
               placeholder="업체 현황을 입력하세요"
-              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none focus:border-[#0D5C47] resize-none" />
+              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text resize-none" />
           </div>
           <div className="flex items-center gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">파일 첨부</label>
@@ -246,14 +245,14 @@ function FatiHistoryTable({ applId }: { applId: number | null }) {
   return (
     <table className="w-full text-[13px] border-t-2 border-[#0D5C47]">
       <thead>
-        <tr className="bg-[#F0FAF7]">
+        <tr className="bg-[#F5F5F5]">
           <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">제출일</th>
           <th className="px-4 py-3 text-left font-medium border-b border-[#E2F5EF]">자료 유형</th>
           <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">기준연도</th>
           <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">처리 상태</th>
         </tr>
       </thead>
-      <tbody className="divide-y divide-[#E2F5EF]">
+      <tbody className="divide-y divide-kb-border">
         {docs.length === 0 ? (
           <tr><td colSpan={4} className="py-8 text-center text-kb-text-muted">제출된 내역이 없습니다.</td></tr>
         ) : docs.map((d: any) => (
@@ -276,8 +275,8 @@ function FatiHistoryTable({ applId }: { applId: number | null }) {
 }
 
 /* ─── Page ─── */
-
-function CreditEvalContent({ slug }: { slug: string }) {
+export default function CreditEvalPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params)
   const searchParams = useSearchParams()
   const applIdRaw = searchParams.get('applId')
   const applId = applIdRaw ? parseInt(applIdRaw) : null
@@ -347,14 +346,5 @@ function CreditEvalContent({ slug }: { slug: string }) {
         </div>
       </div>
     </main>
-  )
-}
-
-export default function CreditEvalPage({ params }: { params: { slug: string } }) {
-  const { slug } = params
-  return (
-    <Suspense fallback={<div className="max-w-kb-container mx-auto px-6 py-16 text-center text-kb-text-muted">로딩 중...</div>}>
-      <CreditEvalContent slug={slug} />
-    </Suspense>
   )
 }

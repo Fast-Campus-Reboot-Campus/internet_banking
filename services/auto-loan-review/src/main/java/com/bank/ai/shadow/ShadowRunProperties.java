@@ -16,6 +16,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param timeoutSeconds         shadow run 타임아웃 (초)
  * @param ragEnabled             shadow run 이 RAG 컨텍스트를 사용하는지 여부 (D4-2)
  * @param citationDiffThreshold  policyFlags 수 차이 임계 — 초과 시 POLICY_FLAG_DIFF 기록 (D4-2)
+ * @param ragBackend             shadow run 이 사용한 RAG 백엔드 (inline / es) (E4-2)
  */
 @ConfigurationProperties(prefix = "ai.shadow")
 public record ShadowRunProperties(
@@ -26,5 +27,6 @@ public record ShadowRunProperties(
         @DefaultValue("1.0") double samplingRate,
         @DefaultValue("45") int timeoutSeconds,
         @DefaultValue("false") boolean ragEnabled,
-        @DefaultValue("2") int citationDiffThreshold
+        @DefaultValue("2") int citationDiffThreshold,
+        @DefaultValue("inline") String ragBackend
 ) {}

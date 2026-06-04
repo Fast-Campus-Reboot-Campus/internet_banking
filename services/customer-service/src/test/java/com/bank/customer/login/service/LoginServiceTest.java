@@ -8,9 +8,14 @@ import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.config.EmployeeDirectoryProperties;
+import com.bank.customer.fds.service.FdsService;
+import com.bank.customer.login.domain.LoginAttempt;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.dto.RefreshRequest;
+import com.bank.customer.login.repository.LoginAttemptRepository;
+import com.bank.customer.session.service.LoginSessionService;
 import com.bank.customer.support.CustomerErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +35,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -43,6 +49,10 @@ class LoginServiceTest {
     @Mock PasswordEncoder      passwordEncoder;
     @Mock StringRedisTemplate  redisTemplate;
     @Mock ValueOperations<String, String> valueOps;
+    @Mock EmployeeDirectoryProperties employeeDirectory;
+    @Mock LoginAttemptRepository      loginAttemptRepository;
+    @Mock FdsService                  fdsService;
+    @Mock LoginSessionService         loginSessionService;
 
     private JwtProvider   jwtProvider;
     private JwtProperties jwtProperties;
@@ -60,7 +70,16 @@ class LoginServiceTest {
         // Mockito @InjectMocks 는 필드 주입 순서가 보장되지 않으므로 직접 주입
         loginService = new LoginService(
                 credentialRepository, customerRepository,
-                passwordEncoder, jwtProvider, jwtProperties, redisTemplate);
+                passwordEncoder, jwtProvider, jwtProperties, redisTemplate,
+                employeeDirectory, loginAttemptRepository, fdsService, loginSessionService);
+
+        // 직원 디렉토리 미등록(일반 고객) 기본값 — buildAccessToken NPE 방지
+        given(employeeDirectory.find(anyLong())).willReturn(Optional.empty());
+
+        // 로그인 시도 이력 저장은 referenceId(getLoginAttemptId)를 후속 호출에 사용
+        LoginAttempt attempt = org.mockito.Mockito.mock(LoginAttempt.class);
+        given(attempt.getLoginAttemptId()).willReturn(100L);
+        given(loginAttemptRepository.save(any())).willReturn(attempt);
     }
 
     // ── 로그인 성공 ───────────────────────────────────────────────
@@ -78,7 +97,7 @@ class LoginServiceTest {
         given(customerRepository.findByCustomerIdAndDeletedAtIsNull(1L))
                 .willReturn(Optional.of(customer));
 
-        LoginResponse response = loginService.login(new LoginRequest("user1", "pass1234"));
+        LoginResponse response = loginService.login(new LoginRequest("user1", "pass1234"), "127.0.0.1", "JUnit");
 
         assertThat(response.accessToken()).isNotBlank();
         assertThat(response.refreshToken()).isNotBlank();
@@ -92,7 +111,7 @@ class LoginServiceTest {
         given(credentialRepository.findByLoginIdAndDeletedAtIsNull("unknown"))
                 .willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> loginService.login(new LoginRequest("unknown", "pass")))
+        assertThatThrownBy(() -> loginService.login(new LoginRequest("unknown", "pass"), "127.0.0.1", "JUnit"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(CustomerErrorCode.CUST_010));
@@ -106,7 +125,7 @@ class LoginServiceTest {
                 .willReturn(Optional.of(credential));
         given(passwordEncoder.matches(anyString(), anyString())).willReturn(false);
 
-        assertThatThrownBy(() -> loginService.login(new LoginRequest("user1", "wrong")))
+        assertThatThrownBy(() -> loginService.login(new LoginRequest("user1", "wrong"), "127.0.0.1", "JUnit"))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -117,7 +136,7 @@ class LoginServiceTest {
         given(credentialRepository.findByLoginIdAndDeletedAtIsNull("user1"))
                 .willReturn(Optional.of(credential));
 
-        assertThatThrownBy(() -> loginService.login(new LoginRequest("user1", "pass")))
+        assertThatThrownBy(() -> loginService.login(new LoginRequest("user1", "pass"), "127.0.0.1", "JUnit"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(CustomerErrorCode.CUST_011));

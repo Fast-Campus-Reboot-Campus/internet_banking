@@ -25,9 +25,9 @@ class StubEmbeddingClientTest {
     }
 
     @Test
-    void 벡터_차원은_1024() {
+    void 벡터_차원은_768() {
         float[] vec = client.embed("test");
-        assertThat(vec).hasSize(1024);
+        assertThat(vec).hasSize(768);
     }
 
     @Test

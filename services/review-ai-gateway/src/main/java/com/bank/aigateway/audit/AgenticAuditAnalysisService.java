@@ -82,7 +82,12 @@ public class AgenticAuditAnalysisService {
 
             metrics.recordTokens(req.analysisType(), loopResult.inputTokens(), loopResult.outputTokens());
 
+            if (loopResult.timedOut()) {
+                metrics.recordLoopTimeout(req.analysisType());
+            }
+
             AuditResponseParser.ParsedAuditResult parsed = parser.parse(loopResult.text());
+            metrics.recordAnalysisResult(req.analysisType(), parsed.conclusion());
             log.info("agentic 감사 분석 완료 — revId={} type={} conclusion={} confidence={} turns={}",
                     req.revId(), req.analysisType(), parsed.conclusion(), parsed.confidenceScore(), loopResult.turnsUsed());
 

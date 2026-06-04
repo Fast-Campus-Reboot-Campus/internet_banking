@@ -15,6 +15,7 @@ data:
   PAYMENT_DB_HOST: "payment-db"
   MASTER_DB_HOST: "master-db"
   AI_DB_HOST: "ai-db"
+  COMMON_DB_HOST: "common-db"
 
   # 캐시/메시징 (Memorystore/Pub/Sub 전환시 변경)
   REDIS_HOST: "redis"

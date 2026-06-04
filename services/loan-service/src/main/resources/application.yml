@@ -7,7 +7,9 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
   flyway:
-    locations: classpath:db/migration,classpath:db/advisory-migration
+    # advisory 마이그레이션(db/advisory-migration)은 버전대(V20~)가 loan 과 겹쳐
+    # AdvisoryFlywayConfig 가 전용 이력 테이블로 별도 실행한다. 여기엔 loan 것만.
+    locations: classpath:db/migration
   datasource:
     url: jdbc:postgresql://${LOAN_DB_HOST:localhost}:${LOAN_DB_PORT:5434}/${LOAN_DB_NAME:loan_db}
     username: ${LOAN_DB_USER:loan}
@@ -24,15 +26,6 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-      acks: all          # 브로커 응답 대기 — 메시지 유실 방지
-      retries: 3
-      properties:
-        enable.idempotence: true   # 프로듀서 멱등성 — 중복 발행 방지
   servlet:
     multipart:
       enabled: true
@@ -44,6 +37,14 @@ spring:
       enabled: false        # 부팅 시 자동 실행 방지
     jdbc:
       initialize-schema: never  # Flyway로 관리
+
+# 공통 계좌 DB (common_db) — Phase 1: loan-service 채택. CommonDataSourceConfig 가 바인딩.
+common:
+  datasource:
+    url: jdbc:postgresql://${COMMON_DB_HOST:localhost}:${COMMON_DB_PORT:5438}/${COMMON_DB_NAME:common_db}
+    username: ${COMMON_DB_USER:common}
+    password: ${COMMON_DB_PASSWORD:common}
+    driver-class-name: org.postgresql.Driver
 
 # 대출 도메인 전용 설정
 loan:
@@ -75,10 +76,13 @@ auto-review:
   read-timeout-ms: ${AUTO_REVIEW_READ_TIMEOUT_MS:30000}
 
 crypto:
-  # AES-256 키 (32바이트 Base64). 운영 환경에서는 반드시 CRYPTO_KEY_BASE64 환경변수로 교체할 것.
-  key-base64: ${CRYPTO_KEY_BASE64:bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZQ==}
+  # AES-256 키 (32바이트 Base64). 반드시 CRYPTO_KEY_BASE64 환경변수로 주입해야 함.
+  # 기본값 없음: 미주입 시 부팅 실패 (fail-fast). 로컬 개발값은 application-local.yml 참조.
+  key-base64: ${CRYPTO_KEY_BASE64}
 
 payment:
+  # 수납/집행 시스템 계좌는 common_db.common_account(account_nickname=LOAN_COLLECTION/LOAN_DISBURSEMENT)로 이관.
+  # SystemAccountProvider 가 조회한다. 여기엔 payment-service 엔드포인트만.
   url: ${PAYMENT_SERVICE_URL:http://localhost:8080}
   collection:
     bank-code: ${PAYMENT_COLLECTION_BANK_CODE:088}
@@ -92,6 +96,14 @@ doc-agent:
 
 internal:
   token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
+
+# ---- Phase E E3-8: 합성 케이스 seed (기본 비활성 — 개발 환경 1회 실행용) ----
+ai:
+  case-seed:
+    enabled: ${AI_CASE_SEED_ENABLED:false}
+    count: ${AI_CASE_SEED_COUNT:10000}
+    batch-size: 500
+    aggregate-base: 9000000  # rev_id 충돌 방지 고정 오프셋
 
 management:
   endpoints:
@@ -129,43 +141,10 @@ advisory:
     base-url: ${ADVISORY_BASE_URL:http://advisory-service:8085}
     timeout-ms: ${ADVISORY_TIMEOUT_MS:5000}
     connect-timeout-ms: ${ADVISORY_CONNECT_TIMEOUT_MS:3000}
-  consumer:
-    # L7 실험: 값 변경 후 재기동만으로 효과 측정 가능
-    fetch-min-bytes: 1            # 실험: 10240으로 올리면 처리량↑ 지연↑
-    fetch-max-wait-ms: 500
-    fetch-max-bytes: 52428800
-    max-partition-fetch-bytes: 1048576
-    max-poll-records: 500         # 실험: 5000으로 올리면 max.poll.interval.ms 초과 위험
-    max-poll-interval-ms: 300000
-    session-timeout-ms: 45000
-    heartbeat-interval-ms: 15000
-    request-timeout-ms: 30000
-    default-api-timeout-ms: 60000
-    experiment-delay-ms: 0        # 실험: 양수 설정 시 처리 지연 시뮬레이션 (rebalance 유발)
-  producer:
-    use-skew-aware-partitioner: false  # L4 실험: true로 바꾸고 재기동 → hot-key 분산 효과 비교
-  kafka:
-    use-avro: false                    # L3 실험: true로 바꾸고 재기동 → Avro 직렬화로 전환
-    schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
-    dlq-backoff-interval-ms: 1000
-    dlq-max-attempts: 3
-    # L8 실험: 아래 값 변경 후 재기동으로 전략 비교
-    assignment-strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
-    # 실험: Range / RoundRobin 비교
-    #   org.apache.kafka.clients.consumer.RangeAssignor
-    #   org.apache.kafka.clients.consumer.RoundRobinAssignor
-    #   org.apache.kafka.clients.consumer.StickyAssignor
-    group-instance-id: ${ADVISORY_CONSUMER_INSTANCE_ID:}  # 비어있으면 동적 멤버십
-    client-rack: ${ADVISORY_CLIENT_RACK:}                 # 비어있으면 rack awareness 미적용
   ai-gateway:
     base-url: ${AIGATEWAY_BASE_URL:http://localhost:8088}
     timeout-ms: ${AIGATEWAY_TIMEOUT_MS:35000}
     connect-timeout-ms: ${AIGATEWAY_CONNECT_TIMEOUT_MS:3000}
-
-ai-service:
-  base-url: ${AI_SERVICE_BASE_URL:http://localhost:8086}
-
-advisory:
   rag:
     embed:
       provider: ${ADVISORY_RAG_EMBED_PROVIDER:stub}
@@ -178,3 +157,6 @@ advisory:
         read-timeout-ms: ${ADVISORY_OPENAI_READ_TIMEOUT_MS:10000}
         max-attempts: ${ADVISORY_OPENAI_MAX_ATTEMPTS:3}
         retry-backoff-ms: ${ADVISORY_OPENAI_RETRY_BACKOFF_MS:300}
+
+ai-service:
+  base-url: ${AI_SERVICE_BASE_URL:http://localhost:8086}

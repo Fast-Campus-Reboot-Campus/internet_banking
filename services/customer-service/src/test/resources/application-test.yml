@@ -26,3 +26,13 @@ jwt:
   secret: test-secret-key-must-be-at-least-32-chars-long!!
   access-token-validity: 600000
   refresh-token-validity: 3600000
+
+# 테스트 전용 더미 AES-256 키(32바이트 Base64) — CryptoService 빈 초기화용
+crypto:
+  key-base64: bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM=
+
+# test 프로파일은 Redis 자동설정을 제외하므로 코드 캐시 무효화 pub/sub 리스너를 끈다
+code:
+  cache:
+    subscriber:
+      enabled: false

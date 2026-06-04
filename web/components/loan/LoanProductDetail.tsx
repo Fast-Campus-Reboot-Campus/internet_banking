@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -251,7 +251,7 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
               <div className="p-6">
                 {detailTab === '상품안내' && (
                   <table className="w-full text-[13px]">
-                    <tbody className="divide-y divide-[#E2F5EF]">
+                    <tbody className="divide-y divide-kb-border">
                       <tr>
                         <td className="py-4 pr-6 font-bold text-kb-text w-40 align-top">대출금액</td>
                         <td className="py-4 text-kb-text-body">{formatAmount(product.minAmount)} ~ {formatAmount(product.maxAmount)}</td>
@@ -269,7 +269,7 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
                 )}
                 {detailTab === '금리 및 이율' && (
                   <table className="w-full text-[13px]">
-                    <tbody className="divide-y divide-[#E2F5EF]">
+                    <tbody className="divide-y divide-kb-border">
                       <tr>
                         <td className="py-4 pr-6 font-bold text-kb-text w-40 align-top">기준금리</td>
                         <td className="py-4 text-kb-text-body">연 {bpsToRate(product.baseRateBps)}%</td>

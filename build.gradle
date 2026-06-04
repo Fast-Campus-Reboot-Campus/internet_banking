@@ -22,6 +22,10 @@ subprojects {
         }
     }
 
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+
     tasks.withType(Test).configureEach {
         useJUnitPlatform()
     }
@@ -65,6 +69,9 @@ configure(subprojects.findAll {
         testImplementation 'org.testcontainers:junit-jupiter'
         testImplementation 'org.testcontainers:postgresql'
         testImplementation 'org.testcontainers:kafka'
+        // commons-compress 1.26 (via Testcontainers) 의 TarArchiveOutputStream 이
+        // commons-codec 의 Charsets 클래스를 참조 — Spring Boot 3.3 BOM 에서 직접 포함 안 됨.
+        testRuntimeOnly 'commons-codec:commons-codec'
 
         testCompileOnly 'org.projectlombok:lombok'
         testAnnotationProcessor 'org.projectlombok:lombok'

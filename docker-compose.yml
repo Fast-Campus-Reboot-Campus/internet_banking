@@ -57,6 +57,23 @@ services:
       timeout: 5s
       retries: 5
 
+  common-db:
+    image: postgres:16-alpine
+    container_name: ib-common-db
+    environment:
+      POSTGRES_DB: ${COMMON_DB_NAME:-common_db}
+      POSTGRES_USER: ${COMMON_DB_USER:-common}
+      POSTGRES_PASSWORD: ${COMMON_DB_PASSWORD:-common}
+    ports:
+      - "${COMMON_DB_PORT:-5438}:5432"
+    volumes:
+      - common-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${COMMON_DB_USER:-common} -d ${COMMON_DB_NAME:-common_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   payment-db:
     image: postgres:16-alpine
     container_name: ib-payment-db
@@ -171,6 +188,200 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+
+  # =============================================================
+  # Application Services
+  # =============================================================
+
+  customer-service:
+    build:
+      context: .
+      dockerfile: services/customer-service/Dockerfile
+    container_name: ib-customer-service
+    environment:
+      CUSTOMER_APP_PORT: 8081
+      CUSTOMER_DB_HOST: customer-db
+      CUSTOMER_DB_PORT: 5432
+      CUSTOMER_DB_NAME: ${CUSTOMER_DB_NAME:-customer_db}
+      CUSTOMER_DB_USER: ${CUSTOMER_DB_USER:-customer}
+      CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:-customer}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
+      LOG_DIR: /logs
+    depends_on:
+      customer-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  deposit-service:
+    build:
+      context: .
+      dockerfile: services/deposit-service/Dockerfile
+    container_name: ib-deposit-service
+    environment:
+      DEPOSIT_APP_PORT: 8082
+      DEPOSIT_DB_HOST: deposit-db
+      DEPOSIT_DB_PORT: 5432
+      DEPOSIT_DB_NAME: ${DEPOSIT_DB_NAME:-deposit_db}
+      DEPOSIT_DB_USER: ${DEPOSIT_DB_USER:-deposit}
+      DEPOSIT_DB_PASSWORD: ${DEPOSIT_DB_PASSWORD:-deposit}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOG_DIR: /logs
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  loan-service:
+    build:
+      context: .
+      dockerfile: services/loan-service/Dockerfile
+    container_name: ib-loan-service
+    environment:
+      LOAN_APP_PORT: 8083
+      LOAN_DB_HOST: loan-db
+      LOAN_DB_PORT: 5432
+      LOAN_DB_NAME: ${LOAN_DB_NAME:-loan_db}
+      LOAN_DB_USER: ${LOAN_DB_USER:-loan}
+      LOAN_DB_PASSWORD: ${LOAN_DB_PASSWORD:-loan}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      LOG_DIR: /logs
+    depends_on:
+      loan-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: ib-payment-service
+    environment:
+      PAYMENT_APP_PORT: 8084
+      PAYMENT_DB_HOST: payment-db
+      PAYMENT_DB_PORT: 5432
+      PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+      PAYMENT_DB_USER: ${PAYMENT_DB_USER:-payment}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment}
+      KFTC_KAFKA_BOOTSTRAP: kafka:29092
+      BOK_KAFKA_BOOTSTRAP: kafka:29092
+      INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
+      LOG_DIR: /logs
+    depends_on:
+      payment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  master-service:
+    build:
+      context: .
+      dockerfile: services/master-service/Dockerfile
+    container_name: ib-master-service
+    environment:
+      MASTER_APP_PORT: 8085
+      MASTER_DB_HOST: master-db
+      MASTER_DB_PORT: 5432
+      MASTER_DB_NAME: ${MASTER_DB_NAME:-master_db}
+      MASTER_DB_USER: ${MASTER_DB_USER:-master}
+      MASTER_DB_PASSWORD: ${MASTER_DB_PASSWORD:-master}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_DIR: /logs
+    depends_on:
+      master-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8085/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: services/ai-service/Dockerfile
+    container_name: ib-ai-service
+    environment:
+      AI_APP_PORT: 8086
+      AI_DB_HOST: ai-db
+      AI_DB_PORT: 5432
+      AI_DB_NAME: ${AI_DB_NAME:-ai_db}
+      AI_DB_USER: ${AI_DB_USER:-ai}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:-ai}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      LOG_DIR: /logs
+    depends_on:
+      ai-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  consultation-service:
+    build:
+      context: services/consultation-service
+      dockerfile: Dockerfile
+    container_name: ib-consultation-service
+    ports:
+      - "${CONSULTATION_APP_PORT:-8087}:8087"
+    environment:
+      CONSULTATION_DATABASE_URL: postgresql+psycopg://${DEPOSIT_DB_USER:-deposit}:${DEPOSIT_DB_PASSWORD:-deposit}@deposit-db:5432/${DEPOSIT_DB_NAME:-deposit_db}
+      CONSULTATION_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONSULTATION_KAFKA_ENABLED: "false"
+      CONSULTATION_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      LOG_DIR: /logs
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # =============================================================
   # Monitoring — Metrics (Prometheus + Grafana)
@@ -334,7 +545,7 @@ services:
   gateway-service:
     build:
       context: .
-      dockerfile: services/gateway-service/Dockerfile
+      dockerfile: services/api-gateway/Dockerfile
     container_name: ib-gateway
     ports:
       - "${GATEWAY_APP_PORT:-8080}:8080"
@@ -344,18 +555,30 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
       CUSTOMER_SERVICE_HOST: customer-service
-      CUSTOMER_APP_PORT: ${CUSTOMER_APP_PORT:-8081}
+      CUSTOMER_SERVICE_PORT: 8081
       DEPOSIT_SERVICE_HOST: deposit-service
-      DEPOSIT_APP_PORT: ${DEPOSIT_APP_PORT:-8082}
+      DEPOSIT_SERVICE_PORT: ${DEPOSIT_APP_PORT:-8082}
       LOAN_SERVICE_HOST: loan-service
-      LOAN_APP_PORT: ${LOAN_APP_PORT:-8083}
+      LOAN_SERVICE_PORT: ${LOAN_APP_PORT:-8083}
       PAYMENT_SERVICE_HOST: payment-service
-      PAYMENT_APP_PORT: ${PAYMENT_APP_PORT:-8084}
+      PAYMENT_SERVICE_PORT: ${PAYMENT_APP_PORT:-8084}
       MASTER_SERVICE_HOST: master-service
-      MASTER_APP_PORT: ${MASTER_APP_PORT:-8085}
-      AI_SERVICE_HOST: ai-service
-      AI_APP_PORT: ${AI_APP_PORT:-8086}
+      MASTER_SERVICE_PORT: ${MASTER_APP_PORT:-8085}
+      AI_SERVICE_HOST: auto-loan-review
+      AI_SERVICE_PORT: ${AI_APP_PORT:-8086}
     depends_on:
+      customer-service:
+        condition: service_healthy
+      deposit-service:
+        condition: service_healthy
+      loan-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      master-service:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -364,17 +587,211 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── doc-agent 전용 (profile: doc) ─────────────────────────────────────────
+  doc-agent-db:
+    profiles: ["doc"]
+    image: postgres:16-alpine
+    container_name: ib-doc-agent-db
+    environment:
+      POSTGRES_DB: ${DOC_AGENT_DB_NAME:-doc_agent_db}
+      POSTGRES_USER: ${DOC_AGENT_DB_USER:-docagent}
+      POSTGRES_PASSWORD: ${DOC_AGENT_DB_PASSWORD:-docagent}
+    ports:
+      - "${DOC_AGENT_DB_PORT:-5438}:5432"
+    volumes:
+      - doc-agent-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DOC_AGENT_DB_USER:-docagent} -d ${DOC_AGENT_DB_NAME:-doc_agent_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    profiles: ["doc"]
+    image: minio/minio:latest
+    container_name: ib-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vault:
+    profiles: ["doc"]
+    image: hashicorp/vault:1.15
+    container_name: ib-vault
+    command: server -dev -dev-root-token-id=root
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports:
+      - "${VAULT_PORT:-8200}:8200"
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8200/v1/sys/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── RAG 전용 (profile: rag) ───────────────────────────────────────────────
+  kafka-connect:
+    profiles: ["rag"]
+    build:
+      context: ./infra/kafka-connect
+      dockerfile: Dockerfile
+    container_name: ib-kafka-connect
+    ports:
+      - "${KAFKA_CONNECT_PORT:-8083}:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: ib-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: _connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/connectors || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  kafka-connect-init:
+    profiles: ["rag"]
+    image: curlimages/curl:8.7.1
+    container_name: ib-kafka-connect-init
+    depends_on:
+      kafka-connect:
+        condition: service_healthy
+    volumes:
+      - ./infra/kafka-connect/connectors:/connectors:ro
+      - ./infra/kafka-connect/register-connectors.sh:/register-connectors.sh:ro
+    entrypoint: ["/bin/sh", "/register-connectors.sh"]
+    restart: on-failure
+
+  elasticsearch:
+    profiles: ["rag"]
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: ib-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx2g
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=10s || exit 1"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+
+  kibana:
+    profiles: ["rag"]
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: ib-kibana
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - xpack.security.enabled=false
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  doc-agent:
+    profiles: ["doc"]
+    build:
+      context: .
+      dockerfile: services/doc-agent/Dockerfile
+    container_name: ib-doc-agent
+    ports:
+      - "${DOC_AGENT_APP_PORT:-8087}:8087"
+    environment:
+      DOC_AGENT_APP_PORT: 8087
+      DOC_AGENT_DB_HOST: doc-agent-db
+      DOC_AGENT_DB_PORT: 5432
+      DOC_AGENT_DB_NAME: ${DOC_AGENT_DB_NAME:-doc_agent_db}
+      DOC_AGENT_DB_USER: ${DOC_AGENT_DB_USER:-docagent}
+      DOC_AGENT_DB_PASSWORD: ${DOC_AGENT_DB_PASSWORD:-docagent}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-minioadmin}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-minioadmin}
+      VAULT_ENABLED: "true"
+      VAULT_HOST: vault
+      VAULT_PORT: 8200
+      VAULT_TOKEN: root
+      INFERENCE_SERVER_URL: http://inference-server:8090
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      DRIVER_LICENSE_API_KEY: ${DRIVER_LICENSE_API_KEY:-}
+      DRIVER_LICENSE_API_ENABLED: ${DRIVER_LICENSE_API_ENABLED:-false}
+    depends_on:
+      doc-agent-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   customer-db-data:
   deposit-db-data:
   loan-db-data:
+  common-db-data:
   payment-db-data:
   master-db-data:
+
   ai-db-data:
   redis-data:
   kafka-data:
   prometheus-data:
   grafana-data:
+  doc-agent-db-data:
+  minio-data:
+  elasticsearch-data:
   loki-data:
   langfuse-db-data:
   phoenix-data:

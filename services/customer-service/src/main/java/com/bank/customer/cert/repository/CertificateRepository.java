@@ -14,4 +14,6 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     @Modifying
     @Query("UPDATE Certificate c SET c.certificateStatusCode = 'REVOKED' WHERE c.customerId = :customerId AND c.certificateTypeCode = :certType AND c.certificateStatusCode = 'ACTIVE' AND c.deletedAt IS NULL")
     void revokeAllActive(Long customerId, String certType);
+
+    java.util.List<Certificate> findByCustomerIdAndDeletedAtIsNull(Long customerId);
 }

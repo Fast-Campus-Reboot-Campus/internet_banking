@@ -1,8 +1,6 @@
 package com.bank.loan.advisory.listener;
 
 import com.bank.loan.advisory.event.QuarantineTriggeredEvent;
-import com.bank.loan.advisory.kafka.AdvisoryKafkaOutboxAppender;
-import com.bank.loan.advisory.kafka.AdvisoryKafkaOutboxMessage;
 import com.bank.loan.notification.channel.StubOperatorAlertAdapter;
 import com.bank.loan.notification.outbox.NotificationOutboxAppender;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +26,6 @@ public class QuarantineNotificationListener {
     public static final String EVENT_TYPE = "QUARANTINE_ALERT";
 
     private final NotificationOutboxAppender outboxAppender;
-    private final AdvisoryKafkaOutboxAppender kafkaOutboxAppender;
 
     @EventListener
     public void onQuarantineTriggered(QuarantineTriggeredEvent event) {
@@ -43,17 +40,6 @@ public class QuarantineNotificationListener {
                     event.revId(), event.reviewerId(), event.conclusionCd(), event.advrIds());
         } catch (Exception e) {
             log.error("[quarantine-alert] outbox 적재 실패 (무시) — revId={}: {}",
-                    event.revId(), e.getMessage());
-        }
-        try {
-            kafkaOutboxAppender.enqueue(
-                    EVENT_TYPE,
-                    String.valueOf(event.revId()),
-                    AdvisoryKafkaOutboxMessage.TOPIC_QUARANTINE,
-                    String.valueOf(event.revId()),
-                    payload);
-        } catch (Exception e) {
-            log.error("[quarantine-kafka] outbox 적재 실패 (무시) — revId={}: {}",
                     event.revId(), e.getMessage());
         }
     }

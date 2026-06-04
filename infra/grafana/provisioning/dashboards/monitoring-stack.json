@@ -297,7 +297,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(up == 1) / count(up) * 100"
+          "expr": "avg(avg_over_time(up[5m])) * 100"
         }
       ],
       "title": "전체 Scrape 성공률",
