@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import { use, useRef, useState, Suspense } from 'react'
+import { use, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import { loanApplicationApi, loanContractApi } from '@/lib/loan-api'

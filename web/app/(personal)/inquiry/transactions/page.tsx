@@ -88,7 +88,6 @@ export default function TransactionsPage() {
   /* 달력으로 보기 – 해당 월 거래 */
   const calTxs = (() => {
     if (!calSearched || !calAccount) return []
-    const acc = accounts.find(a => a.id === calAccount)
     const prefix = `${year}-${month}`
     return allTransactions.filter(t => t.transactionAt.startsWith(prefix))
   })()

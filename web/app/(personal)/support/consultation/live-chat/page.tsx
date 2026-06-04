@@ -11,7 +11,7 @@ import {
   getChatMessages,
   endChat,
 } from '@/lib/consultation-api'
-import type { ChatMessage } from '@/lib/consultation-api'
+
 
 
 type Step = 'form' | 'waiting' | 'chat' | 'ended'

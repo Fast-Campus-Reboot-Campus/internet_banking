@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { Account, formatNumber } from '@/lib/mock-data'
+import { formatNumber } from '@/lib/mock-data'
 import InquirySidebar from '@/components/inquiry/InquirySidebar'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import type { DepositViewAccount } from '@/lib/deposit-api'

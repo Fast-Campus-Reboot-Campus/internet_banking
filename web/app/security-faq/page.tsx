@@ -118,7 +118,7 @@ export default function SecurityFaqPage() {
 
         {/* FAQ 아코디언 */}
         <div className="space-y-2">
-          {filtered.map((item, i) => {
+          {filtered.map((item) => {
             const globalIndex = FAQ_ITEMS.indexOf(item)
             const isOpen = openIndex === globalIndex
             return (
