@@ -32,10 +32,11 @@ management:
       show-details: always
   metrics:
     distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        payment.instruction.duration: true
       percentiles:
         http.server.requests: 0.5, 0.95, 0.99
-      percentiles-histogram:
-        payment.instruction.duration: true
     tags:
       application: ${spring.application.name}
 
