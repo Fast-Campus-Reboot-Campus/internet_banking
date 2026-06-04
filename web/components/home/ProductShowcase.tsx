@@ -11,7 +11,11 @@ type Slide = {
 }
 
 function productToSlide(p: DepositProduct, category: string, badge: string, tab: string): Slide {
-  const rate = p.baseInterestRate != null ? `연 ${p.baseInterestRate}%` : '-'
+  const rate = p.bestRate != null
+    ? `최고 연 ${p.bestRate}%`
+    : p.baseInterestRate != null
+      ? `기본 연 ${p.baseInterestRate}%`
+      : '-'
   const period = p.minPeriodMonth != null
     ? (p.maxPeriodMonth && p.maxPeriodMonth !== p.minPeriodMonth
         ? `${p.minPeriodMonth}~${p.maxPeriodMonth}개월`
@@ -228,10 +232,8 @@ export default function ProductShowcase() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[22px] font-bold text-kb-text leading-none">
-                    {current.rate}
-                    <span className="text-[11px] text-kb-text-muted font-normal ml-2">{current.rateNote}</span>
-                  </p>
+                  <p className="text-[22px] font-bold text-kb-text leading-none">{current.rate}</p>
+                  <p className="text-[11px] text-kb-text-muted mt-1">{current.rateNote}</p>
                 </div>
               </div>
             </div>

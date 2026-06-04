@@ -17,6 +17,7 @@ import java.util.List;
  * @param shadowModel         shadow 에이전트에 사용된 모델명
  * @param shadowPromptVersion shadow 에이전트에 사용된 프롬프트 버전
  * @param ragEnabled          shadow run 이 RAG 컨텍스트를 사용했는지 여부 (D4-2)
+ * @param ragBackend          shadow run 이 사용한 RAG 백엔드 (inline / es) (E4-2)
  */
 public record ShadowComparisonResult(
         Long revId,
@@ -27,5 +28,6 @@ public record ShadowComparisonResult(
         Track track,
         String shadowModel,
         String shadowPromptVersion,
-        boolean ragEnabled
+        boolean ragEnabled,
+        String ragBackend
 ) {}

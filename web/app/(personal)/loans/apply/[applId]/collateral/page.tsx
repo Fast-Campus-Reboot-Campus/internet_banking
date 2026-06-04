@@ -168,7 +168,7 @@ export default function CollateralPage() {
 
       <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-text">담보 등록 및 LTV 계산</h1>
 
-      <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
+      <div className="border border-[#E2F5EF] bg-[#F0FAF7] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
         <p>· 담보 등록 후 감정평가 및 LTV(담보인정비율) 계산이 자동으로 진행됩니다.</p>
         <p>· LTV = 신청금액 ÷ 감정가 × 100. 기본 한도 70%(7,000bps).</p>
       </div>
@@ -234,7 +234,7 @@ export default function CollateralPage() {
                   ) : col.colStatusCd === 'EVALUATED' ? (
                     <div className="px-5 py-3 border-t border-kb-border flex items-center gap-3">
                       <button onClick={() => handleCalcLtv(col.colId)}
-                        className="px-5 py-1.5 border border-kb-text text-[12px] text-kb-text hover:bg-kb-beige-light transition-colors">
+                        className="px-5 py-1.5 border border-kb-text text-[12px] text-kb-text hover:bg-[#F0FAF7] transition-colors">
                         LTV 계산
                       </button>
                     </div>
@@ -248,8 +248,8 @@ export default function CollateralPage() {
 
       {/* 담보 등록 폼 */}
       <section className="mb-6">
-        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">담보물 등록</h2>
-        <div className="border border-kb-border divide-y divide-kb-border overflow-hidden">
+        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-[#E2F5EF]">담보물 등록</h2>
+        <div className="border border-[#E2F5EF] divide-y divide-kb-border overflow-hidden">
 
           <div className="flex items-center px-5 py-4 gap-4">
             <label className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">
@@ -260,8 +260,8 @@ export default function CollateralPage() {
                 <button key={t.code} onClick={() => setColType(t.code)}
                   className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
                     colType === t.code
-                      ? 'bg-kb-yellow border-kb-text font-bold text-kb-text'
-                      : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                      ? 'bg-[#0D5C47] border-kb-text font-bold text-kb-text'
+                      : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
                   {t.label}
                 </button>
               ))}
@@ -300,8 +300,8 @@ export default function CollateralPage() {
                 <button key={t.code} onClick={() => setOwnershipType(t.code)}
                   className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
                     ownershipType === t.code
-                      ? 'bg-kb-yellow border-kb-text font-bold text-kb-text'
-                      : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                      ? 'bg-[#0D5C47] border-kb-text font-bold text-kb-text'
+                      : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
                   {t.label}
                 </button>
               ))}
@@ -316,8 +316,8 @@ export default function CollateralPage() {
                   <button key={v} onClick={() => setSeniorLienYn(v)}
                     className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
                       seniorLienYn === v
-                        ? 'bg-kb-yellow border-kb-text font-bold text-kb-text'
-                        : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                        ? 'bg-[#0D5C47] border-kb-text font-bold text-kb-text'
+                        : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
                     {v === 'N' ? '없음' : '있음'}
                   </button>
                 ))}

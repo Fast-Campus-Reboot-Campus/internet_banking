@@ -2,6 +2,7 @@ package com.bank.deposit.controller;
 
 import com.bank.deposit.domain.entity.*;
 import com.bank.deposit.domain.enums.*;
+import com.bank.deposit.dto.response.ProductResponse;
 import com.bank.deposit.exception.BusinessException;
 import com.bank.deposit.exception.ErrorCode;
 import com.bank.deposit.service.ProductService;
@@ -35,15 +36,17 @@ class ProductControllerTest {
     @Test
     @DisplayName("상품 목록을 조회한다")
     void list() throws Exception {
-        given(productService.findAll(ProductType.DEPOSIT, ProductStatus.SELLING))
-                .willReturn(List.of(product("정기예금")));
+        given(productService.findAllResponses(ProductType.DEPOSIT, ProductStatus.SELLING))
+                .willReturn(List.of(ProductResponse.from(product("정기예금"), BigDecimal.valueOf(4.0))));
 
         mockMvc.perform(get("/products")
                         .param("productType", "DEPOSIT")
                         .param("productStatus", "SELLING"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].productName").value("정기예금"));
+                .andExpect(jsonPath("$[0].productName").value("정기예금"))
+                .andExpect(jsonPath("$[0].baseInterestRate").value(3.5))
+                .andExpect(jsonPath("$[0].bestRate").value(4.0));
     }
 
     @Test
@@ -80,17 +83,19 @@ class ProductControllerTest {
     @Test
     @DisplayName("상품 단건을 조회한다")
     void getById() throws Exception {
-        given(productService.findById(1L)).willReturn(product("정기예금"));
+        given(productService.findResponseById(1L))
+                .willReturn(ProductResponse.from(product("정기예금"), BigDecimal.valueOf(4.0)));
 
         mockMvc.perform(get("/products/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.productName").value("정기예금"));
+                .andExpect(jsonPath("$.productName").value("정기예금"))
+                .andExpect(jsonPath("$.bestRate").value(4.0));
     }
 
     @Test
     @DisplayName("존재하지 않는 상품 조회 시 404를 반환한다")
     void getNotFound() throws Exception {
-        given(productService.findById(999L))
+        given(productService.findResponseById(999L))
                 .willThrow(new BusinessException(ErrorCode.PRODUCT_NOT_FOUND));
 
         mockMvc.perform(get("/products/999"))

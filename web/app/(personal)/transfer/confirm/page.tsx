@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
-
 type PendingTransfer = {
+  fromAccountId?: number
+  fromAccountViewId?: string
   fromNumber: string
   fromName: string
   toBank: string
@@ -49,6 +50,7 @@ export default function TransferConfirmPage() {
       if (next.length === 6) {
         setTimeout(() => {
           setShowCertModal(false)
+          // 이체 실행은 result 페이지에서 단일 처리
           router.push('/transfer/result')
         }, 400)
       }

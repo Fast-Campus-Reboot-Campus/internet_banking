@@ -43,7 +43,7 @@ swap 만으로 인라인 policy text → RAG 전환 가능하도록 인터페이
 
 ---
 
-## 2. 벡터 스토어 — pgvector 스키마
+## 2. 벡터 스토어 — pgvector 스키마 *(historical — Phase D 계획, Phase E 에서 ES 로 대체됨)*
 
 ### 2.1 통합 테이블 (3 코퍼스 공통)
 
@@ -629,3 +629,85 @@ loan-service 의 LOAN_REVIEW.report_json 도 비변경.
       확정 — RAG 가 swap 들어갈 자리
 - [ ] inference-server 가 rerank endpoint 추가 가능한지 (옵션)
 - [ ] 운영 ai_db 디스크 여유 — 100만 chunks × (1024 dim × 4 bytes + 평균 chunk_text 2KB) ≈ 6GB+
+
+---
+
+## 부록 A — Elasticsearch 인덱스 매핑 (Phase E 기준, 2026-05-29 추가)
+
+> Phase E ([`phase-e-elasticsearch.md`](phase-e-elasticsearch.md)) 에서 §2 pgvector 스키마를 대체.
+> 코퍼스 구조·메타데이터 필드는 §2.2 와 동일하게 승계.
+
+### A.1 공통 설정 (3 인덱스 공통)
+
+| 항목 | 값 |
+|------|-----|
+| ES 버전 | 8.15+ |
+| 한국어 분석기 | `korean_nori` (`nori_tokenizer` + `nori_part_of_speech` + `lowercase`) |
+| 임베딩 | `dense_vector` dims=768, similarity=cosine, `int8_hnsw` (m=16, ef_construction=100) |
+| 인덱스 명명 | `kb_{corpus}_v{n}` (versioned) + alias `kb_{corpus}` (zero-downtime swap) |
+
+### A.2 `kb_policy_v1` 매핑 (shards=1, refresh_interval=1s)
+
+```json
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "refresh_interval": "1s",
+    "analysis": {
+      "analyzer": {
+        "korean_nori": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": ["nori_part_of_speech", "lowercase"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "corpus":        { "type": "keyword" },
+      "source_id":     { "type": "keyword" },
+      "chunk_seq":     { "type": "integer" },
+      "chunk_text":    { "type": "text", "analyzer": "korean_nori" },
+      "chunk_summary": { "type": "text", "analyzer": "korean_nori" },
+      "metadata": {
+        "properties": {
+          "product_code":   { "type": "keyword" },
+          "segment":        { "type": "keyword" },
+          "effective_date": { "type": "date" },
+          "policy_id":      { "type": "keyword" },
+          "matrix_coord":   { "type": "keyword" }
+        }
+      },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 768,
+        "index": true,
+        "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw", "m": 16, "ef_construction": 100 }
+      },
+      "embedding_model": { "type": "keyword" },
+      "created_at":      { "type": "date" }
+    }
+  }
+}
+```
+
+### A.3 `kb_similar_cases_v1` (shards=3, refresh_interval=30s)
+
+§A.2 와 동일 구조. `metadata` 에 추가 필드:
+`decision_label`, `loan_type`, `pd_band`, `dsr_band`, `region_code` (모두 `keyword`).
+
+### A.4 `kb_internal_faq_v1` (shards=1)
+
+§A.2 와 동일.
+
+### A.5 pgvector → ES 필드 대응표
+
+| pgvector 컬럼 | ES 필드 | 비고 |
+|---------------|---------|------|
+| `embedding vector(1024)` | `embedding dense_vector dims=768` | 모델 변경 (text-embedding-005 기본 출력 768d) |
+| `fts_tokens tsvector` | `chunk_text` (nori 분석기) | ES 가 자동 역인덱스 생성 |
+| `is_active boolean` | 삭제 API (`DELETE /{index}/_doc/{id}`) | 소프트 삭제 → ES 하드 삭제로 전환 |
+| `effective_date / expiry_date` | `metadata.effective_date` | `date` 타입 유지 |

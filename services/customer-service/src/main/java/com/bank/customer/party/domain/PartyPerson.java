@@ -96,6 +96,17 @@ public class PartyPerson extends BaseEntity {
         this.ciValue = ciValue;
     }
 
+    public void updatePersonalInfo(String occupationCode, String occupationName,
+                                   String workplaceName, Long annualIncomeAmount,
+                                   String incomeProofCode, String maritalStatusCode) {
+        this.occupationCode      = occupationCode;
+        this.occupationName      = occupationName;
+        this.workplaceName       = workplaceName;
+        this.annualIncomeAmount  = annualIncomeAmount;
+        this.incomeProofCode     = incomeProofCode;
+        this.maritalStatusCode   = maritalStatusCode;
+    }
+
     public boolean isPep() {
         return "T".equals(isPepYn);
     }

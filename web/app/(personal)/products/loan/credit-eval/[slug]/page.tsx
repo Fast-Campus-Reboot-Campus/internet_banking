@@ -61,12 +61,12 @@ function BizPlanForm({ applId }: { applId: number | null }) {
       <div className="flex gap-3 mb-6">
         <button onClick={() => setMode('view')}
           className={`px-6 py-2 text-[13px] font-bold border transition-colors
-            ${mode === 'view' ? 'bg-kb-text text-white border-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+            ${mode === 'view' ? 'bg-kb-text text-white border-kb-text' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
           조회
         </button>
         <button onClick={() => setMode('write')}
           className={`px-6 py-2 text-[13px] font-bold border transition-colors
-            ${mode === 'write' ? 'bg-kb-text text-white border-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+            ${mode === 'write' ? 'bg-kb-text text-white border-kb-text' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
           작성
         </button>
       </div>
@@ -83,10 +83,10 @@ function BizPlanForm({ applId }: { applId: number | null }) {
             <table className="w-full text-[13px] border-t border-kb-text">
               <thead>
                 <tr className="bg-[#F5F5F5]">
-                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">제출일</th>
-                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">서류 유형</th>
-                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">처리 상태</th>
-                  <th className="px-4 py-3 text-center font-medium border-b border-kb-border">검토 부서</th>
+                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">제출일</th>
+                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">서류 유형</th>
+                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">처리 상태</th>
+                  <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">검토 부서</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-kb-border">
@@ -118,7 +118,7 @@ function BizPlanForm({ applId }: { applId: number | null }) {
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0 pt-2">업체현황 내용</label>
             <textarea rows={5} value={content} onChange={e => setContent(e.target.value)}
               placeholder="업체 현황을 입력하세요"
-              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text resize-none" />
+              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text resize-none" />
           </div>
           <div className="flex items-center gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">파일 첨부</label>
@@ -246,10 +246,10 @@ function FatiHistoryTable({ applId }: { applId: number | null }) {
     <table className="w-full text-[13px] border-t border-kb-text">
       <thead>
         <tr className="bg-[#F5F5F5]">
-          <th className="px-4 py-3 text-center font-medium border-b border-kb-border">제출일</th>
-          <th className="px-4 py-3 text-left font-medium border-b border-kb-border">자료 유형</th>
-          <th className="px-4 py-3 text-center font-medium border-b border-kb-border">기준연도</th>
-          <th className="px-4 py-3 text-center font-medium border-b border-kb-border">처리 상태</th>
+          <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">제출일</th>
+          <th className="px-4 py-3 text-left font-medium border-b border-[#E2F5EF]">자료 유형</th>
+          <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">기준연도</th>
+          <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">처리 상태</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-kb-border">

@@ -64,7 +64,7 @@ public class ShadowModeService {
                     revId, prodOpinion, shadowOpinion,
                     decision.track(),
                     props.model(), props.promptVersion(),
-                    props.ragEnabled());
+                    props.ragEnabled(), props.ragBackend());
 
             repository.insert(result);
 

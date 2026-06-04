@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +35,7 @@ public class CodeInvalidationSubscriber {
     private final ObjectMapper objectMapper;
 
     @Bean
+    @ConditionalOnProperty(name = "code.cache.subscriber.enabled", havingValue = "true", matchIfMissing = true)
     public RedisMessageListenerContainer codeInvalidationListenerContainer(
             RedisConnectionFactory cf, CacheManager cacheManager) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();

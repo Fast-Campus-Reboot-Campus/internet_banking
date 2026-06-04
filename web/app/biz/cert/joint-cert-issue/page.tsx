@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
 const TERMS = [
   { label: '전자금융거래기본약관' },
@@ -33,7 +34,8 @@ export default function BizJointCertIssuePage() {
   const [bizNum2, setBizNum2] = useState('')
   const [bizNum3, setBizNum3] = useState('')
   const [rrnFront, setRrnFront] = useState('')
-  const [mouseInput, setMouseInput] = useState(true)
+  const [mouseInput, setMouseInput] = useState(false)
+  const [rrnBack, setRrnBack] = useState('')
 
   function toggleTerm(i: number) {
     setExpandedTerms(prev => {
@@ -245,15 +247,19 @@ export default function BizJointCertIssuePage() {
                   placeholder="생년월일"
                 />
                 <span className="text-kb-text-muted">-</span>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <div key={j} className="w-7 h-8 border border-kb-border bg-kb-beige-light flex items-center justify-center">
-                      <span className="text-kb-text-muted text-body">●</span>
-                    </div>
-                  ))}
-                </div>
+                {mouseInput ? (
+                  <MouseNumKeypad value={rrnBack} onChange={setRrnBack} maxLength={7} dotCount={7} />
+                ) : (
+                  <input
+                    type="password"
+                    value={rrnBack}
+                    onChange={e => setRrnBack(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                    maxLength={7}
+                    className="w-28 border border-kb-border px-3 py-2 text-caption text-center tracking-widest focus:outline-none"
+                  />
+                )}
                 <label className="flex items-center gap-1.5 cursor-pointer">
-                  <CheckBox checked={mouseInput} onChange={() => setMouseInput(!mouseInput)} />
+                  <CheckBox checked={mouseInput} onChange={() => { setMouseInput(!mouseInput); setRrnBack('') }} />
                   <span className="text-caption text-kb-text-body">마우스로 입력</span>
                 </label>
                 <span className="text-caption text-kb-text-muted">ⓘ 개인사업자만 입력</span>

@@ -193,9 +193,11 @@ public class AutoReviewEventListener {
     }
 
     private ReviewReport generateReport(AutoReviewEvaluatedEvent event, PurposeAnalysis purpose) {
-        String query = buildPolicyQuery(event);
+        String policyQuery = buildPolicyQuery(event);
+        String casesQuery  = buildCasesQuery(event);
         List<Chunk> ragChunks = ragRetrievalService.retrieve(
-                event.decision().track(), query, null);
+                event.decision().track(), policyQuery,
+                casesQuery, event.request().productCode(), null);
 
         var input = new ReviewReportInput(
                 event.decision().track(),
@@ -216,5 +218,17 @@ public class AutoReviewEventListener {
         String product = event.request().productCode() != null ? event.request().productCode() : "";
         String purpose = event.request().purposeCd() != null ? event.request().purposeCd() : "";
         return (product + " " + purpose + " 정책 한도 기준").trim();
+    }
+
+    private static String buildCasesQuery(AutoReviewEvaluatedEvent event) {
+        var req = event.request();
+        List<String> parts = new java.util.ArrayList<>();
+        if (req.productCode() != null)           parts.add(req.productCode());
+        if (req.applicantSegment() != null)      parts.add(req.applicantSegment());
+        if (req.dsr() != null)                   parts.add(String.format("DSR %.0f%%", req.dsr() * 100));
+        if (req.ltv() != null)                   parts.add(String.format("LTV %.0f%%", req.ltv() * 100));
+        if (req.creditScoreProxy() != null)      parts.add("신용점수 " + req.creditScoreProxy());
+        if (req.delinquencyHistory24m() != null) parts.add("연체 " + req.delinquencyHistory24m() + "건");
+        return parts.isEmpty() ? null : String.join(" ", parts) + " 유사 케이스";
     }
 }

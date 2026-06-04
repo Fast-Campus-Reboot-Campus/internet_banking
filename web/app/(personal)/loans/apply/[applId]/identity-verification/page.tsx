@@ -78,7 +78,7 @@ export default function IdentityVerificationPage() {
           {masked && <p className="text-[14px] text-kb-text-muted mb-8">{masked}</p>}
           <button
             onClick={() => router.push(`/loans/apply/result?applId=${applId}`)}
-            className="px-14 py-3 bg-kb-yellow text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
+            className="px-14 py-3 bg-[#0D5C47] text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
           >
             신청 결과 확인
           </button>
@@ -117,8 +117,8 @@ export default function IdentityVerificationPage() {
               onClick={() => setMethod(m.code)}
               className={`border rounded-xl p-5 text-left transition-colors ${
                 method === m.code
-                  ? 'border-kb-text bg-kb-yellow/20'
-                  : 'border-kb-border hover:bg-kb-beige-light'
+                  ? 'border-kb-text bg-[#0D5C47]/20'
+                  : 'border-[#E2F5EF] hover:bg-[#F0FAF7]'
               }`}
             >
               <p className="text-[14px] font-bold text-kb-text mb-1">{m.label}</p>
@@ -132,7 +132,7 @@ export default function IdentityVerificationPage() {
         <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">
           휴대폰 번호 입력 <span className="text-kb-red text-[11px] font-normal ml-1">* 필수</span>
         </h2>
-        <div className="border border-kb-border divide-y divide-kb-border overflow-hidden">
+        <div className="border border-[#E2F5EF] divide-y divide-kb-border overflow-hidden">
           <div className="flex items-center px-5 py-4 gap-4">
             <label className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">
               휴대폰 번호 <span className="text-kb-red">*</span>

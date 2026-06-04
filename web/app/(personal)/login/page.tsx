@@ -171,14 +171,21 @@ function KBCertTab() {
   // 폴링: 2초마다 status 조회
   useEffect(() => {
     if (status !== 'pending' && status !== 'scanned') return
+    let pollErrors = 0
     const poll = setInterval(async () => {
       try {
         const { data } = await api.get(`/api/v1/auth/qr/status?token=${tokenHashRef.current}`)
+        pollErrors = 0
         const s: string = data.data.status
         if (s === 'SCANNED')  setStatus('scanned')
         if (s === 'EXPIRED')  { setStatus('expired'); clearInterval(poll) }
         if (s === 'APPROVED') {
           clearInterval(poll)
+          if (!data.data.accessToken || data.data.customerId == null) {
+            setStatus('error')
+            setErrorMsg('인증 토큰 발급에 실패했습니다. 다시 시도해 주세요.')
+            return
+          }
           setStatus('approved')
           localStorage.removeItem('sessionExpiry')
           localStorage.setItem('accessToken',  data.data.accessToken)
@@ -187,11 +194,17 @@ function KBCertTab() {
           if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
           try {
             const me = await api.get('/api/v1/customers/me')
-            localStorage.setItem('user', JSON.stringify({ name: me.data.data.name }))
+            localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
           } catch {}
           window.location.href = '/'
         }
-      } catch {}
+      } catch {
+        if (++pollErrors >= 3) {
+          clearInterval(poll)
+          setStatus('error')
+          setErrorMsg('서버와 통신 중 오류가 발생했습니다. 다시 시도해 주세요.')
+        }
+      }
     }, 2000)
     return () => clearInterval(poll)
   }, [status])
@@ -463,7 +476,7 @@ async function handleCertLogin(certSerialNumber: string, certType: string, pin: 
   if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
   try {
     const me = await api.get('/api/v1/customers/me')
-    localStorage.setItem('user', JSON.stringify({ name: me.data.data.name }))
+    localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
   } catch {}
   window.location.href = '/'
 }
@@ -613,7 +626,7 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
                 </div>
-                <div className="bg-white divide-y text-[12px]" style={{ divideColor: '#E2F5EF' }}>
+                <div className="bg-white divide-y divide-[#E2F5EF] text-[12px]">
                   {[
                     ['인증서 구분', activeCert.type],
                     ['소유자', activeCert.user],
@@ -758,7 +771,6 @@ function IdLoginTab() {
     localStorage.removeItem('sessionExpiry')
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
-      localStorage.removeItem('sessionExpiry')
       localStorage.setItem('accessToken', data.data.accessToken)
       localStorage.setItem('access_token', data.data.accessToken)
       localStorage.setItem('customerId', String(data.data.customerId))
@@ -766,10 +778,9 @@ function IdLoginTab() {
         localStorage.setItem('refreshToken', data.data.refreshToken)
       }
 
-      // 이름 표시를 위해 내 정보 조회
       try {
         const me = await api.get('/api/v1/customers/me')
-        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name }))
+        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
       } catch {}
 
       window.location.href = '/'
@@ -897,7 +908,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
                 <span className="text-[#0D5C47] flex-shrink-0 mt-0.5">ℹ</span>
                 <div>
                   인증서가 저장된 휴대폰번호를 입력하시지요.<br />
-                  <span className="text-[#0D5C47]">스타뱅킹앱 실행 시 지문·Face ID인증 팝업이 나오는경우</span><br />
+                  <span className="text-[#0D5C47]">모바일뱅킹앱 실행 시 지문·Face ID인증 팝업이 나오는경우</span><br />
                   해당 팝업 종료 후 연동인증을 진행해주세요.
                 </div>
               </div>
@@ -957,7 +968,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
               <div className="w-14 h-14 rounded-full border-2 border-[#5BC9A8] flex items-center justify-center">
                 <span className="text-[#5BC9A8] text-2xl">📱</span>
               </div>
-              <p className="text-[14px] font-bold text-kb-text">스타뱅킹 앱을 확인해주세요</p>
+              <p className="text-[14px] font-bold text-kb-text">모바일뱅킹 앱을 확인해주세요</p>
               <p className="text-[12px] text-gray-500">앱에서 인증을 완료하면 자동으로 로그인됩니다.</p>
             </div>
           )}

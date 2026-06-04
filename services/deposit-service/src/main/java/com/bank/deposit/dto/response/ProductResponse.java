@@ -13,6 +13,7 @@ public record ProductResponse(
         String description,
         Long departmentId,
         BigDecimal baseInterestRate,
+        BigDecimal bestRate,
         BigDecimal minJoinAmount,
         BigDecimal maxJoinAmount,
         Integer minPeriodMonth,
@@ -33,6 +34,30 @@ public record ProductResponse(
                 product.getDescription(),
                 product.getDepartmentId(),
                 product.getBaseInterestRate(),
+                null,
+                product.getMinJoinAmount(),
+                product.getMaxJoinAmount(),
+                product.getMinPeriodMonth(),
+                product.getMaxPeriodMonth(),
+                product.getIsEarlyTerminationAllowed(),
+                product.getIsTaxBenefitAvailable(),
+                product.getIsAutoRenewalAvailable(),
+                product.getIsPassbookIssued(),
+                product.getReleasedAt(),
+                product.getEndedAt(),
+                product.getProductStatus()
+        );
+    }
+
+    public static ProductResponse from(Product product, BigDecimal bestRate) {
+        return new ProductResponse(
+                product.getProductId(),
+                product.getProductType(),
+                product.getProductName(),
+                product.getDescription(),
+                product.getDepartmentId(),
+                product.getBaseInterestRate(),
+                bestRate,
                 product.getMinJoinAmount(),
                 product.getMaxJoinAmount(),
                 product.getMinPeriodMonth(),

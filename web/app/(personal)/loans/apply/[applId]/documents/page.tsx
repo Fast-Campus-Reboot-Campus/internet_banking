@@ -165,7 +165,7 @@ export default function LoanDocumentsPage() {
         </Link>
         <button
           onClick={() => router.push(`/loans/apply/result?applId=${applId}`)}
-          className="px-14 py-3 bg-kb-yellow text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
+          className="px-14 py-3 bg-[#0D5C47] text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
         >
           제출 완료
         </button>

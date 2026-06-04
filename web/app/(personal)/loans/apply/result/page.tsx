@@ -83,7 +83,7 @@ function LoanResultContent() {
 
       {/* 상태 배너 */}
       <div className={`p-8 mb-6 text-center border rounded-xl ${
-        isApproved ? 'border-kb-text bg-kb-yellow/10'
+        isApproved ? 'border-kb-text bg-[#0D5C47]/10'
         : isRejected ? 'border-red-300 bg-red-50'
         : 'border-kb-border bg-kb-beige-light'}`}>
         {isApproved ? (
@@ -108,7 +108,7 @@ function LoanResultContent() {
           </>
         ) : (
           <>
-            <div className="w-16 h-16 rounded-full bg-kb-yellow/50 flex items-center justify-center mx-auto mb-3">
+            <div className="w-16 h-16 rounded-full bg-[#0D5C47]/50 flex items-center justify-center mx-auto mb-3">
               <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
                 <circle cx="20" cy="20" r="14" stroke="#333" strokeWidth="2.5"/>
                 <path d="M20 13v9l5 3" stroke="#333" strokeWidth="2.5" strokeLinecap="round"/>
@@ -288,12 +288,12 @@ function LoanResultContent() {
         )}
         {applId && !isRejected && (
           <Link href={`/loans/apply/${applId}/documents`}
-            className="px-10 py-3 border border-kb-text text-[14px] font-medium text-kb-text hover:bg-kb-beige-light transition-colors">
+            className="px-10 py-3 border border-kb-text text-[14px] font-medium text-kb-text hover:bg-[#F0FAF7] transition-colors">
             서류 제출
           </Link>
         )}
         <Link href="/dashboard"
-          className="px-10 py-3 bg-kb-yellow text-[14px] font-bold text-kb-text hover:brightness-95 transition-all">
+          className="px-10 py-3 bg-[#0D5C47] text-[14px] font-bold text-kb-text hover:brightness-95 transition-all">
           홈으로
         </Link>
       </div>

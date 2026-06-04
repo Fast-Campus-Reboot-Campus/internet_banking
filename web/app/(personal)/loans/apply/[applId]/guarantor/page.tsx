@@ -139,7 +139,7 @@ export default function GuarantorPage() {
 
       <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-text">보증인 동의</h1>
 
-      <div className="border border-[#b3cce8] bg-[#f0f6ff] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
+      <div className="border border-[#E2F5EF] bg-[#F0FAF7] p-4 mb-6 text-[13px] text-kb-text-body leading-relaxed">
         <p>· 보증인을 등록한 후 전자서명을 완료해야 보증이 유효합니다.</p>
         <p>· 보증인의 실명·휴대폰 번호는 마스킹 처리됩니다.</p>
       </div>
@@ -184,7 +184,7 @@ export default function GuarantorPage() {
                     <div className="px-5 py-3 border-t border-kb-border flex gap-2">
                       {g.gagrStatusCd === 'REGISTERED' && (
                         <button onClick={() => { setSigningId(g.gagrId); setSiginingError('') }}
-                          className="px-5 py-1.5 bg-kb-yellow border border-kb-text text-[12px] font-bold text-kb-text hover:brightness-95 transition-all">
+                          className="px-5 py-1.5 bg-[#0D5C47] border border-kb-text text-[12px] font-bold text-kb-text hover:brightness-95 transition-all">
                           전자서명
                         </button>
                       )}
@@ -203,8 +203,8 @@ export default function GuarantorPage() {
 
       {/* 보증인 등록 폼 */}
       <section className="mb-6">
-        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">보증인 등록</h2>
-        <div className="border border-kb-border divide-y divide-kb-border overflow-hidden">
+        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-[#E2F5EF]">보증인 등록</h2>
+        <div className="border border-[#E2F5EF] divide-y divide-kb-border overflow-hidden">
 
           <div className="flex items-center px-5 py-4 gap-4">
             <label className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">
@@ -233,8 +233,8 @@ export default function GuarantorPage() {
                 <button key={r.code} onClick={() => setRelation(r.code)}
                   className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
                     relation === r.code
-                      ? 'bg-kb-yellow border-kb-text font-bold text-kb-text'
-                      : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                      ? 'bg-[#0D5C47] border-kb-text font-bold text-kb-text'
+                      : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
                   {r.label}
                 </button>
               ))}
@@ -250,8 +250,8 @@ export default function GuarantorPage() {
                 <button key={t.code} onClick={() => setGagrType(t.code)}
                   className={`border rounded-xl p-4 text-left transition-colors w-44 ${
                     gagrType === t.code
-                      ? 'border-kb-text bg-kb-yellow/20'
-                      : 'border-kb-border hover:bg-kb-beige-light'}`}>
+                      ? 'border-kb-text bg-[#0D5C47]/20'
+                      : 'border-[#E2F5EF] hover:bg-[#F0FAF7]'}`}>
                   <p className="text-[13px] font-bold text-kb-text mb-1">{t.label}</p>
                   <p className="text-[11px] text-kb-text-muted">{t.desc}</p>
                 </button>
@@ -306,7 +306,7 @@ export default function GuarantorPage() {
                 취소
               </button>
               <button onClick={() => handleSign(signingId)} disabled={actionLoading}
-                className="px-6 py-2 bg-kb-yellow text-[13px] font-bold text-kb-text hover:brightness-95 disabled:opacity-50">
+                className="px-6 py-2 bg-[#0D5C47] text-[13px] font-bold text-kb-text hover:brightness-95 disabled:opacity-50">
                 {actionLoading ? '처리 중...' : '서명 완료'}
               </button>
             </div>

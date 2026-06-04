@@ -135,14 +135,39 @@ class AgentMetricsRecorderTest {
         assertThat(counter.count()).isEqualTo(1.0);
     }
 
-    // ── TC 6: RAG 메트릭 4종 — D4-1 ─────────────────────────────────────────
+    // ── TC 6: RAG 메트릭 5종 — E4-1 ─────────────────────────────────────────
 
     @Test
-    void recordRagSearchLatency_timerRecorded() {
+    void recordRagSearchLatency_phase_rrf_timerRecorded() {
+        recorder.recordRagSearchLatency("similar_cases", "rrf", Duration.ofMillis(80));
+
+        var timer = registry.find("rag.search.latency.seconds")
+                .tag(AgentMetricsTags.CORPUS, "similar_cases")
+                .tag(AgentMetricsTags.PHASE, "rrf")
+                .timer();
+        assertThat(timer).isNotNull();
+        assertThat(timer.count()).isEqualTo(1);
+    }
+
+    @Test
+    void recordRagSearchLatency_no_phase_defaults_to_all() {
         recorder.recordRagSearchLatency("policy_regulation", Duration.ofMillis(120));
 
         var timer = registry.find("rag.search.latency.seconds")
-                .tag(AgentMetricsTags.CORPUS, "policy_regulation").timer();
+                .tag(AgentMetricsTags.CORPUS, "policy_regulation")
+                .tag(AgentMetricsTags.PHASE, "all")
+                .timer();
+        assertThat(timer).isNotNull();
+        assertThat(timer.count()).isEqualTo(1);
+    }
+
+    @Test
+    void recordRagIndexLag_timerRecorded() {
+        recorder.recordRagIndexLag("similar_cases", Duration.ofSeconds(45));
+
+        var timer = registry.find("rag.index.lag.seconds")
+                .tag(AgentMetricsTags.CORPUS, "similar_cases")
+                .timer();
         assertThat(timer).isNotNull();
         assertThat(timer.count()).isEqualTo(1);
     }

@@ -46,6 +46,11 @@ public class AccountController {
         return accountService.findById(accountId);
     }
 
+    @GetMapping("/by-number/{accountNo}")
+    public Account getByNumber(@PathVariable String accountNo) {
+        return accountService.findByAccountNumber(accountNo);
+    }
+
     @PatchMapping("/{accountId}/status")
     public Account changeStatus(@PathVariable Long accountId,
                                 @Valid @RequestBody AccountStatusUpdateRequest req) {

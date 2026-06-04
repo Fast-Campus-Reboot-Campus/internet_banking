@@ -111,7 +111,25 @@ class ShadowModeServiceTest {
         });
     }
 
-    // ── TC 4: shadow 실패 → prod 영향 없음 ──────────────────────────────
+    // ── TC 4-E: E4-2 rag_backend 컬럼 — 기본값 'inline' 저장 ────────────
+
+    @Test
+    void runShadow_storesRagBackend_defaultInline() {
+        AgentOpinion shadowOpinion =
+                AgentOpinion.of(0.65, 0.35, RiskLevel.MEDIUM, List.of(), "shadow 요약", List.of(), false);
+        when(preReviewAgentService.run(any(), any(), any())).thenReturn(shadowOpinion);
+
+        shadowModeService.runShadow(104L, stubRequest(), DECISION, PROD_OPINION);
+
+        await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
+            String ragBackend = jdbc.queryForObject(
+                    "SELECT rag_backend FROM shadow_run_result WHERE rev_id = 104",
+                    Collections.emptyMap(), String.class);
+            assertThat(ragBackend).isEqualTo("inline");
+        });
+    }
+
+    // ── TC 5: shadow 실패 → prod 영향 없음 ──────────────────────────────
 
     @Test
     void runShadow_agentThrows_doesNotPropagateException() {

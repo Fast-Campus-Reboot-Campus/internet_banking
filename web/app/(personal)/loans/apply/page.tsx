@@ -136,7 +136,7 @@ export default function LoanApplyPage() {
           <div key={step} className="flex items-center">
             <div className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold
-                ${i === 0 ? 'bg-kb-yellow text-kb-text' : 'border border-kb-border text-kb-text-muted bg-white'}`}>
+                ${i === 0 ? 'bg-[#0D5C47] text-kb-text' : 'border border-[#E2F5EF] text-kb-text-muted bg-white'}`}>
                 {i + 1}
               </div>
               <span className={`text-[11px] mt-1 font-medium ${i === 0 ? 'text-kb-text' : 'text-kb-text-muted'}`}>{step}</span>
@@ -158,9 +158,9 @@ export default function LoanApplyPage() {
             {products.map(p => (
               <button key={p.prodId} onClick={() => setSelectedProdId(p.prodId)}
                 className={`border rounded-xl p-6 text-left transition-colors ${
-                  selectedProdId === p.prodId ? 'border-kb-text bg-kb-yellow/20' : 'border-kb-border hover:bg-kb-beige-light'}`}>
+                  selectedProdId === p.prodId ? 'border-kb-text bg-[#0D5C47]/20' : 'border-[#E2F5EF] hover:bg-[#F0FAF7]'}`}>
                 <p className="text-[14px] font-bold text-kb-text mb-1">{p.prodName}</p>
-                <p className="text-[12px] text-kb-blue font-medium">연 {bpsToRate(p.minRateBps)}% ~ {bpsToRate(p.maxRateBps)}%</p>
+                <p className="text-[12px] text-[#0D5C47] font-medium">연 {bpsToRate(p.minRateBps)}% ~ {bpsToRate(p.maxRateBps)}%</p>
                 <p className="text-[12px] text-kb-text-muted mt-1">최대 {formatMax(p.maxAmount)}</p>
               </button>
             ))}
@@ -170,8 +170,8 @@ export default function LoanApplyPage() {
 
       {/* 신청 정보 입력 */}
       <section className="mb-6">
-        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">신청 정보 입력</h2>
-        <div className="border border-kb-border divide-y divide-kb-border overflow-hidden">
+        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-[#E2F5EF]">신청 정보 입력</h2>
+        <div className="border border-[#E2F5EF] divide-y divide-kb-border overflow-hidden">
           <div className="flex items-start px-5 py-4 gap-4">
             <label className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0 pt-2">
               신청 금액 <span className="text-kb-red">*</span>
@@ -201,7 +201,7 @@ export default function LoanApplyPage() {
               {PERIODS.map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className={`border px-4 py-1.5 text-[12px] rounded-lg transition-colors ${
-                    period === p ? 'bg-kb-yellow border-kb-text font-bold text-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                    period === p ? 'bg-[#0D5C47] border-kb-text font-bold text-kb-text' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
                   {p}개월
                 </button>
               ))}
@@ -252,7 +252,7 @@ export default function LoanApplyPage() {
         <div className="flex justify-start">
           <button onClick={handlePreview} disabled={!canPreview}
             className={`px-8 py-2 text-[13px] font-medium border transition-colors ${
-              canPreview ? 'border-kb-text text-kb-text hover:bg-kb-beige-light' : 'border-kb-border text-kb-text-muted cursor-not-allowed'}`}>
+              canPreview ? 'border-kb-text text-kb-text hover:bg-[#F0FAF7]' : 'border-[#E2F5EF] text-kb-text-muted cursor-not-allowed'}`}>
             {previewing ? '조회 중...' : '한도조회'}
           </button>
         </div>
@@ -265,8 +265,8 @@ export default function LoanApplyPage() {
             <div className="divide-y divide-kb-border text-[13px]">
               {previewResult.creditScore != null && (
                 <div className="flex">
-                  <div className="w-36 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">신용점수</div>
-                  <div className="px-5 py-3 font-bold text-[#1A56DB]">{previewResult.creditScore}점</div>
+                  <div className="w-36 px-5 py-3 bg-[#F0FAF7] font-medium text-kb-text flex-shrink-0">신용점수</div>
+                  <div className="px-5 py-3 font-bold text-[#0D5C47]">{previewResult.creditScore}점</div>
                 </div>
               )}
               {previewResult.estimatedLimitAmt != null && (
@@ -303,7 +303,7 @@ export default function LoanApplyPage() {
           <label className="flex items-center gap-2 cursor-pointer">
             <button type="button" onClick={() => setAgreed(v => !v)}
               className={`w-4 h-4 border flex-shrink-0 flex items-center justify-center transition-colors
-                ${agreed ? 'bg-kb-yellow border-kb-text' : 'bg-white border-kb-border'}`}>
+                ${agreed ? 'bg-[#0D5C47] border-kb-text' : 'bg-white border-[#E2F5EF]'}`}>
               {agreed && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-3"><path d="M1 5l3 3 7-7" stroke="#333" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
             </button>
             <span className="text-[13px] text-kb-text">위 내용을 확인하였으며, <span className="font-bold">개인신용정보 조회 및 대출 신청에 동의합니다.</span></span>

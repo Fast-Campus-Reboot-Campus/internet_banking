@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_public_key: str = ""
     langfuse_host: str = "http://localhost:3001"
+    # customer-service 연동 (나이/생년월일 조회용)
+    customer_service_url: str = "http://localhost:8081"
 
     model_config = SettingsConfigDict(
         env_prefix="CONSULTATION_",

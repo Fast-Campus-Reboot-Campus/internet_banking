@@ -108,27 +108,6 @@ function NewsSection() {
   )
 }
 
-function ChatbotCTA() {
-  return (
-    <section className="py-10 bg-white">
-      <div className="max-w-kb-container mx-auto px-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[13px] font-semibold mb-2" style={{ color: '#0D5C47' }}>AI 챗봇 상담</p>
-            <h2 className="text-[24px] font-bold text-kb-text mb-1">금융 궁금증, 챗봇에게 물어보세요</h2>
-            <p className="text-[15px] text-kb-text-muted">24시간 365일 간편한 AI 채팅상담 서비스</p>
-          </div>
-          <Link href="/support/consultation/live-chat"
-            className="px-7 py-3 text-[15px] font-bold rounded-full transition-opacity hover:opacity-85 flex-shrink-0 text-white"
-            style={{ backgroundColor: '#0D5C47' }}>
-            채팅 상담 시작하기
-          </Link>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 // ── 로그인 후 대시보드 퀵액션 ──
 
 export default function HomePage() {
@@ -286,7 +265,6 @@ export default function HomePage() {
         <ProductShowcase />
 
         <NewsSection />
-        <ChatbotCTA />
       </main>
     )
   }
@@ -298,7 +276,6 @@ export default function HomePage() {
       <RateBanner />
       <ProductShowcase />
       <NewsSection />
-      <ChatbotCTA />
     </main>
   )
 }

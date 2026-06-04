@@ -57,7 +57,12 @@ public class LoanReviewApproverService {
             throw new BusinessException(LoanErrorCode.LOAN_195);
         }
 
-        if (req.approverId().equals(review.getReviewerId())) {
+        // 4-eye 판정은 인증된 호출자(currentActorId)로만 한다. 요청 바디 값은 신뢰하지 않는다.
+        Long approverId = currentActor.currentActorId();
+        if (approverId == null || CurrentActorProvider.SYSTEM.equals(approverId)) {
+            throw new BusinessException(LoanErrorCode.LOAN_196);
+        }
+        if (approverId.equals(review.getReviewerId())) {
             throw new BusinessException(LoanErrorCode.LOAN_196);
         }
 
@@ -78,7 +83,7 @@ public class LoanReviewApproverService {
         String prevApplStatus = application.currentStatus();
 
         review.approverApprove(
-                req.approverId(),
+                approverId,
                 req.approverDecisionCd(),
                 req.overrideReasonCd(),
                 req.overrideRemark(),

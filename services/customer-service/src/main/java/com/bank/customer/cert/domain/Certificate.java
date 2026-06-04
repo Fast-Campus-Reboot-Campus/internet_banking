@@ -70,6 +70,9 @@ public class Certificate extends BaseEntity {
     @Column(name = "certificate_revoked_at")
     private OffsetDateTime certificateRevokedAt;
 
+    @Column(name = "cert_pin_hash", length = 255)
+    private String certPinHash;
+
     @Column(name = "cert_login_failure_count")
     private Integer certLoginFailureCount;
 
@@ -112,8 +115,18 @@ public class Certificate extends BaseEntity {
         }
     }
 
+    public void updatePinHash(String pinHash) {
+        this.certPinHash = pinHash;
+    }
+
     public void recordLoginSuccess() {
         this.certLoginFailureCount = 0;
         this.lastCertLoginFailureAt = null;
+    }
+
+    public void revoke(String reason) {
+        this.certificateStatusCode = STATUS_REVOKED;
+        this.certificateRevokeReasonCode = reason;
+        this.certificateRevokedAt = OffsetDateTime.now();
     }
 }
