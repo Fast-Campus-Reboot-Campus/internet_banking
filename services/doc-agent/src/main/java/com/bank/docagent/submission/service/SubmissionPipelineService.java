@@ -3,15 +3,12 @@ package com.bank.docagent.submission.service;
 import com.bank.docagent.forgery.service.ForgeryAnalysisService;
 import com.bank.docagent.forgery.service.ForgeryAnalysisService.ForgeryResult;
 import com.bank.docagent.infra.ocr.TableOcrClient;
-import com.bank.docagent.kafka.SubmissionEventProducer;
-import com.bank.docagent.kafka.event.RoutedEvent;
 import com.bank.docagent.retention.RetentionService;
 import com.bank.docagent.submission.domain.DocumentSubmission;
 import com.bank.docagent.submission.domain.DocumentSubmission.VerifyStatus;
 import com.bank.docagent.submission.dto.ExtractionResult;
 import com.bank.docagent.submission.dto.extracted.StructuredData;
 import com.bank.docagent.submission.dto.verification.VerificationBlock;
-import com.bank.docagent.submission.event.ExtractionCompletedEvent;
 import com.bank.docagent.submission.service.DocumentClassifyService.DocType;
 import com.bank.docagent.submission.service.OcrMaskingService.OcrResult;
 import com.bank.docagent.verify.service.DocumentVerifyService;
@@ -40,7 +37,6 @@ public class SubmissionPipelineService {
     private final DocumentVerifyService    verifyService;
     private final RetentionService         retentionService;
     private final TableOcrClient           tableOcrClient;
-    private final SubmissionEventProducer  eventProducer;
 
     @Value("${doc-agent.default-product-id:P001}")
     private String defaultProductId;
@@ -101,18 +97,6 @@ public class SubmissionPipelineService {
 
         // 보존 기간 계산 (HOLD는 심사원 결정 후 재계산, 여기서는 기본 5년)
         retentionService.applyRetention(submission, finalStatus);
-
-        // 라우팅 이벤트 발행 (AUTO_PASS / NEEDS_RESUBMIT / HOLD)
-        eventProducer.publishRouted(RoutedEvent.of(
-            submission.getSubmissionId(), applicationId, docCode, finalStatus));
-
-        // 추출 완료 이벤트 발행
-        ExtractionCompletedEvent event = ExtractionCompletedEvent.of(
-            submission.getSubmissionId(), applicationId, docCode,
-            docType.name(), finalStatus, ocrResult.regions(),
-            submission.getMaskedObjectKey()
-        );
-        eventProducer.publishExtracted(event);
 
         log.info("파이프라인 완료: submissionId={} docType={} forgeryScore={} status={}",
             submissionId, docType, forgeryResult.aggregateScore(), finalStatus);

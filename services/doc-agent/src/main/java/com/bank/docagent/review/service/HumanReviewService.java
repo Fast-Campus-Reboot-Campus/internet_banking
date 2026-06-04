@@ -1,7 +1,5 @@
 package com.bank.docagent.review.service;
 
-import com.bank.docagent.kafka.SubmissionEventProducer;
-import com.bank.docagent.kafka.event.FraudAuditEvent;
 import com.bank.docagent.retention.RetentionService;
 import com.bank.docagent.submission.domain.DocumentSubmission;
 import com.bank.docagent.submission.domain.DocumentSubmission.HumanReviewStatus;
@@ -26,7 +24,6 @@ public class HumanReviewService {
 
     private final DocumentSubmissionRepository submissionRepository;
     private final RetentionService             retentionService;
-    private final SubmissionEventProducer      eventProducer;
 
     @Transactional
     public DocumentSubmission decide(UUID submissionId, HumanReviewStatus decision,
@@ -46,19 +43,6 @@ public class HumanReviewService {
 
         // 결정 후 보존 기간 재계산 (LOCKED=10년, CLEARED=5년)
         retentionService.applyRetention(submission, submission.getVerifyStatus());
-
-        // CONFIRMED_FORGERY → 감사팀 이관 이벤트 발행
-        if (decision == HumanReviewStatus.CONFIRMED_FORGERY) {
-            FraudAuditEvent auditEvent = FraudAuditEvent.of(
-                submission.getSubmissionId(),
-                submission.getApplicationId(),
-                submission.getDocCode(),
-                reviewerId,
-                submission.getRetentionUntil()
-            );
-            eventProducer.publishFraudAudit(auditEvent);
-            log.info("감사팀 이관 이벤트 발행: submissionId={}", submissionId);
-        }
 
         log.info("심사원 결정 완료: submissionId={} decision={} reviewerId={}",
             submissionId, decision, reviewerId);
