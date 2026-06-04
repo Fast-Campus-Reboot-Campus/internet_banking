@@ -1,9 +1,11 @@
 package com.bank.payment.outbound.feign.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record AccountInquiryData(
         Long accountId,                               // deposit PK — by-number 응답 직접 필드명
         @JsonProperty("accountNumber") String accountNo,
