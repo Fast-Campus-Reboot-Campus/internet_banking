@@ -3,6 +3,7 @@ package com.bank.payment.outbound.feign.mock;
 import com.bank.payment.outbound.feign.DepositBalanceClient;
 import com.bank.payment.outbound.feign.dto.BalanceInquiryData;
 import com.bank.payment.outbound.feign.dto.BalanceTxData;
+import com.bank.payment.common.exception.DepositInboundFailureException;
 import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
@@ -10,6 +11,7 @@ import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
 import org.springframework.context.annotation.Primary;
+import java.math.BigDecimal;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -72,32 +74,32 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
     }
 
     @Override
-    public DepositResponse<BalanceTxData> withdraw(String idempotencyKey, WithdrawRequest request) {
+    public BalanceTxData withdraw(String idempotencyKey, WithdrawRequest request) {
         // before=20억: 10억 출금 후 after=10억(양수), 100만 출금 후 after≈20억(양수).
         // chk_ledger_balance_before/after >= 0 조건 유지.
-        long before = 2000000000L;
-        long after = before - request.amount();
-        BalanceTxData data = new BalanceTxData(
-                "T-20260516-A-00045678", request.accountNo(),
-                request.amount(), before, after,
+        BigDecimal before = BigDecimal.valueOf(2000000000L);
+        BigDecimal amount = request.amount();
+        return new BalanceTxData(
+                100045678L,
+                "T-20260516-A-00045678", String.valueOf(request.accountId()),
+                amount, before, before.subtract(amount),
                 "2026-05-16T14:30:00Z", "TRANSFER_OUT");
-        return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
     }
 
     @Override
-    public DepositResponse<BalanceTxData> deposit(String idempotencyKey, DepositRequest request) {
-        // F8 계좌: 시스템 장애(race condition) 시뮬레이션 → DEP-9001, data=null
-        if (F8_FAIL_RECEIVER.equals(request.accountNo())) {
-            return new DepositResponse<>("DEP-9001", "INTERNAL_ERROR", "2026-05-16T14:30:00Z", null);
+    public BalanceTxData deposit(String idempotencyKey, DepositRequest request) {
+        // F8 계좌: 시스템 장애(race condition) 시뮬레이션 → DepositInboundFailureException
+        if (DepositAccountClientMock.F8_FAIL_RECEIVER_ID.equals(request.accountId())) {
+            throw new DepositInboundFailureException("INTERNAL_SERVER_ERROR", "입금 처리 중 시스템 오류");
         }
         // S1: 성춘향 1,000,000 → (1,000,000 + amount)
-        long before = 1000000L;
-        long after = before + request.amount();
-        BalanceTxData data = new BalanceTxData(
-                "T-20260516-B-00067890", request.accountNo(),
-                request.amount(), before, after,
+        BigDecimal before = BigDecimal.valueOf(1000000L);
+        BigDecimal amount = request.amount();
+        return new BalanceTxData(
+                100067890L,
+                "T-20260516-B-00067890", String.valueOf(request.accountId()),
+                amount, before, before.add(amount),
                 "2026-05-16T14:30:00Z", "TRANSFER_IN");
-        return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
     }
 
     // B-5: 출금취소 — 항상 성공. BOK(20억 기준)/KFTC 공용 잔액 복원 시뮬레이션
