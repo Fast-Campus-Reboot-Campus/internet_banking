@@ -847,6 +847,8 @@ function IdLoginTab() {
         <div className="flex items-center justify-center gap-3 mt-4 text-caption" style={{ color: '#0D5C47' }}>
           <Link href="/support/customer-info/id-password" className="hover:underline">ID 조회 / 사용자암호 설정</Link>
           <span className="text-kb-border">|</span>
+          <Link href="/login/pin" className="hover:underline">간편비밀번호 로그인</Link>
+          <span className="text-kb-border">|</span>
           <Link href="/support/customer-info/online-join" className="hover:underline">회원가입</Link>
         </div>
       </div>
