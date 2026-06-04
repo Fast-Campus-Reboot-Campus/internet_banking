@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
-import { createInstantTransfer } from '@/lib/payment-api'
-
 type PendingTransfer = {
   fromNumber: string
   fromName: string
@@ -30,8 +28,6 @@ export default function TransferConfirmPage() {
   const [showCertModal, setShowCertModal] = useState(false)
   const [certStep, setCertStep] = useState<'info' | 'pin'>('info')
   const [pin, setPin] = useState<number[]>([])
-  const [idemKey] = useState(() => crypto.randomUUID())
-  const [authTokenId] = useState(() => crypto.randomUUID())
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -48,45 +44,12 @@ export default function TransferConfirmPage() {
       setPin(next)
       if (next.length === 6) {
         if (isSubmitting) return
-        setTimeout(async () => {
-          if (!data) return
-          setIsSubmitting(true)
-          setShowCertModal(false)
-          try {
-            const res = await createInstantTransfer(
-              {
-                senderAccountId: data.fromNumber,
-                receiverBankCode: data.toBankCode,
-                receiverAccountNo: data.toAccount,
-                receiverHolderName: data.receiverName,
-                transferAmount: data.amount,
-                receiverMemo: null,
-                senderMemo: null,
-                channel: 'WEB',
-                receiverPassbookSenderDisplay: data.fromName || null,
-              },
-              {
-                userId: localStorage.getItem('customerId') ?? '',
-                authTokenId,
-                idempotencyKey: idemKey,
-              }
-            )
-            sessionStorage.setItem('paymentResult', JSON.stringify({
-              status: res.status,
-              piId: res.paymentInstructionId,
-              txNo: res.transactionNo,
-              failureCategory: res.failureCategory ?? null,
-            }))
-          } catch (e: unknown) {
-            const err = e as { response?: { data?: { error?: string } } }
-            sessionStorage.setItem('paymentResult', JSON.stringify({
-              status: 'ERROR',
-              message: err.response?.data?.error ?? '네트워크 오류가 발생했습니다.',
-            }))
-          } finally {
-            setIsSubmitting(false)
-            router.push('/transfer/result')
-          }
+        setIsSubmitting(true)
+        setShowCertModal(false)
+        // 이체 실행은 result 페이지에서 단일 처리
+        setTimeout(() => {
+          setIsSubmitting(false)
+          router.push('/transfer/result')
         }, 400)
       }
     }

@@ -4,7 +4,11 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
-import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import {
+  fetchDepositAccountViewModels,
+  getCurrentDepositCustomerId,
+  executeDepositTransfer,
+} from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 type PendingTransfer = {
@@ -16,11 +20,12 @@ type PendingTransfer = {
   amount: number
   receiverName: string
   fee: number
+  fromAccountId?: number
+  toAccountId?: number
 }
 
 type PaymentResult = {
   status: 'COMPLETED' | 'FAILED' | 'CLEARING' | 'ERROR'
-  piId?: string
   txNo?: string
   failureCategory?: string | null
   message?: string
@@ -53,38 +58,51 @@ export default function TransferResultPage() {
 
     const transfer: PendingTransfer = JSON.parse(raw)
     setData(transfer)
-
-    const resultRaw = sessionStorage.getItem('paymentResult')
-    if (resultRaw) {
-      setPaymentResult(JSON.parse(resultRaw))
-      sessionStorage.removeItem('paymentResult')
-    }
-
-    // 이체 이력 저장
-    try {
-      const prev = JSON.parse(localStorage.getItem('transferHistory') || '[]')
-      const now = new Date()
-      prev.unshift({
-        id: String(now.getTime()),
-        datetime: `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-        bank: transfer.toBank,
-        account: transfer.toAccount,
-        receiver: transfer.receiverName,
-        amount: transfer.amount,
-        memo: '',
-      })
-      localStorage.setItem('transferHistory', JSON.stringify(prev.slice(0, 50)))
-    } catch {}
-
     sessionStorage.removeItem('pendingTransfer')
 
-    // 잔액 조회
-    fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-      .then(accs => {
-        const acc = accs.find(a => a.number === transfer.fromNumber)
-        if (acc) setRemainingBalance(Number(acc.balance) - Number(transfer.amount))
+    // ── 이체 실행 (단일 실행 지점) ──────────────────────────────
+    const customerId = getCurrentDepositCustomerId()
+    executeDepositTransfer(customerId, {
+      fromAccountId: transfer.fromAccountId!,
+      toAccountId: transfer.toAccountId,
+      toAccountNo: transfer.toAccount,
+      amount: transfer.amount,
+      transferType: transfer.toAccountId ? 'INTERNAL' : 'EXTERNAL',
+      counterpartyBankCode: transfer.toBankCode,
+      counterpartyBankName: transfer.toBank,
+      counterpartyName: transfer.receiverName,
+      transactionMemo: '인터넷이체',
+    })
+      .then(tx => {
+        setPaymentResult({ status: 'COMPLETED', txNo: String(tx.transactionId) })
+        // 이체 이력 저장
+        try {
+          const prev = JSON.parse(localStorage.getItem('transferHistory') || '[]')
+          const now = new Date()
+          prev.unshift({
+            id: String(now.getTime()),
+            datetime: `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+            bank: transfer.toBank,
+            account: transfer.toAccount,
+            receiver: transfer.receiverName,
+            amount: transfer.amount,
+            memo: '',
+          })
+          localStorage.setItem('transferHistory', JSON.stringify(prev.slice(0, 50)))
+        } catch {}
+        // 잔액 조회
+        return fetchDepositAccountViewModels(customerId)
       })
-      .catch(() => {})
+      .then(accs => {
+        if (!accs) return
+        const acc = accs.find(a => a.number === transfer.fromNumber)
+        if (acc) setRemainingBalance(acc.balance - transfer.amount)
+      })
+      .catch((e: unknown) => {
+        const msg = (e as { response?: { data?: { message?: string } } })
+          ?.response?.data?.message ?? '이체 처리 중 오류가 발생했습니다.'
+        setPaymentResult({ status: 'ERROR', message: msg })
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
