@@ -849,7 +849,9 @@ function IdLoginTab() {
           <span className="text-kb-border">|</span>
           <Link href="/login/pin" className="hover:underline">간편비밀번호 로그인</Link>
           <span className="text-kb-border">|</span>
-          <Link href="/support/customer-info/online-join" className="hover:underline">회원가입</Link>
+          <Link href="/support/customer-info/online-join" className="hover:underline">개인 회원가입</Link>
+          <span className="text-kb-border">|</span>
+          <Link href="/support/customer-info/corporate-join" className="hover:underline">법인 회원가입</Link>
         </div>
       </div>
     </div>
