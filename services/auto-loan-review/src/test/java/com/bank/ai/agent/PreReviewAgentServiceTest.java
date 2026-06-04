@@ -12,6 +12,7 @@ import com.bank.ai.llm.purpose.PurposeAnalysisInput;
 import com.bank.ai.llm.purpose.PurposeAnalysisService;
 import com.bank.ai.llm.report.GroundingValidator;
 import com.bank.ai.llm.support.LlmRequestRateMeter;
+import com.bank.ai.metrics.AgentMetricsRecorder;
 import com.bank.ai.rag.retrieval.RagRetrievalService;
 import com.bank.ai.review.dto.AutoReviewRequest;
 import com.bank.ai.review.dto.AutoReviewResponse;
@@ -53,6 +54,7 @@ class PreReviewAgentServiceTest {
     @Mock SemanticDisagreementDetector disagreementDetector;
     @Mock RejectionReasonAgentService rejectionReasonAgentService;
     @Mock RagRetrievalService ragRetrievalService;
+    @Mock AgentMetricsRecorder metricsRecorder;
 
     private AgentProperties enabledProps;
     private PreReviewAgentService service;
@@ -62,7 +64,7 @@ class PreReviewAgentServiceTest {
         enabledProps = new AgentProperties(true, 6, 2, true, 0);
         service = new PreReviewAgentService(enabledProps, rateMeter, llmClient,
                 reviewService, purposeAnalysisService, groundingValidator, disagreementDetector,
-                rejectionReasonAgentService, ragRetrievalService);
+                rejectionReasonAgentService, ragRetrievalService, metricsRecorder);
         // RAG 기본 stub — disabled 환경, 빈 리스트 반환 (lenient: Track 1/2 미호출)
         lenient().when(ragRetrievalService.retrieve(any(), any(), any(), any(), any()))
                 .thenReturn(List.of());
@@ -240,12 +242,29 @@ class PreReviewAgentServiceTest {
         var tightService = new PreReviewAgentService(
                 tightProps, rateMeter, llmClient, reviewService, purposeAnalysisService,
                 groundingValidator, disagreementDetector, rejectionReasonAgentService,
-                ragRetrievalService);
+                ragRetrievalService, metricsRecorder);
 
         var result = tightService.run(1L, fullRequest(), track3Decision());
 
         assertThat(result.fallbackReason()).isEqualTo(FallbackReason.LOOP_GUARD_HIT);
         verify(reviewService, never()).review(any());
+    }
+
+    @Test
+    void Track3_폴백경로에서도_분포메트릭_기록됨() {
+        // guard한도 1 → 첫 acquireTool 후 두 번째에서 바로 LOOP_GUARD_HIT(폴백)
+        var tightProps = new AgentProperties(true, 1, 2, true, 0);
+        var tightService = new PreReviewAgentService(
+                tightProps, rateMeter, llmClient, reviewService, purposeAnalysisService,
+                groundingValidator, disagreementDetector, rejectionReasonAgentService,
+                ragRetrievalService, metricsRecorder);
+
+        tightService.run(1L, fullRequest(), track3Decision());
+
+        // 폴백 경로여도 finally에서 recordPerRunGuardCounts가 호출돼야 함
+        verify(metricsRecorder).recordPerRunGuardCounts(
+                eq(Track.TRACK_3), eq(com.bank.ai.metrics.AgentOutcome.FALLBACK),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     // ─────────────────────────────────────────────────────────────────────
