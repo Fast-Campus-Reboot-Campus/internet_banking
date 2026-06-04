@@ -1416,6 +1416,15 @@ class ChatbotService:
                            for kw in ("청년", "Youth", "Young"))
             ]
 
+        # 우대금리 조건 보강 — LLM 및 _make_reason 에서 조건 안내에 활용
+        pids = [int(p.get("product_id") or p.get("banking_product_id") or 0) for p in products]
+        pref_cond_map = self._get_pref_conditions(pids)
+        for p in products:
+            pid = int(p.get("product_id") or p.get("banking_product_id") or 0)
+            cond = pref_cond_map.get(pid)
+            if cond:
+                p["pref_condition"] = cond
+
         # ── 3. LLM 추천 ───────────────────────────────────────────────────────
         if self._llm_adapter:
             history_ctx = (
@@ -1668,8 +1677,11 @@ class ChatbotService:
         base_period   = input_period if input_period > 0 else 12
         target_period = max(min_month, min(max_month, base_period))
 
+        pref_cond = p.get("pref_condition", "")
+        pref_note = f" (우대조건: {pref_cond})" if pref_rate > 0 and pref_cond else ""
+
         rate_str = (
-            f"기본 {base_rate}% + 우대 {pref_rate}% = 최대 {eff_rate}%"
+            f"기본 {base_rate}% + 우대 {pref_rate}% = 최대 {eff_rate}%{pref_note}"
             if pref_rate > 0 else f"금리 {eff_rate}%"
         )
 
@@ -2016,6 +2028,24 @@ class ChatbotService:
             }
             for r in rows
         }
+
+    def _get_pref_conditions(self, product_ids: list[int]) -> dict[int, str]:
+        """상품별 우대금리 조건 설명 조회."""
+        if not product_ids:
+            return {}
+        id_list = ",".join(str(i) for i in product_ids)
+        rows = self._rows(
+            f"""
+            SELECT banking_product_id,
+                   STRING_AGG(condition_description, ' / ' ORDER BY rate_id) AS pref_conditions
+              FROM banking_deposit_product_interest_rates
+             WHERE banking_product_id IN ({id_list})
+               AND rate_type = 'PREFERENTIAL'
+               AND condition_description IS NOT NULL
+             GROUP BY banking_product_id
+            """
+        )
+        return {r["banking_product_id"]: r["pref_conditions"] for r in rows}
 
     # ── 파싱 헬퍼 ─────────────────────────────────────────────────────────────
     @staticmethod
