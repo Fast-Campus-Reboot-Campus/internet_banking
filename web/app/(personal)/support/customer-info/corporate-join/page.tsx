@@ -1,11 +1,11 @@
 'use client'
+import { KB_PRIMARY as GREEN, KB_MINT } from '@/lib/theme'
 
 import { useState } from 'react'
 import Link from 'next/link'
 import MobileAuthField from '@/components/MobileAuthField'
 import { TAX_TYPES, registerCorporate, authErrorMessage } from '@/lib/customer-auth-api'
 
-import { KB_PRIMARY as GREEN, KB_MINT } from '@/lib/theme'
 const STEPS = ['약관동의', '법인정보', '대표자확인', '가입완료']
 
 export default function CorporateJoinPage() {

@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY as GREEN, KB_PRIMARY_DARK } from '@/lib/theme'
 
 import { useEffect, useState } from 'react'
 import {
@@ -10,7 +11,6 @@ import {
   authErrorMessage,
 } from '@/lib/customer-auth-api'
 
-import { KB_PRIMARY as GREEN, KB_PRIMARY_DARK } from '@/lib/theme'
 
 /**
  * 간편비밀번호(PIN) 등록/해제 모달.

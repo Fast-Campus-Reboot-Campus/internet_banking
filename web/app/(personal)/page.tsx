@@ -1,6 +1,6 @@
-import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
