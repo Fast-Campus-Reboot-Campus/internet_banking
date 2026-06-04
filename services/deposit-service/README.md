@@ -24,6 +24,8 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 테스트 | 상품 목록/상세 응답의 `bestRate` 계산과 컨트롤러 응답 검증을 추가했습니다. |
 | 테스트 보정 | 최신 계약/거래 서비스 시그니처와 계좌 조회 방식에 맞춰 기존 테스트 fixture를 보정했습니다. |
 | 이체 시나리오 테스트 | INTERNAL 토AccountId null, 존재하지 않는 계좌, CLOSED 계좌, 계좌번호 불일치, 타행이체 잔액 차감 검증 추가. |
+| 챗봇 상품 추천 우대금리 표시 | 상품 추천 카드에 우대금리 수치(+X%)와 조건을 함께 표시합니다. `banking_deposit_product_interest_rates` 테이블의 PREFERENTIAL 금리 합산값과 조건을 카드에 노출합니다. |
+| 이체 API 중복 함수 제거 | `web/lib/deposit-api.ts`의 `executeDepositTransfer` 중복 정의를 제거했습니다. |
 
 ## 백엔드 변경 상세
 
@@ -190,6 +192,46 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 ./gradlew :services:deposit-service:build
 ```
 
+## 챗봇 상품 추천 우대금리 표시
+
+챗봇 상품 추천 카드에 우대금리 수치와 조건을 함께 표시합니다.
+
+### 데이터 출처
+
+`banking_deposit_product_interest_rates` 테이블(deposit DB)에서 `rate_type = 'PREFERENTIAL'`인 행을 상품별로 집계합니다.
+
+- 우대금리 수치: `SUM(interest_rate)` → 카드에 `+X%` 형식으로 표시
+- 우대금리 조건: `STRING_AGG(condition_description)` → 카드에 조건 텍스트로 표시
+
+### 표시 예시
+
+```
+🎁 우대금리 +0.6% 조건: 자동이체 설정 우대
+```
+
+DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback 조건을 사용합니다.
+
+| 키워드 | fallback 조건 |
+| --- | --- |
+| 내맘대로 | 자동이체 설정 |
+| 자유적금 | 자동이체 설정 |
+| 맑은하늘 | 맑은하늘 앱 설치 후 인증코드 등록 |
+| 직장인우대 | 급여이체 실적 등록 |
+| 달러 | 달러 환전 실적 보유 |
+| 청년도약 | 소득 요건 충족 확인 |
+| 수퍼정기 | 비대면 가입 |
+| 정기예금 | 비대면(인터넷·스타뱅킹) 가입 |
+| 꿈적금 | 만기 유지 |
+| 함께적금 | 2인 이상 공동 가입 |
+
+### 관련 파일
+
+| 파일 | 내용 |
+| --- | --- |
+| `web/components/chatbot/ChatbotWidget.tsx` | 추천 카드에 `pref_rate`, `pref_condition` 표시 추가 |
+
+---
+
 ## 변경 파일 목록
 
 백엔드:
@@ -209,7 +251,8 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 
 프론트엔드 deposit 연동:
 
-- `web/lib/deposit-api.ts`
+- `web/lib/deposit-api.ts` (중복 함수 제거)
+- `web/components/chatbot/ChatbotWidget.tsx` (우대금리 수치 표시 추가)
 - `web/components/home/ProductShowcase.tsx`
 - `web/app/(personal)/products/deposit/[id]/page.tsx`
 - `web/app/(personal)/transfer/account/page.tsx`
