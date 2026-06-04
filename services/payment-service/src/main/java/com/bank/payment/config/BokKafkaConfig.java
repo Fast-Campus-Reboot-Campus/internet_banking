@@ -38,7 +38,9 @@ public class BokKafkaConfig {
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers,
                 ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
                 ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
-                ProducerConfig.ACKS_CONFIG, "all"
+                ProducerConfig.ACKS_CONFIG, "all",
+                ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true,           // 설정 변경 시 묵시적 비활성화 방지
+                ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5   // 멱등 producer 전제조건 명시
         ));
     }
 

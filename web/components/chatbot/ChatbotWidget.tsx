@@ -150,6 +150,7 @@ const FIELD_LABELS: Record<string, string> = {
   is_tax_benefit_available: '\uC138\uAE08 \uD61C\uD0DD',
   is_auto_renewal_available: '\uC790\uB3D9 \uAC31\uC2E0',
   product_desc: '\uC0C1\uD488 \uC124\uBA85',
+  pref_condition: '\uC6B0\uB300\uAE08\uB9AC \uC870\uAC74',
 }
 
 const VALUE_LABELS: Record<string, string> = {
@@ -1799,6 +1800,9 @@ export default function ChatbotWidget() {
                                 {row.description != null && <span>{String(row.description)}</span>}
                               </div>
                               {row.reason != null && <p className="text-[11px] text-[#2D6A4F] font-medium">✓ {String(row.reason)}</p>}
+                              {row.pref_condition != null && String(row.pref_condition).trim() !== '' && (
+                                <p className="text-[11px] text-orange-600 font-medium">🎁 우대금리 조건: {String(row.pref_condition)}</p>
+                              )}
                               {(row.min_join_amount != null || row.max_join_amount != null) && (
                                 <p className="text-[11px] text-kb-text-muted">
                                   가입금액 {row.min_join_amount != null ? `${Number(row.min_join_amount).toLocaleString()}원~` : ''}{row.max_join_amount != null ? `${Number(row.max_join_amount).toLocaleString()}원` : ''}

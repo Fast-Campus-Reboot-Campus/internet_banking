@@ -300,6 +300,7 @@ services:
       PAYMENT_TIMEOUT_KFTC_CLEARING_MINUTES: ${PAYMENT_TIMEOUT_KFTC_CLEARING_MINUTES:-5}
       PAYMENT_TIMEOUT_BOK_CLEARING_SECONDS: ${PAYMENT_TIMEOUT_BOK_CLEARING_SECONDS:-30}
       PAYMENT_TIMEOUT_POLL_INTERVAL_MS: ${PAYMENT_TIMEOUT_POLL_INTERVAL_MS:-10000}
+      KFTC_CONSUMER_GROUP: "payment-kftc-a"
     networks:
       - payment-net
     depends_on:
@@ -334,12 +335,14 @@ services:
       - "${PAYMENT_SERVICE_B_PORT:-8180}:8080"
     environment:
       BANK_CODE: "B"
+      SPRING_PROFILES_ACTIVE: "mock"
       SPRING_DATASOURCE_URL: jdbc:postgresql://payment-db-b:5432/${PAYMENT_DB_B_NAME:-payment_b}
       SPRING_DATASOURCE_USERNAME: ${PAYMENT_DB_B_USER:-payment}
       SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_B_PASSWORD:-payment}
       KFTC_KAFKA_BOOTSTRAP: kftc-kafka:29092
       BOK_KAFKA_BOOTSTRAP: bok-kafka:29093
       INTERNAL_KAFKA_BOOTSTRAP: internal-kafka:29094
+      KFTC_CONSUMER_GROUP: "payment-kftc-b"
     networks:
       - payment-net
     depends_on:

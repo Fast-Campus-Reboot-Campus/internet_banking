@@ -41,6 +41,37 @@ CUST_MISSING = "NO_SUCH_CUSTOMER_XYZ"
 FEATURE = "CASH_FLOW_RECOMMEND"
 
 
+class TestPreferentialRateNotice:
+    """추천 상품 카드의 우대금리 조건을 안내 문구에 함께 노출한다."""
+
+    def test_appends_notice_for_preferential_rate_products(self, cashflow_service):
+        message = cashflow_service._append_preferential_rate_notice(
+            "추천 상품입니다.",
+            [
+                {
+                    "product_name": "직장인우대예금",
+                    "pref_condition": "급여이체 실적 등록",
+                },
+                {
+                    "product_name": "기본예금",
+                    "pref_condition": "",
+                },
+            ],
+        )
+
+        assert "[우대금리 가능 상품 안내]" in message
+        assert "직장인우대예금: 급여이체 실적 등록" in message
+        assert "기본예금" not in message
+
+    def test_keeps_message_when_no_preferential_rate_products(self, cashflow_service):
+        message = cashflow_service._append_preferential_rate_notice(
+            "추천 상품입니다.",
+            [{"product_name": "기본예금", "pref_condition": ""}],
+        )
+
+        assert message == "추천 상품입니다."
+
+
 # ── S1. 인증 필요 ─────────────────────────────────────────────────────────────
 
 class TestAuthRequired:

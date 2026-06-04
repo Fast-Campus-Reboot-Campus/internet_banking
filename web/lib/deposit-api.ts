@@ -65,6 +65,8 @@ export type DepositAccount = {
   accountAlias?: string
   balance: number | string
   totalPaidAmount?: number | string
+  isWithdrawable?: boolean
+  withdrawable?: boolean
   openedAt?: string
   maturityAt?: string
   accountStatus?: string
@@ -74,6 +76,8 @@ export type DepositAccount = {
 export type DepositViewAccount = Account & {
   apiAccountId?: number
   contractId?: number
+  rawAccountType?: DepositProductType
+  isWithdrawable?: boolean
   accountStatus?: string
   rawAccountType?: DepositProductType
   savingType?: SavingType
@@ -352,6 +356,41 @@ export type DepositTransaction = {
   counterpartyName?: string
 }
 
+export type ExecuteDepositTransferInput = {
+  fromAccountId: number
+  toAccountId?: number
+  toAccountNo: string
+  amount: number
+  transferType?: 'INTERNAL' | 'EXTERNAL'
+  counterpartyBankCode?: string
+  counterpartyBankName?: string
+  counterpartyName?: string
+  transactionMemo?: string
+}
+
+export async function executeDepositTransfer(
+  customerId: string,
+  input: ExecuteDepositTransferInput
+): Promise<DepositTransaction> {
+  const { data } = await depositApi.post<DepositTransaction>(
+    '/transactions/transfer',
+    {
+      fromAccountId: input.fromAccountId,
+      toAccountId: input.toAccountId,
+      toAccountNo: input.toAccountNo,
+      amount: input.amount,
+      transferType: input.transferType ?? (input.toAccountId ? 'INTERNAL' : 'EXTERNAL'),
+      counterpartyBankCode: input.counterpartyBankCode,
+      counterpartyBankName: input.counterpartyBankName,
+      counterpartyName: input.counterpartyName,
+      channelType: 'INTERNET',
+      transactionMemo: input.transactionMemo ?? '인터넷이체',
+    },
+    { headers: headers(customerId) }
+  )
+  return data
+}
+
 export async function fetchTransactions(params: { customerId?: string; accountId?: number }): Promise<DepositTransaction[]> {
   const { data } = await depositApi.get<DepositTransaction[] | { content?: DepositTransaction[] }>('/transactions', { params })
   if (Array.isArray(data)) return data
@@ -406,6 +445,8 @@ export async function fetchDepositAccountViewModels(customerId: string): Promise
         id: `deposit-${account.accountId}`,
         apiAccountId: account.accountId,
         contractId: account.contractId,
+        rawAccountType: account.accountType,
+        isWithdrawable: account.isWithdrawable ?? account.withdrawable,
         accountStatus: account.accountStatus,
         rawAccountType: account.accountType,
         savingType: account.savingType,
