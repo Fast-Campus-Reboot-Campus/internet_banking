@@ -91,7 +91,7 @@ function IdDisplay({ id }: { id: string }) {
 export default function IdPasswordPage() {
   const [tab,     setTab]     = useState<Tab>('no-id')
   const [step,    setStep]    = useState<Step>('verify')
-  const [authTab, setAuthTab] = useState<AuthTab>('old-pw')
+  const [authTab] = useState<AuthTab>('old-pw')
 
   // Step 1 fields
   const [name,      setName]      = useState('')
@@ -134,7 +134,7 @@ export default function IdPasswordPage() {
     setStep('verify')
     setName(''); setAccountNo(''); setAccountPw(''); setLoginId('')
     setNewPw(''); setNewPwConfirm(''); setOldPw('')
-    setSecInput1(''); setSecInput2(''); setError('')
+    setError('')
   }
 
   return (

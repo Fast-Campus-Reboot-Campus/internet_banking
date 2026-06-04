@@ -1,4 +1,4 @@
-﻿package com.bank.loan.execution.service;
+package com.bank.loan.execution.service;
 
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;

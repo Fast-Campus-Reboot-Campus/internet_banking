@@ -109,7 +109,7 @@ export default function AccountsPage() {
   const [allFxOpen, setAllFxOpen] = useState(true)
   const [allInsOpen, setAllInsOpen] = useState(true)
   const [allRetireOpen, setAllRetireOpen] = useState(true)
-  const [joinedAccounts, setJoinedAccounts] = useState<Account[]>([])
+  const [joinedAccounts, setJoinedAccounts] = useState<DepositViewAccount[]>([])
   const [accountOverrides, setAccountOverrides] = useState<Record<string, number>>({})
 
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function AccountsPage() {
           setJoinedAccounts(apiAccounts.length > 0 ? apiAccounts : fallbackAccounts)
         }
       } catch {
-        if (!cancelled) setJoinedAccounts([])
+        if (!cancelled) setJoinedAccounts(fallbackAccounts)
       }
     }
 

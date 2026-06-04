@@ -7,6 +7,7 @@ import com.bank.customer.settings.dto.UpdateNotificationRequest;
 import com.bank.customer.settings.dto.UpdateProfileRequest;
 import com.bank.customer.settings.dto.WithdrawRequest;
 import com.bank.customer.settings.service.SettingsService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,9 +50,18 @@ public class SettingsController {
     @PutMapping("/password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @RequestHeader("X-Customer-Id") Long customerId,
-            @RequestBody ChangePasswordRequest request) {
-        settingsService.changePassword(customerId, request);
+            @RequestBody ChangePasswordRequest request,
+            HttpServletRequest httpRequest) {
+        settingsService.changePassword(customerId, request, extractIp(httpRequest));
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    private String extractIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     @PostMapping("/withdraw")

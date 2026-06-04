@@ -31,18 +31,18 @@ export default function FloatingSidebar() {
 
   if (pathname === '/login' || pathname.startsWith('/biz')) return null
 
-  const itemCls = "w-full flex flex-col items-center py-3 border-b border-kb-border hover:bg-kb-beige transition-colors duration-150 gap-1 text-kb-text-muted hover:text-kb-text"
+  const itemCls = "w-full flex flex-col items-center py-3 border-b border-[#E2F5EF] hover:bg-kb-beige transition-colors duration-150 gap-1 text-kb-text-muted hover:text-kb-text"
   const labelCls = "text-[12px] leading-tight text-center"
 
   return (
     <>
     {showConsult && <ConsultModal onClose={() => setShowConsult(false)} />}
-    <div className="fixed right-0 top-[8%] z-50 flex flex-col items-center w-[80px] shadow-xl rounded-l-2xl overflow-hidden bg-white border border-kb-border border-r-0">
+    <div className="fixed right-0 top-[8%] z-50 flex flex-col items-center w-[80px] shadow-xl rounded-l-2xl overflow-hidden bg-white border border-[#E2F5EF] border-r-0">
 
       {/* 홈 */}
       <Link
         href="/"
-        className="w-full flex flex-col items-center py-3.5 border-b border-kb-border transition-opacity gap-1 text-white hover:opacity-80"
+        className="w-full flex flex-col items-center py-3.5 border-b border-[#E2F5EF] transition-opacity gap-1 text-white hover:opacity-80"
         style={{ backgroundColor: '#0D5C47' }}
       >
         <IconHome />
@@ -106,7 +106,7 @@ export default function FloatingSidebar() {
       </Link>
 
       {/* 글자 크기 */}
-      <div className="w-full flex items-center justify-center gap-3 py-3 border-b border-kb-border bg-kb-beige-light">
+      <div className="w-full flex items-center justify-center gap-3 py-3 border-b border-[#E2F5EF] bg-[#F0FAF7]">
         <button
           onClick={() => { setFontSize('normal'); document.documentElement.style.fontSize = '14px' }}
           className={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold transition-all duration-150 ${

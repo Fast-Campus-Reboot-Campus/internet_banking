@@ -1,4 +1,4 @@
-﻿package com.bank.loan.review.domain;
+package com.bank.loan.review.domain;
 
 import com.bank.common.persistence.BaseEntity;
 import jakarta.persistence.Column;

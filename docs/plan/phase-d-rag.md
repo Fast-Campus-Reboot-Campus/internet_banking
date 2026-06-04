@@ -1,7 +1,9 @@
 # Phase D — RAG 도입 계획
 
-> Last updated: 2026-05-27
-> Status: design — 착수 대기 (Phase B 운영 레이어 완료 후)
+> Last updated: 2026-05-29
+> **Status: ⚠️ SUPERSEDED — [`phase-e-elasticsearch.md`](phase-e-elasticsearch.md) 로 대체됨 (2026-05-29)**
+> 본 문서의 pgvector + PostgreSQL FTS 가중합 방안은 Phase E (Elasticsearch 하이브리드 검색) 로 교체.
+> 코퍼스 정의 (`rag-corpora.md`), `PolicyIndex` interface, LLM 호출 패턴은 Phase E 에 승계.
 > 선행 문서: `docs/plan/rag-corpora.md` (상세 설계), `docs/plan/llm-pipeline.md` (인터페이스 swap 지점), `docs/plan/next-phase-roadmap.md` (Phase D 위치)
 
 본 문서는 `rag-corpora.md` 설계를 현재 코드 상태(2026-05-27 기준 audit/metrics/shadow/drift 완료)에 맞춰 단계별 실행 계획으로 옮긴 것. `rag-corpora.md`는 design source-of-truth, 본 문서는 실행 source-of-truth.

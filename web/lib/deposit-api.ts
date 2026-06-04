@@ -31,7 +31,8 @@ export type DepositProduct = {
   productType: DepositProductType
   productName: string
   description?: string
-  baseInterestRate?: number | string
+  baseInterestRate?: number | string | null
+  bestRate?: number | string | null
   minJoinAmount?: number | string
   maxJoinAmount?: number | string
   minPeriodMonth?: number
@@ -64,15 +65,23 @@ export type DepositAccount = {
   accountAlias?: string
   balance: number | string
   totalPaidAmount?: number | string
+  isWithdrawable?: boolean
+  withdrawable?: boolean
   openedAt?: string
   maturityAt?: string
   accountStatus?: string
+  isWithdrawable?: boolean
 }
 
 export type DepositViewAccount = Account & {
   apiAccountId?: number
   contractId?: number
+  rawAccountType?: DepositProductType
+  isWithdrawable?: boolean
   accountStatus?: string
+  rawAccountType?: DepositProductType
+  savingType?: SavingType
+  isWithdrawable?: boolean
 }
 
 export type DepositRecommendProduct = {
@@ -238,8 +247,10 @@ export function toDepositProductCard(product: DepositProduct) {
     desc: product.description,
     period,
     rate:
-      product.baseInterestRate !== undefined
-        ? `연 ${Number(product.baseInterestRate).toLocaleString('ko-KR')}%`
+      product.bestRate != null
+        ? `최고 연 ${Number(product.bestRate).toLocaleString('ko-KR')}%`
+        : product.baseInterestRate != null
+        ? `기본 연 ${Number(product.baseInterestRate).toLocaleString('ko-KR')}%`
         : undefined,
     canApply: product.productStatus ? product.productStatus === 'SELLING' : true,
   }
@@ -334,6 +345,8 @@ export type DepositTransaction = {
   transactionType: string
   directionType: 'IN' | 'OUT'
   amount: number | string
+  balanceAfter?: number | string
+  availableBalanceAfter?: number | string
   status: string
   transactionAt: string
   transactionSummary?: string
@@ -343,13 +356,69 @@ export type DepositTransaction = {
   counterpartyName?: string
 }
 
+export type ExecuteDepositTransferInput = {
+  fromAccountId: number
+  toAccountId?: number
+  toAccountNo: string
+  amount: number
+  transferType?: 'INTERNAL' | 'EXTERNAL'
+  counterpartyBankCode?: string
+  counterpartyBankName?: string
+  counterpartyName?: string
+  transactionMemo?: string
+}
+
+export async function executeDepositTransfer(
+  customerId: string,
+  input: ExecuteDepositTransferInput
+): Promise<DepositTransaction> {
+  const { data } = await depositApi.post<DepositTransaction>(
+    '/transactions/transfer',
+    {
+      fromAccountId: input.fromAccountId,
+      toAccountId: input.toAccountId,
+      toAccountNo: input.toAccountNo,
+      amount: input.amount,
+      transferType: input.transferType ?? (input.toAccountId ? 'INTERNAL' : 'EXTERNAL'),
+      counterpartyBankCode: input.counterpartyBankCode,
+      counterpartyBankName: input.counterpartyBankName,
+      counterpartyName: input.counterpartyName,
+      channelType: 'INTERNET',
+      transactionMemo: input.transactionMemo ?? '인터넷이체',
+    },
+    { headers: headers(customerId) }
+  )
+  return data
+}
+
 export async function fetchTransactions(params: { customerId?: string; accountId?: number }): Promise<DepositTransaction[]> {
-  const { data } = await depositApi.get<{ content: DepositTransaction[] } | DepositTransaction[]>('/transactions', { params })
-  return Array.isArray(data) ? data : (data as { content: DepositTransaction[] }).content ?? []
+  const { data } = await depositApi.get<DepositTransaction[] | { content?: DepositTransaction[] }>('/transactions', { params })
+  if (Array.isArray(data)) return data
+  return Array.isArray(data.content) ? data.content : []
 }
 
 export async function fetchTransaction(transactionId: number): Promise<DepositTransaction> {
   const { data } = await depositApi.get<DepositTransaction>(`/transactions/${transactionId}`)
+  return data
+}
+
+export type ExecuteDepositTransferInput = {
+  fromAccountId: number
+  toAccountId?: number
+  toAccountNo: string
+  amount: number
+  transferType: 'INTERNAL' | 'EXTERNAL' | 'AUTO' | 'SCHEDULED'
+  counterpartyBankCode?: string
+  counterpartyBankName?: string
+  counterpartyName?: string
+  transactionMemo?: string
+}
+
+export async function executeDepositTransfer(input: ExecuteDepositTransferInput): Promise<DepositTransaction> {
+  const { data } = await depositApi.post<DepositTransaction>('/transactions/transfer', {
+    ...input,
+    channelType: 'INTERNET',
+  })
   return data
 }
 
@@ -376,7 +445,12 @@ export async function fetchDepositAccountViewModels(customerId: string): Promise
         id: `deposit-${account.accountId}`,
         apiAccountId: account.accountId,
         contractId: account.contractId,
+        rawAccountType: account.accountType,
+        isWithdrawable: account.isWithdrawable ?? account.withdrawable,
         accountStatus: account.accountStatus,
+        rawAccountType: account.accountType,
+        savingType: account.savingType,
+        isWithdrawable: account.isWithdrawable,
         number: account.accountNumber,
         type: accountTypeLabel(account, product),
         name: account.accountAlias || product?.productName || fallbackName(account),

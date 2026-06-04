@@ -1,4 +1,4 @@
-﻿package com.bank.common.security.jwt;
+package com.bank.common.security.jwt;
 
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;

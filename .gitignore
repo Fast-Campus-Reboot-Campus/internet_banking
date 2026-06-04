@@ -29,6 +29,8 @@ Thumbs.db
 *.local
 *.bak
 infra/alertmanager/alertmanager.yml
+# 개발자별 로컬 설정 (시크릿 포함) — 공유 대상 아님
+application-local.yml
 .venv/
 venv/
 env/

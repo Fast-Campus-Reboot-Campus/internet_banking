@@ -15,7 +15,7 @@ const FILTER_TABS = [
 ]
 
 const PRODUCT_TYPES = ['전체', '직장인', '전문직', '사업자', '연금수급자']
-const JOIN_METHODS  = ['전체', '인터넷뱅킹', '스타뱅킹', '리브 Next', '영업점', '스마트대출']
+const JOIN_METHODS  = ['전체', '인터넷뱅킹', '영업점', '스마트대출']
 
 interface Product {
   prodId: number
@@ -92,12 +92,12 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
             <h1 className="text-[26px] font-bold text-kb-text mb-5">{pageTitle}</h1>
 
             {/* 카테고리 탭 */}
-            <div className="flex border-b border-kb-border mb-6">
+            <div className="flex border-b mb-6" style={{ borderColor: '#E2F5EF' }}>
               {FILTER_TABS.map(tab => (
                 <Link key={tab.href} href={tab.href}
                   className={`px-5 py-3 text-[14px] font-medium whitespace-nowrap transition-colors border-b-2 -mb-px
                     ${tab.href === activeHref
-                      ? 'border-kb-text text-kb-text font-bold'
+                      ? 'border-[#0D5C47] text-[#0D5C47] font-bold'
                       : 'border-transparent text-kb-text-muted hover:text-kb-text'}`}>
                   {tab.label}
                 </Link>
@@ -105,12 +105,12 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
             </div>
 
             {/* 검색 폼 */}
-            <div className="border border-kb-border p-5 mb-6">
+            <div className="border border-[#E2F5EF] p-5 mb-6">
               <div className="flex items-center gap-4 mb-4">
                 <label className="w-20 text-[13px] font-medium text-kb-text flex-shrink-0">상품명</label>
                 <input type="text" value={searchName} onChange={e => setSearchName(e.target.value)}
                   placeholder="상품명을 입력하세요"
-                  className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+                  className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
               </div>
               <div className="flex items-center gap-4 mb-4">
                 <span className="w-20 text-[13px] font-medium text-kb-text flex-shrink-0">상품유형</span>
@@ -118,7 +118,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                   {PRODUCT_TYPES.map(type => (
                     <label key={type} className="flex items-center gap-1.5 cursor-pointer">
                       <input type="radio" name="productType" value={type} checked={productType === type}
-                        onChange={() => setProductType(type)} className="accent-kb-text" />
+                        onChange={() => setProductType(type)} className="accentColor: '#0D5C47'" />
                       <span className="text-[13px] text-kb-text-body">{type}</span>
                     </label>
                   ))}
@@ -130,7 +130,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                   {JOIN_METHODS.map(method => (
                     <label key={method} className="flex items-center gap-1.5 cursor-pointer">
                       <input type="radio" name="joinMethod" value={method} checked={joinMethod === method}
-                        onChange={() => setJoinMethod(method)} className="accent-kb-text" />
+                        onChange={() => setJoinMethod(method)} className="accentColor: '#0D5C47'" />
                       <span className="text-[13px] text-kb-text-body">{method}</span>
                     </label>
                   ))}
@@ -138,7 +138,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
               </div>
               <div className="flex justify-center">
                 <button onClick={() => { setPage(0); fetchProducts() }}
-                  className="px-12 py-2.5 text-[14px] font-bold text-white" style={{ backgroundColor: '#3D3D3D' }}>
+                  className="px-12 py-2.5 text-[14px] font-bold text-white" style={{ backgroundColor: '#0D5C47' }}>
                   조회
                 </button>
               </div>
@@ -150,7 +150,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                 상품목록 <span className="font-bold">{displayed.length}</span>건
               </p>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                className="border border-kb-border text-[13px] px-2 py-1.5 focus:outline-none">
+                className="border border-[#E2F5EF] text-[13px] px-2 py-1.5 focus:outline-none">
                 <option>판매순</option>
                 <option>금리순</option>
                 <option>한도순</option>
@@ -162,7 +162,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
 
             {!loading && !error && (
               <>
-                <div className="border-t border-kb-text divide-y divide-kb-border">
+                <div className="border-t-2 border-[#0D5C47] divide-y divide-kb-border">
                   {displayed.length === 0 && (
                     <p className="py-12 text-center text-[13px] text-kb-text-muted">조회된 상품이 없습니다.</p>
                   )}
@@ -170,7 +170,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                     <div key={product.prodId} className="py-5 flex items-center gap-5">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-[11px] font-bold px-2 py-0.5 bg-[#1A56DB] text-white">
+                          <span className="text-[11px] font-bold px-2 py-0.5 bg-[#0D5C47] text-white">
                             인터넷뱅킹
                           </span>
                           <Link href={`${activeHref}/${product.prodId}`}
@@ -190,7 +190,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Link href={`${activeHref}/${product.prodId}`}
-                          className="px-5 py-2 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark transition-colors whitespace-nowrap">
+                          className="px-5 py-2 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 transition-colors whitespace-nowrap">
                           상세보기
                         </Link>
                       </div>
@@ -201,16 +201,16 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
                 {totalPages > 1 && (
                   <div className="flex justify-center items-center gap-1 mt-8">
                     <button onClick={() => setPage(p => Math.max(0, p - 1))}
-                      className="w-8 h-8 flex items-center justify-center border border-kb-border text-kb-text-muted hover:bg-kb-beige-light">‹</button>
+                      className="w-8 h-8 flex items-center justify-center border border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]">‹</button>
                     {Array.from({ length: totalPages }, (_, i) => i).map(n => (
                       <button key={n} onClick={() => setPage(n)}
                         className={`w-8 h-8 flex items-center justify-center text-[13px] border transition-colors
-                          ${page === n ? 'border-kb-text bg-kb-text text-white font-bold' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                          ${page === n ? 'border-[#0D5C47] bg-[#0D5C47] text-white font-bold' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
                         {n + 1}
                       </button>
                     ))}
                     <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                      className="w-8 h-8 flex items-center justify-center border border-kb-border text-kb-text-muted hover:bg-kb-beige-light">›</button>
+                      className="w-8 h-8 flex items-center justify-center border border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]">›</button>
                   </div>
                 )}
               </>

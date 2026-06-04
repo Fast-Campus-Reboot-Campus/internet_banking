@@ -15,7 +15,11 @@ dependencyManagement {
 dependencies {
     // ── Spring AI (BOM 관리 — 버전 생략) ─────────────────────────────────
     implementation 'org.springframework.ai:spring-ai-openai'                                       // Gemini OpenAI-compat LLM 클라이언트 (A1)
-    implementation 'org.springframework.ai:spring-ai-starter-model-vertex-ai-embedding'             // D1: RAG 임베딩 (Vertex AI text-embedding-005)
+    implementation 'org.springframework.ai:spring-ai-starter-model-vertex-ai-embedding'             // E1: RAG 임베딩 (Vertex AI text-embedding-005)
+
+    // ── E1: Elasticsearch Java 클라이언트 ────────────────────────────────
+    implementation 'co.elastic.clients:elasticsearch-java:8.15.0'
+    testImplementation 'org.testcontainers:elasticsearch'
 
     // ── B1: Audit Log — JDBC + Flyway ────────────────────────────────────
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'

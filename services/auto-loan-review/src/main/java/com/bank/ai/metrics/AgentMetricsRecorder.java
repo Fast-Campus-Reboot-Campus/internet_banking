@@ -168,12 +168,22 @@ public class AgentMetricsRecorder {
 
     // ── RAG 검색 ──────────────────────────────────────────────────────────────
 
-    /** RAG 검색 지연 기록 (corpus 별). */
-    public void recordRagSearchLatency(String corpus, Duration latency) {
+    /**
+     * RAG 검색 지연 기록 (corpus + phase 별).
+     *
+     * @param phase 검색 단계 — {@code "bm25" / "knn" / "rrf" / "all"}
+     */
+    public void recordRagSearchLatency(String corpus, String phase, Duration latency) {
         Timer.builder("rag.search.latency.seconds")
                 .tag(AgentMetricsTags.CORPUS, corpus)
+                .tag(AgentMetricsTags.PHASE, phase)
                 .register(registry)
                 .record(latency);
+    }
+
+    /** RAG 검색 지연 기록 — phase 미지정 시 {@code "all"} 사용 (inline backend 호환). */
+    public void recordRagSearchLatency(String corpus, Duration latency) {
+        recordRagSearchLatency(corpus, "all", latency);
     }
 
     /** RAG 검색 결과 없음 (miss) 기록 (corpus 별). */
@@ -192,11 +202,41 @@ public class AgentMetricsRecorder {
                 .record(count);
     }
 
+    /**
+     * RAG 인덱스 lag 기록 (corpus 별).
+     *
+     * <p>케이스 코퍼스 outbox 의 최고령 PENDING 건 lag(= 현재 시각 − created_at) 를 기록.
+     * loan-service 의 {@code CaseOutboxLagMonitor} 에서 Gauge 로도 등록하므로
+     * 여기서는 auto-loan-review 측에서 직접 측정 가능한 경우에만 호출한다.
+     */
+    public void recordRagIndexLag(String corpus, Duration lag) {
+        Timer.builder("rag.index.lag.seconds")
+                .tag(AgentMetricsTags.CORPUS, corpus)
+                .register(registry)
+                .record(lag);
+    }
+
     /** 리포트 1건당 RAG citation 수 기록 (track 별). */
     public void recordRagCitationCount(Track track, int count) {
         DistributionSummary.builder("rag.citation.count.per.report")
                 .tag(AgentMetricsTags.TRACK, track.name())
                 .register(registry)
                 .record(count);
+    }
+
+    // ── Canary 라우팅 ─────────────────────────────────────────────────────────
+
+    /**
+     * Canary 라우팅 기록 — backend={es|inline}.
+     *
+     * <p>메트릭: {@code ai.canary.routed.total{backend}}
+     *
+     * @param backend "es" 또는 "inline"
+     */
+    public void recordCanaryRouted(String backend) {
+        Counter.builder("ai.canary.routed.total")
+                .tag("backend", backend)
+                .register(registry)
+                .increment();
     }
 }

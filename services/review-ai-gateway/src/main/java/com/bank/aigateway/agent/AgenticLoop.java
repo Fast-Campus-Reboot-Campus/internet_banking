@@ -59,7 +59,7 @@ public class AgenticLoop {
 
             if (resp.isEndTurn()) {
                 log.info("AgenticLoop 완료 — turns={} inputTokens={} outputTokens={}", turn + 1, totalInput, totalOutput);
-                return new AgenticLoopResult(resp.textContent(), totalInput, totalOutput, turn + 1);
+                return new AgenticLoopResult(resp.textContent(), totalInput, totalOutput, turn + 1, false);
             }
 
             if (resp.isToolUse()) {
@@ -69,7 +69,7 @@ public class AgenticLoop {
         }
 
         log.warn("AgenticLoop maxTurns({}) 초과 — INSUFFICIENT_DATA 반환", MAX_TURNS);
-        return new AgenticLoopResult(FALLBACK_JSON, totalInput, totalOutput, MAX_TURNS);
+        return new AgenticLoopResult(FALLBACK_JSON, totalInput, totalOutput, MAX_TURNS, true);
     }
 
     private ArrayNode buildInitialMessages(String userMessage) {

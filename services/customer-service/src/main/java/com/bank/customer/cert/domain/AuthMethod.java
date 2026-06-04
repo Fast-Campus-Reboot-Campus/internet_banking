@@ -40,4 +40,16 @@ public class AuthMethod extends BaseEntity {
 
     @Column(name = "auth_method_expiry_date", length = 8)
     private String authMethodExpiryDate;
+
+    @Column(name = "auth_method_last_used_at")
+    private java.time.OffsetDateTime authMethodLastUsedAt;
+
+    public boolean isActive()  { return STATUS_ACTIVE.equals(authMethodStatusCode); }
+    public boolean isPrimary() { return "T".equals(primaryAuthMethodYn); }
+
+    public void updateAlias(String alias)  { this.authMethodAliasName = alias; }
+    public void deactivate()               { this.authMethodStatusCode = STATUS_INACTIVE; }
+    public void activate()                 { this.authMethodStatusCode = STATUS_ACTIVE; }
+    public void setPrimary(boolean primary){ this.primaryAuthMethodYn = primary ? "T" : "F"; }
+    public void recordUsed()               { this.authMethodLastUsedAt = java.time.OffsetDateTime.now(); }
 }

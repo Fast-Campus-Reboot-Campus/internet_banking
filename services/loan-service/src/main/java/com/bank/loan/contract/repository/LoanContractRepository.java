@@ -1,4 +1,4 @@
-﻿package com.bank.loan.contract.repository;
+package com.bank.loan.contract.repository;
 
 import com.bank.loan.contract.domain.LoanContract;
 import org.springframework.data.domain.Pageable;

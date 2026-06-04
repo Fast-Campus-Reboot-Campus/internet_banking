@@ -65,7 +65,6 @@ export const GNB_MENUS = [
           { label: '신규결과/내역 조회', href: '/products/deposit/inquiry/new' },
           { label: '예금해지',          href: '/products/deposit/inquiry/terminate' },
           { label: '해지결과/내역 조회', href: '/products/deposit/inquiry/terminate-result' },
-          { label: '예금전환',          href: '/products/deposit/manage/convert' },
         ],
       },
       {
@@ -75,6 +74,8 @@ export const GNB_MENUS = [
           { label: '대출 상품/신청', href: '/products/loan/credit' },
           { label: '대출진행현황',  href: '/products/loan/status' },
           { label: '대출관리',      href: '/products/loan/manage/rate' },
+          { label: '대출 가이드',    href: '/products/loan/guide/rate' },
+          { label: '여신심사 자료제출', href: '/products/loan/credit-eval/biz-plan' },
         ],
       },
     ],
@@ -140,6 +141,7 @@ export default function Header() {
   const [user, setUser] = useState<StoredUser | null>(null)
   const [remaining, setRemaining] = useState(SESSION_SECONDS)
   const [extending, setExtending] = useState(false)
+  const [extendError, setExtendError] = useState(false)
 
   useEffect(() => {
     try {
@@ -153,7 +155,7 @@ export default function Header() {
     if (!user) return
 
     const stored = localStorage.getItem('sessionExpiry')
-    const expiry = stored ? parseInt(stored) : Date.now() + SESSION_SECONDS * 1000
+    const expiry = stored ? parseInt(stored, 10) : Date.now() + SESSION_SECONDS * 1000
     if (!stored) localStorage.setItem('sessionExpiry', String(expiry))
 
     const seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
@@ -204,6 +206,7 @@ export default function Header() {
       return
     }
     setExtending(true)
+    setExtendError(false)
     try {
       const { data } = await api.post('/api/v1/auth/refresh', { refreshToken })
       localStorage.setItem('accessToken', data.data.accessToken)
@@ -215,7 +218,7 @@ export default function Header() {
       localStorage.setItem('sessionExpiry', String(newExpiry))
       setRemaining(SESSION_SECONDS)
     } catch {
-      window.location.href = '/logout'
+      setExtendError(true)
     } finally {
       setExtending(false)
     }
@@ -245,11 +248,14 @@ export default function Header() {
                 <Link href="/mypage" className="text-kb-text-muted hover:text-kb-text transition-colors">My AXful</Link>
                 <span className="text-kb-border">|</span>
                 <span className="text-kb-text-muted">🔒 {formatTime(remaining)}</span>
+                {extendError && (
+                  <span className="text-[12px] text-red-500">연장 실패 — 재시도하거나 로그아웃하세요</span>
+                )}
                 <button onClick={handleExtend}
                   disabled={extending}
                   className="px-3 py-1 text-[13px] font-semibold rounded-full border transition-colors hover:bg-[#F0FAF7] disabled:opacity-50"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
-                  {extending ? '연장 중...' : '연장'}
+                  style={{ borderColor: extendError ? '#EF4444' : '#5BC9A8', color: extendError ? '#EF4444' : '#0D5C47' }}>
+                  {extending ? '연장 중...' : extendError ? '재시도' : '연장'}
                 </button>
                 <button onClick={handleLogout}
                   className="px-3 py-1 text-[13px] font-semibold rounded-full border border-gray-200 text-kb-text-muted hover:bg-gray-50 transition-colors">

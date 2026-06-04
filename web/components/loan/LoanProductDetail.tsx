@@ -128,7 +128,7 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
           <LoanSidebar />
           <div className="flex-1 min-w-0">
             {/* 상품 헤더 */}
-            <div className="border border-kb-border p-6">
+            <div className="border border-[#E2F5EF] p-6">
               <span className="inline-block text-[11px] font-bold px-2 py-0.5 text-white mb-3 bg-[#1A56DB]">
                 인터넷뱅킹
               </span>
@@ -153,23 +153,23 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
               </div>
               <div className="flex items-center gap-2 mb-3">
                 <Link href="/loans/apply"
-                  className="px-5 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark transition-colors whitespace-nowrap">
+                  className="px-5 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 transition-colors whitespace-nowrap">
                   대출 신청하기
                 </Link>
-                <button onClick={() => setCartOpen(true)} className="px-4 py-2.5 text-[13px] border border-kb-border text-kb-text-body hover:bg-kb-beige-light transition-colors">장바구니</button>
-                <button onClick={() => setConsultOpen(true)} className="px-4 py-2.5 text-[13px] border border-kb-border text-kb-text-body hover:bg-kb-beige-light transition-colors">상담신청</button>
+                <button onClick={() => setCartOpen(true)} className="px-4 py-2.5 text-[13px] border border-[#E2F5EF] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">장바구니</button>
+                <button onClick={() => setConsultOpen(true)} className="px-4 py-2.5 text-[13px] border border-[#E2F5EF] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">상담신청</button>
               </div>
               <p className="text-[12px] text-kb-text-muted">※ 자세한 내용은 아래 상품안내를 참조하시기 바랍니다.</p>
             </div>
 
             {/* 대출 계산기 */}
-            <div className="border border-t-0 border-kb-border p-5 mb-3">
+            <div className="border border-t-0 border-[#E2F5EF] p-5 mb-3">
               <p className="text-[13px] font-bold text-kb-text mb-3">대출 계산기</p>
-              <div className="flex border-b border-kb-border mb-4">
+              <div className="flex border-b border-[#E2F5EF] mb-4">
                 {CALC_TABS.map((tab, i) => (
                   <button key={tab} onClick={() => { setCalcTab(i); setCalcResult(null) }}
                     className={`px-5 py-2 text-[13px] border-b-2 -mb-px transition-colors ${
-                      calcTab === i ? 'border-kb-text text-kb-text font-bold' : 'border-transparent text-kb-text-muted hover:text-kb-text'}`}>
+                      calcTab === i ? 'border-[#0D5C47] text-[#0D5C47] font-bold' : 'border-transparent text-kb-text-muted hover:text-kb-text'}`}>
                     {tab}
                   </button>
                 ))}
@@ -178,17 +178,17 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
                 <span className="text-[13px] text-kb-text-muted font-bold">대출금액</span>
                 <input type="text" value={principal} onChange={e => setPrincipal(e.target.value)} placeholder="금액"
                   onFocus={() => setFocusedInput('principal')} onBlur={() => setFocusedInput(null)}
-                  className={`border px-3 py-1.5 w-24 outline-none text-right text-[13px] transition-colors ${focusedInput === 'principal' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-kb-border'}`} />
+                  className={`border px-3 py-1.5 w-24 outline-none text-right text-[13px] transition-colors ${focusedInput === 'principal' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-[#E2F5EF]'}`} />
                 <span className="text-[13px] text-kb-text">만원을</span>
                 <span className="text-[13px] text-kb-text-muted font-bold ml-2">기간</span>
                 <input type="text" value={years} onChange={e => setYears(e.target.value)} placeholder="기간"
                   onFocus={() => setFocusedInput('years')} onBlur={() => setFocusedInput(null)}
-                  className={`border px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${focusedInput === 'years' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-kb-border'}`} />
+                  className={`border px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${focusedInput === 'years' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-[#E2F5EF]'}`} />
                 <span className="text-[13px] text-kb-text">년 동안</span>
                 <span className="text-[13px] text-kb-text-muted font-bold ml-2">이자</span>
                 <input type="text" value={rate} onChange={e => setRate(e.target.value)} placeholder="금리"
                   onFocus={() => setFocusedInput('rate')} onBlur={() => setFocusedInput(null)}
-                  className={`border px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${focusedInput === 'rate' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-kb-border'}`} />
+                  className={`border px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${focusedInput === 'rate' ? 'border-[#C09B3A] bg-[#C09B3A]/10' : 'border-[#E2F5EF]'}`} />
                 <span className="text-[13px] text-kb-text">%로</span>
                 <button onClick={handleCalc}
                   className="ml-auto text-white text-[12px] font-bold px-5 py-1.5" style={{ backgroundColor: '#5A504A' }}>
@@ -199,24 +199,24 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
                 {focusedInput === 'principal' && (
                   <div className="flex gap-1 flex-wrap">
                     {AMT_BTNS.map(b => <button key={b} onClick={() => handleAmtBtn(b)}
-                      className="px-2.5 py-1 text-[11px] border border-kb-border text-kb-text-body hover:bg-kb-beige-light">{b}</button>)}
+                      className="px-2.5 py-1 text-[11px] border border-[#E2F5EF] text-kb-text-body hover:bg-[#F0FAF7]">{b}</button>)}
                   </div>
                 )}
                 {focusedInput === 'years' && (
                   <div className="flex gap-1 flex-wrap">
                     {YEAR_BTNS.map(b => <button key={b} onClick={() => handleYearBtn(b)}
-                      className="px-2.5 py-1 text-[11px] border border-kb-border text-kb-text-body hover:bg-kb-beige-light">{b}</button>)}
+                      className="px-2.5 py-1 text-[11px] border border-[#E2F5EF] text-kb-text-body hover:bg-[#F0FAF7]">{b}</button>)}
                   </div>
                 )}
                 {focusedInput === 'rate' && (
                   <div className="flex gap-1 flex-wrap">
                     {RATE_BTNS.map(b => <button key={b} onClick={() => handleRateBtn(b)}
-                      className="px-2.5 py-1 text-[11px] border border-kb-border text-kb-text-body hover:bg-kb-beige-light">{b}</button>)}
+                      className="px-2.5 py-1 text-[11px] border border-[#E2F5EF] text-kb-text-body hover:bg-[#F0FAF7]">{b}</button>)}
                   </div>
                 )}
               </div>
               {calcResult && (
-                <div className="mt-4 border border-kb-border">
+                <div className="mt-4 border border-[#E2F5EF]">
                   <table className="w-full text-[13px]">
                     <thead>
                       <tr className="bg-[#F5F0E8]">
@@ -238,12 +238,12 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
             </div>
 
             {/* 상세 탭 */}
-            <div className="border border-kb-border">
-              <div className="flex border-b border-kb-border">
+            <div className="border border-[#E2F5EF]">
+              <div className="flex border-b border-[#E2F5EF]">
                 {DETAIL_TABS.map(tab => (
                   <button key={tab} onClick={() => setDetailTab(tab)}
                     className={`flex-1 py-3 text-[13px] transition-colors ${
-                      detailTab === tab ? 'bg-kb-yellow font-bold text-kb-text' : 'text-kb-text-muted hover:text-kb-text hover:bg-kb-beige-light'}`}>
+                      detailTab === tab ? 'bg-[#0D5C47] font-bold text-kb-text' : 'text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'}`}>
                     {tab}
                   </button>
                 ))}
@@ -285,7 +285,7 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
                             <ul className="space-y-2">
                               {prefRates.map(p => (
                                 <li key={p.policyId} className="flex items-start gap-2 text-kb-text-body">
-                                  <span className="inline-block mt-0.5 w-2 h-2 rounded-full bg-kb-yellow flex-shrink-0" />
+                                  <span className="inline-block mt-0.5 w-2 h-2 rounded-full bg-[#0D5C47] flex-shrink-0" />
                                   <span>
                                     <span className="font-medium text-kb-text">{p.policyName}</span>
                                     <span className="text-[#1A56DB] font-bold ml-2">-{bpsToRate(p.discountBps)}%</span>
@@ -315,7 +315,7 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
 
             <div className="flex justify-center gap-3 mt-6">
               <Link href={listHref}
-                className="px-10 py-2.5 border border-kb-border text-[14px] text-kb-text-body hover:bg-kb-beige-light transition-colors">
+                className="px-10 py-2.5 border border-[#E2F5EF] text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
                 목록
               </Link>
             </div>

@@ -1,4 +1,4 @@
-﻿package com.bank.customer.login.service;
+package com.bank.customer.login.service;
 
 import com.bank.common.security.jwt.JwtClaims;
 import com.bank.common.security.jwt.JwtProperties;
@@ -12,11 +12,17 @@ import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.fds.domain.FdsDetection;
+import com.bank.customer.fds.service.FdsService;
+import com.bank.customer.login.domain.LoginAttempt;
+import com.bank.customer.session.service.LoginSessionService;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.dto.RefreshRequest;
+import com.bank.customer.login.repository.LoginAttemptRepository;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,68 +32,100 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LoginService {
 
     private static final String RT_KEY_PREFIX = "RT:";
+    private static final String CHANNEL_WEB   = "WEB";
 
-    private final CredentialRepository credentialRepository;
-    private final CustomerRepository customerRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtProvider jwtProvider;
-    private final JwtProperties jwtProperties;
-    private final StringRedisTemplate redisTemplate;
+    private final CredentialRepository     credentialRepository;
+    private final CustomerRepository       customerRepository;
+    private final PasswordEncoder          passwordEncoder;
+    private final JwtProvider              jwtProvider;
+    private final JwtProperties            jwtProperties;
+    private final StringRedisTemplate      redisTemplate;
     private final EmployeeDirectoryProperties employeeDirectory;
+    private final LoginAttemptRepository   loginAttemptRepository;
+    private final FdsService               fdsService;
+    private final LoginSessionService      loginSessionService;
 
     /**
-     * noRollbackFor: 비밀번호 실패 카운트·잠금 상태는 예외 발생 시에도 반드시 커밋돼야 한다.
+     * 아이디/비밀번호 로그인.
+     * noRollbackFor: 실패 카운트·잠금 상태와 감사 로그는 예외 시에도 반드시 커밋돼야 한다.
      */
     @Transactional(noRollbackFor = BusinessException.class)
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request, String ip, String userAgent) {
+        Long customerId = null;
 
-        Credential credential = credentialRepository
-                .findByLoginIdAndDeletedAtIsNull(request.loginId())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_010));
+        try {
+            Credential credential = credentialRepository
+                    .findByLoginIdAndDeletedAtIsNull(request.loginId())
+                    .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_010));
 
-        if (credential.isLocked()) {
-            throw new BusinessException(CustomerErrorCode.CUST_011);
+            customerId = credential.getCustomerId();
+
+            if (credential.isLocked()) {
+                throw new BusinessException(CustomerErrorCode.CUST_011);
+            }
+            if (!credential.isActive()) {
+                throw new BusinessException(CustomerErrorCode.CUST_012);
+            }
+            if (credential.isPasswordExpired()) {
+                throw new BusinessException(CustomerErrorCode.CUST_013);
+            }
+
+            if (!passwordEncoder.matches(request.password(), credential.getPasswordHash())) {
+                credential.recordLoginFailure();
+                throw new BusinessException(
+                        credential.isLocked() ? CustomerErrorCode.CUST_011 : CustomerErrorCode.CUST_010);
+            }
+
+            Customer customer = customerRepository
+                    .findByCustomerIdAndDeletedAtIsNull(credential.getCustomerId())
+                    .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+
+            if (!customer.isActive()) {
+                throw new BusinessException(CustomerErrorCode.CUST_012);
+            }
+
+            credential.recordLoginSuccess();
+
+            String accessToken  = buildAccessToken(customer);
+            String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
+
+            storeRefreshToken(customer.getCustomerId(), refreshToken);
+            LoginAttempt attempt = saveAttempt(request.loginId(), customer.getCustomerId(), ip, userAgent, true, null);
+
+            // 세션·토큰 DB 이력 저장 (Redis JWT와 병행)
+            loginSessionService.createSession(
+                    customer.getCustomerId(), attempt.getLoginAttemptId(), ip,
+                    accessToken, refreshToken,
+                    OffsetDateTime.now().plusSeconds(jwtProperties.accessTokenValidity()  / 1000),
+                    OffsetDateTime.now().plusSeconds(jwtProperties.refreshTokenValidity() / 1000));
+
+            // 로그인 성공 시에도 FDS 평가 — 이상 패턴 모니터링
+            evaluateFdsSilently(customer.getCustomerId(), FdsDetection.EVENT_LOGIN_ATTEMPT, attempt.getLoginAttemptId());
+
+            return new LoginResponse(customer.getCustomerId(), accessToken, refreshToken);
+
+        } catch (BusinessException e) {
+            LoginAttempt attempt = saveAttempt(request.loginId(), customerId, ip, userAgent, false,
+                    e.getErrorCode().getCode());
+
+            // 로그인 실패 시 FDS 평가 — BLOCK 룰이 발동하면 CUST_060 으로 재던짐
+            if (customerId != null) {
+                evaluateFds(customerId, FdsDetection.EVENT_LOGIN_ATTEMPT, attempt.getLoginAttemptId());
+            }
+            throw e;
         }
-        if (!credential.isActive()) {
-            throw new BusinessException(CustomerErrorCode.CUST_012);
-        }
-        if (credential.isPasswordExpired()) {
-            throw new BusinessException(CustomerErrorCode.CUST_013);
-        }
-
-        if (!passwordEncoder.matches(request.password(), credential.getPasswordHash())) {
-            credential.recordLoginFailure();
-            // 임계치 도달로 잠금 전환된 경우 잠금 오류 코드로 응답
-            throw new BusinessException(
-                    credential.isLocked() ? CustomerErrorCode.CUST_011 : CustomerErrorCode.CUST_010);
-        }
-
-        Customer customer = customerRepository
-                .findByCustomerIdAndDeletedAtIsNull(credential.getCustomerId())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
-
-        if (!customer.isActive()) {
-            throw new BusinessException(CustomerErrorCode.CUST_012);
-        }
-
-        credential.recordLoginSuccess();
-
-        String accessToken = buildAccessToken(customer);
-        String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
-
-        storeRefreshToken(customer.getCustomerId(), refreshToken);
-
-        return new LoginResponse(customer.getCustomerId(), accessToken, refreshToken);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse refresh(RefreshRequest request) {
         JwtClaims claims;
         try {
@@ -101,11 +139,11 @@ public class LoginService {
         }
 
         Long customerId = claims.customerId();
-        String key = RT_KEY_PREFIX + customerId;
-        String stored = redisTemplate.opsForValue().get(key);
+        String key      = RT_KEY_PREFIX + customerId;
+        String stored   = redisTemplate.opsForValue().get(key);
 
         if (stored == null || !stored.equals(sha256(request.refreshToken()))) {
-            redisTemplate.delete(key); // 토큰 재사용 시도 → 강제 무효화
+            redisTemplate.delete(key);
             throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
         }
 
@@ -123,7 +161,6 @@ public class LoginService {
         return new LoginResponse(customerId, newAccessToken, newRefreshToken);
     }
 
-    /** 직원이면 직원 roles+branch+grade, 일반 고객이면 ROLE_CUSTOMER 토큰 발급. */
     private String buildAccessToken(Customer customer) {
         return employeeDirectory.find(customer.getCustomerId())
                 .map(emp -> jwtProvider.generateAccessToken(
@@ -139,6 +176,34 @@ public class LoginService {
                 RT_KEY_PREFIX + customerId,
                 sha256(refreshToken),
                 Duration.ofMillis(jwtProperties.refreshTokenValidity()));
+    }
+
+    private LoginAttempt saveAttempt(String loginId, Long customerId, String ip, String userAgent,
+                                     boolean success, String failureCode) {
+        return loginAttemptRepository.save(LoginAttempt.builder()
+                .attemptedLoginId(loginId)
+                .customerId(customerId)
+                .loginAttemptChannelCode(CHANNEL_WEB)
+                .loginAttemptIp(ip)
+                .loginAttemptUserAgent(userAgent)
+                .loginAttemptSuccessYn(success ? "T" : "F")
+                .loginAttemptFailureReasonCode(failureCode)
+                .loginAttemptedAt(OffsetDateTime.now())
+                .build());
+    }
+
+    /** FDS 평가 — BLOCK 룰 발동 시 예외를 그대로 전파한다. */
+    private void evaluateFds(Long customerId, String eventType, Long referenceId) {
+        fdsService.evaluate(customerId, eventType, referenceId);
+    }
+
+    /** FDS 평가 — 성공 경로에서 호출. BLOCK 룰이 발동해도 로그만 남기고 예외를 삼킨다. */
+    private void evaluateFdsSilently(Long customerId, String eventType, Long referenceId) {
+        try {
+            fdsService.evaluate(customerId, eventType, referenceId);
+        } catch (BusinessException e) {
+            log.warn("FDS BLOCK 발동 (성공 경로): customerId={} eventType={}", customerId, eventType);
+        }
     }
 
     private static String sha256(String input) {

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
@@ -32,7 +33,8 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class RagSearchService {
+@ConditionalOnProperty(prefix = "ai.rag", name = "backend", havingValue = "inline", matchIfMissing = true)
+public class RagSearchService implements RagSearchBackend {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

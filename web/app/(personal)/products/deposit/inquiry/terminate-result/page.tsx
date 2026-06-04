@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
 import {
@@ -10,16 +9,16 @@ import {
   getCurrentDepositCustomerId,
 } from '@/lib/deposit-api'
 
-const PERIOD_BTNS = ['당일', '6개월', '6개월', '1년']
+const PERIOD_BTNS = ['당일', '1개월', '6개월', '1년']
 
 export default function TerminateResultPage() {
-  const [startYear, setStartYear] = useState('2026')
+  const [startYear,  setStartYear]  = useState('2026')
   const [startMonth, setStartMonth] = useState('05')
-  const [startDay, setStartDay] = useState('25')
-  const [endYear, setEndYear] = useState('2026')
-  const [endMonth, setEndMonth] = useState('05')
-  const [endDay, setEndDay] = useState('25')
-  const [searched, setSearched] = useState(false)
+  const [startDay,   setStartDay]   = useState('25')
+  const [endYear,    setEndYear]    = useState('2026')
+  const [endMonth,   setEndMonth]   = useState('05')
+  const [endDay,     setEndDay]     = useState('25')
+  const [searched,   setSearched]   = useState(false)
   const [rows, setRows] = useState<Array<{
     accountNo: string
     terminatedAt: string
@@ -27,9 +26,9 @@ export default function TerminateResultPage() {
     amount: string
   }>>([])
 
-  const YEARS = ['2026', '2025', '2024', '2023', '2022']
+  const YEARS  = ['2026', '2025', '2024', '2023', '2022']
   const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
-  const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
+  const DAYS   = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'))
 
   async function handleSearch() {
     setSearched(true)
@@ -40,10 +39,10 @@ export default function TerminateResultPage() {
         fetchDepositAccounts(customerId),
         fetchDepositProducts(),
       ])
-      const accountByContractId = new Map(accounts.map(account => [account.contractId, account]))
-      const productById = new Map(products.map(product => [product.productId, product]))
+      const accountByContractId = new Map(accounts.map(a => [a.contractId, a]))
+      const productById = new Map(products.map(p => [p.productId, p]))
       setRows(contracts
-        .filter(contract => contract.contractStatus === 'TERMINATED')
+        .filter(c => c.contractStatus === 'TERMINATED')
         .map(contract => {
           const account = accountByContractId.get(contract.contractId)
           const product = productById.get(contract.productId)
@@ -59,124 +58,109 @@ export default function TerminateResultPage() {
     }
   }
 
-  return (
-    <div className="max-w-kb-container mx-auto px-6 py-6">
-      <div className="flex justify-end mb-3 text-[12px] text-kb-text-muted gap-1 items-center">
-        <span>개인뱅킹</span><span>›</span>
-        <span>금융상품</span><span>›</span>
-        <span>예금</span><span>›</span>
-        <Link href="/products/deposit/inquiry/terminate-result" className="hover:underline">해지결과/내역 조회</Link>
-        <span>›</span>
-        <Link href="#" className="text-kb-blue hover:underline">도움말</Link>
-      </div>
+  const selectCls = "border rounded-lg px-2 py-1.5 text-[12px] outline-none bg-white"
+  const selectStyle = { borderColor: '#D1D5DB' }
 
-      <div className="flex gap-6">
+  return (
+    <div className="max-w-kb-container mx-auto px-6">
+      <div className="flex">
         <DepositSidebar />
 
-        <main className="flex-1 min-w-0">
-          <h1 className="text-[20px] font-bold text-kb-text mb-5">해지결과/내역 조회</h1>
+        <main className="flex-1 pl-8 pt-6 pb-12">
+          <h1 className="text-[22px] font-bold text-kb-text mb-5">해지결과/내역 조회</h1>
 
-          <div className="border border-kb-border bg-[#FAFAFA] px-4 py-3 mb-5 text-[12px] text-kb-text-body space-y-1">
-            <p className="flex gap-1.5"><span>-</span><span>조회시작일은 당일 기준으로 5년 이내에서 선택 가능합니다. 단, 1회 조회시 최대기간은 1년입니다.</span></p>
-            <p className="flex gap-1.5"><span>-</span><span>예시) 포함일 : 2015.8.20 조회시작일 : 2010.8.20부터 선택가능</span></p>
+          <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
+            style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+            <p className="flex gap-1.5 text-kb-text-muted">
+              <span className="flex-shrink-0">·</span>
+              <span>조회시작일은 당일 기준으로 5년 이내에서 선택 가능합니다. 단, 1회 조회 시 최대기간은 1년입니다.</span>
+            </p>
+            <p className="flex gap-1.5 text-kb-text-muted">
+              <span className="flex-shrink-0">·</span>
+              <span>예시) 포함일 : 2015.8.20 → 조회시작일 : 2010.8.20부터 선택 가능</span>
+            </p>
           </div>
 
           {/* 필터 */}
-          <div className="border border-kb-border px-4 py-4 mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="rounded-xl px-5 py-5 mb-5" style={{ border: '1px solid #E2F5EF' }}>
+            <div className="flex items-center gap-3 flex-wrap mb-4">
               <span className="text-[13px] font-semibold text-kb-text">조회기간</span>
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 {PERIOD_BTNS.map((b, i) => (
                   <button key={i}
                     onClick={() => setSearched(false)}
-                    className="border border-kb-border px-3 py-1 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
+                    className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
+                    style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
                     {b}
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1 text-[13px]">
-                <select value={startYear} onChange={e => setStartYear(e.target.value)}
-                  className="border border-kb-border px-2 py-1 text-[12px] outline-none bg-white">
-                  {YEARS.map(y => <option key={y}>{y}</option>)}
-                </select>
-                <span>년</span>
-                <select value={startMonth} onChange={e => setStartMonth(e.target.value)}
-                  className="border border-kb-border px-2 py-1 text-[12px] outline-none bg-white w-14">
-                  {MONTHS.map(m => <option key={m}>{m}</option>)}
-                </select>
-                <span>월</span>
-                <select value={startDay} onChange={e => setStartDay(e.target.value)}
-                  className="border border-kb-border px-2 py-1 text-[12px] outline-none bg-white w-14">
-                  {DAYS.map(d => <option key={d}>{d}</option>)}
-                </select>
-                <span>일</span>
-                <span className="mx-1">
-                  <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="1" y="2" width="14" height="13" rx="1"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/><line x1="1" y1="7" x2="15" y2="7"/>
-                  </svg>
-                </span>
+                <select value={startYear}  onChange={e => setStartYear(e.target.value)}  className={selectCls} style={selectStyle}>{YEARS.map(y  => <option key={y}>{y}</option>)}</select>
+                <span className="text-kb-text-muted">년</span>
+                <select value={startMonth} onChange={e => setStartMonth(e.target.value)} className={`${selectCls} w-14`} style={selectStyle}>{MONTHS.map(m => <option key={m}>{m}</option>)}</select>
+                <span className="text-kb-text-muted">월</span>
+                <select value={startDay}   onChange={e => setStartDay(e.target.value)}   className={`${selectCls} w-14`} style={selectStyle}>{DAYS.map(d   => <option key={d}>{d}</option>)}</select>
+                <span className="text-kb-text-muted">일</span>
               </div>
-              <span className="text-[13px]">~</span>
+              <span className="text-kb-text-muted mx-1">~</span>
               <div className="flex items-center gap-1 text-[13px]">
-                <select value={endYear} onChange={e => setEndYear(e.target.value)}
-                  className="border border-kb-border px-2 py-1 text-[12px] outline-none bg-white">
-                  {YEARS.map(y => <option key={y}>{y}</option>)}
-                </select>
-                <span>년</span>
-                <select value={endMonth} onChange={e => setEndMonth(e.target.value)}
-                  className="border border-kb-border px-2 py-1 text-[12px] outline-none bg-white w-14">
-                  {MONTHS.map(m => <option key={m}>{m}</option>)}
-                </select>
-                <span>월</span>
-                <select value={endDay} onChange={e => setEndDay(e.target.value)}
-                  className="border border-kb-border px-2 py-1 text-[12px] outline-none bg-white w-14">
-                  {DAYS.map(d => <option key={d}>{d}</option>)}
-                </select>
-                <span>일</span>
-                <span className="mx-1">
-                  <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="1" y="2" width="14" height="13" rx="1"/><line x1="5" y1="1" x2="5" y2="4"/><line x1="11" y1="1" x2="11" y2="4"/><line x1="1" y1="7" x2="15" y2="7"/>
-                  </svg>
-                </span>
+                <select value={endYear}  onChange={e => setEndYear(e.target.value)}  className={selectCls} style={selectStyle}>{YEARS.map(y  => <option key={y}>{y}</option>)}</select>
+                <span className="text-kb-text-muted">년</span>
+                <select value={endMonth} onChange={e => setEndMonth(e.target.value)} className={`${selectCls} w-14`} style={selectStyle}>{MONTHS.map(m => <option key={m}>{m}</option>)}</select>
+                <span className="text-kb-text-muted">월</span>
+                <select value={endDay}   onChange={e => setEndDay(e.target.value)}   className={`${selectCls} w-14`} style={selectStyle}>{DAYS.map(d   => <option key={d}>{d}</option>)}</select>
+                <span className="text-kb-text-muted">일</span>
               </div>
             </div>
-            <div className="flex justify-center mt-3">
+
+            <div className="flex justify-center mt-4">
               <button
                 onClick={handleSearch}
-                className="px-10 py-2 text-[13px] font-bold text-white hover:opacity-90"
-                style={{ backgroundColor: '#5BC9A8' }}>
+                className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
+                style={{ backgroundColor: '#0D5C47' }}>
                 조회
               </button>
             </div>
           </div>
 
           {/* 결과 테이블 */}
-          <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text">
-            <thead>
-              <tr className="bg-kb-beige-light">
-                {['해지계좌번호', '해지일자', '해지계좌종류', '해지금액', '바로가기'].map(h => (
-                  <th key={h} className="border border-kb-border px-4 py-3 font-semibold text-kb-text text-center">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length > 0 ? rows.map(row => (
-                <tr key={`${row.accountNo}-${row.terminatedAt}`} className="hover:bg-[#fafafa]">
-                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{row.accountNo}</td>
-                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{row.terminatedAt}</td>
-                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">{row.type}</td>
-                  <td className="border border-kb-border px-4 py-3 text-right text-kb-text-body">{row.amount}원</td>
-                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-body">조회</td>
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                  {['해지계좌번호', '해지일자', '해지계좌종류', '해지금액', '바로가기'].map(h => (
+                    <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]"
+                      style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                  ))}
                 </tr>
-              )) : (
-                <tr>
-                  <td colSpan={5} className="border border-kb-border px-4 py-8 text-center text-[13px] text-kb-text-muted">
-                    {searched ? '조회하실 내역이 없습니다.' : '조회 버튼을 눌러 해지 내역을 확인하세요.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.length > 0 ? rows.map((row, i) => (
+                  <tr key={i} className="border-b hover:bg-[#F8FFFE] transition-colors"
+                    style={{ borderColor: '#E2F5EF' }}>
+                    <td className="px-4 py-3.5 text-center font-medium" style={{ color: '#0D5C47' }}>{row.accountNo}</td>
+                    <td className="px-4 py-3.5 text-center text-kb-text">{row.terminatedAt}</td>
+                    <td className="px-4 py-3.5 text-center text-kb-text">{row.type}</td>
+                    <td className="px-4 py-3.5 text-right font-semibold pr-5" style={{ color: '#0D5C47' }}>{row.amount}원</td>
+                    <td className="px-4 py-3.5 text-center">
+                      <button className="px-4 py-1 text-[12px] font-medium rounded-lg border transition-colors hover:bg-[#F0FAF7]"
+                        style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>조회</button>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-[13px] text-kb-text-muted">
+                      {searched ? '조회하실 내역이 없습니다.' : '조회 버튼을 눌러 해지 내역을 확인하세요.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </main>
       </div>
     </div>

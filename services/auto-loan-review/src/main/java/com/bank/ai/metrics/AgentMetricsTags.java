@@ -14,6 +14,7 @@ public final class AgentMetricsTags {
     public static final String REASON    = "reason";
     public static final String STATUS    = "status";
     public static final String CORPUS    = "corpus";
+    public static final String PHASE     = "phase";
 
     private AgentMetricsTags() {}
 }

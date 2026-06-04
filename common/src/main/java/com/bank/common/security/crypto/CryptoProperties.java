@@ -1,4 +1,4 @@
-﻿package com.bank.common.security.crypto;
+package com.bank.common.security.crypto;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

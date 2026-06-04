@@ -1,4 +1,4 @@
-﻿package com.bank.loan.support;
+package com.bank.loan.support;
 
 import com.bank.common.web.ErrorCode;
 import lombok.Getter;

@@ -5,8 +5,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
-import { createInstantTransfer } from '@/lib/payment-api'
-
 type PendingTransfer = {
   fromAccountId?: number
   fromAccountViewId?: string
@@ -50,19 +48,9 @@ export default function TransferConfirmPage() {
       const next = [...pin, key]
       setPin(next)
       if (next.length === 6) {
-        setTimeout(async () => {
+        setTimeout(() => {
           setShowCertModal(false)
-          if (data?.fromAccountId) {
-            try {
-              await createInstantTransfer({
-                fromAccountId: data.fromAccountId,
-                toAccountNumber: data.toAccount,
-                amount: data.amount,
-                toBankCode: data.toBank,
-                memo: '인터넷이체',
-              })
-            } catch (e) { console.error('이체 실패:', e) }
-          }
+          // 이체 실행은 result 페이지에서 단일 처리
           router.push('/transfer/result')
         }, 400)
       }
