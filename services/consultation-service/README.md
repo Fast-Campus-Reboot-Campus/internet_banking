@@ -98,7 +98,7 @@ consultation-service/
 상품 추천 카드에 우대금리 수치(`+X%`)와 조건 텍스트를 함께 표시합니다.
 
 - **데이터 출처**: deposit DB의 `banking_deposit_product_interest_rates` 테이블에서 `rate_type = 'PREFERENTIAL'`인 행을 상품별로 집계
-  - 우대금리 수치: `SUM(interest_rate)` → 카드에 `+X%` 형식 표시
+  - 우대금리 수치: `SUM(rate)` → 카드에 `+X%` 형식 표시
   - 우대금리 조건: `STRING_AGG(condition_description)` → 카드에 조건 텍스트 표시
 - **fallback**: DB에 조건 데이터가 없으면 상품명 키워드 기반 조건 사용
 

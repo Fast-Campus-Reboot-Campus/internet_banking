@@ -2094,7 +2094,7 @@ class ChatbotService:
             f"""
             SELECT banking_product_id,
                    STRING_AGG(condition_description, ' / ' ORDER BY rate_id) AS pref_conditions,
-                   SUM(interest_rate) AS total_pref_rate
+                   SUM(rate) AS total_pref_rate
               FROM banking_deposit_product_interest_rates
              WHERE banking_product_id IN ({id_list})
                AND rate_type = 'PREFERENTIAL'
