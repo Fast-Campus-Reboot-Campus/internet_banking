@@ -159,7 +159,6 @@ class LoanReviewApproverApproveTest extends AbstractLoanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "approverId":20360202,
                                   "approverDecisionCd":"OVERRIDE_REJECTED",
                                   "overrideReasonCd":"RISK_ADJUSTMENT",
                                   "overrideRemark":"추가 위험 요인 발견",

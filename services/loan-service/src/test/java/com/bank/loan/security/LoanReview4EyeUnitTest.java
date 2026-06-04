@@ -80,13 +80,15 @@ class LoanReview4EyeUnitTest {
         when(reviewRepository.findByApplIdAndDeletedAtIsNull(APPL_ID))
                 .thenReturn(Optional.of(pendingApproverReview));
         when(advisoryClient.getReports(anyLong())).thenReturn(List.of());
-        when(currentActorProvider.currentActorId()).thenReturn(null);
+        // 4-eye 는 인증 주체(currentActorId) 기준 — 기본은 심사원과 다른 승인자로 통과
+        when(currentActorProvider.currentActorId()).thenReturn(APPROVER_ID);
     }
 
     @Test
     void 심사자와_동일한_승인자_LOAN_196() {
+        // 인증된 호출자가 곧 심사원 본인 → 4-eye 위반
+        when(currentActorProvider.currentActorId()).thenReturn(REVIEWER_ID);
         ApproverApproveRequest req = new ApproverApproveRequest(
-                REVIEWER_ID,      // approverId == reviewerId → 4-eye 위반
                 LoanReview.APPROVER_AS_IS,
                 null, null, null, null, null, null
         );
@@ -99,8 +101,8 @@ class LoanReview4EyeUnitTest {
 
     @Test
     void 다른_승인자_4eye_통과() {
+        // currentActorId(APPROVER_ID) != reviewerId → 통과
         ApproverApproveRequest req = new ApproverApproveRequest(
-                APPROVER_ID,      // approverId != reviewerId → OK
                 LoanReview.APPROVER_AS_IS,
                 null, null, null, null, null, null
         );
