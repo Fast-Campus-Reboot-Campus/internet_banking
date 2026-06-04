@@ -107,7 +107,7 @@ class RagPipelineSmokeTest {
     @BeforeEach
     void setUp() {
         when(autoReviewService.review(any())).thenReturn(TRACK1_INFERENCE);
-        when(ragRetrievalService.retrieve(any(), any(), any())).thenReturn(RAG_CHUNKS);
+        when(ragRetrievalService.retrieve(any(), any(), any(), any(), any())).thenReturn(RAG_CHUNKS);
     }
 
     @AfterEach
@@ -180,7 +180,7 @@ class RagPipelineSmokeTest {
 
     @Test
     void RAG_검색_empty_인라인_정책_fallback_DONE_콜백() {
-        when(ragRetrievalService.retrieve(any(), any(), any())).thenReturn(List.of());
+        when(ragRetrievalService.retrieve(any(), any(), any(), any(), any())).thenReturn(List.of());
 
         restTemplate.postForEntity("/api/ai/auto-review/evaluate",
                 track1Request(204L), String.class);
