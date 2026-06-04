@@ -142,7 +142,7 @@ export default function AccountsPage() {
           setJoinedAccounts(apiAccounts.length > 0 ? apiAccounts : fallbackAccounts)
         }
       } catch {
-        if (!cancelled) setJoinedAccounts([])
+        if (!cancelled) setJoinedAccounts(fallbackAccounts)
       }
     }
 

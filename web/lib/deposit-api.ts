@@ -64,6 +64,8 @@ export type DepositAccount = {
   accountAlias?: string
   balance: number | string
   totalPaidAmount?: number | string
+  isWithdrawable?: boolean
+  withdrawable?: boolean
   openedAt?: string
   maturityAt?: string
   accountStatus?: string
@@ -72,6 +74,8 @@ export type DepositAccount = {
 export type DepositViewAccount = Account & {
   apiAccountId?: number
   contractId?: number
+  rawAccountType?: DepositProductType
+  isWithdrawable?: boolean
   accountStatus?: string
   savingType?: SavingType
 }
@@ -412,6 +416,8 @@ export async function fetchDepositAccountViewModels(customerId: string): Promise
         id: `deposit-${account.accountId}`,
         apiAccountId: account.accountId,
         contractId: account.contractId,
+        rawAccountType: account.accountType,
+        isWithdrawable: account.isWithdrawable ?? account.withdrawable,
         accountStatus: account.accountStatus,
         savingType: account.savingType,
         number: account.accountNumber,
