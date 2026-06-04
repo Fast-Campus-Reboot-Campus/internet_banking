@@ -133,7 +133,7 @@ class LoanReview4EyeUnitTest {
                 .thenReturn(Optional.of(completedReview));
 
         ApproverApproveRequest req = new ApproverApproveRequest(
-                APPROVER_ID, LoanReview.APPROVER_AS_IS,
+                LoanReview.APPROVER_AS_IS,
                 null, null, null, null, null, null
         );
 
