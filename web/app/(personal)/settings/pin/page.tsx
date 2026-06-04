@@ -4,20 +4,16 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ensureCurrentDevice,
-  listAuthMethods,
   registerPin,
   revokePin,
   savePinDeviceId,
   loadPinDeviceId,
   authErrorMessage,
-  type AuthMethod,
 } from '@/lib/customer-auth-api'
 
 const GREEN = '#0D5C47'
 
 export default function PinSettingsPage() {
-  const [authMethods, setAuthMethods] = useState<AuthMethod[]>([])
-  const [loadingMethods, setLoadingMethods] = useState(true)
   const [registeredDeviceId, setRegisteredDeviceId] = useState<number | null>(null)
 
   const [pin, setPin] = useState('')
@@ -29,31 +25,19 @@ export default function PinSettingsPage() {
 
   useEffect(() => {
     setRegisteredDeviceId(loadPinDeviceId())
-    listAuthMethods()
-      .then((list) => setAuthMethods(list.filter((m) => m.authMethodStatusCode !== 'INACTIVE')))
-      .catch(() => setAuthMethods([]))
-      .finally(() => setLoadingMethods(false))
   }, [])
-
-  const primaryAuthMethod = authMethods.find((m) => m.primary) ?? authMethods[0]
 
   async function handleRegister() {
     if (!/^\d{6}$/.test(pin)) return setError('PIN은 6자리 숫자로 입력해주세요.')
     if (pin !== pinConfirm) return setError('PIN이 일치하지 않습니다.')
     if (!currentPassword) return setError('본인 확인을 위해 현재 비밀번호를 입력해주세요.')
-    if (!primaryAuthMethod) return setError('등록된 인증수단이 없습니다. 먼저 인증서를 발급해주세요.')
 
     setError('')
     setMsg('')
     setLoading(true)
     try {
       const device = await ensureCurrentDevice()
-      await registerPin({
-        deviceId: device.deviceId,
-        authMethodId: primaryAuthMethod.authMethodId,
-        pin,
-        currentPassword,
-      })
+      await registerPin({ deviceId: device.deviceId, pin, currentPassword })
       savePinDeviceId(device.deviceId)
       setRegisteredDeviceId(device.deviceId)
       setPin('')
@@ -102,7 +86,6 @@ export default function PinSettingsPage() {
             현재 사용 중인 기기에 6자리 PIN을 등록하면, 아이디·비밀번호 대신 PIN으로 간편하게 로그인할 수 있습니다.
           </p>
 
-          {/* 등록 상태 */}
           {registeredDeviceId != null ? (
             <div className="border border-kb-border bg-[#F0FAF7] px-5 py-5">
               <p className="text-[14px] font-semibold mb-1" style={{ color: GREEN }}>✓ 이 기기에 PIN이 등록되어 있습니다.</p>
@@ -117,31 +100,20 @@ export default function PinSettingsPage() {
             </div>
           ) : (
             <div className="border border-kb-border px-5 py-6 space-y-3">
-              {loadingMethods ? (
-                <p className="text-[13px] text-kb-text-muted">인증수단을 확인하는 중...</p>
-              ) : !primaryAuthMethod ? (
-                <div className="text-[13px] text-kb-text-body">
-                  <p className="mb-2">PIN을 등록하려면 먼저 인증서를 발급해 인증수단을 등록해야 합니다.</p>
-                  <Link href="/cert" className="font-semibold underline" style={{ color: GREEN }}>인증센터로 이동 ›</Link>
-                </div>
-              ) : (
-                <>
-                  <FormRow label="PIN 6자리">
-                    <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="숫자 6자리" className="input w-full" maxLength={6} />
-                  </FormRow>
-                  <FormRow label="PIN 확인">
-                    <input type="password" inputMode="numeric" value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="PIN 재입력" className="input w-full" maxLength={6} />
-                  </FormRow>
-                  <FormRow label="현재 비밀번호">
-                    <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="본인 확인용 로그인 비밀번호" className="input w-full" autoComplete="current-password" />
-                  </FormRow>
-                  <div className="pt-2">
-                    <button onClick={handleRegister} disabled={loading} className="w-full py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50" style={{ backgroundColor: GREEN }}>
-                      {loading ? '등록 중...' : 'PIN 등록'}
-                    </button>
-                  </div>
-                </>
-              )}
+              <FormRow label="PIN 6자리">
+                <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="숫자 6자리" className="input w-full" maxLength={6} />
+              </FormRow>
+              <FormRow label="PIN 확인">
+                <input type="password" inputMode="numeric" value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="PIN 재입력" className="input w-full" maxLength={6} />
+              </FormRow>
+              <FormRow label="현재 비밀번호">
+                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="본인 확인용 로그인 비밀번호" className="input w-full" autoComplete="current-password" />
+              </FormRow>
+              <div className="pt-2">
+                <button onClick={handleRegister} disabled={loading} className="w-full py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50" style={{ backgroundColor: GREEN }}>
+                  {loading ? '등록 중...' : 'PIN 등록'}
+                </button>
+              </div>
             </div>
           )}
 

@@ -149,10 +149,10 @@ export function loadPinDeviceId(): number | null {
 
 export async function registerPin(params: {
   deviceId: number
-  authMethodId: number
   pin: string
   currentPassword: string
 }): Promise<void> {
+  // 인증수단(PIN AuthMethod)은 백엔드가 직접 생성·연결한다.
   await api.post('/api/v1/customers/me/pin', params)
 }
 
