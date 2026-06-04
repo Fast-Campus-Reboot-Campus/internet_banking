@@ -123,20 +123,71 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 
 ## 테스트
 
-추가/수정된 테스트:
+추가/수정된 테스트 (전체 261개 PASS, BUILD SUCCESSFUL):
+
+### 거래 서비스 (`TransactionServiceTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 타행이체 출금 거래 생성 | OUT 방향, TRF- 번호, 잔액 차감 검증 |
+| 당행이체 양방향 거래 생성 | OUT+IN 각각 생성, 채널 SYSTEM, "이체 수신" 메모 |
+| 잔액 부족 이체 예외 | `BusinessException` 발생 |
+| INTERNAL toAccountId null 예외 | `BusinessException` 발생 |
+| 존재하지 않는 출금 계좌 예외 | `BusinessException` 발생 |
+| CLOSED 계좌 이체 예외 | `BusinessException` 발생 |
+| 당행이체 계좌번호 불일치 예외 | `BusinessException` 발생 |
+| 타행이체 잔액 정확히 차감 | 잔액 = 이전잔액 - 이체금액 |
+| 전액 이체 후 잔액 0 | 잔액 0 검증 |
+| 순차 이체 두 번 후 잔액 | 누적 차감 정확성 |
+| 음수 잔액 방지 | 실패 시 잔액 불변 |
+| 멀티스레드 순차 호출 잔액 | 잔액 ≥ 0 보장 |
+| DEPOSIT 타입 거래 취소 불가 | `BusinessException` 발생 |
+| 이미 취소된 거래 재취소 불가 | `BusinessException` 발생 |
+| 취소 거래 생성 | REVERSAL 타입, REV- 번호 |
+
+### 거래 컨트롤러 (`TransactionControllerTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 이체 정상 | 201 Created, `TRANSFER` 타입 반환 |
+| fromAccountId 누락 | 400 Bad Request |
+| 금액 0원 | 400 Bad Request |
+| 금액 음수 | 400 Bad Request |
+| 서비스 예외 (잔액 부족) | 4xx 반환 |
+| 없는 거래 취소 | 404 Not Found |
+| 입금/출금/적금납입/취소 | 201/200 정상 반환 |
+| 없는 거래 조회 | 404 Not Found |
+
+### 계좌 서비스 (`AccountServiceTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 계좌번호로 정상 조회 | accountNumber, customerId 일치 |
+| 없는 계좌번호 조회 예외 | `BusinessException` 발생 |
+| 고객 계좌 없을 때 빈 리스트 | 빈 리스트 반환 |
+
+### 계좌 컨트롤러 (`AccountControllerTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| `GET /accounts/by-number/{accountNo}` 정상 | 200, accountNumber/customerId 반환 |
+| `GET /accounts/by-number/없는번호` | 404 Not Found |
+| 인증 헤더 없이 계좌 생성 | 403 Forbidden |
+
+### 기존 테스트 (보정 포함)
 
 | 파일 | 검증 내용 |
 | --- | --- |
-| `src/test/java/com/bank/deposit/controller/ProductControllerTest.java` | 상품 목록/상세 응답에 `bestRate`가 포함되는지 검증 |
-| `src/test/java/com/bank/deposit/service/ProductServiceTest.java` | 활성 금리 row를 기준으로 `bestRate`가 계산되는지 검증 |
-| `src/test/java/com/bank/deposit/controller/ContractControllerTest.java` | 계약 해지 API mock 인자를 현재 컨트롤러 호출 방식에 맞게 보정 |
-| `src/test/java/com/bank/deposit/service/ContractServiceTest.java` | 계약 생성 테스트를 현재 서비스 시그니처와 고정 Clock 기준에 맞게 보정 |
-| `src/test/java/com/bank/deposit/service/TransactionServiceTest.java` | 거래 서비스 테스트 보정 + 이체 추가 시나리오 5개: INTERNAL toAccountId null, 존재하지 않는 계좌, CLOSED 계좌, 계좌번호 불일치, 타행이체 잔액 차감 검증 |
+| `ProductControllerTest` | 상품 목록/상세 응답에 `bestRate` 포함 검증 |
+| `ProductServiceTest` | 활성 금리 row 기준 `bestRate` 계산 검증 |
+| `ContractControllerTest` | 해지 API mock 인자 보정 |
+| `ContractServiceTest` | 계약 생성 시그니처·Clock 기준 보정 |
 
 테스트 실행:
 
 ```bash
 ./gradlew :services:deposit-service:test
+./gradlew :services:deposit-service:build
 ```
 
 ## 변경 파일 목록
@@ -147,8 +198,11 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 - `services/deposit-service/src/main/java/com/bank/deposit/domain/enums/TransactionChannel.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/dto/response/ProductResponse.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/service/ProductService.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/controller/AccountControllerTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/controller/ProductControllerTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/controller/ContractControllerTest.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/controller/TransactionControllerTest.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/service/AccountServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/ContractServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/ProductServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/TransactionServiceTest.java`
