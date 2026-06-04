@@ -186,6 +186,73 @@ class TransactionServiceTest {
                     BigDecimal.valueOf(1_000_000), null, null, null, null, null, null))
                     .isInstanceOf(BusinessException.class);
         }
+
+        @Test
+        @DisplayName("INTERNAL 이체인데 toAccountId가 null이면 예외가 발생한다")
+        void internalTransferWithNullToAccountId() {
+            assertThatThrownBy(() -> transactionService.transfer(1L, null, null,
+                    BigDecimal.valueOf(100_000), TransferType.INTERNAL,
+                    null, null, null, null, null))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 출금 계좌로 이체하면 예외가 발생한다")
+        void transferFromNonExistentAccount() {
+            given(accountRepository.findByIdForUpdate(99L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> transactionService.transfer(99L, null, "001-0000-0001",
+                    BigDecimal.valueOf(100_000), TransferType.EXTERNAL,
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체"))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
+        @DisplayName("CLOSED 계좌에서 이체하면 예외가 발생한다")
+        void transferFromClosedAccount() {
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(closedAccount()));
+
+            assertThatThrownBy(() -> transactionService.transfer(1L, null, "001-0000-0001",
+                    BigDecimal.valueOf(100_000), TransferType.EXTERNAL,
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체"))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
+        @DisplayName("당행 이체 시 계좌번호가 ID와 불일치하면 예외가 발생한다")
+        void internalTransferAccountNoMismatch() {
+            Account source = activeAccount(BigDecimal.valueOf(1_000_000));
+            Account target = Account.builder()
+                    .accountNumber("ACC-002")
+                    .customerId("CUST-002")
+                    .contractId(2L)
+                    .accountType(ProductType.DEPOSIT)
+                    .accountPassword("5678")
+                    .openedAt(LocalDate.of(2026, 1, 1))
+                    .balance(BigDecimal.valueOf(100_000))
+                    .build();
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(accountRepository.findByIdForUpdate(2L)).willReturn(Optional.of(target));
+
+            assertThatThrownBy(() -> transactionService.transfer(1L, 2L, "ACC-WRONG",
+                    BigDecimal.valueOf(100_000), TransferType.INTERNAL,
+                    null, null, null, TransactionChannel.INTERNET, "이체"))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
+        @DisplayName("타행 이체 후 출금 계좌 잔액이 정확히 차감된다")
+        void externalTransferDeductsCorrectly() {
+            Account source = activeAccount(BigDecimal.valueOf(500_000));
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            transactionService.transfer(1L, null, "302-1234-5678",
+                    BigDecimal.valueOf(150_000), TransferType.EXTERNAL,
+                    "SHB", "신한은행", "이수신", TransactionChannel.INTERNET, "타행 이체");
+
+            assertThat(source.getBalance()).isEqualByComparingTo("350000");
+        }
     }
 
     @Nested

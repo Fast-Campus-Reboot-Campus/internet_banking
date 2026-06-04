@@ -30,14 +30,21 @@ export default function TransferAccountPage() {
   useEffect(() => {
     async function loadAccounts() {
       let loadedAccounts: DepositViewAccount[] = []
+
+      let fallbackAccounts: DepositViewAccount[] = []
+      try {
+        const raw = localStorage.getItem('joinedAccounts')
+        if (raw) fallbackAccounts = JSON.parse(raw) as DepositViewAccount[]
+      } catch {}
+
       try {
         const customerId = getCurrentDepositCustomerId()
         const accs = await fetchDepositAccountViewModels(customerId)
-        loadedAccounts = accs
-        setAccounts(accs)
-        if (accs.length > 0) {
+        loadedAccounts = accs.length > 0 ? accs : fallbackAccounts
+        setAccounts(loadedAccounts)
+        if (loadedAccounts.length > 0) {
           const requestedAccountKey = requestedFromAccount || fromAccount
-          const requestedAccount = accs.find(a =>
+          const requestedAccount = loadedAccounts.find(a =>
             a.id === requestedAccountKey ||
             a.number === requestedAccountKey ||
             String(a.apiAccountId) === requestedAccountKey
@@ -45,12 +52,17 @@ export default function TransferAccountPage() {
           if (requestedAccount?.rawAccountType === 'DEPOSIT' && requestedAccount.isWithdrawable !== false) {
             setFromAccount(requestedAccount.id)
           } else if (!fromAccount && !requestedFromAccount) {
-            const firstTransferable = accs.find(a => a.rawAccountType === 'DEPOSIT' && a.isWithdrawable !== false)
-            setFromAccount((firstTransferable ?? accs[0]).id)
+            const firstTransferable = loadedAccounts.find(a => a.rawAccountType === 'DEPOSIT' && a.isWithdrawable !== false)
+            setFromAccount((firstTransferable ?? loadedAccounts[0]).id)
           }
         }
       } catch {
-        setAccounts([])
+        loadedAccounts = fallbackAccounts
+        setAccounts(fallbackAccounts)
+        if (fallbackAccounts.length > 0 && !fromAccount && !requestedFromAccount) {
+          const firstTransferable = fallbackAccounts.find(a => a.rawAccountType === 'DEPOSIT' && a.isWithdrawable !== false)
+          setFromAccount((firstTransferable ?? fallbackAccounts[0]).id)
+        }
       }
       try {
         const recentSourceAccount =
