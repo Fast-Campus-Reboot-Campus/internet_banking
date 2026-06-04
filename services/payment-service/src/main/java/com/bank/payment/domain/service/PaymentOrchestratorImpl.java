@@ -19,9 +19,7 @@ import com.bank.payment.outbound.feign.DepositErrorMapper;
 import com.bank.payment.outbound.feign.dto.AccountInquiryData;
 import com.bank.payment.outbound.feign.dto.BalanceTxData;
 import com.bank.payment.outbound.feign.dto.DepositRequest;
-import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
-import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
 import com.bank.payment.config.PaymentMetrics;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -136,6 +134,13 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             if ("DRAFT".equals(freshPi.getStatus())) {
                 String fc = DepositErrorMapper.toFailureCategory(e.getDepositResponseCode());
                 return txService.txStepFail(freshPi, fc, failedEventTypeFor(fc), "DRAFT");
+            }
+
+            // withdrawStep == null: authorize 이후 step3 내부(출금 호출 이전, 예: getAccountByNo)에서 실패.
+            // 출금이 일어나지 않았으므로 보상(step3c_withdrawCancel) 부적절. 출금 분개 시작 전이므로 AUTHORIZED→FAILED.
+            if (withdrawStep == null) {
+                String fc = DepositErrorMapper.toFailureCategory(e.getDepositResponseCode());
+                return txService.txStepFail(freshPi, fc, failedEventTypeFor(fc), "AUTHORIZED");
             }
 
             // TX-A: AUTHORIZED→REVERSING + 이력 2건
@@ -609,24 +614,23 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
     // ── Step 3c: 출금취소 (B-5, 트랜잭션 밖, F8 보상 전용) ──────────────────
     // compensation_type=COMPENSATION, compensation_target_call_id=원 B-3 callId
+    // PATCH /api/transactions/{transactionId}/cancel — transactionId는 BalanceTxData.transactionId() 직접 사용.
     private void step3c_withdrawCancel(PaymentInstruction pi, PaymentCommand command,
                                         String originalWithdrawCallId, BalanceTxData withdrawTxData) {
         String piId = pi.getPaymentInstructionId();
-        long amount = command.transferAmount().longValueExact();
         String callIdemKey = piId + "-BALANCE_WITHDRAW_CANCEL-SENDER-1";
 
-        WithdrawCancelRequest request = new WithdrawCancelRequest(
-                withdrawTxData.depositTransactionNo(),  // 원 B-3 deposit common_transaction no
-                command.senderAccountId(),
-                amount,
-                "PAYMENT_FAILED",
-                piId);
+        Long transactionId = withdrawTxData.transactionId();
+        if (transactionId == null) {
+            throw new IllegalStateException(
+                "B-5 취소 불가: 원 출금 BalanceTxData에서 transactionId 추출 실패(null). piId=" + piId);
+        }
 
-        var resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
-        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
-                "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
+        WithdrawCancelData cancelResult = depositBalanceClient.withdrawCancel(callIdemKey, transactionId);
+        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "PATCH",
+                "/api/transactions/" + transactionId + "/cancel", "200", "SUCCESS",
                 originalWithdrawCallId,  // ← compensation_target_call_id = 원 B-3 callId
-                (Object) resp.data());   // ★박제: WithdrawCancelData → response_body JSONB
+                (Object) cancelResult);  // ★박제: WithdrawCancelData → response_body JSONB
     }
 
     // ── F2: KFTC 거절 보상 ────────────────────────────────────────────────────
@@ -673,8 +677,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     piId, existingCancelCall.getCallId());
         } else {
             String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
-            String depositTxNo = extractDepositTxNo(originalWithdrawCall);
-            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+            // ★ F-series real 검증 대기: extractTransactionId 기반. transactionId 추출 정합 미검증.
+            Long transactionId = extractTransactionId(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, transactionId);
         }
 
         // TX-2: 역분개4건 + FAILED + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
@@ -730,8 +735,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
                     piId, existingCancelCall.getCallId());
         } else {
             String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
-            String depositTxNo = extractDepositTxNo(originalWithdrawCall);
-            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+            // ★ F-series real 검증 대기: extractTransactionId 기반. transactionId 추출 정합 미검증.
+            Long transactionId = extractTransactionId(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, transactionId);
         }
 
         // TX-2: 역분개4건 + FAILED + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
@@ -792,8 +798,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             log.info("[F4] B-5 이미 수행됨, skip 재호출. piId={}", piId);
         } else {
             String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
-            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
-            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+            // ★ F-series real 검증 대기: extractTransactionId 기반. transactionId 추출 정합 미검증.
+            Long transactionId    = extractTransactionId(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, transactionId);
         }
 
         // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
@@ -854,8 +861,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             log.info("[BOK F4] B-5 이미 수행됨, skip 재호출. piId={}", piId);
         } else {
             String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
-            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
-            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+            // ★ F-series real 검증 대기: extractTransactionId 기반. transactionId 추출 정합 미검증.
+            Long transactionId    = extractTransactionId(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, transactionId);
         }
 
         // TX-2: 역분개4건(PUBLISH_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
@@ -927,8 +935,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             log.info("[F7] B-5 이미 수행됨, skip 재호출. piId={}", piId);
         } else {
             String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
-            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
-            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+            // ★ F-series real 검증 대기: extractTransactionId 기반. transactionId 추출 정합 미검증.
+            Long transactionId    = extractTransactionId(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, transactionId);
         }
 
         // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
@@ -998,8 +1007,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             log.info("[BOK-F7] B-5 이미 수행됨, skip 재호출. piId={}", piId);
         } else {
             String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
-            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
-            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, depositTxNo);
+            // ★ F-series real 검증 대기: extractTransactionId 기반. transactionId 추출 정합 미검증.
+            Long transactionId    = extractTransactionId(originalWithdrawCall);
+            cancelResult = performWithdrawCancelForReject(piId, freshPi, originalCallId, transactionId);
         }
 
         // TX-2: 역분개4건(SETTLEMENT_FAILURE) + FAILED/SYSTEM_ERROR + BST REJECTED + Outbox PAYMENT_REVERSED + 멱등키
@@ -1069,8 +1079,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             log.info("[F6] B-5 이미 수행됨, skip 재호출. piId={}", piId);
         } else {
             String originalCallId = (originalWithdrawCall != null) ? originalWithdrawCall.getCallId() : null;
-            String depositTxNo    = extractDepositTxNo(originalWithdrawCall);
-            cancelResult = performWithdrawCancelOperator(piId, freshPi, originalCallId, depositTxNo);
+            // ★ F-series real 검증 대기: extractTransactionId 기반. transactionId 추출 정합 미검증.
+            Long transactionId    = extractTransactionId(originalWithdrawCall);
+            cancelResult = performWithdrawCancelOperator(piId, freshPi, originalCallId, transactionId);
         }
 
         // TX-2: 역분개4건(OPERATOR) + FAILED/SYSTEM_ERROR + CT REJECTED + Outbox PAYMENT_REVERSED + 멱등키
@@ -1084,25 +1095,23 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
     /**
      * B-5 출금취소 호출 (운영자 취소 전용, reason=OPERATOR_CANCEL).
-     * performWithdrawCancelForReject와 동일 패턴, reason만 다름.
+     * performWithdrawCancelForReject와 동일 패턴. PATCH /api/transactions/{transactionId}/cancel.
+     * ★ F-series real 검증 대기: transactionId는 extractTransactionId 기반 — 추출 정합 미검증.
      */
     private WithdrawCancelData performWithdrawCancelOperator(
-            String piId, PaymentInstruction pi, String originalCallId, String depositTxNo) {
+            String piId, PaymentInstruction pi, String originalCallId, Long transactionId) {
         String callIdemKey = piId + "-BALANCE_WITHDRAW_CANCEL-SENDER-1";
-        long amount = pi.getTransferAmount().longValueExact();
 
-        WithdrawCancelRequest request = new WithdrawCancelRequest(
-                depositTxNo,
-                pi.getSenderAccountId(),
-                amount,
-                "OPERATOR_CANCEL",
-                piId);
+        if (transactionId == null) {
+            throw new IllegalStateException(
+                "B-5 취소 불가: 원 출금 external_call에서 transactionId 추출 실패. piId=" + piId);
+        }
 
-        DepositResponse<WithdrawCancelData> resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
-        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
-                "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
-                originalCallId, (Object) resp.data());  // ★박제: WithdrawCancelData
-        return resp.data();
+        WithdrawCancelData cancelResult = depositBalanceClient.withdrawCancel(callIdemKey, transactionId);
+        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "PATCH",
+                "/api/transactions/" + transactionId + "/cancel", "200", "SUCCESS",
+                originalCallId, (Object) cancelResult);  // ★박제: WithdrawCancelData
+        return cancelResult;
     }
 
     /**
@@ -1138,26 +1147,24 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
     }
 
     /**
-     * B-5 출금취소 호출 + external_call 박제 (F2 보상 전용).
-     * compensation_type=COMPENSATION, compensation_target_call_id=원 B-3 callId.
+     * B-5 출금취소 호출 + external_call 박제 (F2/F3/F4/F7 보상 전용).
+     * PATCH /api/transactions/{transactionId}/cancel. compensation_target_call_id=원 B-3 callId.
+     * ★ F-series real 검증 대기: transactionId는 extractTransactionId 기반 — 추출 정합 미검증.
      */
     private WithdrawCancelData performWithdrawCancelForReject(
-            String piId, PaymentInstruction pi, String originalCallId, String depositTxNo) {
+            String piId, PaymentInstruction pi, String originalCallId, Long transactionId) {
         String callIdemKey = piId + "-BALANCE_WITHDRAW_CANCEL-SENDER-1";
-        long amount = pi.getTransferAmount().longValueExact();
 
-        WithdrawCancelRequest request = new WithdrawCancelRequest(
-                depositTxNo,
-                pi.getSenderAccountId(),
-                amount,
-                "PAYMENT_FAILED",
-                piId);
+        if (transactionId == null) {
+            throw new IllegalStateException(
+                "B-5 취소 불가: 원 출금 external_call에서 transactionId 추출 실패. piId=" + piId);
+        }
 
-        DepositResponse<WithdrawCancelData> resp = depositBalanceClient.withdrawCancel(callIdemKey, request);
-        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "POST",
-                "/api/v1/balances/withdraw/cancel", resp.code(), "SUCCESS",
-                originalCallId, (Object) resp.data());  // ★박제: WithdrawCancelData
-        return resp.data();
+        WithdrawCancelData cancelResult = depositBalanceClient.withdrawCancel(callIdemKey, transactionId);
+        recordCall(piId, "BALANCE_WITHDRAW_CANCEL", "SENDER", "deposit", "PATCH",
+                "/api/transactions/" + transactionId + "/cancel", "200", "SUCCESS",
+                originalCallId, (Object) cancelResult);  // ★박제: WithdrawCancelData
+        return cancelResult;
     }
 
     // ── recordCall 오버로드 ───────────────────────────────────────────────────
