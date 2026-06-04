@@ -313,8 +313,10 @@ export default function DepositDetailPage() {
         const minAmount = data.minJoinAmount
           ? `${Number(data.minJoinAmount).toLocaleString('ko-KR')}원 이상`
           : fallbackProduct.minAmount
-        const rate = data.baseInterestRate
-          ? `연 ${Number(data.baseInterestRate).toLocaleString('ko-KR')}%`
+        const rate = data.bestRate != null
+          ? `최고 연 ${Number(data.bestRate).toLocaleString('ko-KR')}%`
+          : data.baseInterestRate != null
+          ? `기본 연 ${Number(data.baseInterestRate).toLocaleString('ko-KR')}%`
           : fallbackProduct.rate
 
         setApiProduct({

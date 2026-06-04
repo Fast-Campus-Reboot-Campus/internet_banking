@@ -11,7 +11,11 @@ type Slide = {
 }
 
 function productToSlide(p: DepositProduct, category: string, badge: string, tab: string): Slide {
-  const rate = p.baseInterestRate != null ? `연 ${p.baseInterestRate}%` : '-'
+  const rate = p.bestRate != null
+    ? `최고 연 ${p.bestRate}%`
+    : p.baseInterestRate != null
+      ? `기본 연 ${p.baseInterestRate}%`
+      : '-'
   const period = p.minPeriodMonth != null
     ? (p.maxPeriodMonth && p.maxPeriodMonth !== p.minPeriodMonth
         ? `${p.minPeriodMonth}~${p.maxPeriodMonth}개월`

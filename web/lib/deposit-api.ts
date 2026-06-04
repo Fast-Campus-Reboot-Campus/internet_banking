@@ -31,7 +31,8 @@ export type DepositProduct = {
   productType: DepositProductType
   productName: string
   description?: string
-  baseInterestRate?: number | string
+  baseInterestRate?: number | string | null
+  bestRate?: number | string | null
   minJoinAmount?: number | string
   maxJoinAmount?: number | string
   minPeriodMonth?: number
@@ -69,6 +70,7 @@ export type DepositAccount = {
   openedAt?: string
   maturityAt?: string
   accountStatus?: string
+  isWithdrawable?: boolean
 }
 
 export type DepositViewAccount = Account & {
@@ -77,7 +79,9 @@ export type DepositViewAccount = Account & {
   rawAccountType?: DepositProductType
   isWithdrawable?: boolean
   accountStatus?: string
+  rawAccountType?: DepositProductType
   savingType?: SavingType
+  isWithdrawable?: boolean
 }
 
 export type DepositRecommendProduct = {
@@ -243,8 +247,10 @@ export function toDepositProductCard(product: DepositProduct) {
     desc: product.description,
     period,
     rate:
-      product.baseInterestRate !== undefined
-        ? `연 ${Number(product.baseInterestRate).toLocaleString('ko-KR')}%`
+      product.bestRate != null
+        ? `최고 연 ${Number(product.bestRate).toLocaleString('ko-KR')}%`
+        : product.baseInterestRate != null
+        ? `기본 연 ${Number(product.baseInterestRate).toLocaleString('ko-KR')}%`
         : undefined,
     canApply: product.productStatus ? product.productStatus === 'SELLING' : true,
   }
@@ -339,6 +345,8 @@ export type DepositTransaction = {
   transactionType: string
   directionType: 'IN' | 'OUT'
   amount: number | string
+  balanceAfter?: number | string
+  availableBalanceAfter?: number | string
   status: string
   transactionAt: string
   transactionSummary?: string
@@ -384,8 +392,9 @@ export async function executeDepositTransfer(
 }
 
 export async function fetchTransactions(params: { customerId?: string; accountId?: number }): Promise<DepositTransaction[]> {
-  const { data } = await depositApi.get<{ content: DepositTransaction[] } | DepositTransaction[]>('/transactions', { params })
-  return Array.isArray(data) ? data : (data as { content: DepositTransaction[] }).content ?? []
+  const { data } = await depositApi.get<DepositTransaction[] | { content?: DepositTransaction[] }>('/transactions', { params })
+  if (Array.isArray(data)) return data
+  return Array.isArray(data.content) ? data.content : []
 }
 
 export async function fetchTransaction(transactionId: number): Promise<DepositTransaction> {
@@ -393,44 +402,24 @@ export async function fetchTransaction(transactionId: number): Promise<DepositTr
   return data
 }
 
-export type TransactionChannel = 'BRANCH' | 'ATM' | 'INTERNET' | 'MOBILE' | 'SYSTEM'
-
-export type SavingsPaymentInput = {
-  accountId: number
-  contractId: number
+export type ExecuteDepositTransferInput = {
+  fromAccountId: number
+  toAccountId?: number
+  toAccountNo: string
   amount: number
-  paymentRound: number
-  channelType?: TransactionChannel
+  transferType: 'INTERNAL' | 'EXTERNAL' | 'AUTO' | 'SCHEDULED'
+  counterpartyBankCode?: string
+  counterpartyBankName?: string
+  counterpartyName?: string
+  transactionMemo?: string
 }
 
-// 적금 납입 — POST /transactions/savings-payment
-export async function paySavings(input: SavingsPaymentInput): Promise<DepositTransaction> {
-  const { data } = await depositApi.post<DepositTransaction>('/transactions/savings-payment', {
-    accountId: input.accountId,
-    contractId: input.contractId,
-    amount: input.amount,
-    paymentRound: input.paymentRound,
-    channelType: input.channelType ?? 'INTERNET',
+export async function executeDepositTransfer(input: ExecuteDepositTransferInput): Promise<DepositTransaction> {
+  const { data } = await depositApi.post<DepositTransaction>('/transactions/transfer', {
+    ...input,
+    channelType: 'INTERNET',
   })
   return data
-}
-
-// 거래 취소 — PATCH /transactions/{id}/cancel (백엔드: 출금/이체 거래만 취소 가능)
-export async function cancelTransaction(transactionId: number, cancelReason = 'CUSTOMER_REQUEST'): Promise<DepositTransaction> {
-  const { data } = await depositApi.patch<DepositTransaction>(`/transactions/${transactionId}/cancel`, { cancelReason })
-  return data
-}
-
-// 출금/이체 거래이면서 아직 취소되지 않은 건만 취소 가능
-export function isCancelableTransaction(tx: DepositTransaction): boolean {
-  const cancelable = tx.transactionType === 'WITHDRAW' || tx.transactionType === 'TRANSFER'
-  return cancelable && tx.status !== 'CANCELED'
-}
-
-// 다음 적금 납입 회차 = 기존 적금납입 거래 수 + 1
-export function nextSavingsPaymentRound(transactions: DepositTransaction[]): number {
-  const paid = transactions.filter((tx) => tx.transactionType === 'SAVINGS_PAYMENT' && tx.status !== 'CANCELED').length
-  return paid + 1
 }
 
 export async function fetchDepositAccountViewModels(customerId: string): Promise<DepositViewAccount[]> {
@@ -459,7 +448,9 @@ export async function fetchDepositAccountViewModels(customerId: string): Promise
         rawAccountType: account.accountType,
         isWithdrawable: account.isWithdrawable ?? account.withdrawable,
         accountStatus: account.accountStatus,
+        rawAccountType: account.accountType,
         savingType: account.savingType,
+        isWithdrawable: account.isWithdrawable,
         number: account.accountNumber,
         type: accountTypeLabel(account, product),
         name: account.accountAlias || product?.productName || fallbackName(account),

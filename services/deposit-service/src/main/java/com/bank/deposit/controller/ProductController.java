@@ -25,9 +25,7 @@ public class ProductController {
     public List<ProductResponse> list(
             @RequestParam(required = false) ProductType productType,
             @RequestParam(required = false) ProductStatus productStatus) {
-        return productService.findAll(productType, productStatus).stream()
-                .map(ProductResponse::from)
-                .toList();
+        return productService.findAllResponses(productType, productStatus);
     }
 
     @PostMapping("/products")
@@ -44,7 +42,7 @@ public class ProductController {
 
     @GetMapping("/products/{productId:\\d+}")
     public ProductResponse get(@PathVariable Long productId) {
-        return ProductResponse.from(productService.findById(productId));
+        return productService.findResponseById(productId);
     }
 
     @PutMapping("/products/{productId}")

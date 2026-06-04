@@ -42,10 +42,11 @@ export default function TransferAccountPage() {
             a.number === requestedAccountKey ||
             String(a.apiAccountId) === requestedAccountKey
           )
-          if (requestedAccount?.type === '입출금') {
+          if (requestedAccount?.rawAccountType === 'DEPOSIT' && requestedAccount.isWithdrawable !== false) {
             setFromAccount(requestedAccount.id)
           } else if (!fromAccount && !requestedFromAccount) {
-            setFromAccount(accs[0].id)
+            const firstTransferable = accs.find(a => a.rawAccountType === 'DEPOSIT' && a.isWithdrawable !== false)
+            setFromAccount((firstTransferable ?? accs[0]).id)
           }
         }
       } catch {
@@ -74,7 +75,11 @@ export default function TransferAccountPage() {
     loadAccounts()
   }, [fromAccount, requestedFromAccount])
 
-  const transferableAccounts = accounts.filter(a => a.type === '입출금')
+  const transferableAccounts = accounts.filter(a =>
+    a.rawAccountType === 'DEPOSIT' &&
+    a.isWithdrawable !== false &&
+    a.accountStatus !== 'CLOSED'
+  )
   const fromAcc = transferableAccounts.find(a => a.id === fromAccount) ?? (requestedFromAccount ? undefined : transferableAccounts[0])
   const isFromAccountLocked = Boolean(requestedFromAccount)
   const withdrawalAccounts =
@@ -123,19 +128,22 @@ export default function TransferAccountPage() {
       setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
       return
     }
-    const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
-    const toAcc = accounts.find(acc => acc.number === toAccount)
+    const targetAccount = innerBankTab === 'own'
+      ? accounts.find(acc => acc.number === toAccount)
+      : undefined
+    const receiverName = targetAccount?.name ?? recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
     const data = {
       fromAccountId: fromAcc?.apiAccountId,
       fromAccountViewId: fromAcc?.id ?? '',
-      toAccountId: toAcc?.apiAccountId,
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
+      toAccountId: targetAccount?.apiAccountId,
       toBank,
       toAccount,
       amount: amountNum,
       receiverName,
       fee: 0,
+      transferType: targetAccount ? 'INTERNAL' : 'EXTERNAL',
     }
     sessionStorage.setItem('pendingTransfer', JSON.stringify(data))
     router.push('/transfer/confirm')
