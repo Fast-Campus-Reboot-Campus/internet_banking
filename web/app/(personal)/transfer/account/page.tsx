@@ -143,8 +143,11 @@ export default function TransferAccountPage() {
       setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
       return
     }
-    const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
+    const receiverName = recentAccounts.find(r => r.number === toAccount)?.name
+      ?? accounts.find(acc => acc.number === toAccount)?.name
+      ?? '수취인'
     const toAcc = accounts.find(acc => acc.number === toAccount)
+    const toBankCode = MOCK_BANKS.find(b => b.name === toBank)?.code ?? toBank
     const data = {
       fromAccountId: fromAcc?.apiAccountId,
       fromAccountViewId: fromAcc?.id ?? '',
@@ -152,6 +155,7 @@ export default function TransferAccountPage() {
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
+      toBankCode,
       toAccount,
       amount: amountNum,
       receiverName,
