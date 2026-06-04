@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { createDepositContract, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
@@ -324,14 +325,11 @@ export default function DepositJoinPage() {
 
   return (
     <div className="max-w-kb-container mx-auto px-6 py-6">
-      <div className="flex justify-end mb-3 text-[12px] text-kb-text-muted gap-1 items-center">
-        <span>개인뱅킹</span><span>›</span>
-        <span>금융상품</span><span>›</span>
-        <span>예금</span><span>›</span>
-        <Link href="/products/deposit" className="hover:underline">예금 상품/가입</Link>
-        <span>›</span>
-        <Link href="#" className="text-kb-blue hover:underline">도움말</Link>
-      </div>
+      <AutoBreadcrumb
+        as="/products/deposit/list"
+        className="flex justify-end items-center mb-3 text-[12px] text-kb-text-muted gap-1"
+        trailing={<Link href="#" className="text-kb-blue hover:underline">도움말</Link>}
+      />
 
       <div className="flex gap-6">
         <DepositSidebar />

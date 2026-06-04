@@ -10,6 +10,12 @@ export default function LoginPage() {
   const [tab, setTab] = useState<LoginTab>('kb인증서')
   const [showLoginSetting, setShowLoginSetting] = useState(false)
 
+  // 저장된 선호 로그인 방식이 있으면 진입 시 해당 탭을 기본 선택
+  useEffect(() => {
+    const pref = localStorage.getItem('preferredLoginMethod')
+    if (pref && METHOD_TAB_MAP[pref]) setTab(METHOD_TAB_MAP[pref])
+  }, [])
+
   return (
     <>
       {/* 페이지 타이틀 바 */}
@@ -84,7 +90,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {showLoginSetting && <LoginSettingModal onClose={() => setShowLoginSetting(false)} />}
+          {showLoginSetting && <LoginSettingModal onApply={setTab} onClose={() => setShowLoginSetting(false)} />}
 
           {/* 카드 하단 안내 */}
           <div className="mt-4 px-1 space-y-1">
@@ -847,7 +853,11 @@ function IdLoginTab() {
         <div className="flex items-center justify-center gap-3 mt-4 text-caption" style={{ color: '#0D5C47' }}>
           <Link href="/support/customer-info/id-password" className="hover:underline">ID 조회 / 사용자암호 설정</Link>
           <span className="text-kb-border">|</span>
-          <Link href="/support/customer-info/online-join" className="hover:underline">회원가입</Link>
+          <Link href="/login/pin" className="hover:underline">간편비밀번호 로그인</Link>
+          <span className="text-kb-border">|</span>
+          <Link href="/support/customer-info/online-join" className="hover:underline">개인 회원가입</Link>
+          <span className="text-kb-border">|</span>
+          <Link href="/support/customer-info/corporate-join" className="hover:underline">법인 회원가입</Link>
         </div>
       </div>
     </div>
@@ -1340,12 +1350,39 @@ const LOGIN_SETTING_OPTIONS = [
   '금융인증서',
   'AXful인증서',
   '아이디',
+  '간편비밀번호',
   'QR코드',
   '사용안함',
 ]
 
-function LoginSettingModal({ onClose }: { onClose: () => void }) {
+/** 로그인 방식 → 메인 로그인 탭 매핑. '간편비밀번호'는 별도 페이지(/login/pin)로 이동, '사용안함'은 매핑 없음. */
+const METHOD_TAB_MAP: Record<string, LoginTab> = {
+  '공동인증서(구 공인인증서)': '공동금융인증서',
+  '금융인증서': '공동금융인증서',
+  'AXful인증서': 'kb인증서',
+  '아이디': '아이디',
+  'QR코드': 'kb인증서',
+}
+
+function LoginSettingModal({ onApply, onClose }: { onApply: (tab: LoginTab) => void; onClose: () => void }) {
   const [selected, setSelected] = useState('사용안함')
+
+  // 저장된 선호 방식으로 초기 선택
+  useEffect(() => {
+    const pref = localStorage.getItem('preferredLoginMethod')
+    if (pref && LOGIN_SETTING_OPTIONS.includes(pref)) setSelected(pref)
+  }, [])
+
+  function handleApply() {
+    localStorage.setItem('preferredLoginMethod', selected)
+    if (selected === '간편비밀번호') {
+      window.location.href = '/login/pin'
+      return
+    }
+    const target = METHOD_TAB_MAP[selected]
+    if (target) onApply(target)
+    onClose()
+  }
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40">
@@ -1386,7 +1423,7 @@ function LoginSettingModal({ onClose }: { onClose: () => void }) {
         {/* 설정 버튼 */}
         <div className="flex justify-center pb-6">
           <button
-            onClick={onClose}
+            onClick={handleApply}
             className="px-14 py-2.5 text-white text-body font-bold rounded-lg hover:opacity-85 transition-opacity"
             style={{ backgroundColor: '#0D5C47' }}
           >

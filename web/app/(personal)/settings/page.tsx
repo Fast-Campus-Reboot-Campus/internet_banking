@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import PinManageModal from '@/components/PinManageModal'
 import { api } from '@/lib/api'
 
 /* ─── 공통 타입 ─── */
@@ -372,6 +373,7 @@ function AuthMethodTab() {
   const [loading, setLoading] = useState(true)
   const [editAlias, setEditAlias] = useState<{ id: number; value: string } | null>(null)
   const [msg, setMsg] = useState(''); const [isError, setIsError] = useState(false)
+  const [showPinModal, setShowPinModal] = useState(false)
 
   function reload() {
     setLoading(true)
@@ -401,12 +403,26 @@ function AuthMethodTab() {
     finally { setTimeout(() => { setMsg(''); setIsError(false) }, 3000) }
   }
 
-  if (loading) return <p className="text-[13px] text-kb-text-muted">불러오는 중...</p>
-  if (methods.length === 0) return <p className="text-[13px] text-kb-text-muted">등록된 인증수단이 없습니다.</p>
-
   return (
     <div>
+      {/* 간편비밀번호(PIN) — 모달로 등록/해제 */}
+      <button type="button" onClick={() => setShowPinModal(true)}
+        className="w-full flex items-center justify-between rounded-xl px-5 py-4 mb-4 hover:bg-[#F0FAF7] transition-colors text-left"
+        style={{ border: '1px solid #E2F5EF' }}>
+        <div>
+          <p className="text-[14px] font-bold text-kb-text">간편비밀번호(PIN)</p>
+          <p className="text-[12px] text-kb-text-muted mt-0.5">이 기기에 PIN을 등록하면 아이디·비밀번호 없이 간편하게 로그인할 수 있습니다.</p>
+        </div>
+        <span className="text-[13px] font-semibold flex-shrink-0 ml-4" style={{ color: '#0D5C47' }}>등록·관리 ›</span>
+      </button>
+      {showPinModal && <PinManageModal onClose={() => setShowPinModal(false)} onChanged={reload} />}
+
       {msg && <p className="mb-3 text-[13px] font-medium" style={{ color: isError ? '#E05555' : '#0D5C47' }}>{msg}</p>}
+      {loading ? (
+        <p className="text-[13px] text-kb-text-muted">불러오는 중...</p>
+      ) : methods.length === 0 ? (
+        <p className="text-[13px] text-kb-text-muted">등록된 인증수단이 없습니다.</p>
+      ) : (
       <div className="space-y-3">
         {methods.map(m => (
           <div key={m.authMethodId} className="rounded-xl px-5 py-4" style={{ border: '1px solid #E2F5EF' }}>
@@ -457,6 +473,7 @@ function AuthMethodTab() {
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }

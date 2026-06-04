@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { loanApplicationApi, getCustomerId } from '@/lib/loan-api'
 
 const CANCELABLE = ['SUBMITTED', 'PRESCREENED', 'REVIEWING']
@@ -64,13 +65,7 @@ export default function LoanStatusPage() {
         <LoanSidebar />
 
         <main className="flex-1 pl-8 pt-4 pb-12">
-          <div className="flex justify-end mb-2 text-[12px] text-kb-text-muted gap-1">
-            <span>개인뱅킹</span><span>&gt;</span>
-            <span>금융상품</span><span>&gt;</span>
-            <span>대출</span><span>&gt;</span>
-            <span>대출진행현황</span><span>&gt;</span>
-            <span className="font-semibold text-kb-text">진행현황조회/실행/예약</span>
-          </div>
+          <AutoBreadcrumb align="end" leaf="진행현황조회/실행/예약" />
 
           <h1 className="text-[20px] font-bold text-kb-text mb-6">진행현황조회/실행/예약</h1>
 

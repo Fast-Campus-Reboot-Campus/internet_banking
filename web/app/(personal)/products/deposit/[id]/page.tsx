@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import CartModal from '@/components/products/CartModal'
 import ConsultModal from '@/components/layout/ConsultModal'
 import RateModal from '@/components/products/RateModal'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { fetchDepositProduct, getDepositProductIdBySlug } from '@/lib/deposit-api'
 
 const DEPOSIT_SIDEBAR = [
@@ -394,14 +395,11 @@ export default function DepositDetailPage() {
         {/* 본문 */}
         <main className="flex-1 pl-8 pt-4 pb-12">
           {/* 브레드크럼 */}
-          <div className="flex justify-end mb-2 text-[12px] text-kb-text-muted gap-1 items-center">
-            <span>개인뱅킹</span><span>&gt;</span>
-            <span>금융상품</span><span>&gt;</span>
-            <span>예금</span><span>&gt;</span>
-            <Link href="/products/deposit" className="hover:underline">예금 상품/가입</Link>
-            <span>&gt;</span>
-            <Link href="#" className="text-kb-blue hover:underline">도움말</Link>
-          </div>
+          <AutoBreadcrumb
+            as="/products/deposit/list"
+            className="flex justify-end items-center mb-2 text-[12px] text-kb-text-muted gap-1"
+            trailing={<Link href="#" className="text-kb-blue hover:underline">도움말</Link>}
+          />
 
           {/* 상품 카드 */}
           <div className="border border-kb-border p-5 mb-4">

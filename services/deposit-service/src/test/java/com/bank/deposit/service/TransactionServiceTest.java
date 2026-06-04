@@ -386,35 +386,40 @@ class TransactionServiceTest {
         }
 
         @Test
-        @DisplayName("다중 스레드에서 순차적 서비스 호출 시 잔액 합산이 정확하다")
+        @DisplayName("순차화된 여러 출금 서비스 호출 후 잔액과 거래 건수가 정확하다")
         void multiThreadSequentialBalance() throws Exception {
             Account source = activeAccount(BigDecimal.valueOf(1_000_000));
-
-            // mock: 항상 같은 source 계좌 반환 (서비스 레이어 로직 검증)
             given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
             int threadCount = 5;
             BigDecimal each = BigDecimal.valueOf(50_000);
+            Object sequentialCallLock = new Object();
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
             CountDownLatch latch = new CountDownLatch(1);
             List<Future<?>> futures = new ArrayList<>();
 
-            for (int i = 0; i < threadCount; i++) {
-                futures.add(executor.submit(() -> {
-                    try {
+            try {
+                for (int i = 0; i < threadCount; i++) {
+                    futures.add(executor.submit(() -> {
                         latch.await();
-                        transactionService.withdraw(1L, each, TransactionChannel.INTERNET, "스레드 출금");
-                    } catch (Exception ignored) {}
-                }));
+                        synchronized (sequentialCallLock) {
+                            transactionService.withdraw(1L, each, TransactionChannel.INTERNET, "스레드 출금");
+                        }
+                        return null;
+                    }));
+                }
+
+                latch.countDown();
+                for (Future<?> future : futures) {
+                    future.get();
+                }
+            } finally {
+                executor.shutdownNow();
             }
 
-            latch.countDown();
-            for (Future<?> f : futures) f.get();
-            executor.shutdown();
-
-            // mock 환경에서는 동기화 없이 모두 성공 — 실제 잔액 로직(Account.withdraw)이 순차 적용됨을 확인
-            assertThat(source.getBalance().compareTo(BigDecimal.ZERO)).isGreaterThanOrEqualTo(0);
+            assertThat(source.getBalance()).isEqualByComparingTo("750000");
+            then(transactionRepository).should(org.mockito.Mockito.times(threadCount)).save(any());
         }
     }
 
