@@ -1027,10 +1027,9 @@ public class PaymentTransactionService {
                 .orElseThrow(() -> new IllegalStateException("원분개 FEE_INCOME 없음: " + piId));
 
         // R01 balance: B-5 응답잔액 박제 (null이면 0,0 fallback — chk_balance_before/after >= 0 만족)
-        BigDecimal r01BalanceBefore = (cancelResult != null)
-                ? BigDecimal.valueOf(cancelResult.balanceBefore()) : BigDecimal.ZERO;
-        BigDecimal r01BalanceAfter = (cancelResult != null)
-                ? BigDecimal.valueOf(cancelResult.balanceAfter()) : BigDecimal.ZERO;
+        // WithdrawCancelData.balanceBefore/After는 BigDecimal 직접 반환 — valueOf 래핑 불필요.
+        BigDecimal r01BalanceBefore = (cancelResult != null) ? cancelResult.balanceBefore() : BigDecimal.ZERO;
+        BigDecimal r01BalanceAfter  = (cancelResult != null) ? cancelResult.balanceAfter()  : BigDecimal.ZERO;
 
         // R01: 송신계좌 CREDIT REVERSAL_TRANSFER_OUT (jn1)
         Ledger r01 = Ledger.reversalTransferOut(

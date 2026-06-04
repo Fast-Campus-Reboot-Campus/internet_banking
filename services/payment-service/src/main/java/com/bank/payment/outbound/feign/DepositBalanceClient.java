@@ -6,10 +6,10 @@ import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
-import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -50,10 +50,11 @@ public interface DepositBalanceClient {
             @RequestHeader("X-Idempotency-Key") String idempotencyKey,
             @RequestBody DepositRequest request);
 
-    // B-5 출금취소 — D-REQ-2: deposit은 PATCH /api/transactions/{transactionId}(Long PK) 기반.
-    // payment의 transactionNumber(String)를 transactionId(Long)로 변환하는 endpoint 추가 전 미동작.
-    @PostMapping("/api/v1/balances/withdraw/cancel")
-    DepositResponse<WithdrawCancelData> withdrawCancel(
+    // B-5 출금취소 — deposit 실제 엔드포인트: PATCH /api/transactions/{transactionId}/cancel
+    // bare Transaction 직렬화(200 OK) → WithdrawCancelData(@JsonIgnoreProperties lean 수신).
+    // X-Idempotency-Key: deposit이 무시하지만 무해하므로 유지.
+    @PatchMapping("/api/transactions/{transactionId}/cancel")
+    WithdrawCancelData withdrawCancel(
             @RequestHeader("X-Idempotency-Key") String idempotencyKey,
-            @RequestBody WithdrawCancelRequest request);
+            @PathVariable("transactionId") Long transactionId);
 }
