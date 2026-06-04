@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.OffsetDateTime;
@@ -24,15 +26,17 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 /**
  * 4-eye 원칙 단위 테스트.
  * 통합 테스트에서는 bias-check disabled 환경으로 PENDING_APPROVER 상태에 도달하기 어려워
  * Mockito 로 서비스 레이어 직접 검증한다.
+ *
+ * 테스트별로 분기 지점이 달라 @BeforeEach 공유 스텁이 일부 경로에서만 쓰이므로 LENIENT 로 둔다.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class LoanReview4EyeUnitTest {
 
     private static final Long APPL_ID     = 1L;
@@ -79,7 +83,7 @@ class LoanReview4EyeUnitTest {
                 .thenReturn(Optional.of(application));
         when(reviewRepository.findByApplIdAndDeletedAtIsNull(APPL_ID))
                 .thenReturn(Optional.of(pendingApproverReview));
-        when(advisoryClient.getReports(anyLong())).thenReturn(List.of());
+        when(advisoryClient.getReports(any())).thenReturn(List.of());
         // 4-eye 는 인증 주체(currentActorId) 기준 — 기본은 심사원과 다른 승인자로 통과
         when(currentActorProvider.currentActorId()).thenReturn(APPROVER_ID);
     }
