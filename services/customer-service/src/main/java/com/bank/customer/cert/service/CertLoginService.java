@@ -7,6 +7,8 @@ import com.bank.customer.cert.repository.CertificateRepository;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.fds.domain.FdsDetection;
+import com.bank.customer.fds.service.FdsService;
 import com.bank.customer.history.domain.CertificateUse;
 import com.bank.customer.history.repository.CertificateUseRepository;
 import com.bank.customer.login.config.EmployeeDirectoryProperties;
@@ -15,6 +17,7 @@ import com.bank.customer.support.CustomerErrorCode;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.security.jwt.JwtProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,6 +30,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CertLoginService {
@@ -42,6 +46,7 @@ public class CertLoginService {
     private final JwtProperties             jwtProperties;
     private final StringRedisTemplate       redisTemplate;
     private final EmployeeDirectoryProperties employeeDirectory;
+    private final FdsService                fdsService;
 
     /**
      * 인증서 로그인.
@@ -85,9 +90,11 @@ public class CertLoginService {
                 String resultCode = cert.isLocked()
                         ? CertificateUse.RESULT_FAIL_LOCKED
                         : CertificateUse.RESULT_FAIL_PIN;
-                saveCertUse(cert, ip, resultCode,
+                CertificateUse use = saveCertUse(cert, ip, resultCode,
                         cert.isLocked() ? CustomerErrorCode.CUST_034.getCode()
                                         : CustomerErrorCode.CUST_033.getCode());
+                // 인증서 실패 누적 FDS 평가 — BLOCK 룰(CERT_FAIL_BLOCK_5) 발동 시 CUST_060 으로 차단
+                fdsService.evaluate(cert.getCustomerId(), FdsDetection.EVENT_CERT_LOGIN, use.getCertificateUseId());
                 throw new BusinessException(
                         cert.isLocked() ? CustomerErrorCode.CUST_034 : CustomerErrorCode.CUST_033);
             }
@@ -101,7 +108,9 @@ public class CertLoginService {
             }
 
             cert.recordLoginSuccess();
-            saveCertUse(cert, ip, CertificateUse.RESULT_SUCCESS, null);
+            CertificateUse use = saveCertUse(cert, ip, CertificateUse.RESULT_SUCCESS, null);
+            // 성공 경로에서도 FDS 평가 — BLOCK 발동해도 로그인은 막지 않고 로그만 남긴다(모니터링)
+            evaluateFdsSilently(cert.getCustomerId(), use.getCertificateUseId());
 
             var emp    = employeeDirectory.findById(customer.getCustomerId());
             var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
@@ -131,12 +140,12 @@ public class CertLoginService {
         }
     }
 
-    private void saveCertUse(Certificate cert, String ip, String resultCode, String failureReason) {
+    private CertificateUse saveCertUse(Certificate cert, String ip, String resultCode, String failureReason) {
         // MVP: signedDataHash = serial + ip + timestamp 해시, signatureValue = certPinHash 또는 "N/A"
         String signedData = sha256(cert.getCertificateSerialNumber() + ip + OffsetDateTime.now());
         String sigValue   = cert.getCertPinHash() != null ? cert.getCertPinHash() : "N/A";
 
-        certificateUseRepository.save(CertificateUse.builder()
+        return certificateUseRepository.save(CertificateUse.builder()
                 .certificateId(cert.getCertificateId())
                 .customerId(cert.getCustomerId())
                 .purposeCode(CertificateUse.PURPOSE_LOGIN)
@@ -148,6 +157,15 @@ public class CertLoginService {
                 .requestChannelCode(CertificateUse.CHANNEL_WEB)
                 .usedAt(OffsetDateTime.now())
                 .build());
+    }
+
+    /** FDS 평가 — 성공 경로용. BLOCK 룰이 발동해도 로그인 자체는 막지 않고 로그만 남긴다. */
+    private void evaluateFdsSilently(Long customerId, Long referenceId) {
+        try {
+            fdsService.evaluate(customerId, FdsDetection.EVENT_CERT_LOGIN, referenceId);
+        } catch (BusinessException e) {
+            log.warn("FDS BLOCK 발동 (인증서 로그인 성공 경로): customerId={}", customerId);
+        }
     }
 
     /** BusinessException 코드에서 certificate_use 결과 코드 매핑. 이미 saveCertUse를 호출한 경우 null 반환. */
