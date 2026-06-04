@@ -8,7 +8,6 @@ import com.bank.payment.outbound.feign.dto.DepositRequest;
 import com.bank.payment.outbound.feign.dto.DepositResponse;
 import com.bank.payment.outbound.feign.dto.LimitInquiryData;
 import com.bank.payment.outbound.feign.dto.WithdrawCancelData;
-import com.bank.payment.outbound.feign.dto.WithdrawCancelRequest;
 import com.bank.payment.outbound.feign.dto.WithdrawRequest;
 import org.springframework.context.annotation.Primary;
 import java.math.BigDecimal;
@@ -102,16 +101,17 @@ public class DepositBalanceClientMock implements DepositBalanceClient {
                 "2026-05-16T14:30:00Z", "TRANSFER_IN");
     }
 
-    // B-5: 출금취소 — 항상 성공. BOK(20억 기준)/KFTC 공용 잔액 복원 시뮬레이션
+    // B-5: 출금취소 — 항상 성공. 잔액 복원 시뮬레이션 (20억 기준)
     @Override
-    public DepositResponse<WithdrawCancelData> withdrawCancel(String idempotencyKey,
-                                                               WithdrawCancelRequest request) {
-        long before = 2_000_000_000L - request.amount();  // 출금 후 잔액 (20억 기준, balance_before >= 0 보장)
-        long after  = before + request.amount();           // 취소 후 복원 잔액 = 20억
-        WithdrawCancelData data = new WithdrawCancelData(
-                "T-20260516-A-CANCEL-001", request.originalDepositTransactionNo(),
-                request.accountNo(), request.amount(), before, after,
+    public WithdrawCancelData withdrawCancel(String idempotencyKey, Long transactionId) {
+        BigDecimal balanceBefore = BigDecimal.valueOf(1_999_000_000L); // 출금 후 잔액 (100만 출금 기준)
+        BigDecimal balanceAfter  = BigDecimal.valueOf(2_000_000_000L); // 취소 후 복원 = 20억
+        return new WithdrawCancelData(
+                "T-20260516-A-CANCEL-001",
+                null,               // originalDepositTransactionNo: deposit 미지원
+                null,               // accountNo: deposit 미지원
+                balanceBefore,
+                balanceAfter,
                 "2026-05-16T14:30:00Z");
-        return new DepositResponse<>("DEP-0000", "SUCCESS", "2026-05-16T14:30:00Z", data);
     }
 }
