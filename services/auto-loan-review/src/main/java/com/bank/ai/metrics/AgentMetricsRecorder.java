@@ -17,12 +17,14 @@ import java.time.Duration;
 /**
  * AI 파이프라인 Micrometer 메트릭 중앙 기록기 — phase-b-operational.md §B2.
  *
- * <p>메트릭 목록 (18종):
+ * <p>메트릭 목록 (20종):
  * <ul>
  *   <li>{@code ai.agent.runs.total}              Counter             track, outcome</li>
  *   <li>{@code ai.agent.latency.seconds}          Timer               track, outcome</li>
  *   <li>{@code ai.agent.tool.calls.total}         Counter             tool_name, status</li>
+ *   <li>{@code ai.agent.tool.calls.per_run}       DistributionSummary track, outcome</li>
  *   <li>{@code ai.agent.llm.calls.total}          Counter             model, outcome</li>
+ *   <li>{@code ai.agent.llm.calls.per_run}        DistributionSummary track, outcome</li>
  *   <li>{@code ai.agent.llm.latency.seconds}      Timer               model</li>
  *   <li>{@code ai.agent.tokens.input.total}       Counter             model</li>
  *   <li>{@code ai.agent.tokens.output.total}      Counter             model</li>
@@ -138,6 +140,34 @@ public class AgentMetricsRecorder {
                 .tag(AgentMetricsTags.REASON, reason.name())
                 .register(registry)
                 .increment();
+    }
+
+    /**
+     * run 1회당 도구·LLM 호출 수 분포 기록 (track, outcome 태그).
+     *
+     * <p>outcome="SUCCESS" 필터 시 "정상 종료 run"의 분포를 구할 수 있어
+     * 가드레일 상한(maxToolCalls/maxLlmCalls) 근거를 p95/p99로 산출한다.
+     * Track3 전용 — Track1/2는 guard 미사용이라 제외.
+     */
+    public void recordPerRunGuardCounts(Track track, AgentOutcome outcome,
+                                        int toolCallCount, int llmCallCount) {
+        DistributionSummary.builder("ai.agent.tool.calls.per_run")
+                .tag(AgentMetricsTags.TRACK, track.name())
+                .tag(AgentMetricsTags.OUTCOME, outcome.name())
+                .publishPercentileHistogram()
+                .minimumExpectedValue(1.0)
+                .maximumExpectedValue(8.0)
+                .register(registry)
+                .record(toolCallCount);
+
+        DistributionSummary.builder("ai.agent.llm.calls.per_run")
+                .tag(AgentMetricsTags.TRACK, track.name())
+                .tag(AgentMetricsTags.OUTCOME, outcome.name())
+                .publishPercentileHistogram()
+                .minimumExpectedValue(1.0)
+                .maximumExpectedValue(4.0)
+                .register(registry)
+                .record(llmCallCount);
     }
 
     /** 에이전트 의견과 트랙 분기 불일치 기록. */
