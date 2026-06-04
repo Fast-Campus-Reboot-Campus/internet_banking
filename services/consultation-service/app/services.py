@@ -1421,7 +1421,6 @@ class ChatbotService:
             ("맑은하늘",   "맑은하늘 앱 설치 후 인증코드 등록"),
             ("직장인우대", "급여이체 실적 등록"),
             ("자유적금",   "자동이체 설정"),
-            ("내맘대로",   "자동이체 설정"),
             ("달러",       "달러 환전 실적 보유"),
             ("청년도약",   "소득 요건 충족 확인"),
             ("수퍼정기",   "비대면 가입"),
@@ -1433,9 +1432,7 @@ class ChatbotService:
         pref_cond_map = self._get_pref_conditions(pids)
         for p in products:
             pid = int(p.get("product_id") or p.get("banking_product_id") or 0)
-            info = pref_cond_map.get(pid, {})
-            cond = info.get("condition", "") if isinstance(info, dict) else ""
-            rate = info.get("rate", 0.0) if isinstance(info, dict) else 0.0
+            cond = pref_cond_map.get(pid, "")
             if not cond:
                 name = str(p.get("deposit_product_name") or p.get("product_name", ""))
                 for keyword, fallback in _PREF_COND_FALLBACK:
@@ -1444,8 +1441,6 @@ class ChatbotService:
                         break
             if cond:
                 p["pref_condition"] = cond
-            if rate:
-                p["pref_rate"] = rate
 
         # ── 3. LLM 추천 ───────────────────────────────────────────────────────
         if self._llm_adapter:
@@ -1488,7 +1483,6 @@ class ChatbotService:
                 "max_join_amount":   p.get("max_join_amount"),
                 "reason":            p.get("_reason", ""),
                 "pref_condition":    p.get("pref_condition", ""),
-                "pref_rate":         p.get("pref_rate", 0.0),
             }
             for i, p in enumerate(ranked_for_data[:3])
         ]
@@ -1536,9 +1530,7 @@ class ChatbotService:
         for card in preferred:
             name = card.get("product_name") or "상품명 없음"
             condition = card.get("pref_condition")
-            pref_rate = card.get("pref_rate") or 0.0
-            rate_str = f" (+{pref_rate}%)" if pref_rate else ""
-            lines.append(f"- {name}{rate_str}: {condition}")
+            lines.append(f"- {name}: {condition}")
         lines.append("우대금리는 실제 가입 시점의 조건 충족 여부에 따라 달라질 수 있습니다.")
         return f"{message.rstrip()}\n" + "\n".join(lines)
 
@@ -2085,16 +2077,15 @@ class ChatbotService:
             for r in rows
         }
 
-    def _get_pref_conditions(self, product_ids: list[int]) -> dict[int, dict]:
-        """상품별 우대금리 조건 설명 및 합산 금리 조회."""
+    def _get_pref_conditions(self, product_ids: list[int]) -> dict[int, str]:
+        """상품별 우대금리 조건 설명 조회."""
         if not product_ids:
             return {}
         id_list = ",".join(str(i) for i in product_ids)
         rows = self._rows(
             f"""
             SELECT banking_product_id,
-                   STRING_AGG(condition_description, ' / ' ORDER BY rate_id) AS pref_conditions,
-                   SUM(interest_rate) AS total_pref_rate
+                   STRING_AGG(condition_description, ' / ' ORDER BY rate_id) AS pref_conditions
               FROM banking_deposit_product_interest_rates
              WHERE banking_product_id IN ({id_list})
                AND rate_type = 'PREFERENTIAL'
@@ -2102,13 +2093,7 @@ class ChatbotService:
              GROUP BY banking_product_id
             """
         )
-        return {
-            r["banking_product_id"]: {
-                "condition": r["pref_conditions"],
-                "rate": float(r["total_pref_rate"] or 0.0),
-            }
-            for r in rows
-        }
+        return {r["banking_product_id"]: r["pref_conditions"] for r in rows}
 
     # ── 파싱 헬퍼 ─────────────────────────────────────────────────────────────
     @staticmethod
@@ -2231,7 +2216,6 @@ class ChatbotService:
             ("맑은하늘",   "맑은하늘 앱 설치 후 인증코드 등록"),
             ("직장인우대", "급여이체 실적 등록"),
             ("자유적금",   "자동이체 설정"),
-            ("내맘대로",   "자동이체 설정"),
             ("달러",       "달러 환전 실적 보유"),
             ("청년도약",   "소득 요건 충족 확인"),
             ("수퍼정기",   "비대면 가입"),
@@ -2243,9 +2227,7 @@ class ChatbotService:
         pref_cond_map = self._get_pref_conditions(pids)
         for p in products:
             pid = int(p.get("product_id") or p.get("banking_product_id") or 0)
-            info = pref_cond_map.get(pid, {})
-            cond = info.get("condition", "") if isinstance(info, dict) else ""
-            rate = info.get("rate", 0.0) if isinstance(info, dict) else 0.0
+            cond = pref_cond_map.get(pid, "")
             if not cond:
                 name = str(p.get("deposit_product_name") or p.get("product_name", ""))
                 for keyword, fallback in _PREF_COND_FALLBACK:
@@ -2254,8 +2236,6 @@ class ChatbotService:
                         break
             if cond:
                 p["pref_condition"] = cond
-            if rate:
-                p["pref_rate"] = rate
 
         ranked = self._rank_products(cf, products, input_period=period)
 
@@ -2277,7 +2257,6 @@ class ChatbotService:
                 "reason":            p.get("_reason", ""),
                 "description":       p.get("description", ""),
                 "pref_condition":    p.get("pref_condition", ""),
-                "pref_rate":         p.get("pref_rate", 0.0),
             }
             for i, p in enumerate(top3)
         ]
