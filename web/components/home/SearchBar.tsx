@@ -35,7 +35,6 @@ const NAV_ITEMS = [
   { label: '예금해지',              href: '/products/deposit/inquiry/terminate',      group: '예금' },
   { label: '해지',                  href: '/products/deposit/inquiry/terminate',      group: '예금' },
   { label: '해지결과/내역 조회',    href: '/products/deposit/inquiry/terminate-result', group: '예금' },
-  { label: '예금전환',              href: '/products/deposit/manage/convert',         group: '예금' },
 
   // ── 대출 ──
   { label: '대출 상품/신청',         href: '/products/loan/credit',                    group: '대출' },
@@ -55,8 +54,8 @@ const NAV_ITEMS = [
   { label: '대출 신청',             href: '/loans/apply',                             group: '대출' },
   { label: '대출진행현황',          href: '/products/loan/status',                    group: '대출' },
   { label: '대출현황',              href: '/products/loan/status',                    group: '대출' },
-  { label: '신용평가',              href: '/products/loan/credit-eval/personal',      group: '대출' },
-  { label: '대출 안내',             href: '/products/loan/guide/credit',              group: '대출' },
+  { label: '신용평가',              href: '/products/loan/credit-eval/biz-plan',      group: '대출' },
+  { label: '대출 안내',             href: '/products/loan/guide/rate',                group: '대출' },
   { label: '대출 관리',             href: '/products/loan/manage/overview',           group: '대출' },
 
   // ── 뱅킹관리 ──

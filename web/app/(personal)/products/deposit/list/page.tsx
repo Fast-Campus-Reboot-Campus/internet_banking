@@ -21,7 +21,7 @@ const DEPOSIT_PRODUCTS: Product[] = [
   {
     id: 'axful-regular',
     name: 'AXful 정기예금',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: 'Digital AXful의 대표 정기예금',
     period: '1~36개월',
     rate: '연 2.4%~2.9%',
@@ -48,7 +48,7 @@ const DEPOSIT_PRODUCTS: Product[] = [
   {
     id: 'axful-youth',
     name: 'AXful 청년도약계좌',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '청년의 자산형성을 응원합니다',
     period: '60개월',
     rate: '연 3.5%~6.0%',
@@ -61,7 +61,7 @@ const FREE_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-free',
     name: 'AXful 내맘대로적금',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '누구나 쉽게 자유롭게 DIY',
     period: '36개월 기준',
     rate: '연 2.95%~3.55%',
@@ -70,7 +70,7 @@ const FREE_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-dollar',
     name: 'AXful 달러자적금',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '달러 가치상승 응원하는 두배이율',
     period: '6개월 기준',
     rate: '연 1%~7.2%',
@@ -80,7 +80,7 @@ const FREE_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-green',
     name: 'AXful 맑은하늘적금',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '맑은하늘 인증코드 금리도 Up',
     period: '36개월 기준',
     rate: '연 2.85%~3.85%',
@@ -89,7 +89,7 @@ const FREE_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-star-savings',
     name: 'AXful 특★한 적금',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '고객 모두의 높은 수익을 위한 특별한 준비',
     period: '1개월 기준',
     rate: '연 2%~6%',
@@ -102,7 +102,7 @@ const REGULAR_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-soldier',
     name: 'AXful 장병내일준비적금',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '국군장병 미래대비 앞날준비',
     period: '24개월 기준',
     rate: '연 5%~10.5%',
@@ -111,7 +111,7 @@ const REGULAR_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-work',
     name: 'AXful 직장인우대적금',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '급여이체 고객 우대금리 제공',
     period: '12~36개월',
     rate: '연 3.2%~4.5%',
@@ -120,7 +120,7 @@ const REGULAR_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-dream',
     name: 'AXful 꿈적금',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '목표금액 설정으로 꿈을 향해 꾸준히',
     period: '12~36개월',
     rate: '연 3.0%~4.2%',
@@ -129,7 +129,7 @@ const REGULAR_SAVINGS_PRODUCTS: Product[] = [
   {
     id: 'axful-together',
     name: 'AXful 함께적금',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '가족·연인과 함께 모으는 공동 적금',
     period: '6~24개월',
     rate: '연 2.8%~4.0%',
@@ -157,14 +157,14 @@ const CHECKING_PRODUCTS: Product[] = [
   {
     id: 'axful-living',
     name: 'AXful 생계비계좌',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '생계 유지에 필요한 자금을 최대 250만원까지 보호하는 압류방지 전용통장',
     isNew: true,
   },
   {
     id: 'axful-gs',
     name: 'AXful GS Pay통장',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: 'GS25와의 만남으로 더 풍성해진 혜택',
     isNew: true,
   },
@@ -178,32 +178,32 @@ const CHECKING_PRODUCTS: Product[] = [
   {
     id: 'axful-moim',
     name: 'AXful 모임금고',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '고인 여유자금을 연 2.0%(최대 1천만원)로 불리는',
   },
   {
     id: 'axful-star-account',
     name: 'AXful 스타통장',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: 'Digital AXful의 대표 통장',
   },
   {
     id: 'axful-wallet',
     name: 'AXful 지갑통장',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '일상의 모든 지출을 한 곳에서 관리',
     isNew: true,
   },
   {
     id: 'axful-free-account',
     name: 'AXful 자유입출금통장',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '언제든 자유롭게 입출금 가능한 기본 통장',
   },
   {
     id: 'axful-youth-account',
     name: 'AXful 청년우대통장',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     desc: '만 19~34세 청년을 위한 우대금리 제공',
     canApply: true,
   },
@@ -213,7 +213,7 @@ const HOUSING_PRODUCTS: Product[] = [
   {
     id: 'housing-savings',
     name: '주택청약종합저축',
-    channel: '인터넷·스타뱅킹',
+    channel: '인터넷뱅킹',
     period: '24개월 기준',
     rate: '연 3.1%',
     canApply: true,
@@ -221,7 +221,7 @@ const HOUSING_PRODUCTS: Product[] = [
   {
     id: 'youth-housing',
     name: '청년 주택드림 청약통장',
-    channel: '스타뱅킹',
+    channel: '인터넷뱅킹',
     period: '24개월 기준',
     rate: '연 3.1%~4.5%',
     canApply: true,
@@ -232,7 +232,7 @@ type Tab = '예금' | '정기적금' | '자유적금' | '입출금자유' | '주
 const TABS: Tab[] = ['예금', '정기적금', '자유적금', '입출금자유', '주택청약']
 
 const DEPOSIT_PRODUCT_TYPES = ['전체', '정기예금', '지수연동예금', '시장성예금']
-const JOIN_METHODS = ['전체', '인터넷뱅킹', '스타뱅킹', 'AXful Next', '영업점']
+const JOIN_METHODS = ['전체', '인터넷뱅킹', 'AXful Next', '영업점']
 const JOIN_PERIODS = ['전체', '3개월 미만', '3-6개월 미만', '6-12개월 미만', '12-24개월 미만', '24개월 이상']
 
 export default function DepositListPage() {
