@@ -14,22 +14,34 @@ paymentApi.interceptors.request.use((config) => {
 
 // ── 즉시이체 ──────────────────────────────────────────────────────────────
 
+// MOCK_BANKS.code → 금융결제원 표준 3자리 기관코드. 자행(KB/AXful)은 EXTERNAL 경로를 타지 않으므로 제외.
+export const PAYMENT_BANK_CODE_MAP: Record<string, string> = {
+  IBK: '003', NH:  '011', IBD: '002', SH:  '007',
+  SHB: '088', WR:  '020', KP:  '071', HN:  '081',
+  CT:  '027', SC:  '023', KB2: '090', K:   '089',
+  TS:  '092', KN:  '039', GJ:  '034', IM:  '031',
+  BS:  '032', JB:  '037', JJ:  '035', SV:  '050',
+  SF:  '064', SM:  '045', CU:  '048', DZ:  '055',
+  BA:  '060', CCB: '067', ICB: '062', BOC: '063',
+  HS:  '054', BN:  '061', JP:  '057',
+}
+
 export type InstantTransferPayload = {
   senderAccountId: string
   receiverBankCode: string
   receiverAccountNo: string
-  receiverHolderName: string
+  expectedReceiverName: string
   transferAmount: number
-  receiverMemo: string | null
-  senderMemo: string | null
+  authTokenNo: string
   channel: string
-  receiverPassbookSenderDisplay: string | null
 }
 
 export type TransferRequestHeaders = {
   userId: string
   authTokenId: string
   idempotencyKey: string
+  channel: string
+  requestId: string
 }
 
 export type InstantTransferResult = {
@@ -49,6 +61,11 @@ export function newIdempotencyKey(): string {
   return `transfer-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+// auth_token_id 컬럼이 VARCHAR(20) — crypto.randomUUID()는 36자라 초과하므로 사용 금지.
+export function newAuthToken(): string {
+  return ('T' + Date.now().toString() + Math.random().toString(36).slice(2, 8)).slice(0, 20)
+}
+
 export async function createInstantTransfer(
   payload: InstantTransferPayload,
   headers: TransferRequestHeaders
@@ -61,6 +78,8 @@ export async function createInstantTransfer(
         'X-User-Id': headers.userId,
         'X-Auth-Token-Id': headers.authTokenId,
         'X-Idempotency-Key': headers.idempotencyKey,
+        'X-Channel': headers.channel,
+        'X-Request-Id': headers.requestId,
       },
     }
   )
