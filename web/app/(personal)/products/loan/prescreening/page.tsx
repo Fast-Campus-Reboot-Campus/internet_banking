@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { api } from '@/lib/api'
 
 type LoanApplication = {
@@ -56,11 +57,7 @@ export default function PrescreeningPage() {
   return (
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
-        <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/" className="hover:underline">개인뱅킹</Link><span>›</span>
-          <Link href="/products/loan/credit" className="hover:underline">대출 상품/신청</Link><span>›</span>
-          <span className="text-kb-text font-medium">한도조회(가심사)</span>
-        </nav>
+        <AutoBreadcrumb as="/products/loan/credit" leaf="한도조회(가심사)" />
 
         <div className="flex gap-8">
           <LoanSidebar />

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import CartModal from '@/components/products/CartModal'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { fetchDepositProducts, getDepositSlugByProductId, toDepositProductCard } from '@/lib/deposit-api'
 
 type Product = {
@@ -332,14 +333,10 @@ export default function DepositListPage() {
         {/* 본문 */}
         <main className="flex-1 pl-8 pt-4 pb-12">
           {/* 브레드크럼 */}
-          <div className="flex justify-end mb-2 text-[12px] text-kb-text-muted gap-1 items-center">
-            <span>개인뱅킹</span><span>&gt;</span>
-            <span>금융상품</span><span>&gt;</span>
-            <span>예금</span><span>&gt;</span>
-            <span className="font-semibold text-kb-text">예금 상품/가입</span>
-            <span>&gt;</span>
-            <Link href="#" className="font-medium hover:underline" style={{ color: '#0D5C47' }}>도움말</Link>
-          </div>
+          <AutoBreadcrumb
+            className="flex justify-end items-center mb-2 text-[12px] text-kb-text-muted gap-1"
+            trailing={<Link href="#" className="font-medium hover:underline" style={{ color: '#0D5C47' }}>도움말</Link>}
+          />
 
           <h1 className="text-[22px] font-bold text-kb-text mb-5">예금 상품/가입</h1>
 
