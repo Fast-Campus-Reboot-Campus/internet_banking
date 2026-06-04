@@ -34,5 +34,13 @@ BEGIN
         OVERRIDING SYSTEM VALUE
         VALUES (1, 1, 'ACTIVE', 'T', 'F', 'F', 'F', NOW(), NOW(), NOW(), 0)
         ON CONFLICT DO NOTHING;
+
+        -- 시퀀스 동기화: OVERRIDING SYSTEM VALUE 로 명시 id 를 seed 하면 IDENTITY 시퀀스가
+        -- 올라가지 않아, 앱이 생성하는 id 가 seed된 id(1, 9001 등)와 충돌한다(pk 중복).
+        -- seed(V3 직원 + 본 콜백) 이후 시퀀스를 최댓값으로 맞춰 충돌을 막는다.
+        PERFORM setval(pg_get_serial_sequence('party', 'party_id'),
+                       COALESCE((SELECT MAX(party_id) FROM party), 1), true);
+        PERFORM setval(pg_get_serial_sequence('customer', 'customer_id'),
+                       COALESCE((SELECT MAX(customer_id) FROM customer), 1), true);
     END IF;
 END $$;
