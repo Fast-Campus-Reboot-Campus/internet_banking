@@ -25,7 +25,12 @@ $env:MASTER_DB_PORT           = "5436"
 $env:COMMON_DB_PORT           = "5438"
 $env:REDIS_HOST               = "localhost"
 $env:SCHEMA_REGISTRY_URL      = "http://localhost:18081"
+# payment-service: 통합 단일 브로커(ib-kafka:9092)로 kftc/bok/internal 3 논리 클러스터 통합
+$env:KFTC_KAFKA_BOOTSTRAP     = "localhost:9092"
+$env:BOK_KAFKA_BOOTSTRAP      = "localhost:9092"
+$env:INTERNAL_KAFKA_BOOTSTRAP = "localhost:9092"
 $env:CRYPTO_KEY_BASE64        = "OhIN2XxxrFW6nzY6iIQ8sTfTr/L6NQJxgdCZfqJon+k="
+$env:LANGFUSE_PORT            = "3002"
 
 # Load secrets (OPENAI_API_KEY etc.) from .env
 $envFile = Join-Path $root ".env"
