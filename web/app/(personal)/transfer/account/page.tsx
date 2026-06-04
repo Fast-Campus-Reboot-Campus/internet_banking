@@ -9,12 +9,6 @@ import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, DepositView
 
 const AMOUNT_SHORTCUTS = ['100만', '50만', '10만', '5만', '1만', '전액', '정결']
 
-function isTransferableAccount(account: DepositViewAccount) {
-  if (account.isWithdrawable !== undefined) return account.isWithdrawable
-  const type = String(account.type || '')
-  return type === '입출금' || type.includes('입출금') || account.name.includes('통장')
-}
-
 export default function TransferAccountPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -36,40 +30,26 @@ export default function TransferAccountPage() {
   useEffect(() => {
     async function loadAccounts() {
       let loadedAccounts: DepositViewAccount[] = []
-
-      // localStorage fallback 준비
-      let fallbackAccounts: DepositViewAccount[] = []
-      try {
-        const raw = localStorage.getItem('joinedAccounts')
-        if (raw) fallbackAccounts = JSON.parse(raw) as DepositViewAccount[]
-      } catch {}
-
       try {
         const customerId = getCurrentDepositCustomerId()
         const accs = await fetchDepositAccountViewModels(customerId)
-        loadedAccounts = accs.length > 0 ? accs : fallbackAccounts
-        setAccounts(loadedAccounts)
-        if (loadedAccounts.length > 0) {
-          const selectableAccounts = loadedAccounts.filter(isTransferableAccount)
+        loadedAccounts = accs
+        setAccounts(accs)
+        if (accs.length > 0) {
           const requestedAccountKey = requestedFromAccount || fromAccount
-          const requestedAccount = selectableAccounts.find(a =>
+          const requestedAccount = accs.find(a =>
             a.id === requestedAccountKey ||
             a.number === requestedAccountKey ||
             String(a.apiAccountId) === requestedAccountKey
           )
-          if (requestedAccount) {
+          if (requestedAccount?.type === '입출금') {
             setFromAccount(requestedAccount.id)
-          } else if (!fromAccount && !requestedFromAccount && selectableAccounts.length > 0) {
-            setFromAccount(selectableAccounts[0].id)
+          } else if (!fromAccount && !requestedFromAccount) {
+            setFromAccount(accs[0].id)
           }
         }
       } catch {
-        loadedAccounts = fallbackAccounts
-        setAccounts(fallbackAccounts)
-        const selectableAccounts = fallbackAccounts.filter(isTransferableAccount)
-        if (selectableAccounts.length > 0 && !fromAccount && !requestedFromAccount) {
-          setFromAccount(selectableAccounts[0].id)
-        }
+        setAccounts([])
       }
       try {
         const recentSourceAccount =
@@ -94,7 +74,7 @@ export default function TransferAccountPage() {
     loadAccounts()
   }, [fromAccount, requestedFromAccount])
 
-  const transferableAccounts = accounts.filter(isTransferableAccount)
+  const transferableAccounts = accounts.filter(a => a.type === '입출금')
   const fromAcc = transferableAccounts.find(a => a.id === fromAccount) ?? (requestedFromAccount ? undefined : transferableAccounts[0])
   const isFromAccountLocked = Boolean(requestedFromAccount)
   const withdrawalAccounts =
@@ -143,11 +123,8 @@ export default function TransferAccountPage() {
       setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
       return
     }
-    const receiverName = recentAccounts.find(r => r.number === toAccount)?.name
-      ?? accounts.find(acc => acc.number === toAccount)?.name
-      ?? '수취인'
+    const receiverName = recentAccounts.find(r => r.number === toAccount)?.name ?? '수취인'
     const toAcc = accounts.find(acc => acc.number === toAccount)
-    const toBankCode = MOCK_BANKS.find(b => b.name === toBank)?.code ?? toBank
     const data = {
       fromAccountId: fromAcc?.apiAccountId,
       fromAccountViewId: fromAcc?.id ?? '',
@@ -155,7 +132,6 @@ export default function TransferAccountPage() {
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
-      toBankCode,
       toAccount,
       amount: amountNum,
       receiverName,
