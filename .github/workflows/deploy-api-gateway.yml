@@ -21,6 +21,8 @@ on:
 
 jobs:
   test:
+    permissions:
+      contents: read
     uses: ./.github/workflows/reusable-java-build.yml
     with:
       service-name: api-gateway
@@ -28,6 +30,9 @@ jobs:
   publish:
     if: github.event_name != 'pull_request'
     needs: test
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/reusable-docker-publish.yml
     with:
       service-name: api-gateway
