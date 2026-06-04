@@ -33,9 +33,7 @@ public class LoanDocumentService {
 
     private static final String DOMAIN_CD = "LOAN";
     private static final String TARGET_TABLE_CD = "LOAN_DOCUMENT";
-    private static final String REASON_DELETED          = "DOCUMENT_DELETED";
-    private static final String REASON_FRAUD_REJECTED   = "FRAUD_CONFIRMED";
-
+    private static final String REASON_DELETED         = "DOCUMENT_DELETED";
     private static final String REASON_VERIFIED        = "DOCUMENT_VERIFIED";
     private static final String REASON_NEEDS_RESUBMIT  = "DOCUMENT_NEEDS_RESUBMIT";
     private static final String REASON_HOLD            = "DOCUMENT_HOLD";
@@ -131,39 +129,4 @@ public class LoanDocumentService {
         return LoanDocumentResponse.of(saved);
     }
 
-    @Transactional
-    public void handleRoutedEvent(String submissionId, String verifyStatus) {
-        repository.findByDocUrlAndDeletedAtIsNull(submissionId).ifPresentOrElse(doc -> {
-            String before = doc.getDocStatusCd();
-            doc.applyVerifyResult(verifyStatus, submissionId);
-            String reason = switch (verifyStatus) {
-                case SubmissionResult.VERIFY_AUTO_PASS      -> REASON_VERIFIED;
-                case SubmissionResult.VERIFY_NEEDS_RESUBMIT -> REASON_NEEDS_RESUBMIT;
-                default                                     -> REASON_HOLD;
-            };
-            statusHistoryPublisher.publish(StatusChangeEvent.of(
-                    DOMAIN_CD, TARGET_TABLE_CD, doc.getDocId(),
-                    before, doc.getDocStatusCd(),
-                    reason, "submissionId=" + submissionId,
-                    null
-            ));
-        }, () -> log.warn("handleRoutedEvent: LoanDocument not found submissionId={}", submissionId));
-    }
-
-    @Transactional
-    public void handleFraudAuditEvent(String submissionId, String applicationId, String retentionUntil) {
-        applicationRepository.findByApplNoAndDeletedAtIsNull(applicationId).ifPresentOrElse(appl -> {
-            String before = appl.currentStatus();
-            appl.markRejected();
-            statusHistoryPublisher.publish(StatusChangeEvent.of(
-                    "LOAN", "LOAN_APPLICATION", appl.getApplId(),
-                    before, LoanApplication.STATUS_REJECTED,
-                    REASON_FRAUD_REJECTED, "submissionId=" + submissionId,
-                    null
-            ));
-        }, () -> log.warn("handleFraudAuditEvent: LoanApplication not found applNo={}", applicationId));
-
-        repository.findByDocUrlAndDeletedAtIsNull(submissionId)
-                .ifPresent(doc -> doc.markRetained(retentionUntil));
-    }
 }

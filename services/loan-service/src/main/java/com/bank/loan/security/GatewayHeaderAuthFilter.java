@@ -1,4 +1,4 @@
-﻿package com.bank.loan.security;
+package com.bank.loan.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

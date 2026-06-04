@@ -64,7 +64,7 @@ class PreReviewAgentServiceTest {
                 reviewService, purposeAnalysisService, groundingValidator, disagreementDetector,
                 rejectionReasonAgentService, ragRetrievalService);
         // RAG 기본 stub — disabled 환경, 빈 리스트 반환 (lenient: Track 1/2 미호출)
-        lenient().when(ragRetrievalService.retrieve(any(), any(), any()))
+        lenient().when(ragRetrievalService.retrieve(any(), any(), any(), any(), any()))
                 .thenReturn(List.of());
         // Track 3 정상 경로 기본 stub (Track1/2 에서는 미호출 — lenient)
         lenient().when(groundingValidator.validateNumericClaims(any(), any()))

@@ -26,15 +26,6 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
-      acks: all          # 브로커 응답 대기 — 메시지 유실 방지
-      retries: 3
-      properties:
-        enable.idempotence: true   # 프로듀서 멱등성 — 중복 발행 방지
   servlet:
     multipart:
       enabled: true
@@ -106,6 +97,14 @@ doc-agent:
 internal:
   token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
 
+# ---- Phase E E3-8: 합성 케이스 seed (기본 비활성 — 개발 환경 1회 실행용) ----
+ai:
+  case-seed:
+    enabled: ${AI_CASE_SEED_ENABLED:false}
+    count: ${AI_CASE_SEED_COUNT:10000}
+    batch-size: 500
+    aggregate-base: 9000000  # rev_id 충돌 방지 고정 오프셋
+
 management:
   endpoints:
     web:
@@ -142,34 +141,6 @@ advisory:
     base-url: ${ADVISORY_BASE_URL:http://advisory-service:8085}
     timeout-ms: ${ADVISORY_TIMEOUT_MS:5000}
     connect-timeout-ms: ${ADVISORY_CONNECT_TIMEOUT_MS:3000}
-  consumer:
-    # L7 실험: 값 변경 후 재기동만으로 효과 측정 가능
-    fetch-min-bytes: 1            # 실험: 10240으로 올리면 처리량↑ 지연↑
-    fetch-max-wait-ms: 500
-    fetch-max-bytes: 52428800
-    max-partition-fetch-bytes: 1048576
-    max-poll-records: 500         # 실험: 5000으로 올리면 max.poll.interval.ms 초과 위험
-    max-poll-interval-ms: 300000
-    session-timeout-ms: 45000
-    heartbeat-interval-ms: 15000
-    request-timeout-ms: 30000
-    default-api-timeout-ms: 60000
-    experiment-delay-ms: 0        # 실험: 양수 설정 시 처리 지연 시뮬레이션 (rebalance 유발)
-  producer:
-    use-skew-aware-partitioner: false  # L4 실험: true로 바꾸고 재기동 → hot-key 분산 효과 비교
-  kafka:
-    use-avro: false                    # L3 실험: true로 바꾸고 재기동 → Avro 직렬화로 전환
-    schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
-    dlq-backoff-interval-ms: 1000
-    dlq-max-attempts: 3
-    # L8 실험: 아래 값 변경 후 재기동으로 전략 비교
-    assignment-strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
-    # 실험: Range / RoundRobin 비교
-    #   org.apache.kafka.clients.consumer.RangeAssignor
-    #   org.apache.kafka.clients.consumer.RoundRobinAssignor
-    #   org.apache.kafka.clients.consumer.StickyAssignor
-    group-instance-id: ${ADVISORY_CONSUMER_INSTANCE_ID:}  # 비어있으면 동적 멤버십
-    client-rack: ${ADVISORY_CLIENT_RACK:}                 # 비어있으면 rack awareness 미적용
   ai-gateway:
     base-url: ${AIGATEWAY_BASE_URL:http://localhost:8088}
     timeout-ms: ${AIGATEWAY_TIMEOUT_MS:35000}

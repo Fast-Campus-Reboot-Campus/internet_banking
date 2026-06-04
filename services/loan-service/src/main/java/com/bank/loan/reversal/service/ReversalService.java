@@ -1,4 +1,4 @@
-﻿package com.bank.loan.reversal.service;
+package com.bank.loan.reversal.service;
 
 import com.bank.common.audit.StatusChangeEvent;
 import com.bank.common.audit.StatusHistoryPublisher;

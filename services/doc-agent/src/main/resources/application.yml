@@ -1,0 +1,98 @@
+server:
+  port: ${DOC_AGENT_APP_PORT:8087}
+
+spring:
+  application:
+    name: doc-agent
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  datasource:
+    url: jdbc:postgresql://${DOC_AGENT_DB_HOST:localhost}:${DOC_AGENT_DB_PORT:5438}/${DOC_AGENT_DB_NAME:doc_agent_db}
+    username: ${DOC_AGENT_DB_USER:docagent}
+    password: ${DOC_AGENT_DB_PASSWORD:docagent}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: doc-agent-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "com.bank.*"
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 100MB
+  cloud:
+    vault:
+      enabled: ${VAULT_ENABLED:false}
+      host: ${VAULT_HOST:localhost}
+      port: ${VAULT_PORT:8200}
+      scheme: http
+      authentication: TOKEN
+      token: ${VAULT_TOKEN:root}
+      kv:
+        enabled: true
+        default-context: doc-agent
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+doc-agent:
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+    region: ${STORAGE_REGION:us-east-1}
+    raw-bucket: ${STORAGE_RAW_BUCKET:doc-agent-raw}
+    masked-bucket: ${STORAGE_MASKED_BUCKET:doc-agent-masked}
+  inference:
+    base-url: ${INFERENCE_SERVER_URL:http://localhost:8090}
+    connect-timeout-seconds: 5
+    read-timeout-seconds: 30
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://host.docker.internal:11434}
+    model: ${OLLAMA_MODEL:qwen2.5:3b}
+  identity-verify:
+    driver-license:
+      url: ${DRIVER_LICENSE_API_URL:https://apis.data.go.kr/1300000/DriverLicenseInfoService01}
+      api-key: ${DRIVER_LICENSE_API_KEY:}
+      enabled: ${DRIVER_LICENSE_API_ENABLED:false}
+  kafka:
+    topics:
+      submission-received: doc-agent.submission.received
+      classified: doc-agent.classified
+      extracted: doc-agent.extracted
+      verified: doc-agent.verified
+      routed: doc-agent.routed
+      fraud-audit: doc-agent.fraud.audit

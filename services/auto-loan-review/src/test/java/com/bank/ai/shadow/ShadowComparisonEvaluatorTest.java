@@ -12,7 +12,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * ShadowComparisonEvaluator 단위 테스트 — phase-b-operational.md §B3, phase-d-rag.md D4-2.
+ * ShadowComparisonEvaluator 단위 테스트 — phase-b-operational.md §B3, phase-d-rag.md D4-2, phase-e-elasticsearch.md E4-2.
  *
  * <p>스프링 컨텍스트 없이 순수 단위 테스트.
  */
@@ -21,7 +21,7 @@ class ShadowComparisonEvaluatorTest {
     private ShadowComparisonEvaluator evaluator;
 
     private static final ShadowRunProperties PROPS =
-            new ShadowRunProperties(true, "stub-v1", "v1", 0.10, 1.0, 45, false, 2);
+            new ShadowRunProperties(true, "stub-v1", "v1", 0.10, 1.0, 45, false, 2, "inline");
 
     @BeforeEach
     void setUp() {
@@ -36,7 +36,7 @@ class ShadowComparisonEvaluatorTest {
         AgentOpinion shadow = opinion(0.80, RiskLevel.LOW,    false);
 
         ShadowComparisonResult result = evaluator.evaluate(
-                1L, prod, shadow, Track.TRACK_1, "stub-v1", "v1", false);
+                1L, prod, shadow, Track.TRACK_1, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isFalse();
         assertThat(result.divergeReasons()).isEmpty();
@@ -50,7 +50,7 @@ class ShadowComparisonEvaluatorTest {
         AgentOpinion shadow = opinion(0.70, RiskLevel.MEDIUM, false);
 
         ShadowComparisonResult result = evaluator.evaluate(
-                2L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false);
+                2L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isTrue();
         assertThat(result.divergeReasons()).contains("RISK_LEVEL_MISMATCH");
@@ -64,7 +64,7 @@ class ShadowComparisonEvaluatorTest {
         AgentOpinion shadow = opinion(0.70, RiskLevel.LOW,  false);  // gap=0.20 > 0.10
 
         ShadowComparisonResult result = evaluator.evaluate(
-                3L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false);
+                3L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isTrue();
         assertThat(result.divergeReasons()).contains("DECISION_SCORE_GAP");
@@ -76,7 +76,7 @@ class ShadowComparisonEvaluatorTest {
         AgentOpinion shadow = opinion(0.75, RiskLevel.LOW, false);  // gap=0.05 ≤ 0.10
 
         ShadowComparisonResult result = evaluator.evaluate(
-                4L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false);
+                4L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isFalse();
     }
@@ -89,7 +89,7 @@ class ShadowComparisonEvaluatorTest {
         AgentOpinion shadow = opinion(0.75, RiskLevel.MEDIUM, false);
 
         ShadowComparisonResult result = evaluator.evaluate(
-                5L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false);
+                5L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isTrue();
         assertThat(result.divergeReasons()).contains("DISAGREEMENT_MISMATCH");
@@ -103,7 +103,7 @@ class ShadowComparisonEvaluatorTest {
         AgentOpinion shadow = opinion(0.80, RiskLevel.LOW, false);
 
         ShadowComparisonResult result = evaluator.evaluate(
-                6L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false);
+                6L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isFalse();
         assertThat(result.divergeReasons()).isEmpty();
@@ -117,7 +117,7 @@ class ShadowComparisonEvaluatorTest {
         AgentOpinion shadow = opinion(0.70, RiskLevel.HIGH, false);  // score gap + risk + disagreement
 
         ShadowComparisonResult result = evaluator.evaluate(
-                7L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false);
+                7L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isTrue();
         assertThat(result.divergeReasons())
@@ -134,11 +134,12 @@ class ShadowComparisonEvaluatorTest {
                 List.of("DSR_THRESHOLD_WARNING", "LTV_THRESHOLD_WARNING", "CRED_SCORE_WARNING"));
 
         ShadowComparisonResult result = evaluator.evaluate(
-                8L, prod, shadow, Track.TRACK_3, "stub-v2", "v2", true);
+                8L, prod, shadow, Track.TRACK_3, "stub-v2", "v2", true, "es");
 
         assertThat(result.diverged()).isTrue();
         assertThat(result.divergeReasons()).contains("POLICY_FLAG_DIFF");
         assertThat(result.ragEnabled()).isTrue();
+        assertThat(result.ragBackend()).isEqualTo("es");
     }
 
     @Test
@@ -150,7 +151,7 @@ class ShadowComparisonEvaluatorTest {
                 List.of("DSR_THRESHOLD_WARNING", "LTV_THRESHOLD_WARNING"));
 
         ShadowComparisonResult result = evaluator.evaluate(
-                9L, prod, shadow, Track.TRACK_3, "stub-v2", "v2", true);
+                9L, prod, shadow, Track.TRACK_3, "stub-v2", "v2", true, "es");
 
         assertThat(result.diverged()).isFalse();
     }
@@ -163,10 +164,27 @@ class ShadowComparisonEvaluatorTest {
                 List.of("DSR_THRESHOLD_WARNING", "LTV_THRESHOLD_WARNING", "CRED_SCORE_WARNING"));
 
         ShadowComparisonResult result = evaluator.evaluate(
-                10L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false);
+                10L, prod, shadow, Track.TRACK_3, "stub-v1", "v1", false, "inline");
 
         assertThat(result.diverged()).isFalse();
         assertThat(result.ragEnabled()).isFalse();
+        assertThat(result.ragBackend()).isEqualTo("inline");
+    }
+
+    // ── TC 8: E4-2 ragBackend 값이 결과에 전달됨 ─────────────────────────
+
+    @Test
+    void ragBackend_isPreservedInResult() {
+        AgentOpinion prod   = opinion(0.80, RiskLevel.LOW, false);
+        AgentOpinion shadow = opinion(0.80, RiskLevel.LOW, false);
+
+        ShadowComparisonResult inlineResult = evaluator.evaluate(
+                11L, prod, shadow, Track.TRACK_1, "stub-v1", "v1", false, "inline");
+        ShadowComparisonResult esResult = evaluator.evaluate(
+                12L, prod, shadow, Track.TRACK_1, "stub-v2", "v2", true, "es");
+
+        assertThat(inlineResult.ragBackend()).isEqualTo("inline");
+        assertThat(esResult.ragBackend()).isEqualTo("es");
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────

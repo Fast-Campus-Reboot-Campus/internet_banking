@@ -99,10 +99,11 @@ public class PreReviewAgentService {
             }
             List<String> policyFlags = new PolicyFlagTool(request).evaluatePolicyFlags();
 
-            // 2. RAG 정책 코퍼스 검색 (guard 슬롯 소비 — RagProperties.enabled=false 시 스킵)
+            // 2. RAG 검색 — D2 정책 코퍼스 + D3 유사 케이스 코퍼스
             String policyQuery = buildPolicyQuery(request);
+            String casesQuery  = buildCasesQuery(request);
             List<Chunk> ragChunks = ragRetrievalService.retrieve(
-                    decision.track(), policyQuery, guard);
+                    decision.track(), policyQuery, casesQuery, request.productCode(), guard);
             log.debug("PreReviewAgentService: RAG chunks={} revId={}", ragChunks.size(), revId);
 
             // 3. 신청 사유 분석
@@ -335,5 +336,16 @@ public class PreReviewAgentService {
         String product = req.productCode() != null ? req.productCode() : "";
         String purpose = req.purposeCd() != null ? req.purposeCd() : "";
         return (product + " " + purpose + " 정책 한도 기준").trim();
+    }
+
+    private static String buildCasesQuery(AutoReviewRequest req) {
+        List<String> parts = new java.util.ArrayList<>();
+        if (req.productCode() != null)         parts.add(req.productCode());
+        if (req.applicantSegment() != null)    parts.add(req.applicantSegment());
+        if (req.dsr() != null)                 parts.add(String.format("DSR %.0f%%", req.dsr() * 100));
+        if (req.ltv() != null)                 parts.add(String.format("LTV %.0f%%", req.ltv() * 100));
+        if (req.creditScoreProxy() != null)    parts.add("신용점수 " + req.creditScoreProxy());
+        if (req.delinquencyHistory24m() != null) parts.add("연체 " + req.delinquencyHistory24m() + "건");
+        return parts.isEmpty() ? null : String.join(" ", parts) + " 유사 케이스";
     }
 }
