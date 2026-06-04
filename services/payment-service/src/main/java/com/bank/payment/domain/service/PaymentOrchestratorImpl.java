@@ -433,17 +433,15 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             }
         }
 
-        // A-2 예금주조회 (송신계좌) — deposit by-number 응답(AccountInquiryData)에 holderName 없음,
-        // deposit holder API도 미제공(D-REQ-5: 예금주명은 customer-service 영역). 호출 생략,
-        // 요청 신원(command.userId())으로 박제. 수신 타행 박제 패턴과 동일.
-        String senderHolderName = command.userId();
+        // A-2 예금주조회 (송신계좌) — D-REQ-5: 예금주명은 deposit/customer-service 정식 조회 영역.
+        // 정식 연동 전까지 미조회 표기. userId는 예금주명이 아님.
+        String senderHolderName = "미조회";
         recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "internal", "GET",
                 "internal:command.userId", "SUCCESS");
 
-        // A-2 예금주조회 (수신계좌) — deposit holder API 미제공(D-REQ-5: customer-service 영역).
-        // 자행/타행 공통으로 요청값 박제(송신 패턴과 동일, holderInquiryAt=null V8 nullable).
-        // 자행 수신 사전검증(deceasedFlag/holderName 일치)은 customer-service 도입 시점 복원.
-        String receiverHolderName = command.receiverHolderName();
+        // A-2 예금주조회 (수신계좌) — D-REQ-5: 예금주명은 deposit/customer-service 정식 조회 영역.
+        // 정식 연동 전까지 미조회 표기. 요청 receiverHolderName은 미검증값이므로 ledger에 박지 않음.
+        String receiverHolderName = "미조회";
         recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "RECEIVER", "internal", "GET",
                 "internal:command.receiverHolderName", "SUCCESS");
         txService.updateReceiverHolderSnap(piId, receiverHolderName, null);
@@ -483,9 +481,9 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             throw new PaymentValidationException("ACCOUNT_RESTRICTED", "송신계좌 사고신고(실행시)");
         }
 
-        // A-2 예금주조회 (송신계좌) — deposit holder API 미제공으로 호출 생략.
-        // 요청 신원(command.userId())으로 박제 (등록 시와 동일 패턴).
-        String senderHolderName = command.userId();
+        // A-2 예금주조회 (송신계좌) — D-REQ-5: 예금주명은 deposit/customer-service 정식 조회 영역.
+        // 정식 연동 전까지 미조회 표기. userId는 예금주명이 아님.
+        String senderHolderName = "미조회";
         recordCall(piId, "ACCOUNT_OWNER_INQUIRY", "SENDER", "internal", "GET",
                 "internal:command.userId", "SUCCESS", "SUCCESS", attempt);
 
