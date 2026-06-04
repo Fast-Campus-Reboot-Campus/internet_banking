@@ -111,7 +111,12 @@ export default function TransferAccountPage() {
       setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
       return
     }
+    // AXful 내 계좌로의 이체면 INTERNAL, 아니면 EXTERNAL (deposit-service 이체 실행에 사용)
+    const targetAccount = accounts.find(acc => acc.number === toAccount)
     sessionStorage.setItem('pendingTransfer', JSON.stringify({
+      fromAccountId: fromAcc?.apiAccountId,
+      toAccountId: targetAccount?.apiAccountId,
+      transferType: targetAccount ? 'INTERNAL' : 'EXTERNAL',
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,

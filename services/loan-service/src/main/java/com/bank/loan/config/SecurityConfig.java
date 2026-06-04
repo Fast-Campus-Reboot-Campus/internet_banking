@@ -1,4 +1,4 @@
-﻿package com.bank.loan.config;
+package com.bank.loan.config;
 
 import com.bank.loan.security.GatewayHeaderAuthFilter;
 import com.bank.loan.security.InternalTokenFilter;

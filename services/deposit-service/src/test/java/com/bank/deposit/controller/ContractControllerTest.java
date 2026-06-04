@@ -137,7 +137,7 @@ class ContractControllerTest {
                 .joinChannel(JoinChannel.WEB)
                 .contractStatus(ContractStatus.TERMINATED)
                 .build();
-        given(contractService.terminate(eq(1L), any())).willReturn(terminated);
+        given(contractService.terminate(eq(1L), any(), isNull())).willReturn(terminated);
 
         mockMvc.perform(patch("/contracts/1/terminate")
                         .contentType(MediaType.APPLICATION_JSON)

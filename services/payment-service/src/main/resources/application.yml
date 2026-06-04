@@ -52,6 +52,12 @@ springdoc:
   packages-to-scan: com.bank.payment
   default-produces-media-type: application/json
 
+deposit:
+  account:
+    url: ${DEPOSIT_ACCOUNT_URL:http://localhost:8082}
+  balance:
+    url: ${DEPOSIT_BALANCE_URL:http://localhost:8082}
+
 payment:
   bank-code: ${BANK_CODE:A}
   timeout:

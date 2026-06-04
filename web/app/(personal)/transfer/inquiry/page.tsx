@@ -3,12 +3,13 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { formatNumber } from '@/lib/mock-data'
-import { fetchDepositAccountViewModels, fetchTransactions, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import { fetchDepositAccountViewModels, fetchTransactions, getCurrentDepositCustomerId, type DepositViewAccount } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회']
 
 type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string }
+type InquiryAccount = Pick<DepositViewAccount, 'id' | 'apiAccountId' | 'number' | 'name'>
 
 export default function TransferInquiryPage() {
   const [activeTab, setActiveTab] = useState('즉시이체 결과조회')
@@ -20,7 +21,7 @@ export default function TransferInquiryPage() {
   const [searched, setSearched] = useState(false)
   const [checkedRows, setCheckedRows] = useState<Set<string>>(new Set())
   const [localResults, setLocalResults] = useState<ResultRow[]>([])
-  const [accounts, setAccounts] = useState<{ id: string; number: string; name: string }[]>([])
+  const [accounts, setAccounts] = useState<InquiryAccount[]>([])
   const [apiResults, setApiResults] = useState<ResultRow[]>([])
 
   useEffect(() => {
@@ -31,12 +32,15 @@ export default function TransferInquiryPage() {
       } catch {}
       try {
         const accs = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-        const mapped = accs.map(a => ({ id: a.id, number: a.number, name: a.name }))
+        const mapped = accs.map(a => ({ id: a.id, apiAccountId: a.apiAccountId, number: a.number, name: a.name }))
         setAccounts(mapped)
         if (mapped.length > 0) setFromAccount(mapped[0].number)
-      } catch {}
-      try {
-        const txs = await fetchTransactions({ customerId: getCurrentDepositCustomerId() })
+        const txResults = await Promise.allSettled(
+          mapped
+            .filter(account => account.apiAccountId)
+            .map(account => fetchTransactions({ accountId: account.apiAccountId }))
+        )
+        const txs = txResults.flatMap(result => result.status === 'fulfilled' ? result.value : [])
         const rows: ResultRow[] = txs
           .filter(t => t.transactionType === 'TRANSFER' && t.directionType === 'OUT')
           .map(t => ({

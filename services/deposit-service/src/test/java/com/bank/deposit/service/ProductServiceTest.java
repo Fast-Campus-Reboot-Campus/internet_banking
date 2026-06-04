@@ -87,6 +87,42 @@ class ProductServiceTest {
             then(productRepository).should()
                     .findByProductTypeAndProductStatus(ProductType.DEPOSIT, ProductStatus.SELLING);
         }
+
+        @Test
+        @DisplayName("상품 목록 응답은 active 기본금리와 우대금리를 합산한 bestRate를 포함한다")
+        void findAllResponsesWithBestRate() {
+            Product product = productWithId(1L, "정기예금");
+            given(productRepository.findByProductTypeAndProductStatus(ProductType.DEPOSIT, ProductStatus.SELLING))
+                    .willReturn(List.of(product));
+            given(interestRateRepository.findByProductIdInAndIsActive(List.of(1L), true))
+                    .willReturn(List.of(
+                            interestRate(1L, RateType.BASE, "2.15"),
+                            interestRate(1L, RateType.PREFERENTIAL, "0.75")
+                    ));
+
+            var result = productService.findAllResponses(ProductType.DEPOSIT, ProductStatus.SELLING);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).baseInterestRate()).isEqualByComparingTo("3.5");
+            assertThat(result.get(0).bestRate()).isEqualByComparingTo("2.90");
+        }
+    }
+
+    @Test
+    @DisplayName("상품 상세 응답은 active 금리 row 기준 bestRate를 계산한다")
+    void findResponseByIdWithBestRate() {
+        Product product = productWithId(1L, "내맘대로적금");
+        given(productRepository.findById(1L)).willReturn(Optional.of(product));
+        given(interestRateRepository.findByProductIdAndIsActive(1L, true))
+                .willReturn(List.of(
+                        interestRate(1L, RateType.BASE, "2.95"),
+                        interestRate(1L, RateType.PREFERENTIAL, "0.60")
+                ));
+
+        var result = productService.findResponseById(1L);
+
+        assertThat(result.baseInterestRate()).isEqualByComparingTo("3.5");
+        assertThat(result.bestRate()).isEqualByComparingTo("3.55");
     }
 
     @Nested
@@ -481,6 +517,27 @@ class ProductServiceTest {
                 .description("상품 설명")
                 .baseInterestRate(BigDecimal.valueOf(3.5))
                 .productStatus(ProductStatus.SELLING)
+                .build();
+    }
+
+    private Product productWithId(Long id, String name) {
+        return Product.builder()
+                .productId(id)
+                .productType(ProductType.DEPOSIT)
+                .productName(name)
+                .description("상품 설명")
+                .baseInterestRate(BigDecimal.valueOf(3.5))
+                .productStatus(ProductStatus.SELLING)
+                .build();
+    }
+
+    private ProductInterestRate interestRate(Long productId, RateType rateType, String rate) {
+        return ProductInterestRate.builder()
+                .productId(productId)
+                .rateType(rateType)
+                .rate(new BigDecimal(rate))
+                .effectiveStartDate("20260101")
+                .isActive(true)
                 .build();
     }
 

@@ -47,22 +47,36 @@ spring:
         location: ${VERTEX_LOCATION:us-central1}
 
 ai:
-  # ---- D1: RAG ----
+  # ---- E1: RAG (Elasticsearch 하이브리드 검색) ----
   rag:
     enabled: ${AI_RAG_ENABLED:false}              # kill switch — false 시 인라인 policy fallback
+    backend: ${AI_RAG_BACKEND:inline}             # inline / es (Phase E)
     embedding:
-      provider: ${AI_RAG_EMB_PROVIDER:stub}       # stub / vertex (D1-3 구현체 선택)
-      dimensions: 1024
+      provider: ${AI_RAG_EMB_PROVIDER:stub}       # stub / vertex
+      dimensions: 768                             # text-embedding-005 기본 출력 (Phase E: 1024→768)
+    es:
+      uris: ${ES_URIS:http://localhost:9200}
+      api-key: ${ES_API_KEY:}
+      connect-timeout: 2s
+      read-timeout: 5s
+      indexes:
+        policy: kb_policy
+        cases: kb_similar_cases
+        faq: kb_internal_faq
     search:
-      alpha: 0.7                                  # 벡터 가중치 (FTS = 1 - alpha)
-      similarity-threshold: 0.5                   # 이하 결과 제외
+      alpha: 0.7                                  # pgvector 레거시 (backend=inline 시 사용)
+      similarity-threshold: 0.5                   # pgvector 레거시
       default-k: 5
+      num-candidates: 100                         # ES kNN num_candidates (Phase E)
+      rrf:
+        rank-window-size: 50                      # ES RRF 파라미터
+        rank-constant: 60
     call-caps-per-track:
       TRACK_1: 1
       TRACK_2: 2
       TRACK_3: 5
     rerank:
-      enabled: false                              # D-F2 옵션
+      enabled: false                              # E-F1 옵션
 
   # ---- B4: PSI Drift + Fairness ----
   drift:
@@ -96,6 +110,19 @@ ai:
     diverge-score-threshold: 0.10
     sampling-rate: 1.0
     timeout-seconds: 45
+    rag-backend: ${AI_SHADOW_RAG_BACKEND:inline}   # shadow run 이 사용할 RAG 백엔드 (inline / es)
+
+  # ---- E4-4: Canary 라우팅 (shadow → canary → full 단계 전환) ----
+  # 단계별 절차:
+  #   1. shadow 100% 검증 (현재): AI_SHADOW_ENABLED=true
+  #   2. canary  5%: AI_CANARY_ENABLED=true  AI_CANARY_ES_WEIGHT=5   (48h 후 게이트 통과 시)
+  #   3. canary 25%: AI_CANARY_ENABLED=true  AI_CANARY_ES_WEIGHT=25  (48h 후 게이트 통과 시)
+  #   4. full  100%: AI_CANARY_ENABLED=true  AI_CANARY_ES_WEIGHT=100
+  # 게이트 기준: agreementRate ≥ 0.95, citationMissRate ≤ 0.05, p99 search < 500ms, p99 report < 8s
+  canary:
+    enabled: ${AI_CANARY_ENABLED:false}       # Canary 라우팅 활성 (CanaryRouter 빈 등록)
+    es-weight: ${AI_CANARY_ES_WEIGHT:5}       # ES 경로 라우팅 비율 0~100 (5 = 5%)
+    min-shadow-runs: ${AI_CANARY_MIN_SHADOW_RUNS:100}  # 게이트 판정 최소 shadow 건수
 
   # ---- 사전 심사 에이전트 (pre-review-agent-plan.md) ----
   agent:
@@ -185,6 +212,12 @@ ai:
         self_employed: 0.407
         senior: 0.788
         young: 0.750
+
+  # ---- E3-6: 케이스 임베딩 엔리처 ----
+  case-enricher:
+    enabled: ${AI_CASE_ENRICHER_ENABLED:false}
+    raw-topic: loan-review.case-indexed.v1
+    enriched-topic: loan-review.case-indexed-enriched.v1
 
   # ---- Kafka (편향 검증 컨슈머) ----
   kafka:

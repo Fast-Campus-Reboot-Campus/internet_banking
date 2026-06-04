@@ -1,7 +1,7 @@
 package com.bank.ai.rag.policy;
 
 import com.bank.ai.llm.policy.PolicyIndex;
-import com.bank.ai.rag.search.RagSearchService;
+import com.bank.ai.rag.search.RagSearchBackend;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -23,16 +23,16 @@ public class RagPolicyIndex implements PolicyIndex {
 
     static final String CORPUS = "policy_regulation";
 
-    private final RagSearchService ragSearchService;
+    private final RagSearchBackend ragSearchBackend;
 
     @Override
     public boolean exists(String sourceId) {
-        return ragSearchService.existsBySourceId(CORPUS, sourceId);
+        return ragSearchBackend.existsBySourceId(CORPUS, sourceId);
     }
 
     @Override
     public Optional<PolicyEntry> get(String sourceId) {
-        return ragSearchService.findBySourceId(CORPUS, sourceId)
+        return ragSearchBackend.findBySourceId(CORPUS, sourceId)
                 .map(chunk -> new PolicyEntry(
                         chunk.promptText(),
                         chunk.metadata().getOrDefault("source", "rag").toString()));

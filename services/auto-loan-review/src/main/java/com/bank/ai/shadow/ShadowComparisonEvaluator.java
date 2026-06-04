@@ -36,6 +36,7 @@ public class ShadowComparisonEvaluator {
      * @param shadowModel         shadow 모델명
      * @param shadowPromptVersion shadow 프롬프트 버전
      * @param ragEnabled          shadow run 이 RAG 컨텍스트를 사용했는지 여부
+     * @param ragBackend          shadow run 이 사용한 RAG 백엔드 (inline / es)
      * @return 비교 결과
      */
     public ShadowComparisonResult evaluate(
@@ -45,7 +46,8 @@ public class ShadowComparisonEvaluator {
             Track track,
             String shadowModel,
             String shadowPromptVersion,
-            boolean ragEnabled
+            boolean ragEnabled,
+            String ragBackend
     ) {
         List<String> reasons = new ArrayList<>();
 
@@ -54,7 +56,7 @@ public class ShadowComparisonEvaluator {
             log.debug("[Shadow] revId={} 비교 생략 — fallback prod={} shadow={}",
                     revId, prod.fallbackReason(), shadow.fallbackReason());
             return new ShadowComparisonResult(
-                    revId, prod, shadow, false, List.of(), track, shadowModel, shadowPromptVersion, ragEnabled);
+                    revId, prod, shadow, false, List.of(), track, shadowModel, shadowPromptVersion, ragEnabled, ragBackend);
         }
 
         // 1. riskLevel 불일치
@@ -92,6 +94,6 @@ public class ShadowComparisonEvaluator {
         }
 
         return new ShadowComparisonResult(
-                revId, prod, shadow, diverged, reasons, track, shadowModel, shadowPromptVersion, ragEnabled);
+                revId, prod, shadow, diverged, reasons, track, shadowModel, shadowPromptVersion, ragEnabled, ragBackend);
     }
 }

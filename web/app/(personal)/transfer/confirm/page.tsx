@@ -4,9 +4,12 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
-import { createInstantTransfer } from '@/lib/payment-api'
+import { executeDepositTransfer, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 
 type PendingTransfer = {
+  fromAccountId?: number
+  toAccountId?: number
+  transferType?: 'INTERNAL' | 'EXTERNAL'
   fromNumber: string
   fromName: string
   toBank: string
@@ -30,8 +33,6 @@ export default function TransferConfirmPage() {
   const [showCertModal, setShowCertModal] = useState(false)
   const [certStep, setCertStep] = useState<'info' | 'pin'>('info')
   const [pin, setPin] = useState<number[]>([])
-  const [idemKey] = useState(() => crypto.randomUUID())
-  const [authTokenId] = useState(() => crypto.randomUUID())
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -53,35 +54,26 @@ export default function TransferConfirmPage() {
           setIsSubmitting(true)
           setShowCertModal(false)
           try {
-            const res = await createInstantTransfer(
-              {
-                senderAccountId: data.fromNumber,
-                receiverBankCode: data.toBankCode,
-                receiverAccountNo: data.toAccount,
-                receiverHolderName: data.receiverName,
-                transferAmount: data.amount,
-                receiverMemo: null,
-                senderMemo: null,
-                channel: 'WEB',
-                receiverPassbookSenderDisplay: data.fromName || null,
-              },
-              {
-                userId: localStorage.getItem('customerId') ?? '',
-                authTokenId,
-                idempotencyKey: idemKey,
-              }
-            )
+            if (!data.fromAccountId) throw new Error('출금계좌 정보가 없습니다.')
+            const res = await executeDepositTransfer(getCurrentDepositCustomerId(), {
+              fromAccountId: data.fromAccountId,
+              toAccountId: data.toAccountId,
+              toAccountNo: data.toAccount,
+              amount: data.amount,
+              transferType: data.transferType,
+              counterpartyBankCode: data.toBankCode,
+              counterpartyBankName: data.toBank,
+              counterpartyName: data.receiverName,
+            })
             sessionStorage.setItem('paymentResult', JSON.stringify({
-              status: res.status,
-              piId: res.paymentInstructionId,
-              txNo: res.transactionNo,
-              failureCategory: res.failureCategory ?? null,
+              status: 'COMPLETED',
+              txNo: String(res.transactionId),
             }))
           } catch (e: unknown) {
-            const err = e as { response?: { data?: { error?: string } } }
+            const err = e as { response?: { data?: { error?: string } }; message?: string }
             sessionStorage.setItem('paymentResult', JSON.stringify({
               status: 'ERROR',
-              message: err.response?.data?.error ?? '네트워크 오류가 발생했습니다.',
+              message: err.response?.data?.error ?? err.message ?? '네트워크 오류가 발생했습니다.',
             }))
           } finally {
             setIsSubmitting(false)

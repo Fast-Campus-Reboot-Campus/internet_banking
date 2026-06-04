@@ -1,6 +1,6 @@
 # 자동 심사 시스템 — 다음 단계 로드맵
 
-> Last updated: 2026-05-26
+> Last updated: 2026-05-29
 > 선행 문서: `banking-review-llm.md`, `pre-review-agent-plan.md`
 > 현재 완료: Phase 1.5 · 1.6 · 1.6.1 · 1.8 (LLM 파이프라인 + Pre-Review Agent 전체)
 
@@ -213,36 +213,44 @@ services/inference-server/
 
 ---
 
-## Phase D — RAG 구축 (~4 ~ 4.5주)
+## Phase D — RAG 구축 (⚠️ SUPERSEDED → Phase E 로 대체)
 
-> 실행 계획: **[`phase-d-rag.md`](phase-d-rag.md)** (D0~D4 단계·게이트·산출물).
-> 설계: **[`rag-corpora.md`](rag-corpora.md)** (스키마·청킹·하이브리드 검색·메타 필터).
-
-**전제 조건**: PostgreSQL 16 (전사 결정) + pgvector 0.7+, Spring AI 1.x BOM.
-
-| 단계 | 내용 | 기간 |
-|------|------|------|
-| **D0** | 아키텍처 결정 + 사전 정비 — 코드 오케스트레이션 채택, Spring AI 도입 합의, `PolicyIndex` interface 추출 합의, 본 문서·`rag-corpora.md` §13 갱신 | 0.5주 |
-| **D1** | 인프라 + 정책 코퍼스 P1 — Spring AI BOM + Vertex embedding starter, V4 마이그레이션 (pgvector + pg_trgm), `EmbeddingClient` (Stub + SpringAi), `RagSearchService` 하이브리드 검색, 정책 코퍼스 13 chunks seed | 1.5주 |
-| **D2** | Tool + Grounding 통합 — `PolicyIndex` interface 분리, `ai.rag.*` 설정 + kill switch, `RagRetrievalService` + `AgentLoopGuard` 통합, 프롬프트 v2 4종, `GroundingValidator` Citation prefix 분기 | 1주 |
-| **D3** | 유사 케이스 코퍼스 P2 — `/api/internal/embeddings/batch` endpoint, `loan-service` 측 `SimilarCaseExporter` + 일배치, PII 이중 마스킹, 합성 1만건 cold-start seed | 0.5주 |
-| **D4** | 검증 + 운영 cutover — RAG 메트릭 4종 + Grafana, V5 마이그레이션 (`shadow_run_result.rag_enabled`), Shadow Mode V1/V2 동시 산출, canary 단계 (shadow → 5% → 25% → 100%) | 1주 |
-
-**옵션 후속 (D 종료 후)**: D-F1 FAQ · D-F2 rerank · D-F3 Agentic RAG (LLM 자율 tool calling) · D-F4 외부 정책 PDF · D-F5 bge-m3 자체 ONNX 호스팅.
+> ~~pgvector + PostgreSQL FTS 가중합 방안~~ — **Phase E (Elasticsearch) 로 교체됨**.
+> 실행 계획: **[`phase-d-rag.md`](phase-d-rag.md)** (historical, superseded).
+> 코퍼스 정의·인터페이스·LLM 패턴은 Phase E 에 승계.
 
 ---
 
-## Phase E — 심사원 대시보드 (Frontend, ~5주)
+## Phase E — Elasticsearch 하이브리드 검색 RAG (~5주)
+
+> 실행 계획: **[`phase-e-elasticsearch.md`](phase-e-elasticsearch.md)** (E0~E4 단계·게이트·산출물).
+> 설계: **[`rag-corpora.md`](rag-corpora.md)** (코퍼스 정의·메타 필터 — 유효).
+
+**핵심 결정**: ES 8.15 네이티브 `retriever` RRF (BM25 + kNN), nori 한국어 분석기, dims=768 int8_hnsw.
+
+| 단계 | 내용 | 기간 |
+|------|------|------|
+| **E0** | 결정 + 사전 정비 — phase-d-rag.md supersede, next-phase-roadmap 교체, rag-corpora.md ES 매핑 부록 | 0.5주 |
+| **E1** | ES 인프라 + 인덱스 + 임베딩 — docker-compose profile `rag`, ES Java 클라이언트, 인덱스 템플릿 3종, `EmbeddingClient`(Stub 768d), `EsClientConfig`, `EsIndexAdminService` | 1.5주 |
+| **E2** | 하이브리드 검색 통합 — `EsHybridSearchService` (RRF), `EsPolicyIndex`, `ai.rag.*` ES 설정, `RagRetrievalService` swap, 프롬프트 v2, `GroundingValidator` prefix 분기 | 1주 |
+| **E3** | 코퍼스 적재 파이프라인 — P1 정책 seed, P3 FAQ endpoint, P2 outbox→Kafka→Connect, `CaseEmbeddingEnricher`, PII smoke, 합성 1만건 seed | 1.5주 |
+| **E4** | 검증 + 운영 cutover — RAG 메트릭 5종 + Grafana, Shadow Mode 확장, E2E smoke 6케이스, canary (shadow→5%→25%→100%) | 0.5주 |
+
+**옵션 후속 (E 종료 후)**: E-F1 `text_similarity_reranker` · E-F2 ELSER sparse · E-F3 Agentic RAG · E-F4 외부 정책 PDF.
+
+---
+
+## Phase F — 심사원 대시보드 (Frontend, ~5주)
 
 > 심사원이 실제로 사용하는 화면. 백엔드 API는 이미 완성.
 
-### E1. 기술 선택
+### F1. 기술 선택
 - **React 18 + TypeScript + Vite**
 - 상태 관리: Zustand (경량)
 - UI: shadcn/ui + Tailwind
 - 실시간: SSE (`EventSource`) — loan-service → ai-service → 대시보드
 
-### E2. 핵심 화면
+### F2. 핵심 화면
 
 **심사 대기 목록**
 - 트랙별 뱃지 (TRACK_1 초록 / TRACK_2 빨강 / TRACK_3 주황)
@@ -278,7 +286,7 @@ Track 3 카드:
 - Fallback 분포 파이 차트 (최근 24시간)
 - Fairness Report 테이블
 
-### E3. 실시간 Push
+### F3. 실시간 Push
 ```
 loan-service → LOAN_REVIEW 업데이트 → SSE 브로드캐스트
 ai-service   → LLM 리포트 완료     → SSE 브로드캐스트
@@ -323,9 +331,9 @@ Frontend     → EventSource 구독    → 카드 갱신
   C3 SHAP 통합           — Track 3 설명성
   C4 회귀 검증           — 트랙 분포 목표치 확인
 
-선택 / 순서 유동 (Phase D·E)
-  D  RAG                 — 보류 해제 시 D1 → D2 → D3 순
-  E  Frontend            — C 완료 후 착수가 자연스러움 (API 안정 후 UI 바인딩)
+선택 / 순서 유동 (Phase E·F)
+  E  RAG (Elasticsearch) — E0→E1→E2→E3→E4 순 (phase-e-elasticsearch.md)
+  F  Frontend            — C 완료 후 착수가 자연스러움 (API 안정 후 UI 바인딩)
 
 후순위 (Phase F)
   F1 2nd Opinion         — E 완료 후
@@ -341,8 +349,8 @@ Frontend     → EventSource 구독    → 카드 갱신
 |-------|------|------|
 | B | 운영 준비 (B1~B5) | 3~4주 |
 | C | ML 파이프라인 (C1~C4) | 5~6주 |
-| D | RAG (선택) | 3~4주 |
-| E | Frontend 대시보드 | 4~5주 |
+| E | RAG (Elasticsearch, E0~E4) | 5주 |
+| F | Frontend 대시보드 | 4~5주 |
 | F | Phase 2 에이전트 | 별도 로드맵 |
 
 **MVP 완성 기준**: Phase B + C 완료 → 실제 심사원에게 Shadow Mode로 시범 배포 가능.

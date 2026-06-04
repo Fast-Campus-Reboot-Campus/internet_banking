@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 결정론 임베딩 클라이언트 — 테스트·로컬 전용.
  *
- * <p>텍스트 SHA-256 → 1024차원 float 벡터 고정 매핑.
+ * <p>텍스트 SHA-256 → 768차원 float 벡터 고정 매핑 (text-embedding-005 기본 출력 dim 일치).
  * 동일 텍스트는 항상 동일 벡터를 반환하므로 단위 테스트에서 결정론 보장.
  * {@code ai.rag.embedding.provider=stub} (기본값) 시 활성.
  */
@@ -20,7 +20,7 @@ import java.util.List;
         havingValue = "stub", matchIfMissing = true)
 public class StubEmbeddingClient implements EmbeddingClient {
 
-    private static final int DIMENSIONS = 1024;
+    private static final int DIMENSIONS = 768;
 
     @Override
     public float[] embed(String text) {

@@ -1,4 +1,4 @@
-﻿package com.bank.loan.autodebit.service;
+package com.bank.loan.autodebit.service;
 
 import com.bank.loan.autodebit.domain.AutoDebitClearingPending;
 import com.bank.loan.autodebit.dto.AutoDebitRunResponse;
