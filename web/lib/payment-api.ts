@@ -40,6 +40,15 @@ export type InstantTransferResult = {
   failureCategory: string | null
 }
 
+// 요청 멱등키 — 이체 "의도"당 1회 생성해 재시도 시 동일 키를 재사용한다.
+// (중복 제출 방지용 클라이언트 요청 키. 결제계 내부 deposit 호출 멱등키와는 별개.)
+export function newIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `transfer-${crypto.randomUUID()}`
+  }
+  return `transfer-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export async function createInstantTransfer(
   payload: InstantTransferPayload,
   headers: TransferRequestHeaders

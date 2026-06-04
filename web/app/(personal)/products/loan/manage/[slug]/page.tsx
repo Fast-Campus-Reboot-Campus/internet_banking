@@ -43,7 +43,7 @@ function ContractSelect({ contracts, selectedId, onChange }: {
         <span className="text-[13px] text-kb-text-muted">해당계좌가 없습니다.</span>
       ) : (
         <select value={selectedId ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))}
-          className="border border-kb-border px-3 py-1.5 text-[13px] focus:outline-none min-w-[220px]">
+          className="border border-[#E2F5EF] px-3 py-1.5 text-[13px] focus:outline-none min-w-[220px]">
           {contracts.map(c => (
             <option key={c.cntrId} value={c.cntrId}>
               {c.cntrNo} ({formatAmount(c.contractedAmount)})
@@ -60,7 +60,7 @@ function StepIndicator() {
     <div className="flex items-center gap-1 mb-5">
       <span className="px-4 py-1.5 text-[13px] font-bold bg-[#3D3D3D] text-white">1. 계좌선택</span>
       {[2, 3, 4, 5].map(n => (
-        <span key={n} className="px-4 py-1.5 text-[13px] text-kb-text-body border border-kb-border">{n}</span>
+        <span key={n} className="px-4 py-1.5 text-[13px] text-kb-text-body border border-[#E2F5EF]">{n}</span>
       ))}
     </div>
   )
@@ -100,18 +100,18 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
+      <div className="border border-[#E2F5EF] bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
         <p>· 조회기간을 선택하지 않을 경우에는 현재 적용금리가 조회됩니다.</p>
         <p>· 대출 잔액이 있는 가계대출에 한하여 조회 가능합니다.</p>
       </div>
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">조회기간</span>
           <div className="flex gap-1">
             {QUICK.map(q => (
               <button key={q} onClick={() => setPeriod(q)}
-                className={`px-3 py-1 text-[12px] border transition-colors ${period === q ? 'bg-kb-yellow border-kb-border font-bold text-kb-text' : 'border-kb-border text-kb-text-body hover:bg-kb-beige-light'}`}>
+                className={`px-3 py-1 text-[12px] border transition-colors ${period === q ? 'bg-[#0D5C47] border-[#E2F5EF] font-bold text-kb-text' : 'border-[#E2F5EF] text-kb-text-body hover:bg-[#F0FAF7]'}`}>
                 {q}
               </button>
             ))}
@@ -120,14 +120,14 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
       </div>
       <div className="flex justify-center mt-5">
         <button onClick={handleSearch} disabled={!selectedId || loading}
-          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 disabled:opacity-50 transition-colors">
           {loading ? '조회 중...' : '조회'}
         </button>
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {contract && (
-        <div className="mt-6 border border-kb-border">
-          <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+        <div className="mt-6 border border-[#E2F5EF]">
+          <div className="bg-[#F0FAF7] px-5 py-3 border-b border-[#E2F5EF]">
             <p className="text-[13px] font-bold text-kb-text">현재 적용금리</p>
           </div>
           <div className="px-5 py-4 space-y-2 text-[13px]">
@@ -137,7 +137,7 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
             </div>
             <div className="flex gap-4">
               <span className="text-kb-text-muted w-32">승인금리</span>
-              <span className="font-bold text-[#1A56DB]">연 {bpsToRate(contract.totalRateBps)}%</span>
+              <span className="font-bold text-[#0D5C47]">연 {bpsToRate(contract.totalRateBps)}%</span>
             </div>
             <div className="flex gap-4">
               <span className="text-kb-text-muted w-32">승인금액</span>
@@ -151,15 +151,15 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
         </div>
       )}
       {rateChanges.length > 0 && (
-        <div className="mt-4 border border-kb-border">
-          <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+        <div className="mt-4 border border-[#E2F5EF]">
+          <div className="bg-[#F0FAF7] px-5 py-3 border-b border-[#E2F5EF]">
             <p className="text-[13px] font-bold text-kb-text">금리변동 내역</p>
           </div>
           <table className="w-full text-[13px]">
             <thead><tr className="bg-[#FAFAFA]">
-              <th className="px-4 py-2 text-left font-medium border-b border-kb-border">변경일</th>
-              <th className="px-4 py-2 text-right font-medium border-b border-kb-border">변경 전</th>
-              <th className="px-4 py-2 text-right font-medium border-b border-kb-border">변경 후</th>
+              <th className="px-4 py-2 text-left font-medium border-b border-[#E2F5EF]">변경일</th>
+              <th className="px-4 py-2 text-right font-medium border-b border-[#E2F5EF]">변경 전</th>
+              <th className="px-4 py-2 text-right font-medium border-b border-[#E2F5EF]">변경 후</th>
             </tr></thead>
             <tbody className="divide-y divide-kb-border">
               {rateChanges.map((r: any, i: number) => (
@@ -218,38 +218,38 @@ function InterestPaymentForm({ contracts, selectedId, setSelectedId }: {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">납입 처리 완료</p>
-      <button onClick={() => setDone(false)} className="text-[13px] text-[#1A56DB] hover:underline">다시 조회</button>
+      <button onClick={() => setDone(false)} className="text-[13px] text-[#0D5C47] hover:underline">다시 조회</button>
     </div>
   )
 
   return (
     <div>
       <StepIndicator />
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
         <button onClick={handleSearch} disabled={!selectedId || loading}
-          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 disabled:opacity-50 transition-colors">
           {loading ? '조회 중...' : '조회'}
         </button>
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {schedules.length > 0 && (
-        <div className="mt-6 border border-kb-border">
+        <div className="mt-6 border border-[#E2F5EF]">
           <table className="w-full text-[13px]">
-            <thead><tr className="bg-kb-beige-light">
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">회차</th>
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">납입예정일</th>
-              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">원금</th>
-              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">이자</th>
-              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">납입액</th>
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">상태</th>
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">처리</th>
+            <thead><tr className="bg-[#F0FAF7]">
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">회차</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">납입예정일</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-[#E2F5EF]">원금</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-[#E2F5EF]">이자</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-[#E2F5EF]">납입액</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">상태</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">처리</th>
             </tr></thead>
             <tbody className="divide-y divide-kb-border">
               {schedules.map(s => (
-                <tr key={s.seq} className="hover:bg-kb-beige-light">
+                <tr key={s.seq} className="hover:bg-[#F0FAF7]">
                   <td className="px-4 py-3 text-center">{s.seq}</td>
                   <td className="px-4 py-3 text-center">{s.scheduledDt?.slice(0, 10)}</td>
                   <td className="px-4 py-3 text-right">{s.principalAmt.toLocaleString('ko-KR')}원</td>
@@ -263,7 +263,7 @@ function InterestPaymentForm({ contracts, selectedId, setSelectedId }: {
                   <td className="px-4 py-3 text-center">
                     {s.paidYn !== 'Y' && (
                       <button onClick={() => handlePay(s)} disabled={submitting}
-                        className="px-3 py-1 text-[11px] bg-kb-yellow text-kb-text font-bold hover:brightness-95 disabled:opacity-50">
+                        className="px-3 py-1 text-[11px] bg-[#0D5C47] text-kb-text font-bold hover:brightness-95 disabled:opacity-50">
                         납입
                       </button>
                     )}
@@ -318,20 +318,20 @@ function RepayForm({ contracts, selectedId, setSelectedId }: {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">상환 처리 완료</p>
-      <button onClick={() => { setDone(false); setAmount('') }} className="text-[13px] text-[#1A56DB] hover:underline">다시 처리</button>
+      <button onClick={() => { setDone(false); setAmount('') }} className="text-[13px] text-[#0D5C47] hover:underline">다시 처리</button>
     </div>
   )
 
   return (
     <div>
       <StepIndicator />
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">상환구분</span>
           <div className="flex items-center gap-6">
             {(['partial', 'full'] as const).map(t => (
               <label key={t} className="flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" name="repayType" checked={repayType === t} onChange={() => setRepayType(t)} className="accent-kb-text" />
+                <input type="radio" name="repayType" checked={repayType === t} onChange={() => setRepayType(t)} style={{ accentColor: '#0D5C47' }} />
                 <span className="text-[13px] text-kb-text-body">{t === 'partial' ? '일부상환' : '완제'}</span>
               </label>
             ))}
@@ -344,13 +344,13 @@ function RepayForm({ contracts, selectedId, setSelectedId }: {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <input type="text" value={amount} onChange={e => setAmount(e.target.value)} placeholder=""
-                  className="border border-kb-border px-3 py-1.5 text-[13px] focus:outline-none w-[200px] text-right" />
+                  className="border border-[#E2F5EF] px-3 py-1.5 text-[13px] focus:outline-none w-[200px] text-right" />
                 <span className="text-[13px]">원</span>
               </div>
               <div className="flex gap-1">
                 {AMT_BTNS.map(btn => (
                   <button key={btn} onMouseDown={e => e.preventDefault()} onClick={() => handleAmtBtn(btn)}
-                    className="px-3 py-1 text-[12px] border border-kb-border text-kb-text-body hover:bg-kb-beige-light">
+                    className="px-3 py-1 text-[12px] border border-[#E2F5EF] text-kb-text-body hover:bg-[#F0FAF7]">
                     {btn}
                   </button>
                 ))}
@@ -362,7 +362,7 @@ function RepayForm({ contracts, selectedId, setSelectedId }: {
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       <div className="flex justify-center mt-5">
         <button onClick={handleSubmit} disabled={submitting || !selectedId || (repayType === 'partial' && !amount)}
-          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 disabled:opacity-50 transition-colors">
           {submitting ? '처리 중...' : '상환'}
         </button>
       </div>
@@ -404,15 +404,15 @@ function RateCutForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div className="max-w-lg">
-      <div className="bg-[#F5F5F5] border border-kb-border p-4 mb-5 text-[13px] text-kb-text-body">
+      <div className="bg-[#F5F5F5] border border-[#E2F5EF] p-4 mb-5 text-[13px] text-kb-text-body">
         <p>신용 상태가 개선된 경우(신용점수 상승, 소득 증가 등) 금리 인하를 요구할 수 있습니다.</p>
       </div>
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">요구 사유</span>
           <select value={reason} onChange={e => setReason(e.target.value)}
-            className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none">
             <option value="">선택하세요</option>
             <option value="CREDIT_IMPROVED">신용점수 상승</option>
             <option value="INCOME_INCREASED">소득 증가</option>
@@ -425,7 +425,7 @@ function RateCutForm({ contracts, selectedId, setSelectedId }: {
       <div className="flex justify-center mt-5">
         <button onClick={handleSubmit} disabled={submitting || !selectedId || !reason}
           className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
-          style={{ backgroundColor: '#3D3D3D' }}>
+          style={{ backgroundColor: '#0D5C47' }}>
           {submitting ? '처리 중...' : '요구 신청'}
         </button>
       </div>
@@ -471,7 +471,7 @@ function ExtendForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div className="max-w-lg">
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         {contract && (
           <div className="flex items-center px-5 py-3 gap-6">
@@ -482,7 +482,7 @@ function ExtendForm({ contracts, selectedId, setSelectedId }: {
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">연장기간</span>
           <select value={months} onChange={e => setMonths(e.target.value)}
-            className="border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+            className="border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none">
             {[3, 6, 12].map(m => <option key={m} value={m}>{m}개월</option>)}
           </select>
         </div>
@@ -491,7 +491,7 @@ function ExtendForm({ contracts, selectedId, setSelectedId }: {
       <div className="flex justify-center mt-5">
         <button onClick={handleSubmit} disabled={submitting || !selectedId}
           className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
-          style={{ backgroundColor: '#3D3D3D' }}>
+          style={{ backgroundColor: '#0D5C47' }}>
           {submitting ? '처리 중...' : '기한연장 신청'}
         </button>
       </div>
@@ -528,20 +528,20 @@ function NotifyForm() {
       {notifs.length === 0 ? (
         <p className="text-[13px] text-kb-text-muted py-8 text-center">수신된 통지가 없습니다.</p>
       ) : (
-        <table className="w-full text-[13px] border-t border-kb-text">
-          <thead><tr className="bg-kb-beige-light">
-            <th className="px-4 py-3 text-left font-semibold border-b border-kb-border">제목</th>
-            <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">수신일</th>
-            <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">읽음</th>
+        <table className="w-full text-[13px] border-t-2 border-[#0D5C47]">
+          <thead><tr className="bg-[#F0FAF7]">
+            <th className="px-4 py-3 text-left font-semibold border-b border-[#E2F5EF]">제목</th>
+            <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">수신일</th>
+            <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">읽음</th>
           </tr></thead>
           <tbody className="divide-y divide-kb-border">
             {notifs.map(n => (
-              <tr key={n.notifId} className={`hover:bg-kb-beige-light ${n.readYn === 'N' ? 'font-medium' : ''}`}>
+              <tr key={n.notifId} className={`hover:bg-[#F0FAF7] ${n.readYn === 'N' ? 'font-medium' : ''}`}>
                 <td className="px-4 py-3">{n.title}</td>
                 <td className="px-4 py-3 text-center text-kb-text-muted">{n.createdAt?.slice(0, 10)}</td>
                 <td className="px-4 py-3 text-center">
                   <button onClick={() => toggleRead(n)}
-                    className={`px-3 py-1 text-[11px] border ${n.readYn === 'Y' ? 'border-kb-border text-kb-text-muted' : 'bg-kb-yellow border-kb-border text-kb-text font-bold'}`}>
+                    className={`px-3 py-1 text-[11px] border ${n.readYn === 'Y' ? 'border-[#E2F5EF] text-kb-text-muted' : 'bg-[#0D5C47] border-[#E2F5EF] text-kb-text font-bold'}`}>
                     {n.readYn === 'Y' ? '읽음' : '미읽음'}
                   </button>
                 </td>
@@ -585,19 +585,19 @@ function PaymentMethodForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div className="max-w-lg">
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">새 납입 계좌</span>
           <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
-            placeholder="계좌번호 입력" className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none" />
+            placeholder="계좌번호 입력" className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none" />
         </div>
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
       <div className="flex justify-center mt-5">
         <button onClick={handleSubmit} disabled={submitting || !selectedId || !accountNo}
           className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
-          style={{ backgroundColor: '#3D3D3D' }}>
+          style={{ backgroundColor: '#0D5C47' }}>
           {submitting ? '처리 중...' : '변경'}
         </button>
       </div>
@@ -642,23 +642,23 @@ function DelinquencyView({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+      <div className="border border-[#E2F5EF] bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
         <p>· 연체가 발생한 경우 연체 현황을 조회할 수 있습니다.</p>
         <p>· 연체 해소를 위해 즉시 납입해 주시기 바랍니다.</p>
       </div>
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
         <button onClick={handleSearch} disabled={!selectedId || loading}
-          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 disabled:opacity-50 transition-colors">
           {loading ? '조회 중...' : '조회'}
         </button>
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {dlq && (
-        <div className="mt-6 border border-kb-border">
-          <div className="bg-red-50 px-5 py-3 border-b border-kb-border">
+        <div className="mt-6 border border-[#E2F5EF]">
+          <div className="bg-red-50 px-5 py-3 border-b border-[#E2F5EF]">
             <p className="text-[13px] font-bold text-red-700">연체 정보</p>
           </div>
           <div className="divide-y divide-kb-border text-[13px]">
@@ -673,7 +673,7 @@ function DelinquencyView({ contracts, selectedId, setSelectedId }: {
               ['연체 금리',     dlq.overdueRateBps != null ? `연 ${bpsToRate(dlq.overdueRateBps)}%` : '-'],
             ].map(([label, val]) => (
               <div key={label} className="flex">
-                <div className="w-36 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{label}</div>
+                <div className="w-36 px-5 py-3 bg-[#F0FAF7] font-medium text-kb-text flex-shrink-0">{label}</div>
                 <div className={`px-5 py-3 ${label === '연체 합계' ? 'font-bold text-red-600' : 'text-kb-text-body'}`}>{val}</div>
               </div>
             ))}
@@ -723,34 +723,34 @@ function ReversalForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-kb-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+      <div className="border border-[#E2F5EF] bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
         <p>· SCHEDULED(회차) 상환 거래만 역분개 가능합니다. 중도상환 역분개는 지원하지 않습니다.</p>
         <p>· 역분개 시 해당 회차 상태가 PAID → DUE 로 되돌아갑니다.</p>
       </div>
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
         <button onClick={handleSearch} disabled={!selectedId || loading}
-          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 disabled:opacity-50 transition-colors">
           {loading ? '조회 중...' : '조회'}
         </button>
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {done && <p className="text-[13px] text-green-600 mt-4 text-center">역분개 처리 완료 (rtxId: {done})</p>}
       {txList.length > 0 && (
-        <div className="mt-6 border border-kb-border">
+        <div className="mt-6 border border-[#E2F5EF]">
           <table className="w-full text-[13px]">
-            <thead><tr className="bg-kb-beige-light">
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">거래ID</th>
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">유형</th>
-              <th className="px-4 py-3 text-right font-semibold border-b border-kb-border">금액</th>
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">납입일</th>
-              <th className="px-4 py-3 text-center font-semibold border-b border-kb-border">처리</th>
+            <thead><tr className="bg-[#F0FAF7]">
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">거래ID</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">유형</th>
+              <th className="px-4 py-3 text-right font-semibold border-b border-[#E2F5EF]">금액</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">납입일</th>
+              <th className="px-4 py-3 text-center font-semibold border-b border-[#E2F5EF]">처리</th>
             </tr></thead>
             <tbody className="divide-y divide-kb-border">
               {txList.map((t: any) => (
-                <tr key={t.rtxId} className="hover:bg-kb-beige-light">
+                <tr key={t.rtxId} className="hover:bg-[#F0FAF7]">
                   <td className="px-4 py-3 text-center text-kb-text-muted">{t.rtxId}</td>
                   <td className="px-4 py-3 text-center">{RTX_TYPE[t.rtxTypeCd] ?? t.rtxTypeCd}</td>
                   <td className="px-4 py-3 text-right font-bold">{t.totalAmount?.toLocaleString('ko-KR')}원</td>
@@ -778,10 +778,10 @@ function ReversalForm({ contracts, selectedId, setSelectedId }: {
             <p className="text-[13px] text-kb-text-body mb-4">거래 rtxId: <strong>{reversing}</strong></p>
             <textarea value={remark} onChange={e => setRemark(e.target.value)}
               rows={3} placeholder="취소 사유 (선택)"
-              className="w-full border border-kb-border px-3 py-2 text-[13px] focus:outline-none mb-4 resize-none" />
+              className="w-full border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none mb-4 resize-none" />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setReversing(null)}
-                className="px-6 py-2 border border-kb-border text-[13px] text-kb-text hover:bg-kb-beige-light">
+                className="px-6 py-2 border border-[#E2F5EF] text-[13px] text-kb-text hover:bg-[#F0FAF7]">
                 닫기
               </button>
               <button onClick={() => handleReverse(reversing)}
@@ -851,16 +851,16 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-[#b3cce8] bg-[#f0f6ff] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+      <div className="border border-[#E2F5EF] bg-[#F0FAF7] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
         <p>· 외부 보증기관(SGI/HUG/HF) stub — 발급 요청 즉시 ISSUED 처리됩니다.</p>
         <p>· 계약 상태가 SIGNED 또는 ACTIVE인 경우 발급 가능하며, 활성 보증보험이 1건 초과될 수 없습니다.</p>
       </div>
 
       {issued ? (
-        <div className="border border-kb-border rounded-xl overflow-hidden">
-          <div className="bg-kb-beige-light px-5 py-3 flex justify-between items-center border-b border-kb-border">
+        <div className="border border-[#E2F5EF] rounded-xl overflow-hidden">
+          <div className="bg-[#F0FAF7] px-5 py-3 flex justify-between items-center border-b border-[#E2F5EF]">
             <span className="text-[13px] font-bold text-kb-text">증권번호: {issued.ginsPolicyNo}</span>
-            <span className={`text-[11px] px-2 py-0.5 rounded border ${GINS_STATUS[issued.ginsStatusCd]?.cls ?? 'border-kb-border text-kb-text-muted'}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded border ${GINS_STATUS[issued.ginsStatusCd]?.cls ?? 'border-[#E2F5EF] text-kb-text-muted'}`}>
               {GINS_STATUS[issued.ginsStatusCd]?.text ?? issued.ginsStatusCd}
             </span>
           </div>
@@ -878,7 +878,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
             ))}
           </div>
           {issued.ginsStatusCd === 'ISSUED' && (
-            <div className="px-5 py-3 border-t border-kb-border">
+            <div className="px-5 py-3 border-t border-[#E2F5EF]">
               <button onClick={handleCancel} disabled={canceling}
                 className="px-5 py-1.5 border border-red-400 text-[12px] text-red-600 hover:bg-red-50 disabled:opacity-50">
                 {canceling ? '처리 중...' : '보증보험 취소'}
@@ -888,7 +888,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
         </div>
       ) : (
         <>
-          <div className="border border-kb-border divide-y divide-kb-border mb-5">
+          <div className="border border-[#E2F5EF] divide-y divide-kb-border mb-5">
             <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
 
             <div className="flex items-center px-5 py-4 gap-4">
@@ -897,7 +897,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
                 {GINS_AGENCY.map(a => (
                   <button key={a.code} onClick={() => setAgency(a.code)}
                     className={`px-4 py-1.5 border text-[12px] rounded-lg transition-colors ${
-                      agency === a.code ? 'bg-kb-yellow border-kb-text font-bold text-kb-text' : 'border-kb-border text-kb-text-muted hover:bg-kb-beige-light'}`}>
+                      agency === a.code ? 'bg-[#0D5C47] border-kb-text font-bold text-kb-text' : 'border-[#E2F5EF] text-kb-text-muted hover:bg-[#F0FAF7]'}`}>
                     {a.code}
                   </button>
                 ))}
@@ -910,7 +910,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
                 <input type="text"
                   value={guaranteeAmt ? parseInt(guaranteeAmt.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
                   onChange={e => setGuaranteeAmt(e.target.value.replace(/[^\d]/g, ''))}
-                  placeholder="0" className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                  placeholder="0" className="border border-[#E2F5EF] px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
                 <span className="text-[13px]">원</span>
               </div>
             </div>
@@ -918,7 +918,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
             <div className="flex items-center px-5 py-4 gap-4">
               <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증비율</span>
               <select value={ratioBps} onChange={e => setRatioBps(e.target.value)}
-                className="border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+                className="border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none">
                 <option value="10000">100%</option>
                 <option value="8000">80%</option>
                 <option value="5000">50%</option>
@@ -931,7 +931,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
                 <input type="text"
                   value={premium ? parseInt(premium.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
                   onChange={e => setPremium(e.target.value.replace(/[^\d]/g, ''))}
-                  placeholder="0" className="border border-kb-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                  placeholder="0" className="border border-[#E2F5EF] px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
                 <span className="text-[13px]">원</span>
               </div>
             </div>
@@ -939,7 +939,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
           {error && <p className="text-[13px] text-kb-red mb-4">{error}</p>}
           <div className="flex justify-center">
             <button onClick={handleIssue} disabled={!selectedId || !guaranteeAmt || submitting}
-              className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+              className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 disabled:opacity-50 transition-colors">
               {submitting ? '발급 중...' : '보증보험 발급'}
             </button>
           </div>
@@ -984,7 +984,7 @@ function WithdrawForm({ contracts, selectedId, setSelectedId }: {
         <p className="font-bold mb-1">주의</p>
         <p>계약 철회 시 취소가 불가합니다. 신중하게 진행해 주세요.</p>
       </div>
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
@@ -1024,12 +1024,12 @@ function SimpleQueryForm({ contracts, selectedId, setSelectedId, apiCall, render
 
   return (
     <div>
-      <div className="border border-kb-border divide-y divide-kb-border">
+      <div className="border border-[#E2F5EF] divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
         <button onClick={handleSearch} disabled={!selectedId || loading}
-          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-kb-yellow hover:bg-kb-yellow-dark disabled:opacity-50 transition-colors">
+          className="px-14 py-2.5 text-[14px] font-bold text-kb-text bg-[#0D5C47] text-white hover:opacity-85 disabled:opacity-50 transition-colors">
           {loading ? '조회 중...' : '조회'}
         </button>
       </div>
@@ -1082,7 +1082,7 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
       return <SimpleQueryForm {...props}
         apiCall={cntrId => closureApi.getClosure(cntrId)}
         renderResult={data => (
-          <div className="border border-kb-border p-4 text-[13px]">
+          <div className="border border-[#E2F5EF] p-4 text-[13px]">
             <p>해지일: {data?.closedAt?.slice(0, 10) ?? '-'}</p>
             <p>해지사유: {data?.closureReasonCd ?? '-'}</p>
           </div>
@@ -1091,14 +1091,14 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
       return <SimpleQueryForm {...props}
         apiCall={cntrId => loanMiscApi.getCertificate(cntrId, 'RATE_DETAIL')}
         renderResult={data => (
-          <div className="border border-kb-border">
-            <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+          <div className="border border-[#E2F5EF]">
+            <div className="bg-[#F0FAF7] px-5 py-3 border-b border-[#E2F5EF]">
               <p className="text-[13px] font-bold text-kb-text">금리산정내역서</p>
             </div>
             <div className="divide-y divide-kb-border text-[13px]">
               {data && Object.entries(data).map(([k, v]) => (
                 <div key={k} className="flex">
-                  <div className="w-40 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{k}</div>
+                  <div className="w-40 px-5 py-3 bg-[#F0FAF7] font-medium text-kb-text flex-shrink-0">{k}</div>
                   <div className="px-5 py-3 text-kb-text-body">{String(v)}</div>
                 </div>
               ))}
@@ -1109,14 +1109,14 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
       return <SimpleQueryForm {...props}
         apiCall={cntrId => loanMiscApi.getCreditInfoReport(cntrId)}
         renderResult={data => (
-          <div className="border border-kb-border">
-            <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+          <div className="border border-[#E2F5EF]">
+            <div className="bg-[#F0FAF7] px-5 py-3 border-b border-[#E2F5EF]">
               <p className="text-[13px] font-bold text-kb-text">신용정보 결과</p>
             </div>
             <div className="divide-y divide-kb-border text-[13px]">
               {data && Object.entries(data).map(([k, v]) => (
                 <div key={k} className="flex">
-                  <div className="w-40 px-5 py-3 bg-kb-beige-light font-medium text-kb-text flex-shrink-0">{k}</div>
+                  <div className="w-40 px-5 py-3 bg-[#F0FAF7] font-medium text-kb-text flex-shrink-0">{k}</div>
                   <div className="px-5 py-3 text-kb-text-body">{String(v)}</div>
                 </div>
               ))}
@@ -1129,8 +1129,8 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
         renderResult={data => {
           const items: any[] = data?.items ?? (Array.isArray(data) ? data : [])
           return (
-            <div className="border border-kb-border">
-              <div className="bg-kb-beige-light px-5 py-3 border-b border-kb-border">
+            <div className="border border-[#E2F5EF]">
+              <div className="bg-[#F0FAF7] px-5 py-3 border-b border-[#E2F5EF]">
                 <p className="text-[13px] font-bold text-kb-text">이자 발생 내역 ({items.length}건)</p>
               </div>
               {items.length === 0 ? (
@@ -1138,14 +1138,14 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
               ) : (
                 <table className="w-full text-[13px]">
                   <thead><tr className="bg-[#FAFAFA]">
-                    <th className="px-4 py-2 text-left font-medium border-b border-kb-border">발생일</th>
-                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">원금 잔액</th>
-                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">이자</th>
-                    <th className="px-4 py-2 text-right font-medium border-b border-kb-border">금리</th>
+                    <th className="px-4 py-2 text-left font-medium border-b border-[#E2F5EF]">발생일</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-[#E2F5EF]">원금 잔액</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-[#E2F5EF]">이자</th>
+                    <th className="px-4 py-2 text-right font-medium border-b border-[#E2F5EF]">금리</th>
                   </tr></thead>
                   <tbody className="divide-y divide-kb-border">
                     {items.map((item: any, i: number) => (
-                      <tr key={i} className="hover:bg-kb-beige-light">
+                      <tr key={i} className="hover:bg-[#F0FAF7]">
                         <td className="px-4 py-2">{item.accrualDate?.slice(0, 10) ?? '-'}</td>
                         <td className="px-4 py-2 text-right">{item.principalBalance != null ? `${item.principalBalance.toLocaleString('ko-KR')}원` : '-'}</td>
                         <td className="px-4 py-2 text-right font-medium">{item.interestAmt != null ? `${item.interestAmt.toLocaleString('ko-KR')}원` : '-'}</td>
@@ -1160,8 +1160,8 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
         }} />
     case 'limit':
       return (
-        <div className="max-w-lg border border-kb-border">
-          <div className="flex border-t border-kb-border">
+        <div className="max-w-lg border border-[#E2F5EF]">
+          <div className="flex border-t border-[#E2F5EF]">
             <div className="w-48 px-4 py-3 bg-[#F5F5F5] text-[13px] font-medium">한도변경</div>
             <div className="px-4 py-3 text-[13px] text-kb-text-muted">백엔드 API 개발 예정</div>
           </div>
@@ -1195,7 +1195,7 @@ export default function ManagePage() {
             {meta?.description && (
               <p className="text-[13px] text-kb-text-muted mb-6">{meta.description}</p>
             )}
-            <div className="border-t border-kb-text pt-6">
+            <div className="border-t-2 border-[#0D5C47] pt-6">
               <PageContent slug={slug} contracts={contracts} selectedId={selectedId} setSelectedId={setSelectedId} />
             </div>
           </div>

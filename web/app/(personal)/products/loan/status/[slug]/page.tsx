@@ -42,7 +42,7 @@ function DocsUpload({ applId }: { applId: number | null }) {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">서류 제출 완료</p>
-      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+      <Link href="/products/loan/status" className="text-[13px] text-[#0D5C47] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
 
@@ -50,17 +50,17 @@ function DocsUpload({ applId }: { applId: number | null }) {
     <div>
       <p className="text-[13px] text-kb-text-muted mb-4">대출 실행 후 요구된 사후 서류를 제출합니다.</p>
       {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
-      <table className="w-full text-[13px] border-t border-kb-text mb-5">
+      <table className="w-full text-[13px] border-t-2 border-[#0D5C47] mb-5">
         <thead>
           <tr className="bg-[#F5F5F5]">
-            <th className="px-4 py-3 text-left font-medium border-b border-kb-border">서류명</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">필수여부</th>
-            <th className="px-4 py-3 text-center font-medium border-b border-kb-border">파일선택</th>
+            <th className="px-4 py-3 text-left font-medium border-b border-[#E2F5EF]">서류명</th>
+            <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">필수여부</th>
+            <th className="px-4 py-3 text-center font-medium border-b border-[#E2F5EF]">파일선택</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-kb-border">
           {docs.map(d => (
-            <tr key={d.code} className="hover:bg-kb-beige-light">
+            <tr key={d.code} className="hover:bg-[#F0FAF7]">
               <td className="px-4 py-3">{d.name}</td>
               <td className="px-4 py-3 text-center">
                 <span className={`text-[11px] font-bold px-2 py-0.5 ${d.required ? 'bg-red-500 text-white' : 'bg-kb-border text-kb-text-muted'}`}>
@@ -80,7 +80,7 @@ function DocsUpload({ applId }: { applId: number | null }) {
       <div className="flex justify-center">
         <button onClick={handleSubmit} disabled={submitting || !applId}
           className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
-          style={{ backgroundColor: '#3D3D3D' }}>
+          style={{ backgroundColor: '#0D5C47' }}>
           {submitting ? '제출 중...' : '제출'}
         </button>
       </div>
@@ -114,23 +114,23 @@ function ConsentForm({ title, consentTypeCd, fields, applId }: {
   if (done) return (
     <div className="py-12 text-center">
       <p className="text-[16px] font-bold text-green-600 mb-2">동의 제출 완료</p>
-      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+      <Link href="/products/loan/status" className="text-[13px] text-[#0D5C47] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
 
   return (
     <div className="max-w-lg">
       {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
-      <div className="bg-[#F5F5F5] border border-kb-border p-4 mb-5 text-[13px] text-kb-text-body">
+      <div className="bg-[#F5F5F5] border border-[#E2F5EF] p-4 mb-5 text-[13px] text-kb-text-body">
         <p className="font-bold mb-1">{title} 동의</p>
         <p>금융거래 목적으로 개인(신용)정보를 제3자에게 제공하는 것에 동의합니다.</p>
       </div>
-      <div className="border border-kb-border p-5 space-y-4">
+      <div className="border border-[#E2F5EF] p-5 space-y-4">
         {fields.map(field => (
           <div key={field} className="flex items-center gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">{field}</label>
             <input type="text" placeholder="입력하세요"
-              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
           </div>
         ))}
       </div>
@@ -138,7 +138,7 @@ function ConsentForm({ title, consentTypeCd, fields, applId }: {
       <div className="flex justify-center mt-5">
         <button onClick={handleSubmit} disabled={submitting || !applId}
           className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
-          style={{ backgroundColor: '#3D3D3D' }}>
+          style={{ backgroundColor: '#0D5C47' }}>
           {submitting ? '처리 중...' : '동의 제출'}
         </button>
       </div>
@@ -202,7 +202,7 @@ function ESignForm({ applId }: { applId: number | null }) {
 
   if (step === 'done') return (
     <div className="py-12 text-center">
-      <div className="w-16 h-16 rounded-full bg-kb-yellow flex items-center justify-center mx-auto mb-3">
+      <div className="w-16 h-16 rounded-full bg-[#0D5C47] flex items-center justify-center mx-auto mb-3">
         <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
           <path d="M8 20l8 8 16-16" stroke="#333" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -210,8 +210,8 @@ function ESignForm({ applId }: { applId: number | null }) {
       <p className="text-[16px] font-bold text-kb-text mb-1">대출 실행 완료</p>
       {cntrNo && <p className="text-[13px] text-kb-text-muted mb-1">계약번호: {cntrNo}</p>}
       <p className="text-[13px] text-kb-text-muted mb-4">지정 계좌로 대출금이 지급됩니다.</p>
-      <Link href="/products/loan/manage/payment" className="text-[13px] text-[#1A56DB] hover:underline mr-4">상환 스케줄 확인</Link>
-      <Link href="/products/loan/status" className="text-[13px] text-[#1A56DB] hover:underline">진행현황으로 돌아가기</Link>
+      <Link href="/products/loan/manage/payment" className="text-[13px] text-[#0D5C47] hover:underline mr-4">상환 스케줄 확인</Link>
+      <Link href="/products/loan/status" className="text-[13px] text-[#0D5C47] hover:underline">진행현황으로 돌아가기</Link>
     </div>
   )
 
@@ -223,7 +223,7 @@ function ESignForm({ applId }: { applId: number | null }) {
           <p className="font-bold mb-1">전자서명 완료 — 대출 실행 정보를 입력해 주세요.</p>
           <p>지정 계좌로 대출금이 즉시 지급됩니다.</p>
         </div>
-        <div className="border border-kb-border divide-y divide-kb-border">
+        <div className="border border-[#E2F5EF] divide-y divide-kb-border">
           {appl && (
             <>
               <div className="flex items-center px-5 py-3 gap-6">
@@ -240,18 +240,18 @@ function ESignForm({ applId }: { applId: number | null }) {
             <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">입금 계좌번호 <span className="text-kb-red">*</span></span>
             <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
               placeholder="계좌번호 입력 (예: 123-456-789012)"
-              className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+              className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
           </div>
         </div>
         {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
         <div className="flex justify-center mt-5 gap-3">
           <button onClick={() => { setStep('sign'); setError('') }}
-            className="px-8 py-2.5 text-[13px] border border-kb-border text-kb-text hover:bg-kb-beige-light">
+            className="px-8 py-2.5 text-[13px] border border-[#E2F5EF] text-kb-text hover:bg-[#F0FAF7]">
             이전
           </button>
           <button onClick={handleExecute} disabled={submitting || !accountNo}
             className={`px-12 py-2.5 text-[14px] font-bold text-white disabled:opacity-50`}
-            style={{ backgroundColor: '#3D3D3D' }}>
+            style={{ backgroundColor: '#0D5C47' }}>
             {submitting ? '처리 중...' : '대출 실행'}
           </button>
         </div>
@@ -266,7 +266,7 @@ function ESignForm({ applId }: { applId: number | null }) {
         <p className="font-bold mb-1">전자서명 안내</p>
         <p>약정 체결을 위한 전자서명 후 지정 계좌로 대출금이 지급됩니다.</p>
       </div>
-      <div className="border border-kb-border p-5 space-y-4">
+      <div className="border border-[#E2F5EF] p-5 space-y-4">
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">신청번호</label>
           <span className="text-[13px] text-kb-text font-bold">{applId ?? '-'}</span>
@@ -274,7 +274,7 @@ function ESignForm({ applId }: { applId: number | null }) {
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">인증 수단</label>
           <select value={certType} onChange={e => setCertType(e.target.value)}
-            className="flex-1 border border-kb-border px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-[#E2F5EF] px-3 py-2 text-[13px] focus:outline-none">
             <option>금융인증서</option>
             <option>공동인증서 (구 공인인증서)</option>
           </select>
@@ -284,7 +284,7 @@ function ESignForm({ applId }: { applId: number | null }) {
       <div className="flex justify-center mt-5">
         <button onClick={handleSign} disabled={submitting || !applId}
           className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
-          style={{ backgroundColor: '#3D3D3D' }}>
+          style={{ backgroundColor: '#0D5C47' }}>
           {submitting ? '처리 중...' : '전자서명 진행'}
         </button>
       </div>
@@ -341,7 +341,7 @@ function StatusSlugContent({ slug }: { slug: string }) {
           <LoanSidebar />
           <div className="flex-1 min-w-0">
             <h1 className="text-[26px] font-bold text-kb-text mb-6">{meta?.title ?? slug}</h1>
-            <div className="border-t border-kb-text pt-6">
+            <div className="border-t-2 border-[#0D5C47] pt-6">
               <PageContent slug={slug} applId={applId} />
             </div>
           </div>

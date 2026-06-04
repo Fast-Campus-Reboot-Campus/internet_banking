@@ -3,91 +3,113 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { api } from '@/lib/api'
+import { CERT_TERMS, CertTermsModal } from '@/components/cert/CertTermsModal'
 
-const SIDEBAR_MENUS = [
-  {
-    label: '금융인증서',
-    expanded: true,
-    items: [
-      { label: '인증서 발급/재발급', active: true, href: '/cert/fin-cert-issue' },
-      { label: '타행·타기관 인증서 등록', href: '#' },
-      { label: '타행·타기관 인증서 해제', href: '#' },
-      { label: '인증서 갱신', href: '#' },
-      { label: '인증서 폐기', href: '#' },
-      { label: '인증서 관리', href: '#' },
-      { label: '이용안내', href: '#' },
-    ],
-  },
-]
+// ── 공통 UI ───────────────────────────────────────────────────
 
-const TERMS = [
-  { label: '전자금융거래기본약관', required: true },
-  { label: '전자금융서비스이용약관', required: true },
-  { label: '전자금융서비스설명서', required: true },
-  { label: '금융결제원 인증서 이용약관', required: true },
-  { label: '개인정보 수집 및 이용고지', required: true },
-  { label: '개인정보 제3자 제공동의', required: true },
-  { label: '개인(신용)정보 수집·이용 동의서', required: true },
-  { label: '고유식별정보 수집·이용 동의서', required: true },
+function NoticeBox({ items }: { items: string[] }) {
+  return (
+    <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-2">
+      {items.map((n, i) => (
+        <div key={i} className="flex items-start gap-2 text-[13px] text-kb-text-body">
+          <span className="flex-shrink-0 mt-0.5">·</span>
+          {n}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TableRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <tr className="border-b border-kb-border last:border-b-0">
+      <td className="px-5 py-3.5 font-semibold text-[13px] text-kb-text w-44 whitespace-nowrap align-middle"
+        style={{ backgroundColor: '#F0FAF7' }}>
+        {label}
+      </td>
+      <td className="border-l border-kb-border px-5 py-3 align-middle">{children}</td>
+    </tr>
+  )
+}
+
+function PwInput({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder?: string
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative inline-flex items-center">
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="border border-kb-border px-3 py-1.5 pr-9 w-64 outline-none text-[13px] focus:border-[#0D5C47] transition-colors"
+      />
+      <button type="button" onClick={() => setShow(v => !v)}
+        className="absolute right-2.5 text-kb-text-muted hover:text-kb-text" tabIndex={-1}>
+        {show
+          ? <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          : <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        }
+      </button>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+
+const NOTICES = [
+  '금융인증서는 금융결제원의 클라우드에 저장되어 PC·스마트폰 등 기기에 관계없이 이용 가능합니다.',
+  '유효기간은 3년이며 만료 전 갱신을 통해 계속 사용 가능합니다.',
+  '발급 수수료는 무료입니다.',
+  '인증서 암호는 영문/숫자/특수문자 조합 8자리 이상으로 설정해 주세요.',
 ]
 
 export default function FinCertIssuePage() {
-  const [expandedTerms, setExpandedTerms] = useState<Set<number>>(new Set())
-  const [checkedTerms, setCheckedTerms] = useState<Set<number>>(new Set())
-  const [allChecked, setAllChecked] = useState(false)
-  const [userId, setUserId] = useState('')
-  const [rrn1, setRrn1] = useState('')
-  const [rrn2, setRrn2] = useState('')
-  const [password, setPassword] = useState('')
-  const [mouseInput, setMouseInput] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [termModalIndex, setTermModalIndex] = useState<number | null>(null)
+  const [checked, setChecked]   = useState<boolean[]>(CERT_TERMS.map(() => false))
+  const allChecked               = checked.every(Boolean)
+
+  const [userId, setUserId]       = useState('')
+  const [rrn1, setRrn1]           = useState('')
+  const [rrn2, setRrn2]           = useState('')
+  const [password, setPassword]   = useState('')
+  const [certPin, setCertPin]     = useState('')
+  const [certPinConfirm, setCertPinConfirm] = useState('')
+
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState('')
   const [issuedCert, setIssuedCert] = useState<{ serialNumber: string; expiryDate: string } | null>(null)
 
-  function toggleTerm(i: number) {
-    setExpandedTerms((prev) => {
-      const next = new Set(prev)
-      if (next.has(i)) { next.delete(i) } else { next.add(i) }
-      return next
-    })
+  function toggleOne(i: number) {
+    setChecked(prev => prev.map((v, idx) => idx === i ? !v : v))
   }
-
-  function checkTerm(i: number) {
-    setCheckedTerms((prev) => {
-      const next = new Set(prev)
-      if (next.has(i)) { next.delete(i) } else { next.add(i) }
-      setAllChecked(next.size === TERMS.length)
-      return next
-    })
+  function toggleAll() {
+    setChecked(CERT_TERMS.map(() => !allChecked))
   }
-
-  function handleAllCheck() {
-    if (allChecked) {
-      setCheckedTerms(new Set())
-      setAllChecked(false)
-    } else {
-      setCheckedTerms(new Set(TERMS.map((_, i) => i)))
-      setAllChecked(true)
-    }
+  function agreeOne(i: number) {
+    setChecked(prev => prev.map((v, idx) => idx === i ? true : v))
+  }
+  function agreeAll() {
+    setChecked(CERT_TERMS.map(() => true))
+    setTermModalIndex(null)
   }
 
   async function handleIssue() {
-    if (checkedTerms.size !== TERMS.length) { setError('필수 약관에 모두 동의해 주세요.'); return }
-    if (!userId) { setError('아이디를 입력해 주세요.'); return }
+    if (!allChecked)                    { setError('필수 약관에 모두 동의해 주세요.'); return }
+    if (!userId)                        { setError('아이디를 입력해 주세요.'); return }
     if (rrn1.length !== 6 || rrn2.length !== 7) { setError('주민등록번호를 올바르게 입력해 주세요.'); return }
-    if (!password) { setError('비밀번호를 입력해 주세요.'); return }
+    if (!password)                      { setError('비밀번호를 입력해 주세요.'); return }
+    if (certPin.length < 8)             { setError('인증서 암호는 8자리 이상 입력해 주세요.'); return }
+    if (certPin !== certPinConfirm)     { setError('인증서 암호가 일치하지 않습니다.'); return }
     setError(''); setLoading(true)
     try {
       const { data: res } = await api.post('/api/v1/auth/cert/issue', {
-        loginId: userId,
-        password,
-        certType: 'CERT_FIN',
+        loginId: userId, password, certType: 'CERT_FIN', certPin,
       })
       const cert = res.data
       localStorage.setItem('issuedFinCert', JSON.stringify({
-        serialNumber: cert.serialNumber,
-        certType: cert.certType,
-        user: userId,
+        serialNumber: cert.serialNumber, certType: cert.certType, user: userId,
         expiry: `${cert.expiryDate.slice(0,4)}.${cert.expiryDate.slice(4,6)}.${cert.expiryDate.slice(6,8)}`,
         issuer: cert.issuerName,
       }))
@@ -101,199 +123,152 @@ export default function FinCertIssuePage() {
   }
 
   return (
-    <div className="max-w-kb-container mx-auto px-6 py-8 flex gap-8">
+    <div className="max-w-kb-container mx-auto px-6 py-8">
 
-      {/* 좌측 사이드바 */}
-      <aside className="w-52 flex-shrink-0">
-        <div className="bg-white border border-kb-border">
-          <div className="bg-kb-text px-4 py-3">
-            <p className="text-body font-bold text-white">인증센터(개인)</p>
-          </div>
-          {SIDEBAR_MENUS.map((section) => (
-            <div key={section.label}>
-              <div className="px-4 py-3 border-b border-kb-border bg-kb-beige-light">
-                <p className="text-body font-bold text-kb-text">{section.label}</p>
-              </div>
-              {section.items.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`block px-5 py-2.5 text-caption border-b border-kb-border transition-colors
-                    ${item.active
-                      ? 'bg-[#0D5C47] font-bold text-white'
-                      : 'text-kb-text-body hover:bg-kb-beige-light'
-                    }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          ))}
-        </div>
-      </aside>
+      {/* 브레드크럼 */}
+      <div className="flex items-center gap-1 text-[12px] text-kb-text-muted mb-6">
+        <Link href="/" className="hover:underline">홈</Link>
+        <span>›</span>
+        <Link href="/cert" className="hover:underline">인증센터(개인)</Link>
+        <span>›</span>
+        <span>금융인증서</span>
+        <span>›</span>
+        <span className="font-semibold text-kb-text">인증서 발급/재발급</span>
+      </div>
 
-      {/* 우측 메인 */}
-      <main className="flex-1 min-w-0 space-y-8">
+      <h1 className="text-[24px] font-bold text-kb-text mb-8">금융인증서 발급/재발급</h1>
 
-        {/* 브레드크럼 */}
-        <div className="flex items-center gap-2 text-caption text-kb-text-muted">
-          <Link href="/cert" className="hover:text-kb-text">인증센터(개인)</Link>
-          <span>&gt;</span>
-          <span>금융인증서</span>
-          <span>&gt;</span>
-          <span className="text-kb-text font-medium">인증서 발급/재발급</span>
-        </div>
+      <div className="space-y-6">
 
-        {/* 페이지 제목 */}
-        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-[#0D5C47] pb-3">
-          인증서 발급/재발급
-        </h2>
+        {/* 서비스 안내 */}
+        <NoticeBox items={NOTICES} />
 
-        {/* 금융인증서 서비스 안내 */}
-        <div className="border border-kb-border bg-kb-beige-light p-6 space-y-3">
-          <p className="text-body font-bold text-kb-text">금융인증서 서비스 안내</p>
-          <ul className="space-y-2 text-caption text-kb-text-body list-disc list-inside">
-            <li>금융인증서는 금융결제원의 클라우드에 저장되어 PC·스마트폰 등 기기에 관계없이 이용 가능합니다.</li>
-            <li>유효기간은 3년이며 만료 전 갱신을 통해 계속 사용 가능합니다.</li>
-            <li>발급 수수료는 무료입니다.</li>
-          </ul>
-        </div>
+        {/* 약관 */}
+        <section className="space-y-3">
+          <h2 className="text-[15px] font-bold text-kb-text">약관 및 서비스설명서</h2>
 
-        {/* 약관 및 서비스설명서 */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-body font-bold text-kb-text">약관 및 서비스설명서</h3>
-            <label className="flex items-center gap-2 cursor-pointer text-caption text-kb-text-body select-none">
-              <CheckBox checked={allChecked} onChange={handleAllCheck} />
-              전체동의
-            </label>
-          </div>
-
-          <div className="border border-kb-border divide-y divide-kb-border">
-            {TERMS.map((term, i) => (
-              <div key={term.label}>
-                <div className="flex items-center px-4 py-3 gap-3">
-                  <CheckBox checked={checkedTerms.has(i)} onChange={() => checkTerm(i)} />
-                  <span className="text-caption text-[#0D5C47] font-medium mr-1">[필수]</span>
-                  <span className="flex-1 text-caption text-kb-text">{term.label}</span>
-                  <button
-                    onClick={() => toggleTerm(i)}
-                    className="text-caption text-kb-text-muted hover:text-kb-text transition-colors px-2"
-                  >
-                    {expandedTerms.has(i) ? '▲' : '▼'}
-                  </button>
+          <div className="border border-kb-border rounded-xl overflow-hidden">
+            {/* 전체약관 */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-[#F0FAF7]">
+              <button className="flex items-center gap-3 flex-1 text-left" onClick={toggleAll}>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-[#0D5C47]' : 'border-kb-border'}`}
+                  style={allChecked ? { backgroundColor: '#0D5C47' } : {}}>
+                  {allChecked && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
-                {expandedTerms.has(i) && (
-                  <div className="px-6 py-4 bg-kb-beige-light text-caption text-kb-text-muted leading-relaxed border-t border-kb-border">
-                    {term.label}에 관한 약관 내용입니다. 서비스 이용에 동의해주시면 금융인증서 발급 서비스를 이용하실 수 있습니다.
-                  </div>
-                )}
+                <span className="text-[14px] font-bold text-kb-text">전체약관보기</span>
+              </button>
+              <button onClick={() => setTermModalIndex(0)}
+                className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-white flex-shrink-0">
+                약관보기 ›
+              </button>
+            </div>
+            {/* 개별 약관 */}
+            {CERT_TERMS.map((term, i) => (
+              <div key={i} className="flex items-center justify-between px-5 py-4 border-b border-kb-border last:border-b-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button onClick={() => toggleOne(i)}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-[#0D5C47]' : 'border-kb-border'}`}
+                    style={checked[i] ? { backgroundColor: '#0D5C47' } : {}}>
+                    {checked[i] && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </button>
+                  <span className="text-[13px] text-kb-text-muted whitespace-pre-line">
+                    <span className="font-semibold mr-1" style={{ color: '#0D5C47' }}>[필수]</span>
+                    {term.label}
+                  </span>
+                </div>
+                <button onClick={() => setTermModalIndex(i)}
+                  className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0 ml-3">
+                  약관보기 ›
+                </button>
               </div>
             ))}
           </div>
         </section>
 
         {/* 사용자 확인 */}
-        <section className="border border-kb-border">
-          <h3 className="text-body font-bold text-kb-text px-6 py-4 border-b border-kb-border">사용자 확인</h3>
-
-          {/* 사용자 ID */}
-          <div className="flex items-center px-6 py-4 gap-4 border-b border-kb-border">
-            <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">사용자 ID</label>
-            <div className="flex-1 flex items-center gap-4">
-              <input
-                type="text"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                className="flex-1 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe"
-                placeholder="사용자 ID 입력"
-              />
-              <Link href="#" className="text-caption text-[#0D5C47] hover:underline whitespace-nowrap">
-                ID를 모르시는 경우
-              </Link>
-            </div>
-          </div>
-
-          {/* 주민등록번호 */}
-          <div className="flex items-center px-6 py-4 gap-4 border-b border-kb-border">
-            <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">주민등록번호</label>
-            <div className="flex-1 flex items-center gap-3">
-              <input
-                type="text"
-                value={rrn1}
-                onChange={(e) => setRrn1(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                maxLength={6}
-                className="w-28 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe text-center tracking-widest"
-                placeholder="생년월일"
-              />
-              <span className="text-kb-text-muted">-</span>
-              {mouseInput ? (
-                <input
-                  type="password"
-                  value={rrn2}
-                  onChange={(e) => setRrn2(e.target.value.replace(/\D/g, '').slice(0, 7))}
-                  maxLength={7}
-                  className="w-28 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-kb-taupe text-center tracking-widest"
-                />
-              ) : (
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <div key={j} className="w-7 h-8 border border-kb-border bg-kb-beige-light flex items-center justify-center">
-                      <span className="text-kb-text-muted text-body">●</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <label className="flex items-center gap-1.5 cursor-pointer select-none ml-2">
-                <CheckBox checked={mouseInput} onChange={() => setMouseInput(!mouseInput)} />
-                <span className="text-caption text-kb-text-body">마우스로 입력</span>
-              </label>
-            </div>
-          </div>
-
-          {/* 비밀번호 */}
-          <div className="flex items-center px-6 py-4 gap-4">
-            <label className="w-36 text-caption font-medium text-kb-text flex-shrink-0">비밀번호</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="로그인 비밀번호"
-              className="flex-1 border border-kb-border px-3 py-2 text-caption text-kb-text focus:outline-none focus:border-[#0D5C47]"
-            />
+        <section className="space-y-3">
+          <h2 className="text-[15px] font-bold text-kb-text">사용자 확인</h2>
+          <div className="border border-kb-border rounded-xl overflow-hidden">
+            <table className="w-full text-[13px]">
+              <tbody>
+                <TableRow label="사용자 ID">
+                  <div className="flex items-center gap-4">
+                    <input type="text" value={userId} onChange={e => setUserId(e.target.value)}
+                      placeholder="아이디 입력"
+                      className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-[#0D5C47]" />
+                    <Link href="/support/customer-info/id-password"
+                      className="text-[13px] text-[#0D5C47] hover:underline whitespace-nowrap">
+                      ID를 모르시는 경우↗
+                    </Link>
+                  </div>
+                </TableRow>
+                <TableRow label="주민등록번호">
+                  <div className="flex items-center gap-2">
+                    <input type="text" value={rrn1}
+                      onChange={e => setRrn1(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      maxLength={6} placeholder="생년월일"
+                      className="border border-kb-border px-3 py-1.5 w-28 text-center tracking-widest outline-none text-[13px] focus:border-[#0D5C47]" />
+                    <span className="text-kb-text-muted">-</span>
+                    <input type="password" value={rrn2}
+                      onChange={e => setRrn2(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                      maxLength={7}
+                      className="border border-kb-border px-3 py-1.5 w-28 text-center tracking-widest outline-none text-[13px] focus:border-[#0D5C47]" />
+                  </div>
+                </TableRow>
+                <TableRow label="비밀번호">
+                  <PwInput value={password} onChange={setPassword} placeholder="로그인 비밀번호" />
+                </TableRow>
+              </tbody>
+            </table>
           </div>
         </section>
 
-        {error && <p className="text-[12px] text-red-500">{error}</p>}
+        {/* 인증서 암호 설정 */}
+        <section className="space-y-3">
+          <h2 className="text-[15px] font-bold text-kb-text">인증서 암호 설정</h2>
+          <div className="border border-kb-border rounded-xl overflow-hidden">
+            <table className="w-full text-[13px]">
+              <tbody>
+                <TableRow label="인증서 암호">
+                  <div className="space-y-1">
+                    <PwInput value={certPin} onChange={setCertPin} placeholder="영문/숫자/특수문자 조합(8자 이상)" />
+                    <p className="text-[11px] text-kb-text-muted">영문·숫자·특수문자를 조합하여 8자 이상 입력하세요.</p>
+                  </div>
+                </TableRow>
+                <TableRow label="인증서 암호 확인">
+                  <div className="space-y-1">
+                    <PwInput value={certPinConfirm} onChange={setCertPinConfirm} placeholder="인증서 암호 재입력" />
+                    {certPinConfirm && certPin !== certPinConfirm && (
+                      <p className="text-[12px] text-red-500">인증서 암호가 일치하지 않습니다.</p>
+                    )}
+                    {certPinConfirm && certPin === certPinConfirm && certPin.length >= 8 && (
+                      <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>✓ 일치합니다.</p>
+                    )}
+                  </div>
+                </TableRow>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-        {/* 발급 완료 화면 */}
+        {error && <p className="text-[13px] text-red-500">{error}</p>}
+
+        {/* 발급 완료 */}
         {issuedCert && (
-          <div className="border-2 border-[#0D5C47] bg-[#F0FAF7] p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D5C47" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/>
+          <div className="border border-kb-border bg-[#F0FAF7] px-6 py-8 rounded-xl flex items-center gap-6">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: '#0D5C47' }}>
+              <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20,6 9,17 4,12"/>
               </svg>
-              <p className="text-[14px] font-bold text-[#0D5C47]">금융인증서 발급이 완료되었습니다</p>
             </div>
-            <div className="bg-white border border-[#C8E8DF] p-4 space-y-1.5 text-[12px]">
-              <div className="flex gap-3">
-                <span className="w-20 text-kb-text-muted flex-shrink-0">일련번호</span>
-                <span className="text-kb-text font-medium break-all">{issuedCert.serialNumber}</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="w-20 text-kb-text-muted flex-shrink-0">인증서 유형</span>
-                <span className="text-kb-text">금융인증서</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="w-20 text-kb-text-muted flex-shrink-0">유효기간</span>
-                <span className="text-kb-text">
-                  {issuedCert.expiryDate.slice(0,4)}.{issuedCert.expiryDate.slice(4,6)}.{issuedCert.expiryDate.slice(6,8)} 까지 (3년)
-                </span>
-              </div>
+            <div className="space-y-1.5">
+              <p className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>금융인증서 발급이 완료되었습니다.</p>
+              <p className="text-[13px] text-kb-text-muted">일련번호: <span className="font-medium text-kb-text">{issuedCert.serialNumber}</span></p>
+              <p className="text-[13px] text-kb-text-muted">
+                유효기간: {issuedCert.expiryDate.slice(0,4)}.{issuedCert.expiryDate.slice(4,6)}.{issuedCert.expiryDate.slice(6,8)} 까지 (3년)
+              </p>
             </div>
-            <p className="text-[11px] text-kb-text-muted">
-              발급된 인증서는 로그인 화면의 &lsquo;공동·금융인증서&rsquo; 탭에서 사용할 수 있습니다.
-            </p>
           </div>
         )}
 
@@ -301,71 +276,41 @@ export default function FinCertIssuePage() {
         <div className="flex justify-center gap-3 pt-2">
           {issuedCert ? (
             <>
-              <Link
-                href="/login"
-                className="px-14 py-3 text-body font-bold text-white hover:opacity-90 transition-all"
-                style={{ backgroundColor: '#0D5C47' }}
-              >
+              <Link href="/login"
+                className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
+                style={{ backgroundColor: '#0D5C47' }}>
                 로그인 화면으로
               </Link>
-              <Link
-                href="/cert/cert-management"
-                className="px-14 py-3 border border-kb-border text-body text-kb-text hover:bg-kb-beige-light transition-colors"
-              >
+              <Link href="/cert/cert-management"
+                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
                 인증서 관리
               </Link>
             </>
           ) : (
             <>
-              <Link href="/cert" className="px-14 py-3 border border-kb-border text-body text-kb-text hover:bg-kb-beige-light transition-colors">
+              <Link href="/cert"
+                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
                 취소
               </Link>
-              <button
-                onClick={handleIssue}
-                disabled={loading}
-                className="px-14 py-3 text-body font-bold text-white hover:opacity-90 transition-all disabled:opacity-50"
-                style={{ backgroundColor: '#0D5C47' }}
-              >
+              <button onClick={handleIssue} disabled={loading}
+                className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity"
+                style={{ backgroundColor: '#0D5C47' }}>
                 {loading ? '발급 중...' : '확인'}
               </button>
             </>
           )}
         </div>
 
-        {/* OTP 안내 */}
-        <div className="border border-kb-border bg-white p-6 flex items-start gap-4">
-          <div className="w-12 h-12 rounded-full bg-kb-beige-light flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl">🔑</span>
-          </div>
-          <div className="space-y-1">
-            <p className="text-body font-bold text-kb-text">보안카드/OTP가 없으신가요?</p>
-            <p className="text-caption text-kb-text-muted leading-relaxed">
-              AXful인증서를 발급받으시면 OTP 없이도 안전하게 금융거래를 하실 수 있습니다.
-            </p>
-            <Link href="/cert/axful-cert-issue" className="text-caption text-[#0D5C47] hover:underline">
-              AXful인증서 발급받기 &gt;
-            </Link>
-          </div>
-        </div>
+      </div>
 
-      </main>
-    </div>
-  )
-}
-
-function CheckBox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className={`w-4 h-4 border flex-shrink-0 flex items-center justify-center transition-colors
-        ${checked ? 'bg-[#0D5C47] border-[#0D5C47]' : 'bg-white border-kb-border'}`}
-    >
-      {checked && (
-        <svg viewBox="0 0 12 10" fill="none" className="w-3 h-3">
-          <path d="M1 5l3 3 7-7" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+      {termModalIndex !== null && (
+        <CertTermsModal
+          termIndex={termModalIndex}
+          onClose={() => setTermModalIndex(null)}
+          onAgreeOne={(i) => { agreeOne(i); setTermModalIndex(i) }}
+          onAgreeAll={agreeAll}
+        />
       )}
-    </button>
+    </div>
   )
 }

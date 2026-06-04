@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DepositSidebar from '@/components/products/DepositSidebar'
 import { createDepositContract, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
 const PRODUCT_NAMES: Record<string, string> = {
   // 예금
@@ -215,6 +216,7 @@ export default function DepositJoinPage() {
   /* ─── Step 3 state ─── */
   const [confirmPw, setConfirmPw] = useState('')
   const [mouseInput, setMouseInput] = useState(false)
+  const [mouseConfirmPw, setMouseConfirmPw] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const STEP_LABELS = ['약관동의', '정보입력', '정보확인']
@@ -286,7 +288,8 @@ export default function DepositJoinPage() {
 
   async function handleFinalConfirm() {
     if (submitting) return
-    if (!confirmPw && !mouseInput) { alert('계좌 비밀번호를 입력해주세요.'); return }
+    const pw = mouseInput ? mouseConfirmPw : confirmPw
+    if (!pw) { alert('계좌 비밀번호를 입력해주세요.'); return }
     setSubmitting(true)
 
     try {
@@ -832,16 +835,21 @@ export default function DepositJoinPage() {
                     <tr>
                       <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text">계좌 비밀번호</td>
                       <td className="border border-kb-border px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type={mouseInput ? 'text' : 'password'}
-                            value={confirmPw}
-                            onChange={e => setConfirmPw(e.target.value)}
-                            maxLength={4}
-                            className="border border-kb-border px-3 py-1.5 text-[13px] w-28 outline-none"
-                          />
-                          <label className="flex items-center gap-1.5 text-[12px] cursor-pointer">
-                            <input type="checkbox" checked={mouseInput} onChange={e => setMouseInput(e.target.checked)} />
+                        <div className="flex flex-col gap-2">
+                          {mouseInput ? (
+                            <MouseNumKeypad value={mouseConfirmPw} onChange={setMouseConfirmPw} maxLength={4} dotCount={4} />
+                          ) : (
+                            <input
+                              type="password"
+                              value={confirmPw}
+                              onChange={e => setConfirmPw(e.target.value)}
+                              maxLength={4}
+                              placeholder="4자리 입력"
+                              className="border border-kb-border px-3 py-1.5 text-[13px] w-28 outline-none"
+                            />
+                          )}
+                          <label className="flex items-center gap-1.5 text-[12px] cursor-pointer w-fit">
+                            <input type="checkbox" checked={mouseInput} onChange={e => { setMouseInput(e.target.checked); setMouseConfirmPw(''); setConfirmPw('') }} />
                             마우스로 입력
                           </label>
                         </div>

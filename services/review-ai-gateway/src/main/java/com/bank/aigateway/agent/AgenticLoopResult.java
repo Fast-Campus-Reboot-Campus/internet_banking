@@ -4,5 +4,6 @@ public record AgenticLoopResult(
         String text,
         int inputTokens,
         int outputTokens,
-        int turnsUsed
+        int turnsUsed,
+        boolean timedOut
 ) {}

@@ -7,14 +7,12 @@ import { usePathname, useRouter } from 'next/navigation'
 const PUBLIC_PREFIXES = [
   '/login',
   '/logout',
-  '/banking',
   '/cert',
   '/cert-cps',
   '/cert-biz',
   '/products',
   '/support',
   '/security-install',
-  '/settings',
 ]
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {

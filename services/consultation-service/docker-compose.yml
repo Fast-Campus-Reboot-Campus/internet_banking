@@ -85,6 +85,9 @@ services:
       CONSULTATION_KAFKA_TOPIC_CHATBOT_EVENTS:     consultation.chatbot.events
       CONSULTATION_KAFKA_TOPIC_CHAT_EVENTS:        consultation.chat.events
       CONSULTATION_LLM_CONFIDENCE_THRESHOLD:       "70"
+      CONSULTATION_OPENAI_API_KEY:                 ${CONSULTATION_OPENAI_API_KEY:-}
+      PHOENIX_ENABLED:                             ${PHOENIX_ENABLED:-false}
+      PHOENIX_GRPC_ENDPOINT:                       ${PHOENIX_GRPC_ENDPOINT:-http://localhost:4317}
       CONSULTATION_LANGFUSE_ENABLED:               ${CONSULTATION_LANGFUSE_ENABLED:-false}
       CONSULTATION_LANGFUSE_SECRET_KEY:            ${LANGFUSE_SECRET_KEY:-}
       CONSULTATION_LANGFUSE_PUBLIC_KEY:            ${LANGFUSE_PUBLIC_KEY:-}

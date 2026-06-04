@@ -17,15 +17,7 @@ const NAV: SidebarItem[] = [
       { label: '예금해지',         href: '/products/deposit/inquiry/terminate' },
       { label: '해지결과/내역 조회', href: '/products/deposit/inquiry/terminate-result' },
     ],
-  },
-  {
-    label: '예금 관리',
-    expandable: true,
-    children: [
-      { label: '예금전환', href: '/products/deposit/manage/convert' },
-    ],
-  },
-]
+  },]
 
 export default function DepositSidebar() {
   const pathname = usePathname()
@@ -46,11 +38,11 @@ export default function DepositSidebar() {
   }
 
   return (
-    <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2 bg-white">
-      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: "#0D5C47" }}>예금</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-[#E2F5EF] min-h-[700px] pt-6 pr-2 bg-white">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-[#E2F5EF] flex items-center gap-2" style={{ color: "#0D5C47" }}>예금</h2>
       <nav>
         {NAV.map((item) => (
-          <div key={item.label} className="border-b border-kb-border last:border-b-0">
+          <div key={item.label} className="border-b border-[#E2F5EF] last:border-b-0">
             {item.expandable ? (
               <>
                 <button

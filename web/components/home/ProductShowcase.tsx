@@ -228,10 +228,8 @@ export default function ProductShowcase() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[22px] font-bold text-kb-text leading-none">
-                    {current.rate}
-                    <span className="text-[11px] text-kb-text-muted font-normal ml-2">{current.rateNote}</span>
-                  </p>
+                  <p className="text-[22px] font-bold text-kb-text leading-none">{current.rate}</p>
+                  <p className="text-[11px] text-kb-text-muted mt-1">{current.rateNote}</p>
                 </div>
               </div>
             </div>
