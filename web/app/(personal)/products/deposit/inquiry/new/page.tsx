@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useEffect, useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
@@ -71,7 +72,7 @@ export default function DepositNewHistoryPage() {
           <h1 className="text-[22px] font-bold text-kb-text mb-5">신규결과/내역 조회</h1>
 
           <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
-            style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+            style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
             <p className="flex gap-1.5 text-kb-text-muted">
               <span className="flex-shrink-0">·</span>
               <span>예금 신규결과/내역입니다.</span>
@@ -85,10 +86,10 @@ export default function DepositNewHistoryPage() {
           <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
             <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                   {['신규일자', '신규계좌번호', '신규계좌종류', '출금계좌번호', '신규금액'].map(h => (
                     <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]"
-                      style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>
+                      style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>
                       {h}
                     </th>
                   ))}
@@ -96,13 +97,13 @@ export default function DepositNewHistoryPage() {
               </thead>
               <tbody>
                 {rows.map((row, i) => (
-                  <tr key={i} className="border-b hover:bg-[#F8FFFE] transition-colors"
-                    style={{ borderColor: '#E2F5EF' }}>
+                  <tr key={i} className="border-b hover:bg-kb-primary-surface transition-colors"
+                    style={{ borderColor: KB_PRIMARY_BORDER }}>
                     <td className="px-4 py-3.5 text-center text-kb-text">{row.date}</td>
-                    <td className="px-4 py-3.5 text-center font-medium" style={{ color: '#0D5C47' }}>{row.accountNo}</td>
+                    <td className="px-4 py-3.5 text-center font-medium" style={{ color: KB_PRIMARY }}>{row.accountNo}</td>
                     <td className="px-4 py-3.5 text-center text-kb-text">{row.type}</td>
                     <td className="px-4 py-3.5 text-center text-kb-text-muted">{row.withdrawNo}</td>
-                    <td className="px-4 py-3.5 text-right font-semibold pr-5" style={{ color: '#0D5C47' }}>{row.amount}원</td>
+                    <td className="px-4 py-3.5 text-right font-semibold pr-5" style={{ color: KB_PRIMARY }}>{row.amount}원</td>
                   </tr>
                 ))}
               </tbody>
@@ -112,7 +113,7 @@ export default function DepositNewHistoryPage() {
           <div className="flex justify-center mt-5">
             <button
               className="w-8 h-8 text-[13px] font-bold text-white rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               1
             </button>
           </div>

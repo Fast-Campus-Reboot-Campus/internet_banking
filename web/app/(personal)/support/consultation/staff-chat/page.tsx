@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
@@ -154,11 +155,11 @@ export default function StaffChatPage() {
               onChange={e => setEmployeeId(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') login() }}
               placeholder="숫자 ID 입력"
-              className="w-full border border-kb-border px-3 py-2 text-[13px] outline-none mb-4 focus:border-[#5BC9A8]"
+              className="w-full border border-kb-border px-3 py-2 text-[13px] outline-none mb-4 focus:border-kb-mint"
             />
             <button onClick={login}
               className="w-full py-2.5 text-[14px] font-bold hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               로그인
             </button>
           </div>
@@ -173,7 +174,7 @@ export default function StaffChatPage() {
                 <span className="ml-3 text-[13px] text-kb-text-muted">연결 대기 고객 목록</span>
               </div>
               <button onClick={loadQueue} disabled={queueLoading}
-                className="flex items-center gap-1.5 border border-kb-border px-4 py-1.5 text-[13px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors disabled:opacity-50">
+                className="flex items-center gap-1.5 border border-kb-border px-4 py-1.5 text-[13px] text-kb-text-body hover:bg-kb-primary-bg transition-colors disabled:opacity-50">
                 <RefreshCw className={`h-4 w-4 ${queueLoading ? 'animate-spin' : ''}`} />
                 새로고침
               </button>
@@ -184,9 +185,9 @@ export default function StaffChatPage() {
                 대기 중인 고객이 없습니다.
               </div>
             ) : (
-              <div className="border border-kb-border border-t-2 border-t-[#0D5C47]">
+              <div className="border border-kb-border border-t-2 border-t-kb-primary">
                 <table className="w-full text-[13px]">
-                  <thead className="bg-[#F0FAF7] text-kb-text-muted text-[12px]">
+                  <thead className="bg-kb-primary-bg text-kb-text-muted text-[12px]">
                     <tr>
                       <th className="px-4 py-2.5 text-left font-medium">상담 ID</th>
                       <th className="px-4 py-2.5 text-left font-medium">고객번호</th>
@@ -196,14 +197,14 @@ export default function StaffChatPage() {
                   </thead>
                   <tbody className="divide-y divide-kb-border">
                     {queue.map(item => (
-                      <tr key={item.chat_consultation_id} className="hover:bg-[#F0FAF7]">
+                      <tr key={item.chat_consultation_id} className="hover:bg-kb-primary-bg">
                         <td className="px-4 py-3 text-kb-text-muted">#{item.chat_consultation_id}</td>
                         <td className="px-4 py-3 font-medium text-kb-text">{item.customer_no}</td>
                         <td className="px-4 py-3 text-kb-text-muted">{timeStr(item.waiting_since)}</td>
                         <td className="px-4 py-3 text-center">
                           <button onClick={() => accept(item)}
                             className="px-4 py-1.5 text-[12px] font-bold hover:opacity-90 transition-opacity"
-                            style={{ backgroundColor: '#0D5C47' }}>
+                            style={{ backgroundColor: KB_PRIMARY }}>
                             상담 수락
                           </button>
                         </td>
@@ -231,18 +232,18 @@ export default function StaffChatPage() {
             </div>
 
             <div className="border border-kb-border flex flex-col" style={{ height: 520 }}>
-              <div className="px-4 py-3 border-b border-kb-border bg-[#5BC9A8] flex items-center gap-2">
+              <div className="px-4 py-3 border-b border-kb-border bg-kb-mint flex items-center gap-2">
                 <span className="text-[14px] font-bold text-kb-text">채팅 상담 중</span>
                 <span className="text-[12px] text-kb-text opacity-70">— {currentCustomer.customer_no}</span>
               </div>
 
-              <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[#F0FAF7]">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-kb-primary-bg">
                 {messages.map(msg => (
                   <div key={msg.message_id}
                     className={`flex ${msg.sender_type === 'AGENT' ? 'justify-end' : 'justify-start'} gap-2`}>
                     {msg.sender_type !== 'AGENT' && (
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0 mt-1 ${
-                        msg.sender_type === 'USER' ? 'bg-[#0D5C47]' : 'bg-kb-text-muted'
+                        msg.sender_type === 'USER' ? 'bg-kb-primary' : 'bg-kb-text-muted'
                       }`}>
                         {msg.sender_type === 'USER' ? '고객' : '봇'}
                       </div>
@@ -278,7 +279,7 @@ export default function StaffChatPage() {
                   placeholder="고객에게 메시지를 입력하세요"
                   className="flex-1 text-[13px] outline-none px-2 py-1" />
                 <button onClick={send} disabled={!input.trim() || sending}
-                  className="flex h-9 w-9 items-center justify-center rounded text-white disabled:bg-gray-300 transition-opacity hover:opacity-85" style={{ backgroundColor: '#0D5C47' }}>
+                  className="flex h-9 w-9 items-center justify-center rounded text-white disabled:bg-gray-300 transition-opacity hover:opacity-85" style={{ backgroundColor: KB_PRIMARY }}>
                   <Send className="h-4 w-4" />
                 </button>
               </div>

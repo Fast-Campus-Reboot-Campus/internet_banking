@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -25,7 +26,7 @@ const NOTICES_CHANGE = [
 
 function NoticeBox({ items }: { items: string[] }) {
   return (
-    <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-2">
+    <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-2">
       {items.map((n, i) => (
         <div key={i} className="flex items-start gap-2 text-[13px] text-kb-text-body">
           <span className="flex-shrink-0 mt-0.5">·</span>
@@ -44,7 +45,7 @@ function PwInput({ value, onChange, placeholder }: {
     <div className="relative inline-flex items-center">
       <input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="border border-kb-border px-3 py-1.5 pr-9 w-64 outline-none text-[13px] focus:border-[#0D5C47] transition-colors" />
+        className="border border-kb-border px-3 py-1.5 pr-9 w-64 outline-none text-[13px] focus:border-kb-primary transition-colors" />
       <button type="button" onClick={() => setShow(v => !v)}
         className="absolute right-2.5 text-kb-text-muted hover:text-kb-text" tabIndex={-1}>
         {show
@@ -60,7 +61,7 @@ function TableRow({ label, children }: { label: string; children: React.ReactNod
   return (
     <tr className="border-b border-kb-border last:border-b-0">
       <td className="px-5 py-3.5 font-semibold text-[13px] text-kb-text w-40 whitespace-nowrap"
-        style={{ backgroundColor: '#F0FAF7' }}>
+        style={{ backgroundColor: KB_PRIMARY_BG }}>
         {label}
       </td>
       <td className="border-l border-kb-border px-5 py-3">{children}</td>
@@ -163,7 +164,7 @@ export default function IdPasswordPage() {
               <button key={key} onClick={() => { setTab(key); setError('') }}
                 className={`px-6 py-3 text-[14px] whitespace-nowrap transition-colors
                   ${tab === key ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
-                style={tab === key ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
+                style={tab === key ? { borderColor: KB_PRIMARY, color: KB_PRIMARY } : {}}>
                 {label}
               </button>
             ))}
@@ -176,18 +177,18 @@ export default function IdPasswordPage() {
                   ? <TableRow label="성명(고객명)">
                       <input type="text" value={name} onChange={e => setName(e.target.value)}
                         placeholder="고객명 입력"
-                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-[#0D5C47]" />
+                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
                     </TableRow>
                   : <TableRow label="아이디(ID)">
                       <input type="text" value={loginId} onChange={e => setLoginId(e.target.value)}
                         placeholder="아이디 입력"
-                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-[#0D5C47]" />
+                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
                     </TableRow>
                 }
                 <TableRow label="계좌번호">
                   <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
                     placeholder="'-' 없이 입력"
-                    className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-[#0D5C47]" />
+                    className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
                 </TableRow>
                 <TableRow label="계좌비밀번호">
                   <PwInput value={accountPw} onChange={setAccountPw} placeholder="계좌비밀번호 입력" />
@@ -198,12 +199,12 @@ export default function IdPasswordPage() {
 
           <div className="flex justify-center gap-3">
             <Link href="/login"
-              className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+              className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
               취소
             </Link>
             <button onClick={handleVerify}
               className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               확인
             </button>
           </div>
@@ -233,12 +234,12 @@ export default function IdPasswordPage() {
 
           <div className="flex justify-center gap-3">
             <Link href="/login"
-              className="border border-kb-border px-10 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+              className="border border-kb-border px-10 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
               로그인 화면으로 이동
             </Link>
             <button onClick={() => { setStep('change'); setError('') }}
               className="px-10 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               사용자암호 재설정
             </button>
           </div>
@@ -264,7 +265,7 @@ export default function IdPasswordPage() {
                       <p className="text-[12px] text-red-500">사용자암호가 일치하지 않습니다.</p>
                     )}
                     {newPwConfirm && newPw === newPwConfirm && newPw.length >= 8 && (
-                      <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>✓ 일치합니다.</p>
+                      <p className="text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 일치합니다.</p>
                     )}
                   </div>
                 </TableRow>
@@ -289,12 +290,12 @@ export default function IdPasswordPage() {
 
           <div className="flex justify-center gap-3">
             <button onClick={reset}
-              className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+              className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
               취소
             </button>
             <button onClick={handleChange} disabled={loading}
               className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               {loading ? '처리 중...' : '확인'}
             </button>
           </div>
@@ -304,26 +305,26 @@ export default function IdPasswordPage() {
       {/* ── STEP 4: 완료 ── */}
       {step === 'done' && (
         <div className="space-y-5">
-          <div className="border border-kb-border bg-[#F0FAF7] px-6 py-8 rounded-xl flex items-center gap-6">
+          <div className="border border-kb-border bg-kb-primary-bg px-6 py-8 rounded-xl flex items-center gap-6">
             <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20,6 9,17 4,12"/>
               </svg>
             </div>
             <div>
-              <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>사용자암호 변경이 완료되었습니다.</p>
+              <p className="text-[16px] font-bold mb-1" style={{ color: KB_PRIMARY }}>사용자암호 변경이 완료되었습니다.</p>
               <p className="text-[13px] text-kb-text-muted">변경된 사용자암호로 로그인하세요.</p>
             </div>
           </div>
           <div className="flex justify-center gap-3">
             <Link href="/login"
               className="px-10 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               로그인하기
             </Link>
             <Link href="/"
-              className="border border-kb-border px-10 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+              className="border border-kb-border px-10 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
               메인으로
             </Link>
           </div>

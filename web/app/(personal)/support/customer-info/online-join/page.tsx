@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -81,7 +82,7 @@ function TermContent({ index }: { index: number }) {
       <table className="w-full border-collapse text-[12px] mb-5">
         <tbody>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center w-28 align-top bg-[#F0FAF7]">
+            <td className="border border-kb-border px-3 py-3 font-bold text-center w-28 align-top bg-kb-primary-bg">
               수집·이용 목적
             </td>
             <td className="border border-kb-border px-4 py-3">
@@ -94,7 +95,7 @@ function TermContent({ index }: { index: number }) {
             </td>
           </tr>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-[#F0FAF7]">
+            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-kb-primary-bg">
               보유 및 이용기간
             </td>
             <td className="border border-kb-border px-4 py-3">
@@ -104,7 +105,7 @@ function TermContent({ index }: { index: number }) {
             </td>
           </tr>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-[#F0FAF7]">
+            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-kb-primary-bg">
               거부권리및불이익
             </td>
             <td className="border border-kb-border px-4 py-3">
@@ -118,7 +119,7 @@ function TermContent({ index }: { index: number }) {
       <table className="w-full border-collapse text-[12px]">
         <tbody>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold align-top bg-[#F0FAF7] w-[110px]">
+            <td className="border border-kb-border px-3 py-3 font-bold align-top bg-kb-primary-bg w-[110px]">
               개인(신용)정보<br />
               <span className="font-normal text-[11px]">└ 일반개인정보</span>
             </td>
@@ -255,8 +256,8 @@ export default function OnlineJoinPage() {
                 {STEPS.map((s, i) => (
                   <div key={s} className="flex items-center gap-1">
                     <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold
-                      ${step === i ? 'text-white' : step > i ? 'bg-[#5BC9A8] text-white' : 'border border-kb-border text-kb-text-muted'}`}
-                      style={step === i ? { backgroundColor: '#0D5C47' } : {}}>
+                      ${step === i ? 'text-white' : step > i ? 'bg-kb-mint text-white' : 'border border-kb-border text-kb-text-muted'}`}
+                      style={step === i ? { backgroundColor: KB_PRIMARY } : {}}>
                       <span>{i+1}.</span><span>{s}</span>
                     </div>
                     {i < STEPS.length-1 && <span className="text-kb-border text-[10px]">›</span>}
@@ -269,25 +270,25 @@ export default function OnlineJoinPage() {
             {step === 0 && (
               <div>
                 {/* 법인 고객 안내 */}
-                <div className="flex items-center justify-between border border-kb-border bg-[#F0FAF7] px-5 py-3 mb-4">
+                <div className="flex items-center justify-between border border-kb-border bg-kb-primary-bg px-5 py-3 mb-4">
                   <span className="text-[13px] text-kb-text-body">법인·개인사업자 고객이신가요? 기업 인터넷뱅킹은 별도 화면에서 가입하실 수 있습니다.</span>
-                  <Link href="/support/customer-info/corporate-join" className="border px-4 py-1.5 text-[13px] font-semibold whitespace-nowrap hover:bg-white" style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                  <Link href="/support/customer-info/corporate-join" className="border px-4 py-1.5 text-[13px] font-semibold whitespace-nowrap hover:bg-white" style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                     법인 신규가입 ›
                   </Link>
                 </div>
                 <div className="border border-kb-border mb-4">
                   {/* 전체약관보기 */}
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-[#F0FAF7]">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-kb-primary-bg">
                     <button className="flex items-center gap-3 flex-1 text-left" onClick={handleAllCheck}>
                       <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0
-                        ${allTermChecked ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                        style={allTermChecked ? { backgroundColor: '#0D5C47' } : {}}>
+                        ${allTermChecked ? 'border-kb-primary' : 'border-kb-border'}`}
+                        style={allTermChecked ? { backgroundColor: KB_PRIMARY } : {}}>
                         {allTermChecked && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                       </div>
                       <span className="text-[14px] font-bold text-kb-text">전체약관보기</span>
                     </button>
                     <button onClick={() => setTermIndex(0)}
-                      className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0">
+                      className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-kb-primary-bg flex-shrink-0">
                       약관보기 ›
                     </button>
                   </div>
@@ -298,17 +299,17 @@ export default function OnlineJoinPage() {
                       <div className="flex items-center gap-3 min-w-0">
                         <button onClick={() => handleSingleCheck(i)}
                           className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                            ${termChecked[i] ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                          style={termChecked[i] ? { backgroundColor: '#0D5C47' } : {}}>
+                            ${termChecked[i] ? 'border-kb-primary' : 'border-kb-border'}`}
+                          style={termChecked[i] ? { backgroundColor: KB_PRIMARY } : {}}>
                           {termChecked[i] && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </button>
                         <span className="text-[13px] text-kb-text-muted whitespace-pre-line">
-                          <span className="font-semibold mr-1" style={{ color: '#0D5C47' }}>[필수]</span>
+                          <span className="font-semibold mr-1" style={{ color: KB_PRIMARY }}>[필수]</span>
                           {term.label}
                         </span>
                       </div>
                       <button onClick={() => setTermIndex(i)}
-                        className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0 ml-3">
+                        className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-kb-primary-bg flex-shrink-0 ml-3">
                         약관보기 ›
                       </button>
                     </div>
@@ -317,11 +318,11 @@ export default function OnlineJoinPage() {
 
                 <div className="flex justify-center gap-3 mt-6">
                   <button onClick={handleStep0}
-                    className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+                    className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                     확인
                   </button>
                   <Link href="/"
-                    className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">
+                    className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">
                     취소
                   </Link>
                 </div>
@@ -331,7 +332,7 @@ export default function OnlineJoinPage() {
             {/* ── STEP 1: 본인확인 ── */}
             {step === 1 && (
               <div>
-                <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
+                <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
                   <p>· 온라인 고객으로 가입하시면 계좌조회 서비스를 이용하실 수 있습니다.</p>
                   <p>· AXful Bank 입출금식 상품 계좌를 보유하신 고객에 한하여 신규 가입이 가능합니다.</p>
                   <p>· 임의단체 또는 개인사업자, 기업 고객님께서는 AXful Bank 영업점을 방문하셔서 인터넷뱅킹에 가입하여 이용하여 주시기 바랍니다. (인터넷을 통한 온라인고객 신규 가입은 불가능 합니다.)</p>
@@ -343,7 +344,7 @@ export default function OnlineJoinPage() {
                 <table className="w-full text-[13px] border-collapse mb-6">
                   <tbody>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">
                         생년월일
                         <button className="ml-1 text-kb-text-muted border border-kb-border rounded-full w-4 h-4 text-[10px] inline-flex items-center justify-center">ⓘ</button>
                       </td>
@@ -354,7 +355,7 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
                         계좌번호
                         <button className="ml-1 text-kb-text-muted border border-kb-border rounded-full w-4 h-4 text-[10px] inline-flex items-center justify-center">ⓘ</button>
                       </td>
@@ -365,7 +366,7 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr>
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
                         계좌비밀번호
                         <button className="ml-1 text-kb-text-muted border border-kb-border rounded-full w-4 h-4 text-[10px] inline-flex items-center justify-center">ⓘ</button>
                       </td>
@@ -391,11 +392,11 @@ export default function OnlineJoinPage() {
 
                 <div className="flex justify-center gap-3">
                   <button onClick={() => setStep(0)}
-                    className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">
+                    className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">
                     취소
                   </button>
                   <button onClick={handleStep1}
-                    className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+                    className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                     확인
                   </button>
                 </div>
@@ -405,7 +406,7 @@ export default function OnlineJoinPage() {
             {/* ── STEP 2: 정보입력 ── */}
             {step === 2 && (
               <div>
-                <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
+                <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
                   <p>· 본인확인을 위해 은행에 등록되어 있는 전화번호로 ARS 추가인증 완료 후 이용이 가능합니다.</p>
                   <p>· 은행에 등록되어 있는 전화번호가 없으신 경우, 가까운 영업점을 방문하셔서 인터넷뱅킹을 가입해주시기 바랍니다.</p>
                   <p>· 인터넷뱅킹ID: 인터넷뱅킹 서비스 이용을 위해 지정하는 정보로서 영문 또는 영문/숫자조합으로 입력(특수문자 제외, 6~12자리)</p>
@@ -415,7 +416,7 @@ export default function OnlineJoinPage() {
                 <table className="w-full text-[13px] border-collapse mb-6">
                   <tbody>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">성명(고객명)</td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">성명(고객명)</td>
                       <td className="border border-kb-border px-4 py-3">
                         <input type="text" value={name} onChange={e => setName(e.target.value)}
                           placeholder="실명 입력"
@@ -423,11 +424,11 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">생년월일</td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">생년월일</td>
                       <td className="border border-kb-border px-4 py-3 text-kb-text">{birth || '810201'}</td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">성별</td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">성별</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex items-center gap-4 text-[13px]">
                           {(['M', 'F', 'U'] as const).map(g => (
@@ -442,7 +443,7 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
                         이메일 <span className="font-normal text-kb-text-muted text-[11px]">(선택)</span>
                       </td>
                       <td className="border border-kb-border px-4 py-3">
@@ -452,7 +453,7 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
                         휴대전화 <span className="font-normal text-kb-text-muted text-[11px]">(선택)</span>
                       </td>
                       <td className="border border-kb-border px-4 py-3">
@@ -462,24 +463,24 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">ID</td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">ID</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex items-center gap-2">
                           <input type="text" value={userId} onChange={e => { setUserId(e.target.value); setIdOk(null) }}
                             placeholder="6~12자리 영문/숫자 조합(특수문자 제외)"
                             className="border border-kb-border px-3 py-1.5 w-52 outline-none text-[13px]" />
                           <button onClick={handleIdCheck}
-                            className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-[#F0FAF7] whitespace-nowrap">
+                            className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-primary-bg whitespace-nowrap">
                             ID중복확인 ↗
                           </button>
                           <button className="text-kb-text-muted border border-kb-border rounded-full w-5 h-5 text-[10px] flex items-center justify-center flex-shrink-0">ⓘ</button>
                         </div>
-                        {idOk === true  && <p className="text-[12px] font-semibold mt-1" style={{ color: '#0D5C47' }}>✓ 사용 가능한 아이디입니다.</p>}
+                        {idOk === true  && <p className="text-[12px] font-semibold mt-1" style={{ color: KB_PRIMARY }}>✓ 사용 가능한 아이디입니다.</p>}
                         {idOk === false && <p className="text-[12px] text-kb-red mt-1">이미 사용 중인 아이디입니다.</p>}
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">사용자암호</td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">사용자암호</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="relative">
@@ -500,7 +501,7 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr>
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">사용자암호 확인</td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">사용자암호 확인</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="relative">
@@ -530,11 +531,11 @@ export default function OnlineJoinPage() {
                 )}
                 <div className="flex justify-center gap-3">
                   <button onClick={() => setStep(1)}
-                    className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">
+                    className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">
                     취소
                   </button>
                   <button onClick={handleStep2}
-                    className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+                    className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                     확인
                   </button>
                 </div>
@@ -544,8 +545,8 @@ export default function OnlineJoinPage() {
             {/* ── STEP 3: 가입완료 ── */}
             {step === 3 && (
               <div>
-                <div className="border border-kb-border bg-[#F0FAF7] px-6 py-8 mb-6 flex items-center gap-6">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+                <div className="border border-kb-border bg-kb-primary-bg px-6 py-8 mb-6 flex items-center gap-6">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                     <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20,6 9,17 4,12"/>
                     </svg>
@@ -564,14 +565,14 @@ export default function OnlineJoinPage() {
                       { label: '가입일시',      value: joinDateStr },
                     ].map(row => (
                       <tr key={row.label} className="border-b border-kb-border last:border-b-0">
-                        <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">{row.label}</td>
+                        <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">{row.label}</td>
                         <td className="border border-kb-border px-4 py-3">{row.value}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
 
-                <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-6 text-[12px] text-kb-text-muted space-y-1">
+                <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-6 text-[12px] text-kb-text-muted space-y-1">
                   <p>· AXful 인터넷뱅킹 이용을 위해서는 AXful 금융인증서 또는 공동인증서 발급이 필요합니다.</p>
                   <p>· 안전한 금융거래를 위해 OTP 카드 등 보안매체 등록을 권장합니다.</p>
                   <p>· 이체, 대출 등 금융거래를 위해서는 영업점 방문 또는 비대면 실명확인이 필요할 수 있습니다.</p>
@@ -579,15 +580,15 @@ export default function OnlineJoinPage() {
 
                 <div className="flex justify-center gap-3">
                   <Link href="/cert"
-                    className="px-10 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+                    className="px-10 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                     인증서 발급하기
                   </Link>
                   <Link href="/login"
-                    className="border border-kb-border px-10 py-3 text-[14px] font-semibold text-kb-taupe hover:bg-[#F0FAF7]">
+                    className="border border-kb-border px-10 py-3 text-[14px] font-semibold text-kb-taupe hover:bg-kb-primary-bg">
                     로그인하기
                   </Link>
                   <Link href="/"
-                    className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">
+                    className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">
                     메인으로
                   </Link>
                 </div>
@@ -601,7 +602,7 @@ export default function OnlineJoinPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
           <div className="bg-white w-[720px] max-h-[85vh] flex flex-col border border-kb-border shadow-2xl relative">
             {/* 헤더 */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-kb-border bg-[#F0FAF7]">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-kb-border bg-kb-primary-bg">
               <div className="flex items-center gap-2">
                 <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
                   <line x1="3" y1="2" x2="3" y2="18"/><line x1="3" y1="2" x2="16" y2="2"/>
@@ -633,7 +634,7 @@ export default function OnlineJoinPage() {
             )}
             {termIndex < TERMS_LIST.length - 1 && (
               <button onClick={() => setTermIndex(termIndex + 1)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full hover:opacity-85 flex items-center justify-center text-white text-[18px] font-bold shadow" style={{ backgroundColor: '#0D5C47' }}>
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full hover:opacity-85 flex items-center justify-center text-white text-[18px] font-bold shadow" style={{ backgroundColor: KB_PRIMARY }}>
                 ›
               </button>
             )}
@@ -641,11 +642,11 @@ export default function OnlineJoinPage() {
             {/* 하단 버튼 */}
             <div className="px-5 py-4 border-t border-kb-border flex items-center justify-between">
               <button onClick={() => { handleSingleCheck(termIndex); setTermIndex(null) }}
-                className="border border-kb-border px-6 py-2 text-[13px] text-kb-text-body hover:bg-[#F0FAF7]">
+                className="border border-kb-border px-6 py-2 text-[13px] text-kb-text-body hover:bg-kb-primary-bg">
                 이 약관만 동의
               </button>
               <button onClick={handleModalAgreeAll}
-                className="flex items-center gap-2 px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+                className="flex items-center gap-2 px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                 <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="3,8 6.5,11.5 13,4.5"/>
                 </svg>

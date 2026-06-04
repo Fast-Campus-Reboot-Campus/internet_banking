@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import { useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -12,7 +13,7 @@ export const HERO_SLIDES = [
     desc: '수천만 건의 금융 데이터로 학습한 AI가\n내 패턴에 딱 맞는 최적의 예금상품을 추천합니다',
     href: '/products/deposit',
     bg: '#E8F7F3',
-    accent: '#0D5C47',
+    accent: KB_PRIMARY,
     tag: '수신 AI',
     imageScale: 1,
   },
@@ -31,8 +32,8 @@ export const HERO_SLIDES = [
     title: '선제적으로 움직이는\nAI 금융 파트너',
     desc: '시장 변화를 먼저 읽고 알려주는 AI가\n내 금융 자산을 더 스마트하게 지킵니다',
     href: '/products/loan/status',
-    bg: '#F0FAF7',
-    accent: '#5BC9A8',
+    bg: KB_PRIMARY_BG,
+    accent: KB_MINT,
     tag: '사후관리 AI',
     imageScale: 1.2,
   },

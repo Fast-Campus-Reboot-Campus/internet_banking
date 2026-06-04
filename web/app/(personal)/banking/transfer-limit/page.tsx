@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -30,10 +31,10 @@ const NOTICES_BOTTOM = [
 
 function NoticeBox({ items }: { items: string[] }) {
   return (
-    <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-2">
+    <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-2">
       {items.map((text, i) => (
         <div key={i} className="flex items-start gap-2 text-[13px] text-kb-text-body">
-          <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#5BC9A8' }} />
+          <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: KB_MINT }} />
           {text}
         </div>
       ))}
@@ -83,7 +84,7 @@ export default function TransferLimitPage() {
                 ].map((row, i, arr) => (
                   <tr key={row.label} className={i < arr.length - 1 ? 'border-b border-kb-border' : ''}>
                     <td className="px-5 py-3.5 font-semibold text-kb-text w-48 whitespace-nowrap"
-                      style={{ backgroundColor: '#F0FAF7' }}>
+                      style={{ backgroundColor: KB_PRIMARY_BG }}>
                       {row.label}
                     </td>
                     <td className="px-5 py-3.5 text-kb-text-body">{row.value}</td>
@@ -95,14 +96,14 @@ export default function TransferLimitPage() {
 
           <div className="flex gap-3">
             <Link href="/transfer/account"
-              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-              style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+              style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
               당행/타행이체
             </Link>
             <button
               onClick={() => { setView('reduce'); setDone(false); setDailyInput(''); setOnceInput('') }}
               className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               이체한도 감액
             </button>
           </div>
@@ -118,7 +119,7 @@ export default function TransferLimitPage() {
           <div className="border border-kb-border rounded-xl overflow-hidden">
             <table className="w-full text-[14px] border-collapse">
               <thead>
-                <tr style={{ backgroundColor: '#0D5C47' }}>
+                <tr style={{ backgroundColor: KB_PRIMARY }}>
                   <th className="px-5 py-3 font-semibold text-white text-left w-44"></th>
                   <th className="px-5 py-3 font-semibold text-white text-center border-l border-white/20">감액 전</th>
                   <th className="px-5 py-3 font-semibold text-white text-center border-l border-white/20">감액 후</th>
@@ -131,7 +132,7 @@ export default function TransferLimitPage() {
                 ].map((row, i, arr) => (
                   <tr key={row.label} className={i < arr.length - 1 ? 'border-b border-kb-border' : ''}>
                     <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap"
-                      style={{ backgroundColor: '#F0FAF7' }}>
+                      style={{ backgroundColor: KB_PRIMARY_BG }}>
                       {row.label}
                     </td>
                     <td className="px-5 py-3.5 text-center text-kb-text-body">{formatN(row.current)}원</td>
@@ -142,7 +143,7 @@ export default function TransferLimitPage() {
                           value={row.input}
                           onChange={e => row.onChange(e.target.value)}
                           placeholder="0"
-                          className="border border-kb-border rounded-lg px-3 py-1.5 text-[14px] w-36 outline-none text-right focus:border-[#0D5C47] transition-colors"
+                          className="border border-kb-border rounded-lg px-3 py-1.5 text-[14px] w-36 outline-none text-right focus:border-kb-primary transition-colors"
                         />
                         <span className="text-kb-text-body">원</span>
                         <span className="text-[12px] text-kb-text-muted">1만원 단위</span>
@@ -156,23 +157,23 @@ export default function TransferLimitPage() {
 
           {done ? (
             <div className="text-center py-4 space-y-3">
-              <p className="text-[15px] font-bold" style={{ color: '#0D5C47' }}>이체한도 감액이 완료되었습니다.</p>
+              <p className="text-[15px] font-bold" style={{ color: KB_PRIMARY }}>이체한도 감액이 완료되었습니다.</p>
               <button onClick={() => setView('inquiry')}
                 className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 확인
               </button>
             </div>
           ) : (
             <div className="flex gap-3">
               <button onClick={() => setView('inquiry')}
-                className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-                style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+                style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                 이체한도 조회로 돌아가기
               </button>
               <button onClick={handleReduce}
                 className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 변경
               </button>
             </div>

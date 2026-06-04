@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -9,7 +10,7 @@ import {
   type MobileAuthPurpose,
 } from '@/lib/customer-auth-api'
 
-const GREEN = '#0D5C47'
+const GREEN = KB_PRIMARY
 const OTP_SECONDS = 180
 
 type Props = {

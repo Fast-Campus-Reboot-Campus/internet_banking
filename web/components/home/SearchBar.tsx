@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -170,14 +171,14 @@ export default function SearchBar() {
   }, [])
 
   return (
-    <div className="border-t" style={{ borderColor: '#E2F5EF', backgroundColor: '#F8FFFE' }}>
+    <div className="border-t" style={{ borderColor: KB_PRIMARY_BORDER, backgroundColor: KB_PRIMARY_SURFACE }}>
       <div className="max-w-kb-container mx-auto px-6 py-1.5">
         <div ref={containerRef} className="relative w-72">
 
           {/* 인풋 */}
           <div
             className="flex items-center gap-2 bg-white rounded-full px-3 py-1 border transition-colors"
-            style={{ borderColor: open || query ? '#5BC9A8' : '#E2F5EF' }}
+            style={{ borderColor: open || query ? KB_MINT : KB_PRIMARY_BORDER }}
           >
             <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 flex-shrink-0"
               stroke="#5BC9A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -214,7 +215,7 @@ export default function SearchBar() {
                   key={`${item.href}-${i}`}
                   onClick={() => handleSelect(item.href)}
                   className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors
-                    ${i === focused ? 'bg-[#F0FAF7]' : 'hover:bg-[#F8FFFE]'}
+                    ${i === focused ? 'bg-kb-primary-bg' : 'hover:bg-kb-primary-surface'}
                     ${i > 0 ? 'border-t border-gray-50' : ''}`}
                 >
                   <div className="flex items-center gap-3">
@@ -225,7 +226,7 @@ export default function SearchBar() {
                     <span className="text-[14px] text-kb-text">{item.label}</span>
                   </div>
                   <span className="text-[12px] px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: '#F0FAF7', color: '#0D5C47' }}>
+                    style={{ backgroundColor: KB_PRIMARY_BG, color: KB_PRIMARY }}>
                     {item.group}
                   </span>
                 </button>
