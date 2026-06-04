@@ -44,6 +44,7 @@ export default function TransferResultPage() {
   const [data, setData] = useState<PendingTransfer | null>(null)
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null)
   const [remainingBalance, setRemainingBalance] = useState<number | null>(null)
+  const [isExecuting, setIsExecuting] = useState(true)
   const initialized = useRef(false)
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function TransferResultPage() {
       transactionMemo: '인터넷이체',
     })
       .then(tx => {
+        setIsExecuting(false)
         setPaymentResult({ status: 'COMPLETED', txNo: String(tx.transactionId) })
         // 이체 이력 저장
         try {
@@ -101,6 +103,7 @@ export default function TransferResultPage() {
       .catch((e: unknown) => {
         const msg = (e as { response?: { data?: { message?: string } } })
           ?.response?.data?.message ?? '이체 처리 중 오류가 발생했습니다.'
+        setIsExecuting(false)
         setPaymentResult({ status: 'ERROR', message: msg })
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,8 +119,13 @@ export default function TransferResultPage() {
         <main className="flex-1 pl-8 pt-6 pb-12">
           <h1 className="text-[22px] font-bold text-kb-text mb-6">계좌이체</h1>
 
-          {/* 완료/실패 배너 */}
-          {(!paymentResult || paymentResult.status === 'COMPLETED' || paymentResult.status === 'CLEARING') ? (
+          {/* 이체 처리 중 */}
+          {isExecuting ? (
+            <div className="rounded-xl p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 animate-spin" style={{ border: '3px solid #E2F5EF', borderTopColor: '#0D5C47' }} />
+              <p className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>이체 처리 중입니다...</p>
+            </div>
+          ) : (paymentResult?.status === 'COMPLETED' || paymentResult?.status === 'CLEARING') ? (
             <div className="rounded-xl p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
               <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
