@@ -268,6 +268,11 @@ services:
       LOAN_DB_NAME: ${LOAN_DB_NAME:-loan_db}
       LOAN_DB_USER: ${LOAN_DB_USER:-loan}
       LOAN_DB_PASSWORD: ${LOAN_DB_PASSWORD:-loan}
+      COMMON_DB_HOST: common-db
+      COMMON_DB_PORT: 5432
+      COMMON_DB_NAME: ${COMMON_DB_NAME:-common_db}
+      COMMON_DB_USER: ${COMMON_DB_USER:-common}
+      COMMON_DB_PASSWORD: ${COMMON_DB_PASSWORD:-common}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -275,6 +280,8 @@ services:
       LOG_DIR: /logs
     depends_on:
       loan-db:
+        condition: service_healthy
+      common-db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -362,8 +369,10 @@ services:
       AI_DB_NAME: ${AI_DB_NAME:-ai_db}
       AI_DB_USER: ${AI_DB_USER:-ai}
       AI_DB_PASSWORD: ${AI_DB_PASSWORD:-ai}
+      AI_DB_URL: jdbc:postgresql://ai-db:5432/${AI_DB_NAME:-ai_db}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: docker
       LOG_DIR: /logs
       AI_LLM_PROVIDER: ${AI_LLM_PROVIDER:-stub}
       AI_LLM_MODEL: ${AI_LLM_MODEL:-stub-v1}

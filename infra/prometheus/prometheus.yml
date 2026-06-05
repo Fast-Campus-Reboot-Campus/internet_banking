@@ -26,7 +26,7 @@ scrape_configs:
       - targets: ['host.docker.internal:8081']
 
   - job_name: 'deposit-service'
-    metrics_path: /actuator/prometheus
+    metrics_path: /api/actuator/prometheus
     static_configs:
       - targets: ['host.docker.internal:8082']
 
