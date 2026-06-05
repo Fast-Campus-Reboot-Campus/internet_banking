@@ -141,7 +141,7 @@ export default function LoanCalculatorPage() {
             <span className="text-kb-text">%로 대출 받으면?</span>
 
             <button onClick={handleCalc}
-              className="ml-auto text-white text-[12px] font-bold px-5 py-1.5 hover:opacity-90 transition-opacity"
+              className="ml-auto text-white text-[12px] font-bold px-5 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
               style={{ backgroundColor: KB_PRIMARY }}>
               결과보기
             </button>

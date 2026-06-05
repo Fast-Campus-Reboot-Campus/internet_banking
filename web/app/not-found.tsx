@@ -48,14 +48,14 @@ export default function NotFound() {
           <div className="flex justify-center gap-2.5">
             <Link
               href="/"
-              className="px-7 py-2.5 text-[13px] font-bold text-white rounded-sm transition-opacity hover:opacity-85"
+              className="px-7 py-2.5 text-[13px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
               style={{ backgroundColor: KB_PRIMARY }}
             >
               홈으로 이동
             </Link>
             <Link
               href="/inquiry/accounts"
-              className="px-7 py-2.5 border border-kb-border text-[13px] text-kb-text rounded-sm hover:bg-kb-beige-light transition-colors"
+              className="px-7 py-2.5 border border-kb-border text-[13px] text-kb-text rounded-lg hover:bg-kb-beige-light transition-colors"
             >
               계좌조회
             </Link>

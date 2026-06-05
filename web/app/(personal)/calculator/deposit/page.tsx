@@ -193,7 +193,7 @@ export default function DepositCalculatorPage() {
 
             <div className="flex-shrink-0 self-stretch flex">
               <button onClick={handleCalc}
-                className="self-stretch px-8 text-white text-[15px] font-bold hover:opacity-90 transition-opacity min-w-[90px]"
+                className="self-stretch px-8 text-white text-[15px] font-bold rounded-lg hover:opacity-90 transition-opacity min-w-[90px]"
                 style={{ backgroundColor: KB_PRIMARY }}>
                 결과보기
               </button>

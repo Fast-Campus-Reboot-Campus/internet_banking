@@ -139,7 +139,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
               </div>
               <div className="flex justify-center">
                 <button onClick={() => { setPage(0); fetchProducts() }}
-                  className="px-12 py-2.5 text-[14px] font-bold text-white" style={{ backgroundColor: KB_PRIMARY }}>
+                  className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                   조회
                 </button>
               </div>
