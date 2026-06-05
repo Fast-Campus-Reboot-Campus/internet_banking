@@ -198,6 +198,8 @@ services:
       context: .
       dockerfile: services/customer-service/Dockerfile
     container_name: ib-customer-service
+    ports:
+      - "${CUSTOMER_APP_PORT:-8081}:8081"
     environment:
       CUSTOMER_APP_PORT: 8081
       CUSTOMER_DB_HOST: customer-db
@@ -208,6 +210,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
+      CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       LOG_DIR: /logs
     depends_on:
       customer-db:
@@ -226,6 +229,8 @@ services:
       context: .
       dockerfile: services/deposit-service/Dockerfile
     container_name: ib-deposit-service
+    ports:
+      - "${DEPOSIT_APP_PORT:-8082}:8082"
     environment:
       DEPOSIT_APP_PORT: 8082
       DEPOSIT_DB_HOST: deposit-db
@@ -234,6 +239,8 @@ services:
       DEPOSIT_DB_USER: ${DEPOSIT_DB_USER:-deposit}
       DEPOSIT_DB_PASSWORD: ${DEPOSIT_DB_PASSWORD:-deposit}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
+      SPRING_PROFILES_ACTIVE: docker
       LOG_DIR: /logs
     depends_on:
       deposit-db:
@@ -241,7 +248,7 @@ services:
       kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/api/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -252,6 +259,8 @@ services:
       context: .
       dockerfile: services/loan-service/Dockerfile
     container_name: ib-loan-service
+    ports:
+      - "${LOAN_APP_PORT:-8083}:8083"
     environment:
       LOAN_APP_PORT: 8083
       LOAN_DB_HOST: loan-db
@@ -262,6 +271,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       LOG_DIR: /logs
     depends_on:
       loan-db:
@@ -294,6 +304,7 @@ services:
       KFTC_KAFKA_BOOTSTRAP: kafka:29092
       BOK_KAFKA_BOOTSTRAP: kafka:29092
       INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
+      SPRING_KAFKA_LISTENER_MISSING_TOPICS_FATAL: "false"
       LOG_DIR: /logs
       DEPOSIT_ACCOUNT_URL: http://deposit-service:${DEPOSIT_APP_PORT:-8082}
       DEPOSIT_BALANCE_URL: http://deposit-service:${DEPOSIT_APP_PORT:-8082}
@@ -314,6 +325,8 @@ services:
       context: .
       dockerfile: services/master-service/Dockerfile
     container_name: ib-master-service
+    ports:
+      - "${MASTER_APP_PORT:-8085}:8085"
     environment:
       MASTER_APP_PORT: 8085
       MASTER_DB_HOST: master-db
@@ -323,6 +336,7 @@ services:
       MASTER_DB_PASSWORD: ${MASTER_DB_PASSWORD:-master}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       LOG_DIR: /logs
     depends_on:
       master-db:
