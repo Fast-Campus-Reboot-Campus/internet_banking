@@ -259,7 +259,8 @@ class AuditFairnessAgentTest {
         ReviewAdvisoryReport r1 = mockReport(14L, revId, reviewerId, "CRITICAL", "REREVIEW_RECOMMEND", payload1);
         ReviewAdvisoryReport r2 = mockReport(15L, revId, reviewerId, "CRITICAL", "REREVIEW_RECOMMEND", payload2);
         when(reportRepo.findAllById(any())).thenReturn(List.of(r1, r2));
-        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(14L)).thenReturn(List.of(mockSignal(14L)));
+        ReviewAdvisorySignal sig14 = mockSignal(14L);
+        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(14L)).thenReturn(List.of(sig14));
         when(signalRepo.findByAdvrIdOrderByObservedAtAsc(15L)).thenReturn(List.of());
         setupLoanReview(revId, reviewerId, null);
         when(gateway.analyze(any())).thenReturn(complianceResponse("NO_VIOLATION", 0.7));
@@ -304,7 +305,8 @@ class AuditFairnessAgentTest {
         long advrId = Math.abs(revId % 1000) + 1;
         ReviewAdvisoryReport report = mockReport(advrId, revId, reviewerId, severity, advisoryTypeCd, payload);
         when(reportRepo.findAllById(any())).thenReturn(List.of(report));
-        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(advrId)).thenReturn(List.of(mockSignal(advrId)));
+        ReviewAdvisorySignal signal = mockSignal(advrId);
+        when(signalRepo.findByAdvrIdOrderByObservedAtAsc(advrId)).thenReturn(List.of(signal));
     }
 
     private void setupLoanReview(Long revId, Long reviewerId, String remark) {

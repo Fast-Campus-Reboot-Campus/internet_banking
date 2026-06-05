@@ -1801,7 +1801,9 @@ export default function ChatbotWidget() {
                               </div>
                               {row.reason != null && <p className="text-[11px] text-[#2D6A4F] font-medium">✓ {String(row.reason)}</p>}
                               {row.pref_condition != null && String(row.pref_condition).trim() !== '' && (
-                                <p className="text-[11px] text-orange-600 font-medium">🎁 우대금리 조건: {String(row.pref_condition)}</p>
+                                <p className="text-[11px] text-orange-600 font-medium">
+                                  🎁 우대금리{row.pref_rate ? ` +${row.pref_rate}%` : ''} 조건: {String(row.pref_condition)}
+                                </p>
                               )}
                               {(row.min_join_amount != null || row.max_join_amount != null) && (
                                 <p className="text-[11px] text-kb-text-muted">

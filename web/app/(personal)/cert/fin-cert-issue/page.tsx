@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -9,7 +10,7 @@ import { CERT_TERMS, CertTermsModal } from '@/components/cert/CertTermsModal'
 
 function NoticeBox({ items }: { items: string[] }) {
   return (
-    <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-2">
+    <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-2">
       {items.map((n, i) => (
         <div key={i} className="flex items-start gap-2 text-[13px] text-kb-text-body">
           <span className="flex-shrink-0 mt-0.5">·</span>
@@ -24,7 +25,7 @@ function TableRow({ label, children }: { label: string; children: React.ReactNod
   return (
     <tr className="border-b border-kb-border last:border-b-0">
       <td className="px-5 py-3.5 font-semibold text-[13px] text-kb-text w-44 whitespace-nowrap align-middle"
-        style={{ backgroundColor: '#F0FAF7' }}>
+        style={{ backgroundColor: KB_PRIMARY_BG }}>
         {label}
       </td>
       <td className="border-l border-kb-border px-5 py-3 align-middle">{children}</td>
@@ -43,7 +44,7 @@ function PwInput({ value, onChange, placeholder }: {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="border border-kb-border px-3 py-1.5 pr-9 w-64 outline-none text-[13px] focus:border-[#0D5C47] transition-colors"
+        className="border border-kb-border px-3 py-1.5 pr-9 w-64 outline-none text-[13px] focus:border-kb-primary transition-colors"
       />
       <button type="button" onClick={() => setShow(v => !v)}
         className="absolute right-2.5 text-kb-text-muted hover:text-kb-text" tabIndex={-1}>
@@ -149,10 +150,10 @@ export default function FinCertIssuePage() {
 
           <div className="border border-kb-border rounded-xl overflow-hidden">
             {/* 전체약관 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-[#F0FAF7]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-kb-primary-bg">
               <button className="flex items-center gap-3 flex-1 text-left" onClick={toggleAll}>
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                  style={allChecked ? { backgroundColor: '#0D5C47' } : {}}>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-kb-primary' : 'border-kb-border'}`}
+                  style={allChecked ? { backgroundColor: KB_PRIMARY } : {}}>
                   {allChecked && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
                 <span className="text-[14px] font-bold text-kb-text">전체약관보기</span>
@@ -167,17 +168,17 @@ export default function FinCertIssuePage() {
               <div key={i} className="flex items-center justify-between px-5 py-4 border-b border-kb-border last:border-b-0">
                 <div className="flex items-center gap-3 min-w-0">
                   <button onClick={() => toggleOne(i)}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                    style={checked[i] ? { backgroundColor: '#0D5C47' } : {}}>
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-kb-primary' : 'border-kb-border'}`}
+                    style={checked[i] ? { backgroundColor: KB_PRIMARY } : {}}>
                     {checked[i] && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </button>
                   <span className="text-[13px] text-kb-text-muted whitespace-pre-line">
-                    <span className="font-semibold mr-1" style={{ color: '#0D5C47' }}>[필수]</span>
+                    <span className="font-semibold mr-1" style={{ color: KB_PRIMARY }}>[필수]</span>
                     {term.label}
                   </span>
                 </div>
                 <button onClick={() => setTermModalIndex(i)}
-                  className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0 ml-3">
+                  className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-kb-primary-bg flex-shrink-0 ml-3">
                   약관보기 ›
                 </button>
               </div>
@@ -195,9 +196,9 @@ export default function FinCertIssuePage() {
                   <div className="flex items-center gap-4">
                     <input type="text" value={userId} onChange={e => setUserId(e.target.value)}
                       placeholder="아이디 입력"
-                      className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
                     <Link href="/support/customer-info/id-password"
-                      className="text-[13px] text-[#0D5C47] hover:underline whitespace-nowrap">
+                      className="text-[13px] text-kb-primary hover:underline whitespace-nowrap">
                       ID를 모르시는 경우↗
                     </Link>
                   </div>
@@ -207,12 +208,12 @@ export default function FinCertIssuePage() {
                     <input type="text" value={rrn1}
                       onChange={e => setRrn1(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       maxLength={6} placeholder="생년월일"
-                      className="border border-kb-border px-3 py-1.5 w-28 text-center tracking-widest outline-none text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-1.5 w-28 text-center tracking-widest outline-none text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text-muted">-</span>
                     <input type="password" value={rrn2}
                       onChange={e => setRrn2(e.target.value.replace(/\D/g, '').slice(0, 7))}
                       maxLength={7}
-                      className="border border-kb-border px-3 py-1.5 w-28 text-center tracking-widest outline-none text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-1.5 w-28 text-center tracking-widest outline-none text-[13px] focus:border-kb-primary" />
                   </div>
                 </TableRow>
                 <TableRow label="비밀번호">
@@ -242,7 +243,7 @@ export default function FinCertIssuePage() {
                       <p className="text-[12px] text-red-500">인증서 암호가 일치하지 않습니다.</p>
                     )}
                     {certPinConfirm && certPin === certPinConfirm && certPin.length >= 8 && (
-                      <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>✓ 일치합니다.</p>
+                      <p className="text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 일치합니다.</p>
                     )}
                   </div>
                 </TableRow>
@@ -255,15 +256,15 @@ export default function FinCertIssuePage() {
 
         {/* 발급 완료 */}
         {issuedCert && (
-          <div className="border border-kb-border bg-[#F0FAF7] px-6 py-8 rounded-xl flex items-center gap-6">
+          <div className="border border-kb-border bg-kb-primary-bg px-6 py-8 rounded-xl flex items-center gap-6">
             <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20,6 9,17 4,12"/>
               </svg>
             </div>
             <div className="space-y-1.5">
-              <p className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>금융인증서 발급이 완료되었습니다.</p>
+              <p className="text-[16px] font-bold" style={{ color: KB_PRIMARY }}>금융인증서 발급이 완료되었습니다.</p>
               <p className="text-[13px] text-kb-text-muted">일련번호: <span className="font-medium text-kb-text">{issuedCert.serialNumber}</span></p>
               <p className="text-[13px] text-kb-text-muted">
                 유효기간: {issuedCert.expiryDate.slice(0,4)}.{issuedCert.expiryDate.slice(4,6)}.{issuedCert.expiryDate.slice(6,8)} 까지 (3년)
@@ -278,23 +279,23 @@ export default function FinCertIssuePage() {
             <>
               <Link href="/login"
                 className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 로그인 화면으로
               </Link>
               <Link href="/cert/cert-management"
-                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                 인증서 관리
               </Link>
             </>
           ) : (
             <>
               <Link href="/cert"
-                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                 취소
               </Link>
               <button onClick={handleIssue} disabled={loading}
                 className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 {loading ? '발급 중...' : '확인'}
               </button>
             </>

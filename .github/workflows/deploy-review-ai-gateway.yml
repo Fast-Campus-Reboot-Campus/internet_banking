@@ -19,6 +19,8 @@ on:
 
 jobs:
   test:
+    permissions:
+      contents: read
     uses: ./.github/workflows/reusable-java-build.yml
     with:
       service-name: review-ai-gateway
@@ -26,6 +28,9 @@ jobs:
   publish:
     if: github.event_name != 'pull_request'
     needs: test
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/reusable-docker-publish.yml
     with:
       service-name: review-ai-gateway
@@ -33,6 +38,7 @@ jobs:
   deploy:
     if: github.event_name != 'pull_request'
     needs: publish
+    permissions: {}
     uses: ./.github/workflows/reusable-deploy-oracle.yml
     with:
       service-name: review-ai-gateway

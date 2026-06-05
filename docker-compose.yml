@@ -158,7 +158,7 @@ services:
     image: confluentinc/cp-schema-registry:7.6.0
     container_name: ib-schema-registry
     ports:
-      - "8081:8081"
+      - "18081:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
@@ -350,11 +350,11 @@ services:
       retries: 10
       start_period: 60s
 
-  ai-service:
+  auto-loan-review:
     build:
       context: .
-      dockerfile: services/ai-service/Dockerfile
-    container_name: ib-ai-service
+      dockerfile: services/auto-loan-review/Dockerfile
+    container_name: ib-auto-loan-review
     environment:
       AI_APP_PORT: 8086
       AI_DB_HOST: ai-db
@@ -365,6 +365,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       LOG_DIR: /logs
+      AI_LLM_PROVIDER: ${AI_LLM_PROVIDER:-stub}
+      AI_LLM_MODEL: ${AI_LLM_MODEL:-stub-v1}
+      AI_LLM_BASE_URL: ${AI_LLM_BASE_URL:-}
+      AI_LLM_API_KEY: ${AI_LLM_API_KEY:-}
     depends_on:
       ai-db:
         condition: service_healthy
@@ -485,8 +489,7 @@ services:
       - ./infra/loki/loki-config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
-      interval: 15s
+      disable: true
       timeout: 5s
       retries: 3
       start_period: 20s
@@ -500,7 +503,7 @@ services:
       - C:/logs/internet-banking:/logs:ro
     depends_on:
       loki:
-        condition: service_healthy
+        condition: service_started
 
   # =============================================================
   # Monitoring — LLM Tracing (Langfuse + Phoenix)
@@ -514,7 +517,7 @@ services:
       POSTGRES_USER: ${LANGFUSE_DB_USER:-langfuse}
       POSTGRES_PASSWORD: ${LANGFUSE_DB_PASSWORD:-langfuse}
     ports:
-      - "${LANGFUSE_DB_PORT:-5438}:5432"
+      - "${LANGFUSE_DB_PORT:-5439}:5432"
     volumes:
       - langfuse-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -595,7 +598,7 @@ services:
         condition: service_healthy
       master-service:
         condition: service_healthy
-      ai-service:
+      auto-loan-review:
         condition: service_healthy
       redis:
         condition: service_healthy

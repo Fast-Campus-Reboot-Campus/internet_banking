@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import { useState } from 'react'
 
@@ -69,7 +70,7 @@ export default function LoanCalculatorPage() {
 
   function fmtN(n: number) { return n.toLocaleString('ko-KR') }
 
-  const focusCls = 'border-[#0D5C47] bg-[#F0FAF7]'
+  const focusCls = 'border-kb-primary bg-kb-primary-bg'
   const blurCls  = 'border-kb-border'
 
   return (
@@ -140,8 +141,8 @@ export default function LoanCalculatorPage() {
             <span className="text-kb-text">%로 대출 받으면?</span>
 
             <button onClick={handleCalc}
-              className="ml-auto text-white text-[12px] font-bold px-5 py-1.5 hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              className="ml-auto text-white text-[12px] font-bold px-5 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: KB_PRIMARY }}>
               결과보기
             </button>
           </div>
@@ -195,11 +196,11 @@ export default function LoanCalculatorPage() {
               </svg>
               <p className="text-[13px] text-kb-text-body">
                 상환 예정 금액은 <span className="font-bold text-kb-text">{CALC_TABS[calcTab]}</span> 기준 매월 약{' '}
-                <span className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>{fmtN(calcResult.total)}원</span>이에요.
+                <span className="text-[16px] font-bold" style={{ color: KB_PRIMARY }}>{fmtN(calcResult.total)}원</span>이에요.
               </p>
             </div>
             <div className="mx-6 mb-2 border border-kb-border overflow-hidden rounded-sm">
-              <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: '#0D5C47' }}>
+              <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: KB_PRIMARY }}>
                 <p className="text-[13px] font-bold text-white">상환예정금액</p>
                 <p className="text-[11px] text-white/70">대출계산결과</p>
               </div>
@@ -213,7 +214,7 @@ export default function LoanCalculatorPage() {
                   <p key={i} className={`px-4 py-3 text-right font-bold ${
                     i === 2 ? 'text-[16px]' : 'text-[14px] text-kb-text'
                   }`}
-                    style={i === 2 ? { color: '#0D5C47', fontSize: '16px' } : undefined}>
+                    style={i === 2 ? { color: KB_PRIMARY, fontSize: '16px' } : undefined}>
                     {fmtN(val)}원
                   </p>
                 ))}

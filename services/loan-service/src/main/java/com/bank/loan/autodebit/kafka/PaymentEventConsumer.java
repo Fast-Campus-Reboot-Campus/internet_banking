@@ -41,22 +41,27 @@ public class PaymentEventConsumer {
             String status = node.path("status").asText("");
 
             // piId 없음(역분개 등 다른 스키마) 또는 status 없음(KFTC_SETTLED/BOK_CONFIRMED) → 무시
-            // (ack 는 finally 에서 일괄 처리)
             if (piId.isBlank() || status.isBlank()) {
+                ack.acknowledge();
                 return;
             }
 
             boolean completed = "COMPLETED".equals(status);
             boolean failed = "FAILED".equals(status);
             if (!completed && !failed) {
+                ack.acknowledge();
                 return;
             }
 
             clearingResultService.handle(piId, completed);
-        } catch (Exception e) {
-            log.error("payment event 처리 실패 topic={} key={}", record.topic(), record.key(), e);
-        } finally {
+            // 청산 결과 처리가 정상 커밋된 경우에만 offset 을 확정한다.
             ack.acknowledge();
+        } catch (Exception e) {
+            // 트랜잭션 롤백(스케줄 상태 불일치 등) 또는 파싱 실패 시 ack 하지 않고 재던진다.
+            // → 컨테이너 에러핸들러가 재시도하고, 소진 시 DLT(payment.*.DLT)로 라우팅한다.
+            // 무조건 ack 하면 청산은 됐는데 회차가 영구 PENDING 으로 남는 정합성 붕괴가 발생한다.
+            log.error("payment event 처리 실패 topic={} key={}", record.topic(), record.key(), e);
+            throw e instanceof RuntimeException re ? re : new RuntimeException(e);
         }
     }
 }

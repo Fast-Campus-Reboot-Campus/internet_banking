@@ -21,8 +21,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -301,6 +306,26 @@ class TransactionServiceTest {
         }
 
         @Test
+        @DisplayName("DEPOSIT 타입 거래는 취소할 수 없다")
+        void reversalDepositNotAllowed() {
+            Transaction depositTx = Transaction.builder()
+                    .transactionNumber("DEP-20260101-ABCDEFGH")
+                    .accountId(1L)
+                    .transactionType(TransactionType.DEPOSIT)
+                    .directionType(DirectionType.IN)
+                    .amount(BigDecimal.valueOf(50_000))
+                    .balanceBefore(BigDecimal.valueOf(100_000))
+                    .balanceAfter(BigDecimal.valueOf(150_000))
+                    .channelType(TransactionChannel.INTERNET)
+                    .transactionAt(java.time.OffsetDateTime.now())
+                    .build();
+            given(transactionRepository.findById(1L)).willReturn(Optional.of(depositTx));
+
+            assertThatThrownBy(() -> transactionService.reversal(1L, null))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
         @DisplayName("이미 취소된 거래를 재취소하면 예외가 발생한다")
         void reversalAlreadyCanceled() {
             Transaction canceled = buildTx(1L, DirectionType.IN, BigDecimal.valueOf(100_000), TransactionStatus.CANCELED);
@@ -308,6 +333,93 @@ class TransactionServiceTest {
 
             assertThatThrownBy(() -> transactionService.reversal(1L, null))
                     .isInstanceOf(BusinessException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("경계값 및 동시성")
+    class EdgeCases {
+
+        @Test
+        @DisplayName("잔액과 정확히 같은 금액을 이체하면 성공하고 잔액이 0이 된다")
+        void transferExactBalance() {
+            Account source = activeAccount(BigDecimal.valueOf(300_000));
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            transactionService.transfer(1L, null, "ACC-002",
+                    BigDecimal.valueOf(300_000), TransferType.EXTERNAL,
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "전액 이체");
+
+            assertThat(source.getBalance()).isEqualByComparingTo("0");
+        }
+
+        @Test
+        @DisplayName("단일 스레드에서 순차 이체 두 번 후 잔액이 정확하다")
+        void sequentialTransferBalance() {
+            Account source = activeAccount(BigDecimal.valueOf(1_000_000));
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            transactionService.transfer(1L, null, "ACC-A",
+                    BigDecimal.valueOf(300_000), TransferType.EXTERNAL,
+                    "001", "국민은행", "수취인A", TransactionChannel.INTERNET, "이체1");
+            transactionService.transfer(1L, null, "ACC-B",
+                    BigDecimal.valueOf(200_000), TransferType.EXTERNAL,
+                    "002", "신한은행", "수취인B", TransactionChannel.INTERNET, "이체2");
+
+            assertThat(source.getBalance()).isEqualByComparingTo("500000");
+        }
+
+        @Test
+        @DisplayName("출금 후 잔액이 음수가 되지 않는다")
+        void balanceNeverNegative() {
+            Account source = activeAccount(BigDecimal.valueOf(100));
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+
+            assertThatThrownBy(() ->
+                transactionService.withdraw(1L, BigDecimal.valueOf(101), TransactionChannel.INTERNET, "초과 출금"))
+                    .isInstanceOf(BusinessException.class);
+
+            // 실패했으므로 잔액은 그대로
+            assertThat(source.getBalance()).isEqualByComparingTo("100");
+        }
+
+        @Test
+        @DisplayName("순차화된 여러 출금 서비스 호출 후 잔액과 거래 건수가 정확하다")
+        void multiThreadSequentialBalance() throws Exception {
+            Account source = activeAccount(BigDecimal.valueOf(1_000_000));
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            int threadCount = 5;
+            BigDecimal each = BigDecimal.valueOf(50_000);
+            Object sequentialCallLock = new Object();
+            ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch latch = new CountDownLatch(1);
+            List<Future<?>> futures = new ArrayList<>();
+
+            try {
+                for (int i = 0; i < threadCount; i++) {
+                    futures.add(executor.submit(() -> {
+                        latch.await();
+                        synchronized (sequentialCallLock) {
+                            transactionService.withdraw(1L, each, TransactionChannel.INTERNET, "스레드 출금");
+                        }
+                        return null;
+                    }));
+                }
+
+                latch.countDown();
+                for (Future<?> future : futures) {
+                    future.get();
+                }
+            } finally {
+                executor.shutdownNow();
+            }
+
+            assertThat(source.getBalance()).isEqualByComparingTo("750000");
+            then(transactionRepository).should(org.mockito.Mockito.times(threadCount)).save(any());
         }
     }
 

@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
@@ -70,7 +71,7 @@ export default function TerminateResultPage() {
           <h1 className="text-[22px] font-bold text-kb-text mb-5">해지결과/내역 조회</h1>
 
           <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
-            style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+            style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
             <p className="flex gap-1.5 text-kb-text-muted">
               <span className="flex-shrink-0">·</span>
               <span>조회시작일은 당일 기준으로 5년 이내에서 선택 가능합니다. 단, 1회 조회 시 최대기간은 1년입니다.</span>
@@ -89,8 +90,8 @@ export default function TerminateResultPage() {
                 {PERIOD_BTNS.map((b, i) => (
                   <button key={i}
                     onClick={() => setSearched(false)}
-                    className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                    style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                    className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-kb-primary-bg"
+                    style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                     {b}
                   </button>
                 ))}
@@ -121,7 +122,7 @@ export default function TerminateResultPage() {
               <button
                 onClick={handleSearch}
                 className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 조회
               </button>
             </div>
@@ -131,24 +132,24 @@ export default function TerminateResultPage() {
           <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
             <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                   {['해지계좌번호', '해지일자', '해지계좌종류', '해지금액', '바로가기'].map(h => (
                     <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]"
-                      style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                      style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {rows.length > 0 ? rows.map((row, i) => (
-                  <tr key={i} className="border-b hover:bg-[#F8FFFE] transition-colors"
-                    style={{ borderColor: '#E2F5EF' }}>
-                    <td className="px-4 py-3.5 text-center font-medium" style={{ color: '#0D5C47' }}>{row.accountNo}</td>
+                  <tr key={i} className="border-b hover:bg-kb-primary-surface transition-colors"
+                    style={{ borderColor: KB_PRIMARY_BORDER }}>
+                    <td className="px-4 py-3.5 text-center font-medium" style={{ color: KB_PRIMARY }}>{row.accountNo}</td>
                     <td className="px-4 py-3.5 text-center text-kb-text">{row.terminatedAt}</td>
                     <td className="px-4 py-3.5 text-center text-kb-text">{row.type}</td>
-                    <td className="px-4 py-3.5 text-right font-semibold pr-5" style={{ color: '#0D5C47' }}>{row.amount}원</td>
+                    <td className="px-4 py-3.5 text-right font-semibold pr-5" style={{ color: KB_PRIMARY }}>{row.amount}원</td>
                     <td className="px-4 py-3.5 text-center">
-                      <button className="px-4 py-1 text-[12px] font-medium rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                        style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>조회</button>
+                      <button className="px-4 py-1 text-[12px] font-medium rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                        style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>조회</button>
                     </td>
                   </tr>
                 )) : (

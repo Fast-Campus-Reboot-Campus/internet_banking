@@ -54,7 +54,7 @@ export default function ManageSidebar() {
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] rounded-sm transition-colors duration-150"
+                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-kb-primary-bg rounded-sm transition-colors duration-150"
                 >
                   <span>{item.label}</span>
                   <span className="text-[10px] text-kb-text-muted">
@@ -70,8 +70,8 @@ export default function ManageSidebar() {
                           <Link href={child.href}
                             className={`block py-1.5 text-[13px] transition-colors duration-150 ${
                               active
-                                ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
-                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
+                                ? 'pl-[9px] pr-3 border-l-[3px] border-kb-mint bg-kb-primary-bg font-semibold text-kb-primary'
+                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-kb-primary-bg'
                             }`}>
                             {child.label}
                           </Link>
@@ -83,7 +83,7 @@ export default function ManageSidebar() {
               </>
             ) : (
               <Link href={item.href ?? '#'}
-                className="block px-2 py-2.5 text-[13px] text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7] transition-colors duration-150">
+                className="block px-2 py-2.5 text-[13px] text-kb-text-muted hover:text-kb-text hover:bg-kb-primary-bg transition-colors duration-150">
                 {item.label}
               </Link>
             )}

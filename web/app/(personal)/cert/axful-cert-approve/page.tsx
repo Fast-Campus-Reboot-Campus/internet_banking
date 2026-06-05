@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -34,7 +35,7 @@ function ApproveForm() {
       <div className="bg-white w-full max-w-sm border border-kb-border shadow-md overflow-hidden">
 
         {/* 헤더 */}
-        <div className="px-6 py-5 border-b border-kb-border" style={{ backgroundColor: '#0D5C47' }}>
+        <div className="px-6 py-5 border-b border-kb-border" style={{ backgroundColor: KB_PRIMARY }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -82,7 +83,7 @@ function ApproveForm() {
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 placeholder="아이디 입력"
-                className="w-full border border-kb-border px-3 py-2.5 text-[13px] outline-none focus:border-[#0D5C47] rounded-sm"
+                className="w-full border border-kb-border px-3 py-2.5 text-[13px] outline-none focus:border-kb-primary rounded-sm"
               />
             </div>
 
@@ -95,7 +96,7 @@ function ApproveForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호 입력"
                 onKeyDown={(e) => e.key === 'Enter' && handleApprove()}
-                className="w-full border border-kb-border px-3 py-2.5 text-[13px] outline-none focus:border-[#0D5C47] rounded-sm"
+                className="w-full border border-kb-border px-3 py-2.5 text-[13px] outline-none focus:border-kb-primary rounded-sm"
               />
             </div>
 
@@ -107,7 +108,7 @@ function ApproveForm() {
               onClick={handleApprove}
               disabled={status === 'loading'}
               className="w-full py-3 text-[14px] font-bold text-white hover:opacity-90 disabled:opacity-50 transition-opacity rounded-sm"
-              style={{ backgroundColor: '#0D5C47' }}
+              style={{ backgroundColor: KB_PRIMARY }}
             >
               {status === 'loading' ? (
                 <span className="flex items-center justify-center gap-2">

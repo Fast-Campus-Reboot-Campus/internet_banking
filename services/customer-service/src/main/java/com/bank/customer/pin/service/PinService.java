@@ -4,6 +4,8 @@ import com.bank.common.security.jwt.JwtProperties;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.customer.config.EmployeeDirectoryProperties;
+import com.bank.customer.cert.domain.AuthMethod;
+import com.bank.customer.cert.repository.AuthMethodRepository;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
@@ -26,6 +28,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -34,11 +38,13 @@ public class PinService {
 
     private static final String RT_KEY_PREFIX       = "RT:";
     private static final int    DEFAULT_MAX_FAILURES = 5;
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final PinRepository               pinRepository;
     private final CredentialRepository        credentialRepository;
     private final CustomerRepository          customerRepository;
     private final RegisteredDeviceRepository  deviceRepository;
+    private final AuthMethodRepository        authMethodRepository;
     private final PasswordEncoder             passwordEncoder;
     private final JwtProvider                 jwtProvider;
     private final JwtProperties               jwtProperties;
@@ -67,9 +73,11 @@ public class PinService {
             throw new BusinessException(CustomerErrorCode.CUST_081);
         }
 
+        Long authMethodId = resolvePinAuthMethod(customerId);
+
         pinRepository.save(Pin.builder()
                 .customerId(customerId)
-                .authMethodId(req.authMethodId())
+                .authMethodId(authMethodId)
                 .deviceId(req.deviceId())
                 .pinHash(passwordEncoder.encode(req.pin()))
                 .pinLength(req.pin().length())
@@ -77,6 +85,30 @@ public class PinService {
                 .maxPinLoginFailureCount(DEFAULT_MAX_FAILURES)
                 .pinStatusCode(Pin.STATUS_ACTIVE)
                 .build());
+    }
+
+    /**
+     * 고객의 활성 PIN 인증수단을 확보한다.
+     * PIN은 그 자체로 하나의 인증수단(auth_method_type_code='PIN')이므로,
+     * 기존 PIN 인증수단이 있으면 재사용하고 없으면 새로 생성한다.
+     * (기기마다 PIN을 등록하더라도 인증수단은 고객당 1개를 공유)
+     */
+    private Long resolvePinAuthMethod(Long customerId) {
+        return authMethodRepository
+                .findByCustomerIdAndAuthMethodStatusCodeAndDeletedAtIsNull(customerId, AuthMethod.STATUS_ACTIVE)
+                .stream()
+                .filter(m -> AuthMethod.TYPE_PIN.equals(m.getAuthMethodTypeCode()))
+                .map(AuthMethod::getAuthMethodId)
+                .findFirst()
+                .orElseGet(() -> authMethodRepository.save(AuthMethod.builder()
+                        .customerId(customerId)
+                        .authMethodTypeCode(AuthMethod.TYPE_PIN)
+                        .authMethodAliasName("간편비밀번호")
+                        .authMethodStatusCode(AuthMethod.STATUS_ACTIVE)
+                        .primaryAuthMethodYn("F")
+                        .authMethodRegisteredDate(LocalDate.now().format(DATE_FMT))
+                        .build())
+                        .getAuthMethodId());
     }
 
     /** PIN 로그인 */

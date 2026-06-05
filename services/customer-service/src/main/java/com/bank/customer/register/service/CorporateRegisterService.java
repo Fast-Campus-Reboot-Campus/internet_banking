@@ -76,6 +76,7 @@ public class CorporateRegisterService {
         partyOrgRepository.save(PartyOrganization.builder()
                 .partyId(party.getPartyId())
                 .orgSubtypeCode(PartyOrganization.SUBTYPE_CORPORATION)
+                .corpTypeCode("STOCK")   // 주식회사 기본값 — chk_party_org_subtype: CORPORATION 은 corp_type_code NOT NULL 요구
                 .corpRegNo(req.corpRegNo().replaceAll("-", ""))
                 .corpFormalName(req.corpName())
                 .corpFormalEnglishName(req.corpEnglishName())

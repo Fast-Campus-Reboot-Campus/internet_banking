@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 
@@ -71,13 +72,13 @@ export default function InternetBankingGuidePage() {
       <div className="space-y-6">
         {SECTIONS.map(section => (
           <div key={section.title} className="border border-kb-border rounded-xl overflow-hidden">
-            <div className="px-6 py-3 font-semibold text-[15px] text-white" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="px-6 py-3 font-semibold text-[15px] text-white" style={{ backgroundColor: KB_PRIMARY }}>
               {section.title}
             </div>
             <ul className="px-6 py-4 space-y-2">
               {section.items.map((item, i) => (
                 <li key={i} className="flex items-start gap-2 text-[14px] text-kb-text-body">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#5BC9A8' }} />
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: KB_MINT }} />
                   {item}
                 </li>
               ))}
@@ -89,13 +90,13 @@ export default function InternetBankingGuidePage() {
       {/* 하단 바로가기 */}
       <div className="mt-8 flex gap-3">
         <Link href="/security-install"
-          className="px-5 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-          style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+          className="px-5 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+          style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
           보안프로그램 설치
         </Link>
         <Link href="/cert"
           className="px-5 py-2.5 text-[14px] font-semibold rounded-lg text-white transition-opacity hover:opacity-85"
-          style={{ backgroundColor: '#0D5C47' }}>
+          style={{ backgroundColor: KB_PRIMARY }}>
           인증센터 바로가기
         </Link>
       </div>

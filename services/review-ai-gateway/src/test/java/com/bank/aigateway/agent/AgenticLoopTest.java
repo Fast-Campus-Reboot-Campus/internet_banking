@@ -20,13 +20,15 @@ import static org.mockito.Mockito.*;
 
 class AgenticLoopTest {
 
+    static final int TEST_MAX_TURNS = 5;
+
     ObjectMapper objectMapper = new ObjectMapper();
     ToolAwareLlmClient llmClient = mock(ToolAwareLlmClient.class);
     AgenticLoop loop;
 
     @BeforeEach
     void setUp() {
-        loop = new AgenticLoop(llmClient, objectMapper);
+        loop = new AgenticLoop(llmClient, objectMapper, new AgenticLoopProperties(TEST_MAX_TURNS));
     }
 
     @Test
@@ -74,9 +76,23 @@ class AgenticLoopTest {
         AgenticLoopResult result = loop.run("system", "user msg", List.of(), tc -> "some result");
 
         assertThat(result.text()).contains("INSUFFICIENT_DATA");
-        assertThat(result.turnsUsed()).isEqualTo(AgenticLoop.MAX_TURNS);
+        assertThat(result.turnsUsed()).isEqualTo(TEST_MAX_TURNS);
         assertThat(result.timedOut()).isTrue();
-        verify(llmClient, times(AgenticLoop.MAX_TURNS)).completeWithTools(any(), any(), any());
+        verify(llmClient, times(TEST_MAX_TURNS)).completeWithTools(any(), any(), any());
+    }
+
+    @Test
+    void maxTurns_설정값이_작으면_해당_턴에_폴백() {
+        ToolCall call = new ToolCall("id-t", "get_policy_citation", objectMapper.createObjectNode());
+        when(llmClient.completeWithTools(any(), any(), any()))
+                .thenReturn(toolUseResponse(call, 50, 30));
+
+        var tightLoop = new AgenticLoop(llmClient, objectMapper, new AgenticLoopProperties(2));
+        AgenticLoopResult result = tightLoop.run("system", "user msg", List.of(), tc -> "result");
+
+        assertThat(result.timedOut()).isTrue();
+        assertThat(result.turnsUsed()).isEqualTo(2);
+        verify(llmClient, times(2)).completeWithTools(any(), any(), any());
     }
 
     @Test

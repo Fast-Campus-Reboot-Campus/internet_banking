@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
@@ -51,10 +52,10 @@ interface WithdrawalAccount {
 
 function NoticeBox({ items }: { items: string[] }) {
   return (
-    <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-2">
+    <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-2">
       {items.map((text, i) => (
         <div key={i} className="flex items-start gap-2 text-[13px] text-kb-text-body">
-          <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full flex-none" style={{ backgroundColor: '#5BC9A8' }} />
+          <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 rounded-full flex-none" style={{ backgroundColor: KB_MINT }} />
           {text}
         </div>
       ))}
@@ -215,7 +216,7 @@ export default function WithdrawalAccountPage() {
           <button key={key} onClick={() => setTab(key)}
             className={`px-6 py-3 text-[14px] whitespace-nowrap transition-colors
               ${tab === key ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
-            style={tab === key ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
+            style={tab === key ? { borderColor: KB_PRIMARY, color: KB_PRIMARY } : {}}>
             {label}
           </button>
         ))}
@@ -228,7 +229,7 @@ export default function WithdrawalAccountPage() {
 
           {loading ? (
             <div className="flex justify-center py-12">
-              <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: '#5BC9A8', borderTopColor: 'transparent' }} />
+              <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: KB_MINT, borderTopColor: 'transparent' }} />
             </div>
           ) : accounts.length === 0 ? (
             <div className="border border-kb-border rounded-xl px-6 py-12 text-center text-[14px] text-kb-text-muted">
@@ -236,7 +237,7 @@ export default function WithdrawalAccountPage() {
               <br />
               <button onClick={() => setTab('register')}
                 className="mt-3 inline-block text-[13px] font-semibold hover:underline"
-                style={{ color: '#0D5C47' }}>
+                style={{ color: KB_PRIMARY }}>
                 출금계좌 신규 등록 →
               </button>
             </div>
@@ -244,7 +245,7 @@ export default function WithdrawalAccountPage() {
             <div className="border border-kb-border rounded-xl overflow-hidden">
               <table className="w-full text-[13px] border-collapse">
                 <thead>
-                  <tr style={{ backgroundColor: '#0D5C47' }}>
+                  <tr style={{ backgroundColor: KB_PRIMARY }}>
                     {['순위', '은행', '계좌번호', '예금주', '별칭', '등록일', '순위변경', '삭제'].map(h => (
                       <th key={h} className="px-4 py-3 text-center font-semibold text-white border-l border-white/20 first:border-l-0 whitespace-nowrap">
                         {h}
@@ -254,8 +255,8 @@ export default function WithdrawalAccountPage() {
                 </thead>
                 <tbody className="divide-y divide-kb-border">
                   {accounts.map((acc, idx) => (
-                    <tr key={acc.withdrawalAccountId} className="hover:bg-[#F8FFFE] transition-colors">
-                      <td className="px-4 py-3 text-center font-bold text-[#0D5C47]">{idx + 1}</td>
+                    <tr key={acc.withdrawalAccountId} className="hover:bg-kb-primary-surface transition-colors">
+                      <td className="px-4 py-3 text-center font-bold text-kb-primary">{idx + 1}</td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">{acc.bankName}</td>
                       <td className="px-4 py-3 text-center font-mono tracking-wider">{acc.accountNumber}</td>
                       <td className="px-4 py-3 text-center">{acc.accountHolderName ?? '-'}</td>
@@ -264,11 +265,11 @@ export default function WithdrawalAccountPage() {
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <button onClick={() => moveUp(idx)} disabled={idx === 0}
-                            className="w-7 h-7 border border-kb-border rounded hover:bg-[#F0FAF7] disabled:opacity-30 flex items-center justify-center text-kb-text transition-colors">
+                            className="w-7 h-7 border border-kb-border rounded hover:bg-kb-primary-bg disabled:opacity-30 flex items-center justify-center text-kb-text transition-colors">
                             ↑
                           </button>
                           <button onClick={() => moveDown(idx)} disabled={idx === accounts.length - 1}
-                            className="w-7 h-7 border border-kb-border rounded hover:bg-[#F0FAF7] disabled:opacity-30 flex items-center justify-center text-kb-text transition-colors">
+                            className="w-7 h-7 border border-kb-border rounded hover:bg-kb-primary-bg disabled:opacity-30 flex items-center justify-center text-kb-text transition-colors">
                             ↓
                           </button>
                         </div>
@@ -292,7 +293,7 @@ export default function WithdrawalAccountPage() {
             <div className="flex items-center gap-3">
               <button onClick={saveOrder} disabled={orderSaving}
                 className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 {orderSaving ? '저장 중...' : '순위 저장'}
               </button>
               <p className="text-[12px] text-kb-text-muted">순위를 변경했습니다. 저장 버튼을 눌러 적용하세요.</p>
@@ -314,50 +315,50 @@ export default function WithdrawalAccountPage() {
                   <tbody>
                     {/* 은행 선택 */}
                     <tr className="border-b border-kb-border">
-                      <td className="px-5 py-3.5 font-semibold text-kb-text w-44 whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>
-                        은행 선택 <span className="text-[#0D5C47] ml-0.5">*</span>
+                      <td className="px-5 py-3.5 font-semibold text-kb-text w-44 whitespace-nowrap" style={{ backgroundColor: KB_PRIMARY_BG }}>
+                        은행 선택 <span className="text-kb-primary ml-0.5">*</span>
                       </td>
                       <td className="border-l border-kb-border px-5 py-3">
                         <select value={bankCode} onChange={e => setBankCode(e.target.value)}
-                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-[#0D5C47] w-52">
+                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] bg-white outline-none focus:border-kb-primary w-52">
                           {BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
                         </select>
                       </td>
                     </tr>
                     {/* 계좌번호 */}
                     <tr className="border-b border-kb-border">
-                      <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>
-                        계좌번호 <span className="text-[#0D5C47] ml-0.5">*</span>
+                      <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: KB_PRIMARY_BG }}>
+                        계좌번호 <span className="text-kb-primary ml-0.5">*</span>
                       </td>
                       <td className="border-l border-kb-border px-5 py-3">
                         <input type="text" value={accountNo}
                           onChange={e => setAccountNo(e.target.value.replace(/\D/g, '').slice(0, 14))}
                           placeholder="- 없이 숫자만 입력"
-                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] w-52 outline-none focus:border-[#0D5C47] font-mono tracking-wider" />
+                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] w-52 outline-none focus:border-kb-primary font-mono tracking-wider" />
                       </td>
                     </tr>
                     {/* 예금주명 */}
                     <tr className="border-b border-kb-border">
-                      <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>
-                        예금주명 <span className="text-[#0D5C47] ml-0.5">*</span>
+                      <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: KB_PRIMARY_BG }}>
+                        예금주명 <span className="text-kb-primary ml-0.5">*</span>
                       </td>
                       <td className="border-l border-kb-border px-5 py-3">
                         <input type="text" value={holderName}
                           onChange={e => setHolderName(e.target.value)}
                           placeholder="예금주 성명"
-                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] w-52 outline-none focus:border-[#0D5C47]" />
+                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] w-52 outline-none focus:border-kb-primary" />
                       </td>
                     </tr>
                     {/* 별칭 */}
                     <tr>
-                      <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>
+                      <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap" style={{ backgroundColor: KB_PRIMARY_BG }}>
                         별칭 <span className="text-[12px] font-normal text-kb-text-muted">(선택)</span>
                       </td>
                       <td className="border-l border-kb-border px-5 py-3">
                         <input type="text" value={alias}
                           onChange={e => setAlias(e.target.value)}
                           placeholder="예: 월급통장, 비상금"
-                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] w-52 outline-none focus:border-[#0D5C47]" />
+                          className="border border-kb-border rounded-lg px-3 py-2 text-[13px] w-52 outline-none focus:border-kb-primary" />
                       </td>
                     </tr>
                   </tbody>
@@ -368,12 +369,12 @@ export default function WithdrawalAccountPage() {
 
               <div className="flex gap-3">
                 <button onClick={() => setTab('list')}
-                  className="px-8 py-2.5 text-[14px] border border-kb-border text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                  className="px-8 py-2.5 text-[14px] border border-kb-border text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                   취소
                 </button>
                 <button onClick={goVerify}
                   className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   다음 (1원 검증)
                 </button>
               </div>
@@ -384,7 +385,7 @@ export default function WithdrawalAccountPage() {
           {regStep === 'verify' && (
             <div className="space-y-5">
               <div className="border border-kb-border rounded-xl overflow-hidden">
-                <div className="px-5 py-3 font-semibold text-[14px] text-white" style={{ backgroundColor: '#0D5C47' }}>
+                <div className="px-5 py-3 font-semibold text-[14px] text-white" style={{ backgroundColor: KB_PRIMARY }}>
                   1원 검증 (모의 처리)
                 </div>
                 <div className="px-6 py-5 space-y-3">
@@ -404,12 +405,12 @@ export default function WithdrawalAccountPage() {
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setRegStep('form')}
-                  className="px-8 py-2.5 text-[14px] border border-kb-border text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                  className="px-8 py-2.5 text-[14px] border border-kb-border text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                   이전
                 </button>
                 <button onClick={handleRegister} disabled={regLoading}
                   className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   {regLoading ? '등록 중...' : '등록 확인'}
                 </button>
               </div>
@@ -419,15 +420,15 @@ export default function WithdrawalAccountPage() {
           {/* 등록 완료 */}
           {regStep === 'done' && regResult && (
             <div className="space-y-4">
-              <div className="border border-kb-border bg-[#F0FAF7] px-6 py-8 rounded-xl flex items-center gap-6">
+              <div className="border border-kb-border bg-kb-primary-bg px-6 py-8 rounded-xl flex items-center gap-6">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
                   </svg>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>출금계좌가 등록되었습니다.</p>
+                  <p className="text-[16px] font-bold" style={{ color: KB_PRIMARY }}>출금계좌가 등록되었습니다.</p>
                   <p className="text-[13px] text-kb-text-muted">
                     {regResult.bankName} · <span className="font-mono">{regResult.accountNumber}</span>
                     {regResult.accountAlias && <span> ({regResult.accountAlias})</span>}
@@ -438,11 +439,11 @@ export default function WithdrawalAccountPage() {
               <div className="flex gap-3">
                 <button onClick={() => { setTab('list'); resetRegForm() }}
                   className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   등록현황 확인
                 </button>
                 <button onClick={resetRegForm}
-                  className="px-8 py-2.5 text-[14px] border border-kb-border text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                  className="px-8 py-2.5 text-[14px] border border-kb-border text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                   추가 등록
                 </button>
               </div>
@@ -455,20 +456,20 @@ export default function WithdrawalAccountPage() {
       {deleteId !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-kb-border" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-kb-border" style={{ backgroundColor: KB_PRIMARY }}>
               <span className="text-[15px] font-bold text-white">출금계좌 삭제</span>
               <button onClick={() => setDeleteId(null)} className="text-white/70 hover:text-white text-xl">✕</button>
             </div>
             <div className="px-6 py-5 space-y-4">
               {deleteDone ? (
-                <div className="flex items-center gap-3 bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+                <div className="flex items-center gap-3 bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                     <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20,6 9,17 4,12"/>
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[14px] font-bold" style={{ color: '#0D5C47' }}>출금계좌가 삭제되었습니다.</p>
+                    <p className="text-[14px] font-bold" style={{ color: KB_PRIMARY }}>출금계좌가 삭제되었습니다.</p>
                     <p className="text-[12px] text-kb-text-muted">해당 계좌는 등록현황에서 제거됩니다.</p>
                   </div>
                 </div>
@@ -489,7 +490,7 @@ export default function WithdrawalAccountPage() {
                             ['예금주', selectedDeleteAccount.accountHolderName ?? '-'],
                           ].map(([label, value]) => (
                             <tr key={label} className="border-b border-kb-border last:border-b-0">
-                              <td className="px-4 py-2.5 font-semibold text-[12px] w-24" style={{ backgroundColor: '#F0FAF7' }}>{label}</td>
+                              <td className="px-4 py-2.5 font-semibold text-[12px] w-24" style={{ backgroundColor: KB_PRIMARY_BG }}>{label}</td>
                               <td className="border-l border-kb-border px-4 py-2.5 text-[12px] font-mono">{value}</td>
                             </tr>
                           ))}
@@ -504,11 +505,11 @@ export default function WithdrawalAccountPage() {
                 {deleteDone ? (
                   <button onClick={() => setDeleteId(null)}
                     className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                    style={{ backgroundColor: '#0D5C47' }}>확인</button>
+                    style={{ backgroundColor: KB_PRIMARY }}>확인</button>
                 ) : (
                   <>
                     <button onClick={() => setDeleteId(null)}
-                      className="px-6 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">취소</button>
+                      className="px-6 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">취소</button>
                     <button onClick={handleDelete} disabled={deleteLoading}
                       className="px-6 py-2 text-[13px] font-bold text-white rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors">
                       {deleteLoading ? '삭제 중...' : '삭제 확인'}
