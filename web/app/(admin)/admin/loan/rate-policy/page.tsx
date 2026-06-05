@@ -13,9 +13,9 @@ export default function AdminRatePolicyPage() {
   const [err, setErr]         = useState('')
 
   // new policy form
-  const [policyName, setPolicyName]     = useState('')
-  const [discountBps, setDiscountBps]   = useState('')
-  const [conditionDesc, setConditionDesc] = useState('')
+  const [policyName, setPolicyName]               = useState('')
+  const [preferentialRateBps, setPreferentialRateBps] = useState('')
+  const [conditionCd, setConditionCd]             = useState('')
 
   function notify(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
   function fail(m: string)   { setErr(m); setTimeout(() => setErr(''), 4000) }
@@ -31,16 +31,16 @@ export default function AdminRatePolicyPage() {
   }
 
   async function add() {
-    if (!prodId || !policyName || !discountBps) return
+    if (!prodId || !policyName || !preferentialRateBps || !conditionCd) return
     setBusy(true)
     try {
       await adminLoanApi.addPreferentialPolicy(parseInt(prodId), {
         policyName,
-        discountBps: parseInt(discountBps),
-        conditionDesc,
+        preferentialRateBps: parseInt(preferentialRateBps),
+        conditionCd,
       })
       notify('우대금리 정책이 등록되었습니다.')
-      setPolicyName(''); setDiscountBps(''); setConditionDesc('')
+      setPolicyName(''); setPreferentialRateBps(''); setConditionCd('')
       await search()
     } catch (e: any) { fail(e?.response?.data?.message ?? '등록 실패') }
     finally { setBusy(false) }
@@ -92,8 +92,8 @@ export default function AdminRatePolicyPage() {
                     <tr key={p.policyId} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-400 text-xs">{p.policyId}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">{p.policyName}</td>
-                      <td className="px-4 py-3 text-blue-700 font-bold">-{(p.discountBps / 100).toFixed(2)}%</td>
-                      <td className="px-4 py-3 text-gray-500">{p.conditionDesc ?? '-'}</td>
+                      <td className="px-4 py-3 text-blue-700 font-bold">-{(p.preferentialRateBps / 100).toFixed(2)}%</td>
+                      <td className="px-4 py-3 text-gray-500">{p.conditionCd ?? '-'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -114,18 +114,18 @@ export default function AdminRatePolicyPage() {
                 </div>
                 <div>
                   <label className="block text-[12px] text-gray-600 mb-1">우대폭 (bps, 1% = 100) *</label>
-                  <input type="number" value={discountBps} onChange={e => setDiscountBps(e.target.value)}
+                  <input type="number" value={preferentialRateBps} onChange={e => setPreferentialRateBps(e.target.value)}
                     placeholder="예: 30 → 0.30%p 인하"
                     className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] focus:outline-none" />
                 </div>
                 <div>
-                  <label className="block text-[12px] text-gray-600 mb-1">적용 조건</label>
-                  <textarea value={conditionDesc} onChange={e => setConditionDesc(e.target.value)}
-                    rows={2} placeholder="예: 당행 급여이체 3개월 이상 유지"
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] focus:outline-none resize-none" />
+                  <label className="block text-[12px] text-gray-600 mb-1">적용 조건 코드 *</label>
+                  <input type="text" value={conditionCd} onChange={e => setConditionCd(e.target.value)}
+                    placeholder="예: SALARY_TRANSFER"
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] focus:outline-none" />
                 </div>
                 <div className="flex justify-end">
-                  <button onClick={add} disabled={busy || !policyName || !discountBps}
+                  <button onClick={add} disabled={busy || !policyName || !preferentialRateBps || !conditionCd}
                     className="px-6 py-2 bg-[#1B3A6B] text-white text-[13px] rounded hover:opacity-90 disabled:opacity-50">
                     {busy ? '등록 중...' : '정책 등록'}
                   </button>
