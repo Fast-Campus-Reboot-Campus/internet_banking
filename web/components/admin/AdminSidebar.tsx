@@ -40,6 +40,13 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    section: '상담', dot: 'bg-teal-400',
+    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
+    items: [
+      { label: '고객 조회', href: '/admin/consultation/customer' },
+    ],
+  },
+  {
     section: '정책', dot: 'bg-purple-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
     items: [
