@@ -29,6 +29,10 @@ export default function AdminCreditReportPage() {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
 
+  // ACK 모달
+  const [ackTarget, setAckTarget] = useState<number | null>(null)
+  const [ackNo, setAckNo] = useState('')
+
   function notify(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
   function fail(m: string) { setErr(m); setTimeout(() => setErr(''), 3000) }
 
@@ -53,11 +57,21 @@ export default function AdminCreditReportPage() {
     finally { setBusy(null) }
   }
 
-  async function handleAck(reportId: number) {
-    setBusy(reportId)
+  function openAck(reportId: number) {
+    setAckTarget(reportId)
+    setAckNo(`ACK-${reportId}-${Date.now()}`)
+  }
+
+  async function submitAck() {
+    if (!ackTarget || !ackNo) return
+    setBusy(ackTarget)
     try {
-      await creditInfoReportApi.ack(reportId)
-      notify(`reportId ${reportId} ACK 처리 완료.`)
+      await creditInfoReportApi.ack(ackTarget, {
+        externalAckNo: ackNo,
+        ackedAt: new Date().toISOString(),
+      })
+      notify(`reportId ${ackTarget} ACK 처리 완료.`)
+      setAckTarget(null)
       await load()
     } catch (e: any) { fail(e?.response?.data?.message ?? 'ACK 처리 실패') }
     finally { setBusy(null) }
@@ -117,7 +131,7 @@ export default function AdminCreditReportPage() {
                           )}
                           {r.statusCd === 'PENDING' && (
                             <button
-                              onClick={() => handleAck(r.reportId)}
+                              onClick={() => openAck(r.reportId)}
                               disabled={busy === r.reportId}
                               className="px-3 py-1 text-[11px] border border-blue-300 text-blue-600 rounded hover:bg-blue-50 disabled:opacity-50"
                             >
@@ -134,6 +148,28 @@ export default function AdminCreditReportPage() {
           </div>
         </div>
       </main>
+
+      {ackTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setAckTarget(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-[14px] font-bold text-gray-800 mb-4">ACK 처리 — reportId {ackTarget}</h3>
+            <label className="block text-[13px] text-gray-600 mb-1">외부 ACK 번호</label>
+            <input
+              type="text"
+              value={ackNo}
+              onChange={e => setAckNo(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] mb-4 focus:outline-none"
+              placeholder="외부 기관 ACK 번호"
+            />
+            <p className="text-[11px] text-gray-400 mb-4">처리 시각은 현재 시각으로 자동 설정됩니다.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setAckTarget(null)} className="px-4 py-2 text-[13px] border border-gray-300 rounded hover:bg-gray-50">취소</button>
+              <button onClick={submitAck} disabled={!ackNo || busy === ackTarget}
+                className="px-4 py-2 text-[13px] bg-[#1B3A6B] text-white rounded hover:opacity-90 disabled:opacity-50">확인</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
