@@ -8,17 +8,22 @@ import { adminReviewApi } from '@/lib/loan-api'
 
 export default function AdminReviewNewPage() {
   const router = useRouter()
-  const [applId, setApplId]       = useState('')
-  const [revType, setRevType]     = useState('MANUAL')
+  const [applId, setApplId]         = useState('')
+  const [revType, setRevType]       = useState('MANUAL')
+  const [revDecision, setRevDecision] = useState('APPROVED')
   const [reviewerId, setReviewerId] = useState('1')
-  const [busy, setBusy]           = useState(false)
-  const [err, setErr]             = useState('')
+  const [busy, setBusy]             = useState(false)
+  const [err, setErr]               = useState('')
 
   async function submit() {
     if (!applId) return
     setBusy(true); setErr('')
     try {
-      await adminReviewApi.run(parseInt(applId), { revTypeCd: revType, reviewerId: parseInt(reviewerId) })
+      await adminReviewApi.run(parseInt(applId), {
+        revTypeCd: revType,
+        revDecisionCd: revDecision,
+        reviewerId: parseInt(reviewerId),
+      })
       router.push(`/admin/loan/review/${applId}`)
     } catch (e: any) {
       setErr(e?.response?.data?.message ?? '심사 시작에 실패했습니다.')
@@ -52,6 +57,14 @@ export default function AdminReviewNewPage() {
                 className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] focus:outline-none">
                 <option value="MANUAL">수동</option>
                 <option value="AUTO">자동</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[13px] font-medium text-gray-700 mb-1">심사 결정 *</label>
+              <select value={revDecision} onChange={e => setRevDecision(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] focus:outline-none">
+                <option value="APPROVED">승인</option>
+                <option value="REJECTED">거절</option>
               </select>
             </div>
             <div>
