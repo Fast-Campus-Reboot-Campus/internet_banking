@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
@@ -19,22 +20,22 @@ function RateTable() {
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
         <table className="w-full text-[13px]">
           <thead>
-            <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #0D5C47' }}>
-              <th className="px-4 py-3 text-left font-semibold" style={{ color: '#0D5C47' }}>상품명</th>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>최저금리</th>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>최고금리</th>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>평균금리</th>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>기준일</th>
+            <tr style={{ backgroundColor: KB_PRIMARY_BG, borderBottom: '2px solid #0D5C47' }}>
+              <th className="px-4 py-3 text-left font-semibold" style={{ color: KB_PRIMARY }}>상품명</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>최저금리</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>최고금리</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>평균금리</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>기준일</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.product} className="hover:bg-[#F8FFFE] transition-colors"
+              <tr key={r.product} className="hover:bg-kb-primary-surface transition-colors"
                 style={{ borderBottom: i < rows.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
                 <td className="px-4 py-3">{r.product}</td>
                 <td className="px-4 py-3 text-center">연 {r.min}%</td>
                 <td className="px-4 py-3 text-center">연 {r.max}%</td>
-                <td className="px-4 py-3 text-center font-bold" style={{ color: '#0D5C47' }}>연 {r.avg}%</td>
+                <td className="px-4 py-3 text-center font-bold" style={{ color: KB_PRIMARY }}>연 {r.avg}%</td>
                 <td className="px-4 py-3 text-center text-kb-text-muted">{r.date}</td>
               </tr>
             ))}
@@ -57,15 +58,15 @@ function FeeTable() {
     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
       <table className="w-full text-[13px]">
         <thead>
-          <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #0D5C47' }}>
-            <th className="px-4 py-3 text-left font-semibold" style={{ color: '#0D5C47' }}>수수료 종류</th>
-            <th className="px-4 py-3 text-left font-semibold" style={{ color: '#0D5C47' }}>부과 사유</th>
-            <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>금액</th>
+          <tr style={{ backgroundColor: KB_PRIMARY_BG, borderBottom: '2px solid #0D5C47' }}>
+            <th className="px-4 py-3 text-left font-semibold" style={{ color: KB_PRIMARY }}>수수료 종류</th>
+            <th className="px-4 py-3 text-left font-semibold" style={{ color: KB_PRIMARY }}>부과 사유</th>
+            <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>금액</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.fee} className="hover:bg-[#F8FFFE] transition-colors"
+            <tr key={r.fee} className="hover:bg-kb-primary-surface transition-colors"
               style={{ borderBottom: i < rows.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
               <td className="px-4 py-3 font-medium">{r.fee}</td>
               <td className="px-4 py-3 text-kb-text-muted">{r.desc}</td>
@@ -82,8 +83,8 @@ function TextContent({ sections }: { sections: { heading: string; body: string }
   return (
     <div className="space-y-6 max-w-2xl text-[13px] text-kb-text-body leading-relaxed">
       {sections.map(s => (
-        <div key={s.heading} className="rounded-xl p-5" style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
-          <h3 className="font-bold mb-2" style={{ color: '#0D5C47' }}>{s.heading}</h3>
+        <div key={s.heading} className="rounded-xl p-5" style={{ border: '1px solid #E2F5EF', backgroundColor: KB_PRIMARY_SURFACE }}>
+          <h3 className="font-bold mb-2" style={{ color: KB_PRIMARY }}>{s.heading}</h3>
           <p>{s.body}</p>
         </div>
       ))}
@@ -104,16 +105,16 @@ function LateFeeTable() {
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
         <table className="w-full text-[13px]">
           <thead>
-            <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '2px solid #0D5C47' }}>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>연체기간</th>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>100만원</th>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>1,000만원</th>
-              <th className="px-4 py-3 text-center font-semibold" style={{ color: '#0D5C47' }}>5,000만원</th>
+            <tr style={{ backgroundColor: KB_PRIMARY_BG, borderBottom: '2px solid #0D5C47' }}>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>연체기간</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>100만원</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>1,000만원</th>
+              <th className="px-4 py-3 text-center font-semibold" style={{ color: KB_PRIMARY }}>5,000만원</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={r.period} className="hover:bg-[#F8FFFE] transition-colors"
+              <tr key={r.period} className="hover:bg-kb-primary-surface transition-colors"
                 style={{ borderBottom: i < rows.length - 1 ? '1px solid #E2F5EF' : 'none' }}>
                 <td className="px-4 py-3 text-center">{r.period}</td>
                 <td className="px-4 py-3 text-center">{r.amount100}</td>
@@ -202,7 +203,7 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
           <LoanSidebar />
           <div className="flex-1 min-w-0">
             <h1 className="text-[22px] font-bold text-kb-text mb-6">{meta.title}</h1>
-            <div className="border-t-2 pt-6" style={{ borderColor: '#0D5C47' }}>
+            <div className="border-t-2 pt-6" style={{ borderColor: KB_PRIMARY }}>
               {meta.content}
             </div>
           </div>

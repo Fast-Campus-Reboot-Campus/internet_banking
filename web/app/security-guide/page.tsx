@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER } from '@/lib/theme'
 
 import Link from 'next/link'
 
@@ -89,18 +90,18 @@ const PROGRAMS = [
 
 export default function SecurityGuidePage() {
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F0FAF7' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: KB_PRIMARY_BG }}>
 
       {/* 헤더 */}
       <header className="bg-white shadow-sm">
         <div className="max-w-[1200px] mx-auto px-6 h-[60px] flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-[6px] h-[26px] rounded-full" style={{ backgroundColor: '#5BC9A8' }} />
-            <span className="text-[22px] font-bold tracking-[0.02em]" style={{ color: '#0D5C47' }}>AXful Bank</span>
+            <div className="w-[6px] h-[26px] rounded-full" style={{ backgroundColor: KB_MINT }} />
+            <span className="text-[22px] font-bold tracking-[0.02em]" style={{ color: KB_PRIMARY }}>AXful Bank</span>
           </Link>
           <Link href="/security-install"
-            className="text-[14px] font-semibold px-4 py-1.5 rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+            className="text-[14px] font-semibold px-4 py-1.5 rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
             보안프로그램 설치
           </Link>
         </div>
@@ -110,7 +111,7 @@ export default function SecurityGuidePage() {
       <main className="flex-1 max-w-[900px] mx-auto w-full px-6 py-10 space-y-10">
 
         <div>
-          <p className="text-[13px] font-semibold mb-1" style={{ color: '#5BC9A8' }}>Security Guide</p>
+          <p className="text-[13px] font-semibold mb-1" style={{ color: KB_MINT }}>Security Guide</p>
           <h1 className="text-[24px] font-bold text-kb-text mb-2">보안프로그램 이용안내</h1>
           <p className="text-[14px] text-kb-text-muted">AXful Bank 보안프로그램의 설치 방법과 이용 안내를 확인하세요.</p>
         </div>
@@ -118,9 +119,9 @@ export default function SecurityGuidePage() {
         {PROGRAMS.map(program => (
           <div key={program.id} className="space-y-4">
             {/* 프로그램 헤더 */}
-            <div className="flex items-center gap-3 pb-3 border-b-2" style={{ borderColor: '#0D5C47' }}>
+            <div className="flex items-center gap-3 pb-3 border-b-2" style={{ borderColor: KB_PRIMARY }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 {program.id === 'cert' ? (
                   <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="1.8">
                     <path d="M9 12l2 2 4-4"/>
@@ -143,13 +144,13 @@ export default function SecurityGuidePage() {
             <div className="space-y-4">
               {program.sections.map(section => (
                 <div key={section.title} className="rounded-xl overflow-hidden border border-kb-border">
-                  <div className="px-5 py-2.5 font-semibold text-[14px]" style={{ backgroundColor: '#F0FAF7', color: '#0D5C47' }}>
+                  <div className="px-5 py-2.5 font-semibold text-[14px]" style={{ backgroundColor: KB_PRIMARY_BG, color: KB_PRIMARY }}>
                     {section.title}
                   </div>
                   <ul className="px-5 py-4 space-y-2 bg-white">
                     {section.items.map((item, i) => (
                       <li key={i} className="flex items-start gap-2 text-[14px] text-kb-text-body">
-                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#5BC9A8' }} />
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: KB_MINT }} />
                         {item}
                       </li>
                     ))}
@@ -164,19 +165,19 @@ export default function SecurityGuidePage() {
         <div className="flex gap-3 pt-2">
           <Link href="/security-install"
             className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-            style={{ backgroundColor: '#0D5C47' }}>
+            style={{ backgroundColor: KB_PRIMARY }}>
             보안프로그램 설치하기
           </Link>
           <Link href="/"
-            className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+            className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
             홈으로 이동
           </Link>
         </div>
       </main>
 
       {/* 푸터 */}
-      <footer className="bg-white border-t" style={{ borderColor: '#E2F5EF' }}>
+      <footer className="bg-white border-t" style={{ borderColor: KB_PRIMARY_BORDER }}>
         <div className="max-w-[900px] mx-auto px-6 py-5 space-y-2">
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-kb-text-muted">
             {['보호금융상품등록부', '전자민원접수', '전자금융거래기본약관', '개인정보 처리방침', '신용정보활용체제', '위치기반서비스 이용약관', '경영공시'].map(item => (

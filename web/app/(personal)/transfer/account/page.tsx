@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -136,8 +137,8 @@ export default function TransferAccountPage() {
         className="border rounded-xl px-4 py-3 text-left text-[12px] transition-colors"
         style={{
           minWidth: 160,
-          borderColor: selected ? '#0D5C47' : '#E2F5EF',
-          backgroundColor: selected ? '#F0FAF7' : 'white',
+          borderColor: selected ? KB_PRIMARY : KB_PRIMARY_BORDER,
+          backgroundColor: selected ? KB_PRIMARY_BG : 'white',
         }}>
         <p className="font-semibold text-kb-text">{acc.name}</p>
         <p className="text-kb-text-muted mt-0.5">{acc.bank}</p>
@@ -156,13 +157,13 @@ export default function TransferAccountPage() {
 
           {/* 수취인 탭 */}
           <div className="rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #E2F5EF' }}>
-            <div className="flex border-b" style={{ borderColor: '#E2F5EF' }}>
+            <div className="flex border-b" style={{ borderColor: KB_PRIMARY_BORDER }}>
               {['최근입금계좌', '자주쓰는계좌', '내계좌', '단축이체'].map(tab => (
                 <button key={tab} onClick={() => setActiveRecipientTab(tab)}
                   className="px-5 py-2.5 text-[13px] font-medium transition-colors"
                   style={activeRecipientTab === tab
-                    ? { backgroundColor: 'white', color: '#0D5C47', fontWeight: 700, borderBottom: '2px solid #0D5C47' }
-                    : { backgroundColor: '#F8FFFE', color: '#9CA3AF' }}>
+                    ? { backgroundColor: 'white', color: KB_PRIMARY, fontWeight: 700, borderBottom: '2px solid #0D5C47' }
+                    : { backgroundColor: KB_PRIMARY_SURFACE, color: '#9CA3AF' }}>
                   {tab}
                 </button>
               ))}
@@ -183,8 +184,8 @@ export default function TransferAccountPage() {
             {activeRecipientTab === '자주쓰는계좌' && (
               <div className="p-8 flex flex-col items-center gap-3">
                 <p className="text-[13px] text-kb-text-muted">자주쓰는계좌가 등록되어 있지 않습니다.</p>
-                <button className="mt-2 border rounded-lg px-6 py-2 text-[12px] transition-colors hover:bg-[#F0FAF7]"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                <button className="mt-2 border rounded-lg px-6 py-2 text-[12px] transition-colors hover:bg-kb-primary-bg"
+                  style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                   자주쓰는계좌 등록/삭제
                 </button>
               </div>
@@ -192,7 +193,7 @@ export default function TransferAccountPage() {
 
             {activeRecipientTab === '내계좌' && (
               <div className="p-4">
-                <p className="text-[12px] mb-3" style={{ color: '#0D5C47' }}>
+                <p className="text-[12px] mb-3" style={{ color: KB_PRIMARY }}>
                   AXful Bank 내 계좌로 이체 시 추가 인증 없이 이체 가능합니다.
                 </p>
                 <div className="flex gap-3 flex-wrap">
@@ -204,8 +205,8 @@ export default function TransferAccountPage() {
             {activeRecipientTab === '단축이체' && (
               <div className="p-8 flex flex-col items-center gap-3">
                 <p className="text-[13px] text-kb-text-muted">단축이체가 등록되어 있지 않습니다.</p>
-                <button className="mt-2 border rounded-lg px-6 py-2 text-[12px] transition-colors hover:bg-[#F0FAF7]"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                <button className="mt-2 border rounded-lg px-6 py-2 text-[12px] transition-colors hover:bg-kb-primary-bg"
+                  style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                   단축이체 등록/삭제
                 </button>
               </div>
@@ -217,12 +218,12 @@ export default function TransferAccountPage() {
             <table className="w-full text-[13px]">
               <tbody>
                 <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                  <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>출금계좌번호</td>
+                  <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>출금계좌번호</td>
                   <td className={valueCell}>
                     {isFromAccountLocked && fromAcc ? (
                       <input type="text" readOnly
                         value={`${fromAcc.number} (${fromAcc.name})`}
-                        className={inputCls + " w-[280px]"} style={{ ...inputStyle, backgroundColor: '#F8FFFE' }} />
+                        className={inputCls + " w-[280px]"} style={{ ...inputStyle, backgroundColor: KB_PRIMARY_SURFACE }} />
                     ) : (
                       <select value={fromAccount} onChange={e => setFromAccount(e.target.value)}
                         className={inputCls + " w-[280px]"} style={inputStyle}>
@@ -235,34 +236,34 @@ export default function TransferAccountPage() {
                   </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                  <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>입금기관</td>
+                  <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>입금기관</td>
                   <td className={valueCell}>
                     <div className="flex items-center gap-2">
                       <input type="text" value={toBank} readOnly
-                        className={inputCls + " w-28"} style={{ ...inputStyle, backgroundColor: '#F8FFFE' }} />
+                        className={inputCls + " w-28"} style={{ ...inputStyle, backgroundColor: KB_PRIMARY_SURFACE }} />
                       <button onClick={() => setShowBankModal(true)}
-                        className="border rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                        style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                        className="border rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-kb-primary-bg"
+                        style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                         기관선택
                       </button>
                     </div>
                   </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                  <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>입금계좌번호</td>
+                  <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>입금계좌번호</td>
                   <td className={valueCell}>
                     <input type="text" value={toAccount} onChange={e => setToAccount(e.target.value)}
                       placeholder="계좌번호 입력" className={inputCls + " w-52"} style={inputStyle} />
                   </td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                  <td className={labelCell + " align-top pt-4"} style={{ backgroundColor: '#F0FAF7' }}>이체금액</td>
+                  <td className={labelCell + " align-top pt-4"} style={{ backgroundColor: KB_PRIMARY_BG }}>이체금액</td>
                   <td className={valueCell}>
                     <div className="flex gap-1.5 mb-2 flex-wrap">
                       {AMOUNT_SHORTCUTS.map(s => (
                         <button key={s} onClick={() => handleAmountShortcut(s)}
-                          className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                          className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-kb-primary-bg"
+                          style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                           {s}
                         </button>
                       ))}
@@ -279,7 +280,7 @@ export default function TransferAccountPage() {
                   </td>
                 </tr>
                 <tr>
-                  <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>계좌비밀번호</td>
+                  <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>계좌비밀번호</td>
                   <td className={valueCell}>
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                       maxLength={4} placeholder="4자리 입력"
@@ -297,7 +298,7 @@ export default function TransferAccountPage() {
             )}
             <button onClick={handleConfirm}
               className="px-24 py-3 text-[15px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               확인
             </button>
           </div>
@@ -308,17 +309,17 @@ export default function TransferAccountPage() {
       {showBankModal && (
         <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center">
           <div className="bg-white rounded-2xl w-[520px] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: KB_PRIMARY }}>
               <span className="font-bold text-[15px] text-white">기관선택</span>
               <button onClick={() => setShowBankModal(false)} className="text-white text-xl leading-none hover:opacity-75">✕</button>
             </div>
             <div className="p-5">
-              <div className="flex border-b mb-4" style={{ borderColor: '#E2F5EF' }}>
+              <div className="flex border-b mb-4" style={{ borderColor: KB_PRIMARY_BORDER }}>
                 {['은행', '증권사', '국세납부', '지방세입납부'].map(t => (
                   <button key={t} onClick={() => setBankTab(t)}
                     className="px-5 py-2 text-[13px] border-b-2 -mb-px transition-colors"
                     style={bankTab === t
-                      ? { borderColor: '#0D5C47', color: '#0D5C47', fontWeight: 700 }
+                      ? { borderColor: KB_PRIMARY, color: KB_PRIMARY, fontWeight: 700 }
                       : { borderColor: 'transparent', color: '#9CA3AF' }}>
                     {t}
                   </button>
@@ -328,17 +329,17 @@ export default function TransferAccountPage() {
                 {MOCK_BANKS.map(bank => (
                   <button key={bank.code}
                     onClick={() => { setToBank(bank.name); setShowBankModal(false) }}
-                    className="flex items-center gap-2 px-3 py-2 border rounded-lg text-[13px] text-kb-text-body transition-colors hover:bg-[#F0FAF7] text-left"
-                    style={{ borderColor: '#E2F5EF' }}>
-                    <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: '#E2F5EF' }} />
+                    className="flex items-center gap-2 px-3 py-2 border rounded-lg text-[13px] text-kb-text-body transition-colors hover:bg-kb-primary-bg text-left"
+                    style={{ borderColor: KB_PRIMARY_BORDER }}>
+                    <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: KB_PRIMARY_BORDER }} />
                     {bank.name}
                   </button>
                 ))}
               </div>
               <div className="mt-5 flex justify-center">
                 <button onClick={() => setShowBankModal(false)}
-                  className="border rounded-lg px-12 py-2 text-[13px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                  className="border rounded-lg px-12 py-2 text-[13px] font-medium transition-colors hover:bg-kb-primary-bg"
+                  style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                   닫기
                 </button>
               </div>

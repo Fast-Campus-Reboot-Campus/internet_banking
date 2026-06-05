@@ -82,7 +82,7 @@ export default function LoanDocumentsPage() {
         <span className="font-semibold text-kb-text">서류 제출</span>
       </div>
 
-      <h1 className="text-[22px] font-bold text-kb-text mb-2 pb-2 border-b-2 border-kb-text">서류 제출</h1>
+      <h1 className="text-[22px] font-bold text-kb-text mb-2 pb-2 border-b-2 border-kb-primary">서류 제출</h1>
       <p className="text-[13px] text-kb-text-muted mb-6">신청번호: {applId} | 서류를 제출하면 심사에 반영됩니다.</p>
 
       <input
@@ -106,7 +106,7 @@ export default function LoanDocumentsPage() {
             <div key={dt.code} className={`border p-5 flex items-center justify-between ${
               isHold ? 'border-orange-300 bg-orange-50' :
               needsResubmit ? 'border-orange-400 bg-yellow-50' :
-              'border-kb-border'
+              'border-kb-primary-border'
             }`}>
               <div>
                 <p className="text-[14px] font-bold text-kb-text mb-0.5">{dt.label}</p>
@@ -136,8 +136,8 @@ export default function LoanDocumentsPage() {
                     : needsResubmit
                     ? 'bg-orange-500 text-white font-bold hover:brightness-95'
                     : uploadedTypes.has(dt.code)
-                    ? 'border border-kb-border text-kb-text-muted hover:bg-kb-beige-light'
-                    : 'bg-kb-yellow text-kb-text font-bold hover:brightness-95'
+                    ? 'border border-kb-primary-border text-kb-text-muted hover:bg-kb-primary-bg'
+                    : 'bg-kb-primary text-kb-text font-bold hover:brightness-95'
                 }`}
               >
                 {isUploading ? '업로드 중...' :
@@ -160,12 +160,12 @@ export default function LoanDocumentsPage() {
 
       <div className="flex justify-center gap-3">
         <Link href={`/loans/apply/result?applId=${applId}`}
-          className="px-14 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+          className="px-14 py-3 border border-kb-primary-border text-[14px] text-kb-text hover:bg-kb-primary-bg transition-colors">
           결과 확인
         </Link>
         <button
           onClick={() => router.push(`/loans/apply/result?applId=${applId}`)}
-          className="px-14 py-3 bg-[#0D5C47] text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
+          className="px-14 py-3 bg-kb-primary text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
         >
           제출 완료
         </button>

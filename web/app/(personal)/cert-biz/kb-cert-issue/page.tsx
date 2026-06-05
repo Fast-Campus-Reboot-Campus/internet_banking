@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY_DARK } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -38,7 +39,7 @@ export default function KBCertBizIssuePage() {
   return (
     <>
       {/* 다크브라운 서브탭 */}
-      <nav style={{ backgroundColor: '#3D4F47' }}>
+      <nav style={{ backgroundColor: KB_PRIMARY_DARK }}>
         <div className="max-w-kb-container mx-auto px-6">
           <div className="flex">
             {CERT_BIZ_TABS.map((tab) => (

@@ -76,14 +76,14 @@ export default function HeroWithQuickMenu() {
           <div className="grid grid-cols-5">
             {QUICK_MENUS.map((menu, idx) => (
               <Link key={menu.href} href={menu.href}
-                className="flex flex-col items-center justify-center gap-3 px-4 py-6 hover:bg-[#F0FAF7] transition-colors duration-150 group relative">
+                className="flex flex-col items-center justify-center gap-3 px-4 py-6 hover:bg-kb-primary-bg transition-colors duration-150 group relative">
                 {idx > 0 && (
                   <div className="absolute left-0 top-1/4 bottom-1/4 w-px bg-gray-100" />
                 )}
                 <div className="w-14 h-14 flex items-center justify-center group-hover:scale-110 transition-transform duration-150">
                   {menu.icon}
                 </div>
-                <p className="text-[18px] font-semibold text-kb-text group-hover:text-[#0D5C47] transition-colors whitespace-nowrap">{menu.label}</p>
+                <p className="text-[18px] font-semibold text-kb-text group-hover:text-kb-primary transition-colors whitespace-nowrap">{menu.label}</p>
               </Link>
             ))}
           </div>

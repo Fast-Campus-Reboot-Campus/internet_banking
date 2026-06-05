@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -114,7 +115,7 @@ function AccItem({ title, required, checked, onCheck, children, defaultOpen = fa
             type="checkbox"
             checked={!!checked}
             onChange={e => onCheck(e.target.checked)}
-            className="w-4 h-4 flex-shrink-0 accent-[#5BC9A8] cursor-pointer"
+            className="w-4 h-4 flex-shrink-0 accent-kb-mint cursor-pointer"
           />
         )}
         <button
@@ -125,7 +126,7 @@ function AccItem({ title, required, checked, onCheck, children, defaultOpen = fa
               <circle cx="10" cy="10" r="9" stroke="#5BC9A8" strokeWidth="1.5"/>
               <polyline points="6,10 9,13 14,7" stroke="#5BC9A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            {required && <span className="text-[11px] font-bold text-[#5BC9A8] border border-[#5BC9A8] px-1.5 py-0.5 rounded-sm">필수</span>}
+            {required && <span className="text-[11px] font-bold text-kb-mint border border-kb-mint px-1.5 py-0.5 rounded-sm">필수</span>}
             <span className="font-semibold text-kb-text">{title}</span>
           </span>
           <span className="text-kb-text-muted text-xs ml-2">{open ? '∧' : '›'}</span>
@@ -326,7 +327,7 @@ export default function DepositJoinPage() {
                       ? 'font-bold text-white'
                       : 'text-kb-text-body border border-kb-border bg-white'
                   }`}
-                  style={i + 1 === step ? { backgroundColor: '#5BC9A8' } : {}}>
+                  style={i + 1 === step ? { backgroundColor: KB_MINT } : {}}>
                   {i + 1}. {s}
                 </button>
               ))}
@@ -338,13 +339,13 @@ export default function DepositJoinPage() {
             <div className="space-y-0">
 
               {/* 전체 동의 */}
-              <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-4 flex items-center gap-3">
+              <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-4 flex items-center gap-3">
                 <input
                   type="checkbox"
                   id="agreeAll"
                   checked={allRequiredChecked}
                   onChange={e => checkAll(e.target.checked)}
-                  className="w-5 h-5 accent-[#5BC9A8] cursor-pointer flex-shrink-0"
+                  className="w-5 h-5 accent-kb-mint cursor-pointer flex-shrink-0"
                 />
                 <label htmlFor="agreeAll" className="text-[14px] font-bold text-kb-text cursor-pointer">
                   아래 약관 및 필수 항목에 전체 동의합니다.
@@ -412,7 +413,7 @@ export default function DepositJoinPage() {
               <div className="border border-kb-border p-4 mb-6">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input type="checkbox" checked={termChecks.final} onChange={e => checkTerm('final', e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-[#5BC9A8]" />
+                    className="mt-0.5 w-4 h-4 accent-kb-mint" />
                   <div>
                     <p className="text-[13px] font-semibold text-kb-text">본인은 위 예금상품의 약관과 상품설명서에 대해 중요사항을 충분히 이해하고 본 상품에 가입함을 확인합니다. <span className="text-[#E05555]">(필수)</span></p>
                     <p className="text-[12px] text-[#E05555] mt-1">※ 설명내용을 제대로 이해하지 못하였음에도 이해했다는 확인을 하는 경우, 추후 권리구제가 어려울 수 있습니다.</p>
@@ -440,13 +441,13 @@ export default function DepositJoinPage() {
           {/* ══════════ STEP 2: 정보입력 ══════════ */}
           {step === 2 && (
             <div>
-              <p className="text-[14px] font-bold text-[#5BC9A8] border-b-2 border-[#5BC9A8] inline-block pb-1 mb-4">정보입력</p>
+              <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-4">정보입력</p>
 
               <div className="border border-kb-border px-5 py-2 mb-6 space-y-0">
                 {/* 군인 인증 - 장병내일준비적금 전용 */}
                 {id === 'axful-soldier' && (
                   <>
-                    <div className="bg-[#F0FAF7] border border-[#5BC9A8] px-4 py-3 mb-3 text-[12px] text-kb-text-body rounded">
+                    <div className="bg-kb-primary-bg border border-kb-mint px-4 py-3 mb-3 text-[12px] text-kb-text-body rounded">
                       <p className="font-semibold text-[#2D6A4F] mb-1">현역 복무 중인 장병만 가입 가능합니다.</p>
                       <p>· 군번 및 복무 정보는 병무청 데이터와 대조하여 확인됩니다.</p>
                       <p>· 허위 정보 입력 시 가입이 취소될 수 있습니다.</p>
@@ -456,7 +457,7 @@ export default function DepositJoinPage() {
                         {['육군', '해군', '공군', '해병대', '해양경찰'].map(branch => (
                           <label key={branch} className="flex items-center gap-2 text-[13px] cursor-pointer">
                             <input type="radio" name="militaryBranch" checked={militaryBranch === branch}
-                              onChange={() => setMilitaryBranch(branch)} className="accent-[#5BC9A8]" />
+                              onChange={() => setMilitaryBranch(branch)} className="accent-kb-mint" />
                             {branch}
                           </label>
                         ))}
@@ -509,7 +510,7 @@ export default function DepositJoinPage() {
                             onClick={() => { setPeriod(String(m)); setPeriodPreset(String(m)) }}
                             className={`px-4 py-1.5 text-[12px] border transition-colors ${
                               periodPreset === String(m)
-                                ? 'border-[#5BC9A8] text-[#5BC9A8] font-bold bg-white'
+                                ? 'border-kb-mint text-kb-mint font-bold bg-white'
                                 : 'border-kb-border text-kb-text-body hover:bg-kb-beige-light'
                             }`}>
                             {m}개월
@@ -528,13 +529,13 @@ export default function DepositJoinPage() {
                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="autoTransfer" value="yes"
                           checked={autoTransfer === 'yes'}
-                          onChange={() => setAutoTransfer('yes')} className="accent-[#5BC9A8]" />
+                          onChange={() => setAutoTransfer('yes')} className="accent-kb-mint" />
                         신청
                       </label>
                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="autoTransfer" value="no"
                           checked={autoTransfer === 'no'}
-                          onChange={() => setAutoTransfer('no')} className="accent-[#5BC9A8]" />
+                          onChange={() => setAutoTransfer('no')} className="accent-kb-mint" />
                         미신청
                       </label>
                     </div>
@@ -632,7 +633,7 @@ export default function DepositJoinPage() {
                     {([['coupon', 'AXful금융쿠폰(0)'], ['point', '포인트리'], ['none', '사용안함']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="coupon" checked={couponType === val}
-                          onChange={() => setCouponType(val)} className="accent-[#5BC9A8]" />
+                          onChange={() => setCouponType(val)} className="accent-kb-mint" />
                         {label}
                       </label>
                     ))}
@@ -644,7 +645,7 @@ export default function DepositJoinPage() {
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                       <input type="checkbox" checked={taxExempt} onChange={e => setTaxExempt(e.target.checked)}
-                        className="w-4 h-4 accent-[#5BC9A8]" />
+                        className="w-4 h-4 accent-kb-mint" />
                       비과세종합저축 적용
                     </label>
                     <button className="text-[12px] text-kb-blue hover:underline">자세히보기 ›</button>
@@ -670,7 +671,7 @@ export default function DepositJoinPage() {
                     {([['same', '출금계좌와 동일하게 설정'], ['new', '신규 설정']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="pw" checked={passwordType === val}
-                          onChange={() => setPasswordType(val)} className="accent-[#5BC9A8]" />
+                          onChange={() => setPasswordType(val)} className="accent-kb-mint" />
                         {label}
                       </label>
                     ))}
@@ -695,7 +696,7 @@ export default function DepositJoinPage() {
                       {([['yes', '예'], ['no', '아니오']] as const).map(([val, label]) => (
                         <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                           <input type="radio" name="lms" checked={lms === val}
-                            onChange={() => setLms(val)} className="accent-[#5BC9A8]" />
+                            onChange={() => setLms(val)} className="accent-kb-mint" />
                           {label}
                         </label>
                       ))}
@@ -717,7 +718,7 @@ export default function DepositJoinPage() {
                     {([['email', '이메일주소로 받기'], ['lms', '문자메시지(LMS) 받기']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="doc" checked={docMethod === val}
-                          onChange={() => setDocMethod(val)} className="accent-[#5BC9A8]" />
+                          onChange={() => setDocMethod(val)} className="accent-kb-mint" />
                         {label}
                       </label>
                     ))}
@@ -757,7 +758,7 @@ export default function DepositJoinPage() {
           {/* ══════════ STEP 3: 정보확인 ══════════ */}
           {step === 3 && (
             <div>
-              <p className="text-[14px] font-bold text-[#5BC9A8] border-b-2 border-[#5BC9A8] inline-block pb-1 mb-4">정보 확인</p>
+              <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-4">정보 확인</p>
 
               <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text mb-3">
                 <tbody>
@@ -803,7 +804,7 @@ export default function DepositJoinPage() {
 
               {/* 계좌 비밀번호 확인 */}
               <div className="border border-t-2 border-kb-text pt-0">
-                <p className="text-[14px] font-bold text-[#5BC9A8] border-b-2 border-[#5BC9A8] inline-block pb-1 mb-3">공규계좌 및 비밀번호 확인</p>
+                <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-3">공규계좌 및 비밀번호 확인</p>
                 <table className="w-full border-collapse text-[13px]">
                   <tbody>
                     <tr>

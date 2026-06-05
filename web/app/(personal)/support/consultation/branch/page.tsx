@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY,KB_PRIMARY_BORDER } from '@/lib/theme'
 
 /* eslint-disable @typescript-eslint/no-unused-vars -- 예약 폼 미사용 state, 추후 기능 연결 예정 (빌드 차단 방지) */
 
@@ -63,20 +64,20 @@ export default function BranchConsultationPage() {
           <p className="text-[13px] text-kb-text-muted mb-6">원하는 지점에 방문 상담을 미리 예약하세요.</p>
 
           {/* 서브 탭 */}
-          <div className="flex gap-0 mb-7 border-b-2 border-[#E2F5EF]">
+          <div className="flex gap-0 mb-7 border-b-2 border-kb-primary-border">
             {[{ key: 'apply', label: '예약 신청' }, { key: 'history', label: '예약 현황 조회' }].map(t => (
               <button
                 key={t.key}
                 onClick={() => setPageTab(t.key as 'apply' | 'history')}
                 className={`px-6 py-3 text-[14px] font-semibold transition-colors relative ${
                   pageTab === t.key
-                    ? 'text-[#0D5C47] font-bold'
+                    ? 'text-kb-primary font-bold'
                     : 'text-kb-text-muted hover:text-kb-text'
                 }`}
               >
                 {t.label}
                 {pageTab === t.key && (
-                  <span className="absolute bottom-[-2px] left-0 right-0 h-[2px]" style={{ backgroundColor: '#0D5C47' }} />
+                  <span className="absolute bottom-[-2px] left-0 right-0 h-[2px]" style={{ backgroundColor: KB_PRIMARY }} />
                 )}
               </button>
             ))}
@@ -92,20 +93,20 @@ export default function BranchConsultationPage() {
                   {/* Step 1 — active */}
                   <div className="flex flex-col items-center gap-2 min-w-[100px]">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#0D5C47' }}>
+                      style={{ backgroundColor: KB_PRIMARY }}>
                       1
                     </div>
-                    <div className="bg-[#F0FAF7] rounded-xl px-4 py-2.5 text-center" style={{ border: '1px solid #5BC9A820' }}>
-                      <p className="text-[12px] font-bold text-[#0D5C47] whitespace-nowrap">상담예약 신청</p>
+                    <div className="bg-kb-primary-bg rounded-xl px-4 py-2.5 text-center" style={{ border: '1px solid #5BC9A820' }}>
+                      <p className="text-[12px] font-bold text-kb-primary whitespace-nowrap">상담예약 신청</p>
                     </div>
                   </div>
 
-                  <span className="text-[#5BC9A8] text-xl font-bold">→</span>
+                  <span className="text-kb-mint text-xl font-bold">→</span>
 
                   {/* Step 2 */}
                   <div className="flex flex-col items-center gap-2 min-w-[100px]">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#E2F5EF', color: '#0D5C47' }}>
+                      style={{ backgroundColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                       2
                     </div>
                     <div className="rounded-xl px-4 py-2.5 text-center" style={{ border: '1px solid #5BC9A840', backgroundColor: '#FAFAFA' }}>
@@ -123,12 +124,12 @@ export default function BranchConsultationPage() {
                     </div>
                   </div>
 
-                  <span className="text-[#5BC9A8] text-xl font-bold">→</span>
+                  <span className="text-kb-mint text-xl font-bold">→</span>
 
                   {/* Step 3 */}
                   <div className="flex flex-col items-center gap-2 min-w-[100px]">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
-                      style={{ backgroundColor: '#E2F5EF', color: '#0D5C47' }}>
+                      style={{ backgroundColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                       3
                     </div>
                     <div className="rounded-xl px-4 py-2.5 text-center" style={{ border: '1px solid #5BC9A840', backgroundColor: '#FAFAFA' }}>
@@ -140,7 +141,7 @@ export default function BranchConsultationPage() {
               </div>
 
               {/* 안내 사항 */}
-              <div className="bg-[#F0FAF7] rounded-xl px-5 py-4 mb-6" style={{ border: '1px solid #5BC9A830' }}>
+              <div className="bg-kb-primary-bg rounded-xl px-5 py-4 mb-6" style={{ border: '1px solid #5BC9A830' }}>
                 <ul className="space-y-1.5 text-[12px] text-kb-text-muted">
                   {[
                     '상담 직원을 선택하면 직원 확인 후 예약이 확정돼요.',
@@ -151,7 +152,7 @@ export default function BranchConsultationPage() {
                     '예금/펀드/신탁, 개인대출, 개인사업자/법인대출, 외환(수출입거래) 상담(신규, 연장)을 받을 수 있습니다.',
                   ].map((note, i) => (
                     <li key={i} className="flex gap-1.5">
-                      <span className="text-[#5BC9A8] font-bold flex-shrink-0">*</span>
+                      <span className="text-kb-mint font-bold flex-shrink-0">*</span>
                       {note}
                     </li>
                   ))}
@@ -160,31 +161,31 @@ export default function BranchConsultationPage() {
 
               {/* 상담 예약 정보 입력 */}
               <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-5" style={{ border: '1px solid #5BC9A820' }}>
-                <div className="px-6 py-4 border-b" style={{ borderColor: '#E2F5EF', backgroundColor: '#F8FDFB' }}>
+                <div className="px-6 py-4 border-b" style={{ borderColor: KB_PRIMARY_BORDER, backgroundColor: '#F8FDFB' }}>
                   <h2 className="text-[16px] font-bold text-kb-text">상담 예약 정보 입력</h2>
                   <p className="text-[12px] text-[#E05555] mt-1">
-                    <span className="text-[#5BC9A8] font-bold">★</span> 표시가 있는 항목은 반드시 입력해주세요.
+                    <span className="text-kb-mint font-bold">★</span> 표시가 있는 항목은 반드시 입력해주세요.
                   </p>
                 </div>
 
-                <table className="w-full border-collapse text-[13px] border-t-2 border-[#0D5C47]">
+                <table className="w-full border-collapse text-[13px] border-t-2 border-kb-primary">
                   <tbody>
                     {/* 상담 지점 */}
                     <tr>
-                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text w-[130px] whitespace-nowrap align-middle">
-                        상담 지점<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
+                      <td className="bg-kb-primary-bg border border-kb-primary-border px-4 py-3.5 font-semibold text-kb-text w-[130px] whitespace-nowrap align-middle">
+                        상담 지점<span className="text-kb-mint font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                      <td className="border border-kb-primary-border px-4 py-3.5">
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
                             value={branch}
                             onChange={e => setBranch(e.target.value)}
                             placeholder="지점명 입력"
-                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] w-48 outline-none focus:border-[#5BC9A8] transition-colors"
+                            className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] w-48 outline-none focus:border-kb-mint transition-colors"
                           />
-                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors flex items-center gap-1"
-                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-kb-primary-bg transition-colors flex items-center gap-1"
+                            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                             지점검색
                             <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="2">
                               <path d="M7 1h7v7M14 1L7 8" /><rect x="1" y="5" width="7" height="9" />
@@ -196,20 +197,20 @@ export default function BranchConsultationPage() {
 
                     {/* 상담 내용 */}
                     <tr>
-                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-middle whitespace-nowrap">
-                        상담 내용<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
+                      <td className="bg-kb-primary-bg border border-kb-primary-border px-4 py-3.5 font-semibold text-kb-text align-middle whitespace-nowrap">
+                        상담 내용<span className="text-kb-mint font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                      <td className="border border-kb-primary-border px-4 py-3.5">
                         <div className="flex items-center gap-2 mb-2">
                           <select
                             value={contentType}
                             onChange={e => setContentType(e.target.value)}
-                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors"
+                            className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-kb-mint transition-colors"
                           >
                             {CONTENT_TYPES.map(c => <option key={c}>{c}</option>)}
                           </select>
-                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors"
-                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-kb-primary-bg transition-colors"
+                            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                             선택
                           </button>
                         </div>
@@ -222,26 +223,26 @@ export default function BranchConsultationPage() {
 
                     {/* 상담 일시 */}
                     <tr>
-                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
-                        상담 일시<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
+                      <td className="bg-kb-primary-bg border border-kb-primary-border px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
+                        상담 일시<span className="text-kb-mint font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                      <td className="border border-kb-primary-border px-4 py-3.5">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <select value={month} onChange={e => setMonth(e.target.value)}
-                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors">
+                            className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-kb-mint transition-colors">
                             <option>선택</option>
                             {MONTHS.map(m => <option key={m}>{m}</option>)}
                           </select>
-                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors"
-                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-kb-primary-bg transition-colors"
+                            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                             선택
                           </button>
                           <select value={time} onChange={e => setTime(e.target.value)}
-                            className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors">
+                            className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-kb-mint transition-colors">
                             {TIMES.map(t => <option key={t}>{t}</option>)}
                           </select>
-                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-[#F0FAF7] transition-colors"
-                            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                          <button className="border-2 rounded-lg px-4 py-1.5 text-[12px] font-semibold hover:bg-kb-primary-bg transition-colors"
+                            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                             선택
                           </button>
                         </div>
@@ -254,15 +255,15 @@ export default function BranchConsultationPage() {
 
                     {/* 예약 방법 */}
                     <tr>
-                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
-                        예약 방법<span className="text-[#5BC9A8] font-bold ml-0.5">★</span>
+                      <td className="bg-kb-primary-bg border border-kb-primary-border px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap pt-4">
+                        예약 방법<span className="text-kb-mint font-bold ml-0.5">★</span>
                       </td>
-                      <td className="border border-[#E2F5EF] px-4 py-3.5 space-y-3">
+                      <td className="border border-kb-primary-border px-4 py-3.5 space-y-3">
                         {/* 자동배정 */}
                         <label className="flex items-start gap-3 cursor-pointer">
                           <input type="radio" name="reserveType" checked={reserveType === 'auto'}
                             onChange={() => setReserveType('auto')}
-                            className="mt-0.5 accent-[#5BC9A8]" />
+                            className="mt-0.5 accent-kb-mint" />
                           <div>
                             <p className="text-[13px] font-semibold text-kb-text">직원 자동배정</p>
                             <p className="text-[12px] text-kb-text-body">예약이 바로 확정돼요.</p>
@@ -276,7 +277,7 @@ export default function BranchConsultationPage() {
                         <label className="flex items-start gap-3 cursor-pointer">
                           <input type="radio" name="reserveType" checked={reserveType === 'manual'}
                             onChange={() => setReserveType('manual')}
-                            className="mt-0.5 accent-[#5BC9A8]" />
+                            className="mt-0.5 accent-kb-mint" />
                           <div className="flex-1">
                             <div className="flex items-center gap-4">
                               <div>
@@ -285,13 +286,13 @@ export default function BranchConsultationPage() {
                               </div>
                               {reserveType === 'manual' && (
                                 <select value={staffSelect} onChange={e => setStaffSelect(e.target.value)}
-                                  className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-[#5BC9A8] transition-colors">
+                                  className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white focus:border-kb-mint transition-colors">
                                   <option>선택</option>
                                 </select>
                               )}
                               {reserveType !== 'manual' && (
                                 <select disabled
-                                  className="border border-[#E2F5EF] rounded-lg px-3 py-1.5 text-[13px] bg-[#f5f5f5] text-kb-text-muted">
+                                  className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] bg-[#f5f5f5] text-kb-text-muted">
                                   <option>선택</option>
                                 </select>
                               )}
@@ -307,16 +308,16 @@ export default function BranchConsultationPage() {
 
                     {/* 상담 희망 내용 */}
                     <tr>
-                      <td className="bg-[#F0FAF7] border border-[#E2F5EF] px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap">
+                      <td className="bg-kb-primary-bg border border-kb-primary-border px-4 py-3.5 font-semibold text-kb-text align-top whitespace-nowrap">
                         상담 희망 내용
                       </td>
-                      <td className="border border-[#E2F5EF] px-4 py-3.5">
+                      <td className="border border-kb-primary-border px-4 py-3.5">
                         <p className="text-[12px] text-kb-text-muted mb-1.5">{memo.length}/200자</p>
                         <textarea
                           value={memo}
                           onChange={e => { if (e.target.value.length <= 200) setMemo(e.target.value) }}
                           placeholder={`상담받고 싶은 내용을 입력하시면 원활한 상담을 받으실 수 있어요.\n예) 상담 상품, 상담 문의사항, 추가 상담 필요업무 등`}
-                          className="w-full h-24 border border-[#E2F5EF] rounded-lg px-3 py-2.5 text-[13px] resize-none outline-none leading-relaxed text-kb-text-body placeholder:text-kb-text-muted focus:border-[#5BC9A8] transition-colors"
+                          className="w-full h-24 border border-kb-primary-border rounded-lg px-3 py-2.5 text-[13px] resize-none outline-none leading-relaxed text-kb-text-body placeholder:text-kb-text-muted focus:border-kb-mint transition-colors"
                         />
                       </td>
                     </tr>
@@ -325,28 +326,28 @@ export default function BranchConsultationPage() {
               </div>
 
               {/* 주의사항 */}
-              <div className="bg-[#F0FAF7] rounded-xl px-5 py-4 mb-6" style={{ border: '1px solid #5BC9A830' }}>
+              <div className="bg-kb-primary-bg rounded-xl px-5 py-4 mb-6" style={{ border: '1px solid #5BC9A830' }}>
                 <ul className="space-y-1 text-[12px] text-kb-text-muted">
                   {[
                     '상담 예약을 신청하면 카카오톡 또는 문자 메시지로 내역이 발송됩니다.',
                     '스팸 차단을 했거나 SMS 수신에 동의하지 않은 경우, 예약 안내를 받을 수 없습니다.',
                     '연락처 변경이나 휴대폰 번호 등록은 [내 정보 수정]에서 할 수 있습니다',
                   ].map((n, i) => (
-                    <li key={i} className="flex gap-1.5"><span className="flex-shrink-0 text-[#5BC9A8] font-bold">*</span>{n}</li>
+                    <li key={i} className="flex gap-1.5"><span className="flex-shrink-0 text-kb-mint font-bold">*</span>{n}</li>
                   ))}
                 </ul>
               </div>
 
               {/* 버튼 */}
               <div className="flex items-center gap-3">
-                <button className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 hover:bg-[#F0FAF7] transition-colors"
-                  style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                <button className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 hover:bg-kb-primary-bg transition-colors"
+                  style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                   내 정보 수정
                 </button>
                 <button
                   onClick={handleSubmit}
                   className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}
+                  style={{ backgroundColor: KB_PRIMARY }}
                 >
                   상담 예약
                 </button>

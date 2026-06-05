@@ -41,7 +41,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3 bg-[#5BC9A8]">
+        <div className="flex items-center justify-between px-5 py-3 bg-kb-mint">
           <span className="text-[16px] font-bold text-white">금리안내</span>
           <span className="text-white">
             <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="2">
@@ -63,7 +63,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
             ].map(cat => (
               <button key={cat.label}
                 className={`flex flex-col items-center gap-1 text-[13px] pb-1 ${
-                  cat.active ? 'text-[#5BC9A8] border-b-2 border-[#5BC9A8] font-bold' : 'text-kb-text-muted hover:text-kb-text'
+                  cat.active ? 'text-kb-mint border-b-2 border-kb-mint font-bold' : 'text-kb-text-muted hover:text-kb-text'
                 }`}>
                 <span className="text-lg">{cat.icon}</span>
                 {cat.label}
@@ -78,7 +78,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
                 onClick={() => setSubTab(tab)}
                 className={`flex-shrink-0 px-4 py-2.5 text-[12px] border-r border-kb-border transition-colors ${
                   subTab === tab
-                    ? 'border-b-2 border-[#5BC9A8] font-bold text-kb-text bg-white'
+                    ? 'border-b-2 border-kb-mint font-bold text-kb-text bg-white'
                     : 'text-kb-text-muted hover:text-kb-text bg-[#fafafa]'
                 }`}>
                 {tab}
@@ -119,7 +119,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
               <button key={rt}
                 onClick={() => setRateType(rt)}
                 className={`text-[13px] flex items-center gap-0.5 ${
-                  rateType === rt ? 'text-[#5BC9A8] font-bold' : 'text-kb-text-muted hover:text-kb-text'
+                  rateType === rt ? 'text-kb-mint font-bold' : 'text-kb-text-muted hover:text-kb-text'
                 }`}>
                 <span className="text-[10px]">▶</span>{rt}
               </button>

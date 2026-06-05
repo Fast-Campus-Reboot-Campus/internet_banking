@@ -1,11 +1,11 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 import { executeDepositTransfer, getCurrentDepositCustomerId } from '@/lib/deposit-api'
-import { createInstantTransfer, newIdempotencyKey, newAuthToken, PAYMENT_BANK_CODE_MAP } from '@/lib/payment-api'
 
 type PendingTransfer = {
   fromAccountId?: number
@@ -56,44 +56,20 @@ export default function TransferConfirmPage() {
           setShowCertModal(false)
           try {
             if (!data.fromAccountId) throw new Error('출금계좌 정보가 없습니다.')
-            if (data.transferType === 'EXTERNAL') {
-              const authTokenNo = newAuthToken()
-              const userId = getCurrentDepositCustomerId()
-              const res = await createInstantTransfer(
-                {
-                  senderAccountId:      String(data.fromAccountId),
-                  receiverBankCode:     PAYMENT_BANK_CODE_MAP[data.toBankCode] ?? data.toBankCode,
-                  receiverAccountNo:    data.toAccount,
-                  transferAmount:       data.amount,
-                  expectedReceiverName: data.receiverName,
-                  authTokenNo,
-                  channel:              'MOBILE',
-                },
-                {
-                  userId,
-                  authTokenId:    authTokenNo,
-                  idempotencyKey: newIdempotencyKey(),
-                  channel:        'MOBILE',
-                  requestId:      crypto.randomUUID(),
-                }
-              )
-              sessionStorage.setItem('paymentResult', JSON.stringify({ status: 'COMPLETED', txNo: res.transactionNo }))
-            } else {
-              const res = await executeDepositTransfer(getCurrentDepositCustomerId(), {
-                fromAccountId: data.fromAccountId,
-                toAccountId: data.toAccountId,
-                toAccountNo: data.toAccount,
-                amount: data.amount,
-                transferType: data.transferType,
-                counterpartyBankCode: data.toBankCode,
-                counterpartyBankName: data.toBank,
-                counterpartyName: data.receiverName,
-              })
-              sessionStorage.setItem('paymentResult', JSON.stringify({
-                status: 'COMPLETED',
-                txNo: String(res.transactionId),
-              }))
-            }
+            const res = await executeDepositTransfer(getCurrentDepositCustomerId(), {
+              fromAccountId: data.fromAccountId,
+              toAccountId: data.toAccountId,
+              toAccountNo: data.toAccount,
+              amount: data.amount,
+              transferType: data.transferType,
+              counterpartyBankCode: data.toBankCode,
+              counterpartyBankName: data.toBank,
+              counterpartyName: data.receiverName,
+            })
+            sessionStorage.setItem('paymentResult', JSON.stringify({
+              status: 'COMPLETED',
+              txNo: String(res.transactionId),
+            }))
           } catch (e: unknown) {
             const err = e as { response?: { data?: { error?: string } }; message?: string }
             sessionStorage.setItem('paymentResult', JSON.stringify({
@@ -123,23 +99,23 @@ export default function TransferConfirmPage() {
           <div className="flex items-center gap-3 mb-6">
             <span className="text-[13px] text-kb-text-muted">STEP 1. 이체정보 입력</span>
             <span className="text-kb-text-muted">›</span>
-            <span className="text-[14px] font-bold pb-0.5 border-b-2" style={{ color: '#0D5C47', borderColor: '#0D5C47' }}>
+            <span className="text-[14px] font-bold pb-0.5 border-b-2" style={{ color: KB_PRIMARY, borderColor: KB_PRIMARY }}>
               STEP 2. 이체정보 확인
             </span>
           </div>
 
           {/* 확인 헤더 */}
-          <div className="rounded-xl p-6 mb-5 text-center" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-            <p className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>
+          <div className="rounded-xl p-6 mb-5 text-center" style={{ backgroundColor: KB_PRIMARY_BG, border: '1px solid #E2F5EF' }}>
+            <p className="text-[16px] font-bold" style={{ color: KB_PRIMARY }}>
               {data.receiverName}님께 {formatNumber(data.amount)}원 이체하시겠습니까?
             </p>
           </div>
 
           {/* 안내 메시지 */}
-          <div className="mb-5 text-[12px] space-y-1 rounded-xl px-5 py-4" style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+          <div className="mb-5 text-[12px] space-y-1 rounded-xl px-5 py-4" style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
             <p className="text-kb-text-muted">· 입금은행, 입금계좌번호, 이체금액 및 받는분을 다시 한번 확인하세요.</p>
             <p className="text-kb-text-muted">· 메시지·문자로 송금을 요구받은 경우에는 반드시 사실관계 확인 후 이체하시기 바랍니다.</p>
-            <p className="font-medium" style={{ color: '#0D5C47' }}>
+            <p className="font-medium" style={{ color: KB_PRIMARY }}>
               · 확인 후 5분 이내 결과화면이 나오지 않으면 [이체결과 조회]에서 이체 실행 여부를 확인하시기 바랍니다.
             </p>
           </div>
@@ -150,18 +126,18 @@ export default function TransferConfirmPage() {
               <p className="text-[15px] font-bold text-kb-text">이체정보</p>
               <button
                 onClick={() => router.push('/transfer/account')}
-                className="border rounded-lg px-4 py-1.5 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                className="border rounded-lg px-4 py-1.5 text-[12px] font-medium transition-colors hover:bg-kb-primary-bg"
+                style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                 수정
               </button>
             </div>
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
               <table className="w-full border-collapse text-[13px]">
                 <thead>
-                  <tr style={{ backgroundColor: '#F0FAF7' }}>
+                  <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                     {['출금계좌번호', '입금계좌번호', '이체금액', '수수료', '받는분', '상태'].map(h => (
                       <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]"
-                        style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>
+                        style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>
                         {h}
                       </th>
                     ))}
@@ -174,14 +150,14 @@ export default function TransferConfirmPage() {
                       <p className="font-medium text-kb-text">{data.toBank}</p>
                       <p className="text-kb-text-muted text-[12px]">{data.toAccount}</p>
                     </td>
-                    <td className="px-4 py-4 text-right font-bold text-[15px]" style={{ color: '#0D5C47' }}>
+                    <td className="px-4 py-4 text-right font-bold text-[15px]" style={{ color: KB_PRIMARY }}>
                       {formatNumber(data.amount)}원
                     </td>
                     <td className="px-4 py-4 text-center text-kb-text-muted">
                       {data.fee === 0 ? '면제' : `${formatNumber(data.fee)}원`}
                     </td>
                     <td className="px-4 py-4 text-center text-kb-text">{data.receiverName}</td>
-                    <td className="px-4 py-4 text-center font-semibold" style={{ color: '#5BC9A8' }}>정상</td>
+                    <td className="px-4 py-4 text-center font-semibold" style={{ color: KB_MINT }}>정상</td>
                   </tr>
                 </tbody>
               </table>
@@ -193,12 +169,12 @@ export default function TransferConfirmPage() {
             <button
               onClick={() => { setShowCertModal(true); setCertStep('info'); setPin([]) }}
               className="px-16 py-3 text-[15px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               확인
             </button>
             <button
               onClick={() => router.push('/transfer/account')}
-              className="border rounded-xl px-16 py-3 text-[15px] font-medium transition-colors hover:bg-[#F0FAF7]"
+              className="border rounded-xl px-16 py-3 text-[15px] font-medium transition-colors hover:bg-kb-primary-bg"
               style={{ borderColor: '#D1D5DB', color: '#6B7280' }}>
               취소
             </button>
@@ -213,13 +189,13 @@ export default function TransferConfirmPage() {
 
             {/* 왼쪽 - 브랜드 */}
             <div className="w-[180px] flex-shrink-0 flex flex-col items-center justify-center gap-4 p-6"
-              style={{ backgroundColor: '#F0FAF7', borderRight: '1px solid #E2F5EF' }}>
+              style={{ backgroundColor: KB_PRIMARY_BG, borderRight: '1px solid #E2F5EF' }}>
               <div className="text-center">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3 text-white text-[13px] font-extrabold"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   AX
                 </div>
-                <p className="text-[13px] font-bold" style={{ color: '#0D5C47' }}>AXful 금융인증서</p>
+                <p className="text-[13px] font-bold" style={{ color: KB_PRIMARY }}>AXful 금융인증서</p>
               </div>
             </div>
 
@@ -234,10 +210,10 @@ export default function TransferConfirmPage() {
                 {certStep === 'info' ? (
                   <div>
                     <p className="text-[14px] font-bold text-kb-text mb-4">전자서명 원문</p>
-                    <div className="rounded-xl p-4 text-[13px] space-y-1.5 mb-6" style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+                    <div className="rounded-xl p-4 text-[13px] space-y-1.5 mb-6" style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
                       <div className="flex gap-3">
                         <span className="text-kb-text-muted w-24">이체금액</span>
-                        <span className="font-semibold" style={{ color: '#0D5C47' }}>{formatNumber(data.amount)}원</span>
+                        <span className="font-semibold" style={{ color: KB_PRIMARY }}>{formatNumber(data.amount)}원</span>
                       </div>
                       <div className="flex gap-3">
                         <span className="text-kb-text-muted w-24">출금계좌</span>
@@ -259,21 +235,21 @@ export default function TransferConfirmPage() {
                     <div className="flex justify-center">
                       <button onClick={() => setCertStep('pin')}
                         className="px-16 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-                        style={{ backgroundColor: '#0D5C47' }}>
+                        style={{ backgroundColor: KB_PRIMARY }}>
                         확인
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
-                    <p className="text-[13px] mb-1" style={{ color: '#0D5C47' }}>AXful 금융인증서</p>
+                    <p className="text-[13px] mb-1" style={{ color: KB_PRIMARY }}>AXful 금융인증서</p>
                     <p className="text-[16px] font-bold text-kb-text mb-5">비밀번호를 입력해주세요</p>
                     <div className="flex gap-2 mb-5">
                       {Array.from({length:6}).map((_,i) => (
                         <div key={i}
                           className="w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-colors"
                           style={i < pin.length
-                            ? { backgroundColor: '#0D5C47', borderColor: '#0D5C47' }
+                            ? { backgroundColor: KB_PRIMARY, borderColor: KB_PRIMARY }
                             : { borderColor: '#D1D5DB', backgroundColor: 'white' }}>
                           {i < pin.length && <span className="text-white text-sm font-bold">●</span>}
                         </div>
@@ -283,7 +259,7 @@ export default function TransferConfirmPage() {
                       {PIN_PAD.map((row, ri) =>
                         row.map((key, ci) => (
                           <button key={`${ri}-${ci}`} onClick={() => handlePinKey(key)}
-                            className="h-12 text-[18px] font-medium transition-colors hover:bg-[#F0FAF7] rounded-lg"
+                            className="h-12 text-[18px] font-medium transition-colors hover:bg-kb-primary-bg rounded-lg"
                             style={{ color: typeof key === 'string' ? '#9CA3AF' : '#374151' }}>
                             {key}
                           </button>

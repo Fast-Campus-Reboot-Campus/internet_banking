@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 
@@ -128,7 +129,7 @@ export default function JointCertManagementPage() {
               <button className="flex-1 py-2 border border-kb-border text-caption text-kb-text hover:bg-kb-beige-light transition-colors rounded-lg">
                 이용 안내
               </button>
-              <button className="flex-1 py-2 text-caption font-bold text-white hover:opacity-90 transition-all rounded-lg" style={{ backgroundColor: '#0D5C47' }}>
+              <button className="flex-1 py-2 text-caption font-bold text-white hover:opacity-90 transition-all rounded-lg" style={{ backgroundColor: KB_PRIMARY }}>
                 {card.actionLabel}
               </button>
             </div>

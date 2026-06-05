@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY_DARK } from '@/lib/theme'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -57,7 +58,7 @@ export default function BizCertLayout({ children }: { children: React.ReactNode 
       </div>
 
       {/* 인증센터 탭 네비 */}
-      <nav style={{ backgroundColor: '#3D4F47' }}>
+      <nav style={{ backgroundColor: KB_PRIMARY_DARK }}>
         <div className="max-w-kb-container mx-auto px-6 flex">
           {CERT_NAV_TABS.map((tab) => {
             const isActive = !!tab.prefix && pathname.startsWith(tab.prefix)

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
@@ -19,7 +20,7 @@ type RecentTransfer = { datetime: string; name: string; amount: number; bank: st
 
 function RateBanner() {
   return (
-    <section className="py-3.5" style={{ backgroundColor: '#0D5C47' }}>
+    <section className="py-3.5" style={{ backgroundColor: KB_PRIMARY }}>
       <div className="max-w-kb-container mx-auto px-8 flex items-center justify-center gap-10">
         <span className="text-[14px] font-bold tracking-widest flex-shrink-0" style={{ color: 'rgba(255,255,255,0.5)' }}>TODAY</span>
         <span className="w-px h-4 flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
@@ -31,7 +32,7 @@ function RateBanner() {
           ].map((item, i, arr) => (
             <div key={item.label} className="flex items-center gap-2.5">
               <span className="text-[15px]" style={{ color: 'rgba(255,255,255,0.7)' }}>{item.label}</span>
-              <span className="text-[17px] font-bold" style={{ color: '#5BC9A8' }}>{item.rate}</span>
+              <span className="text-[17px] font-bold" style={{ color: KB_MINT }}>{item.rate}</span>
               {i < arr.length - 1 && (
                 <span className="ml-10 w-px h-4 flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
               )}
@@ -64,8 +65,8 @@ function NewsSection() {
                   <Link href={item.href} className="flex items-center gap-4 py-3.5 border-b border-gray-100 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors">
                     <span className="flex-shrink-0 text-[13px] font-bold px-2.5 py-1 rounded-full border"
                       style={{
-                        borderColor: item.type === '새소식' ? '#0D5C47' : '#5BC9A8',
-                        color: item.type === '새소식' ? '#0D5C47' : '#5BC9A8',
+                        borderColor: item.type === '새소식' ? KB_PRIMARY : KB_MINT,
+                        color: item.type === '새소식' ? KB_PRIMARY : KB_MINT,
                       }}>
                       {item.type}
                     </span>
@@ -78,9 +79,9 @@ function NewsSection() {
           </div>
 
           {/* 고객센터 */}
-          <div className="rounded-2xl p-6" style={{ backgroundColor: '#F0FAF7', border: '1px solid #5BC9A820' }}>
+          <div className="rounded-2xl p-6" style={{ backgroundColor: KB_PRIMARY_BG, border: '1px solid #5BC9A820' }}>
             <h2 className="text-[22px] font-bold text-kb-text mb-4">고객센터</h2>
-            <p className="text-[30px] font-bold mb-1" style={{ color: '#0D5C47' }}>1588-0000</p>
+            <p className="text-[30px] font-bold mb-1" style={{ color: KB_PRIMARY }}>1588-0000</p>
             <div className="space-y-1 text-[14px] text-kb-text-muted mb-4">
               <p>해외 +82-2-0000-0000</p>
               <p>외국인상담 1599-0044</p>
@@ -95,7 +96,7 @@ function NewsSection() {
                 <span key={link.href} className="flex items-center">
                   {i > 0 && <span className="text-[11px] text-kb-text-muted mx-2">|</span>}
                   <Link href={link.href}
-                    className="text-[12px] text-kb-text-muted hover:text-[#0D5C47] transition-colors">
+                    className="text-[12px] text-kb-text-muted hover:text-kb-primary transition-colors">
                     {link.label}
                   </Link>
                 </span>
@@ -164,8 +165,8 @@ export default function HomePage() {
                 <div className="flex items-end mb-5">
                   <div className="flex-1 min-w-0">
                     <p className="text-[28px] font-bold text-kb-text mb-2">{user.name} 고객님,</p>
-                    <p className="text-[14px] font-semibold" style={{ color: '#0D5C47' }}>AXful은 항상 곁에 있습니다.</p>
-                    <p className="text-[14px] font-semibold mb-4" style={{ color: '#0D5C47' }}>24시간, 365일 늘 환영합니다.</p>
+                    <p className="text-[14px] font-semibold" style={{ color: KB_PRIMARY }}>AXful은 항상 곁에 있습니다.</p>
+                    <p className="text-[14px] font-semibold mb-4" style={{ color: KB_PRIMARY }}>24시간, 365일 늘 환영합니다.</p>
                     <div className="flex items-center gap-3">
                       <span className="border border-kb-border rounded-full px-3 py-1 text-[13px] text-kb-text-body inline-flex items-center gap-1 hover:bg-kb-beige-light cursor-pointer">
                         패밀리 <span className="text-[11px]">›</span>
@@ -185,7 +186,7 @@ export default function HomePage() {
                 </div>
 
                 {/* 계좌 카드 */}
-                <div className="rounded-2xl p-5 relative z-10 shadow-sm" style={{ backgroundColor: '#F0FAF7', border: '1px solid #5BC9A830' }}>
+                <div className="rounded-2xl p-5 relative z-10 shadow-sm" style={{ backgroundColor: KB_PRIMARY_BG, border: '1px solid #5BC9A830' }}>
                   <div className="flex items-center justify-between mb-3">
                     <Link href="/inquiry/accounts" className="flex items-center gap-1 text-[13px] text-kb-text-body hover:underline">
                       <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" stroke="currentColor" strokeWidth="1.5">
@@ -212,12 +213,12 @@ export default function HomePage() {
                   <div className="flex gap-2 pt-3 border-t border-dashed" style={{ borderColor: '#5BC9A840' }}>
                     <Link href="/inquiry/accounts"
                       className="flex-1 py-2.5 text-[15px] font-bold text-center rounded-lg border-2 transition-colors hover:bg-white"
-                      style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                      style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                       조회
                     </Link>
                     <Link href="/transfer/account"
                       className="flex-1 py-2.5 text-[15px] font-bold text-white text-center rounded-lg transition-opacity hover:opacity-85"
-                      style={{ backgroundColor: '#0D5C47' }}>
+                      style={{ backgroundColor: KB_PRIMARY }}>
                       이체
                     </Link>
                   </div>
@@ -226,7 +227,7 @@ export default function HomePage() {
               </div>
 
               {/* ===== 우측: 최근이체 내역 ===== */}
-              <div className="w-[420px] flex-shrink-0 rounded-2xl p-6 shadow-sm" style={{ backgroundColor: '#F0FAF7', border: '1px solid #5BC9A830' }}>
+              <div className="w-[420px] flex-shrink-0 rounded-2xl p-6 shadow-sm" style={{ backgroundColor: KB_PRIMARY_BG, border: '1px solid #5BC9A830' }}>
                 <h2 className="text-[18px] font-bold text-kb-text mb-4">최근이체 내역</h2>
                 <div className="space-y-0">
                   {recentTransfers.length === 0 ? (
@@ -247,8 +248,8 @@ export default function HomePage() {
                         <p className="text-[15px] font-bold text-kb-text">{formatNumber(t.amount)}원</p>
                         <Link
                           href={`/transfer/account?to=${encodeURIComponent(t.account)}&bank=${encodeURIComponent(t.bank)}&name=${encodeURIComponent(t.name)}`}
-                          className="text-[12px] font-semibold px-2.5 py-1 rounded-full border transition-colors hover:bg-[#F0FAF7]"
-                          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                          className="text-[12px] font-semibold px-2.5 py-1 rounded-full border transition-colors hover:bg-kb-primary-bg"
+                          style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                           바로이체
                         </Link>
                       </div>

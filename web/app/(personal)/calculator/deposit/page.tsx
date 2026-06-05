@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import { useState } from 'react'
 
@@ -78,17 +79,17 @@ export default function DepositCalculatorPage() {
                   <div className="flex items-center gap-2 text-[13px]">
                     <input type="text" value={amount} onChange={e => setAmount(e.target.value)}
                       placeholder="예치금액"
-                      className="border border-kb-border px-3 py-2 w-32 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-32 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text whitespace-nowrap">원을</span>
                     <input type="text" value={months} onChange={e => setMonths(e.target.value)}
                       placeholder="기간"
-                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text whitespace-nowrap">개월 간</span>
                   </div>
                   <div className="flex items-center gap-2 text-[13px]">
                     <input type="text" value={rate} onChange={e => setRate(e.target.value)}
                       placeholder="금리"
-                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text">%의 예금상품에 저축하면?</span>
                   </div>
                 </div>
@@ -99,17 +100,17 @@ export default function DepositCalculatorPage() {
                   <div className="flex items-center gap-2 text-[13px]">
                     <input type="text" value={monthly} onChange={e => setMonthly(e.target.value)}
                       placeholder="월저축액"
-                      className="border border-kb-border px-3 py-2 w-32 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-32 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text whitespace-nowrap">원씩</span>
                     <input type="text" value={months} onChange={e => setMonths(e.target.value)}
                       placeholder="기간"
-                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text whitespace-nowrap">개월 간</span>
                   </div>
                   <div className="flex items-center gap-2 text-[13px]">
                     <input type="text" value={rate} onChange={e => setRate(e.target.value)}
                       placeholder="금리"
-                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text">%의 적금상품에 저축하면?</span>
                   </div>
                 </div>
@@ -120,17 +121,17 @@ export default function DepositCalculatorPage() {
                   <div className="flex items-center gap-2 text-[13px]">
                     <input type="text" value={target} onChange={e => setTarget(e.target.value)}
                       placeholder="목표금액"
-                      className="border border-kb-border px-3 py-2 w-32 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-32 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text whitespace-nowrap">원을 목표로</span>
                     <input type="text" value={months} onChange={e => setMonths(e.target.value)}
                       placeholder="기간"
-                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text whitespace-nowrap">개월 간</span>
                   </div>
                   <div className="flex items-center gap-2 text-[13px]">
                     <input type="text" value={rate} onChange={e => setRate(e.target.value)}
                       placeholder="금리"
-                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-[#0D5C47]" />
+                      className="border border-kb-border px-3 py-2 w-16 outline-none text-right text-[13px] focus:border-kb-primary" />
                     <span className="text-kb-text">%로 저축한다면?</span>
                   </div>
                 </div>
@@ -138,23 +139,23 @@ export default function DepositCalculatorPage() {
 
               {/* 결과 카드 */}
               {calcResult && (
-                <div className="mt-6 rounded overflow-hidden border border-[#0D5C47]/20">
-                  <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: '#0D5C47' }}>
+                <div className="mt-6 rounded overflow-hidden border border-kb-primary/20">
+                  <div className="px-4 py-2.5 flex items-center gap-2" style={{ backgroundColor: KB_PRIMARY }}>
                     <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5" stroke="white" strokeWidth="1.8">
                       <polyline points="2 10 6 6 10 9 14 4"/>
                     </svg>
                     <p className="text-[12px] font-semibold text-white">예상 계산 결과</p>
                   </div>
-                  <div className="bg-[#F0FAF7] px-5 py-4 space-y-2.5">
+                  <div className="bg-kb-primary-bg px-5 py-4 space-y-2.5">
                     {calcResult.type === 0 && (
                       <>
                         <div className="flex justify-between items-center">
                           <span className="text-[12px] text-kb-text-muted">예상 이자</span>
                           <span className="text-[15px] font-bold text-kb-text">{fmt(calcResult.interest)}원</span>
                         </div>
-                        <div className="flex justify-between items-center border-t border-[#0D5C47]/10 pt-2.5">
+                        <div className="flex justify-between items-center border-t border-kb-primary/10 pt-2.5">
                           <span className="text-[12px] text-kb-text-muted">세후 이자 <span className="text-[11px]">(이자소득세 15.4%)</span></span>
-                          <span className="text-[18px] font-bold" style={{ color: '#0D5C47' }}>{fmt(calcResult.afterTax)}원</span>
+                          <span className="text-[18px] font-bold" style={{ color: KB_PRIMARY }}>{fmt(calcResult.afterTax)}원</span>
                         </div>
                       </>
                     )}
@@ -168,16 +169,16 @@ export default function DepositCalculatorPage() {
                           <span className="text-[12px] text-kb-text-muted">예상 이자</span>
                           <span className="text-[15px] font-bold text-kb-text">{fmt(calcResult.interest)}원</span>
                         </div>
-                        <div className="flex justify-between items-center border-t border-[#0D5C47]/10 pt-2.5">
+                        <div className="flex justify-between items-center border-t border-kb-primary/10 pt-2.5">
                           <span className="text-[12px] text-kb-text-muted">만기 수령액</span>
-                          <span className="text-[18px] font-bold" style={{ color: '#0D5C47' }}>{fmt(calcResult.total)}원</span>
+                          <span className="text-[18px] font-bold" style={{ color: KB_PRIMARY }}>{fmt(calcResult.total)}원</span>
                         </div>
                       </>
                     )}
                     {calcResult.type === 2 && (
                       <div className="flex justify-between items-center">
                         <span className="text-[12px] text-kb-text-muted">월 저축 필요금액</span>
-                        <span className="text-[18px] font-bold" style={{ color: '#0D5C47' }}>{fmt(calcResult.monthlyNeeded)}원</span>
+                        <span className="text-[18px] font-bold" style={{ color: KB_PRIMARY }}>{fmt(calcResult.monthlyNeeded)}원</span>
                       </div>
                     )}
                   </div>
@@ -192,8 +193,8 @@ export default function DepositCalculatorPage() {
 
             <div className="flex-shrink-0 self-stretch flex">
               <button onClick={handleCalc}
-                className="self-stretch px-8 text-white text-[15px] font-bold hover:opacity-90 transition-opacity min-w-[90px]"
-                style={{ backgroundColor: '#0D5C47' }}>
+                className="self-stretch px-8 text-white text-[15px] font-bold rounded-lg hover:opacity-90 transition-opacity min-w-[90px]"
+                style={{ backgroundColor: KB_PRIMARY }}>
                 결과보기
               </button>
             </div>

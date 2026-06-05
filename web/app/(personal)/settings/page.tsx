@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useEffect, useState } from 'react'
 import PinManageModal from '@/components/PinManageModal'
@@ -38,12 +39,12 @@ const inputCls   = "border rounded-lg px-3 py-2 text-[13px] outline-none focus:r
 const inputStyle = { borderColor: '#D1D5DB' }
 
 const ROW_LABEL = "w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0 flex items-center"
-const rowLabelStyle = { backgroundColor: '#F0FAF7', color: '#0D5C47', alignSelf: 'stretch' as const, display: 'flex' as const, alignItems: 'center' as const }
+const rowLabelStyle = { backgroundColor: KB_PRIMARY_BG, color: KB_PRIMARY, alignSelf: 'stretch' as const, display: 'flex' as const, alignItems: 'center' as const }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button onClick={onChange} className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
-      style={{ backgroundColor: checked ? '#0D5C47' : '#D1D5DB' }}>
+      style={{ backgroundColor: checked ? KB_PRIMARY : '#D1D5DB' }}>
       <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
     </button>
   )
@@ -52,10 +53,10 @@ function SaveBar({ msg, isError, onSave, saving, label = '저장' }: { msg: stri
   return (
     <div className="flex items-center gap-3 mt-6">
       <button onClick={onSave} disabled={saving}
-        className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 disabled:opacity-50" style={{ backgroundColor: '#0D5C47' }}>
+        className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 disabled:opacity-50" style={{ backgroundColor: KB_PRIMARY }}>
         {saving ? '저장 중...' : label}
       </button>
-      {msg && <span className="text-[13px] font-medium" style={{ color: isError ? '#E05555' : '#0D5C47' }}>{msg}</span>}
+      {msg && <span className="text-[13px] font-medium" style={{ color: isError ? '#E05555' : KB_PRIMARY }}>{msg}</span>}
     </div>
   )
 }
@@ -64,7 +65,7 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-5 py-3 text-[13px] font-semibold" style={{ backgroundColor: '#F0FAF7', borderBottom: '1px solid #E2F5EF', color: '#0D5C47' }}>
+    <div className="px-5 py-3 text-[13px] font-semibold" style={{ backgroundColor: KB_PRIMARY_BG, borderBottom: '1px solid #E2F5EF', color: KB_PRIMARY }}>
       {children}
     </div>
   )
@@ -105,8 +106,8 @@ function ProfileTab({ data }: { data: SettingsData }) {
   return (
     <div>
       <Card>
-        <div className="flex" style={{ borderBottom: '1px solid #E2F5EF', backgroundColor: '#F0FAF7' }}>
-          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0" style={{ color: '#0D5C47' }}>이름</div>
+        <div className="flex" style={{ borderBottom: '1px solid #E2F5EF', backgroundColor: KB_PRIMARY_BG }}>
+          <div className="w-[180px] px-5 py-3 text-[13px] font-semibold flex-shrink-0" style={{ color: KB_PRIMARY }}>이름</div>
           <div className="flex-1 px-5 py-3 text-[13px] text-kb-text">{data.name}</div>
         </div>
         {rows.map((row, i) => (
@@ -143,7 +144,7 @@ function PasswordTab() {
 
   return (
     <div>
-      <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5" style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+      <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5" style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
         <p className="text-kb-text-muted">· 영문·숫자·특수문자를 포함하여 8~20자로 설정해 주세요.</p>
         <p className="text-kb-text-muted">· 90일마다 비밀번호 변경을 권장합니다.</p>
       </div>
@@ -228,7 +229,7 @@ function ScreenTab() {
   }
   const btn = (active: boolean, onClick: () => void, children: React.ReactNode) => (
     <button onClick={onClick} className="border rounded-lg px-7 py-2 text-[13px] font-medium transition-colors"
-      style={active ? { backgroundColor: '#0D5C47', borderColor: '#0D5C47', color: 'white', fontWeight: 700 } : { borderColor: '#E2F5EF', color: '#6B7280' }}>
+      style={active ? { backgroundColor: KB_PRIMARY, borderColor: KB_PRIMARY, color: 'white', fontWeight: 700 } : { borderColor: KB_PRIMARY_BORDER, color: '#6B7280' }}>
       {children}
     </button>
   )
@@ -262,8 +263,8 @@ function ScreenTab() {
         <Toggle checked={quickMenuVisible} onChange={() => setQuickMenuVisible(v => !v)} />
       </div>
       <div className="flex items-center gap-3">
-        <button onClick={handleSave} className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85" style={{ backgroundColor: '#0D5C47' }}>저장</button>
-        {msg && <span className="text-[13px] font-medium" style={{ color: '#0D5C47' }}>{msg}</span>}
+        <button onClick={handleSave} className="px-12 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85" style={{ backgroundColor: KB_PRIMARY }}>저장</button>
+        {msg && <span className="text-[13px] font-medium" style={{ color: KB_PRIMARY }}>{msg}</span>}
       </div>
     </div>
   )
@@ -407,17 +408,17 @@ function AuthMethodTab() {
     <div>
       {/* 간편비밀번호(PIN) — 모달로 등록/해제 */}
       <button type="button" onClick={() => setShowPinModal(true)}
-        className="w-full flex items-center justify-between rounded-xl px-5 py-4 mb-4 hover:bg-[#F0FAF7] transition-colors text-left"
+        className="w-full flex items-center justify-between rounded-xl px-5 py-4 mb-4 hover:bg-kb-primary-bg transition-colors text-left"
         style={{ border: '1px solid #E2F5EF' }}>
         <div>
           <p className="text-[14px] font-bold text-kb-text">간편비밀번호(PIN)</p>
           <p className="text-[12px] text-kb-text-muted mt-0.5">이 기기에 PIN을 등록하면 아이디·비밀번호 없이 간편하게 로그인할 수 있습니다.</p>
         </div>
-        <span className="text-[13px] font-semibold flex-shrink-0 ml-4" style={{ color: '#0D5C47' }}>등록·관리 ›</span>
+        <span className="text-[13px] font-semibold flex-shrink-0 ml-4" style={{ color: KB_PRIMARY }}>등록·관리 ›</span>
       </button>
       {showPinModal && <PinManageModal onClose={() => setShowPinModal(false)} onChanged={reload} />}
 
-      {msg && <p className="mb-3 text-[13px] font-medium" style={{ color: isError ? '#E05555' : '#0D5C47' }}>{msg}</p>}
+      {msg && <p className="mb-3 text-[13px] font-medium" style={{ color: isError ? '#E05555' : KB_PRIMARY }}>{msg}</p>}
       {loading ? (
         <p className="text-[13px] text-kb-text-muted">불러오는 중...</p>
       ) : methods.length === 0 ? (
@@ -431,10 +432,10 @@ function AuthMethodTab() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[14px] font-bold text-kb-text">{METHOD_LABEL[m.authMethodTypeCode] ?? m.authMethodTypeCode}</span>
                   {m.primary && (
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#0D5C47', color: 'white' }}>주</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: KB_PRIMARY, color: 'white' }}>주</span>
                   )}
                   <span className="text-[11px] px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: m.authMethodStatusCode === 'ACTIVE' ? '#F0FAF7' : '#FEE2E2', color: m.authMethodStatusCode === 'ACTIVE' ? '#0D5C47' : '#E05555' }}>
+                    style={{ backgroundColor: m.authMethodStatusCode === 'ACTIVE' ? KB_PRIMARY_BG : '#FEE2E2', color: m.authMethodStatusCode === 'ACTIVE' ? KB_PRIMARY : '#E05555' }}>
                     {m.authMethodStatusCode === 'ACTIVE' ? '활성' : '비활성'}
                   </span>
                 </div>
@@ -443,7 +444,7 @@ function AuthMethodTab() {
                     <input value={editAlias.value} onChange={e => setEditAlias(p => p ? { ...p, value: e.target.value } : null)}
                       className={inputCls + ' w-48 text-[12px]'} style={inputStyle} placeholder="별칭 입력" />
                     <button onClick={() => saveAlias(m.authMethodId, editAlias.value)}
-                      className="text-[12px] font-bold px-3 py-1 rounded text-white" style={{ backgroundColor: '#0D5C47' }}>저장</button>
+                      className="text-[12px] font-bold px-3 py-1 rounded text-white" style={{ backgroundColor: KB_PRIMARY }}>저장</button>
                     <button onClick={() => setEditAlias(null)} className="text-[12px] text-kb-text-muted">취소</button>
                   </div>
                 ) : (
@@ -458,7 +459,7 @@ function AuthMethodTab() {
               <div className="flex flex-col gap-2 flex-shrink-0">
                 {!m.primary && m.authMethodStatusCode === 'ACTIVE' && (
                   <button onClick={() => setPrimary(m.authMethodId)}
-                    className="border text-[12px] px-3 py-1.5 rounded-lg hover:bg-[#F0FAF7]" style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                    className="border text-[12px] px-3 py-1.5 rounded-lg hover:bg-kb-primary-bg" style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                     주 인증수단 설정
                   </button>
                 )}
@@ -605,7 +606,7 @@ function TaxResidencyTab() {
 
   return (
     <div className="space-y-4">
-      {msg && <p className="text-[13px] font-medium" style={{ color: isError ? '#E05555' : '#0D5C47' }}>{msg}</p>}
+      {msg && <p className="text-[13px] font-medium" style={{ color: isError ? '#E05555' : KB_PRIMARY }}>{msg}</p>}
 
       {list.length === 0 ? (
         <div className="rounded-xl px-5 py-8 text-center text-[13px] text-kb-text-muted" style={{ border: '1px solid #E2F5EF' }}>
@@ -632,8 +633,8 @@ function TaxResidencyTab() {
 
       {!showForm ? (
         <button onClick={() => setShowForm(true)}
-          className="w-full py-3 text-[13px] font-bold rounded-xl border-2 border-dashed hover:bg-[#F0FAF7] transition-colors"
-          style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+          className="w-full py-3 text-[13px] font-bold rounded-xl border-2 border-dashed hover:bg-kb-primary-bg transition-colors"
+          style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
           + 납세거주 정보 추가
         </button>
       ) : (
@@ -665,7 +666,7 @@ function TaxResidencyTab() {
             </div>
             <div className="flex gap-2 pt-2">
               <button onClick={handleAdd} disabled={saving}
-                className="px-8 py-2 text-[13px] font-bold text-white rounded-xl hover:opacity-85 disabled:opacity-50" style={{ backgroundColor: '#0D5C47' }}>
+                className="px-8 py-2 text-[13px] font-bold text-white rounded-xl hover:opacity-85 disabled:opacity-50" style={{ backgroundColor: KB_PRIMARY }}>
                 {saving ? '추가 중...' : '추가'}
               </button>
               <button onClick={() => setShowForm(false)}
@@ -704,11 +705,11 @@ export default function SettingsPage() {
       <h1 className="text-[22px] font-bold text-kb-text mb-6">설정</h1>
 
       {/* 탭 */}
-      <div className="flex flex-wrap border-b mb-6" style={{ borderColor: '#E2F5EF' }}>
+      <div className="flex flex-wrap border-b mb-6" style={{ borderColor: KB_PRIMARY_BORDER }}>
         {TABS.map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className="px-5 py-3 text-[13px] font-medium border-b-2 -mb-px transition-colors whitespace-nowrap"
-            style={activeTab === tab ? { borderColor: '#0D5C47', color: '#0D5C47', fontWeight: 700 } : { borderColor: 'transparent', color: '#9CA3AF' }}>
+            style={activeTab === tab ? { borderColor: KB_PRIMARY, color: KB_PRIMARY, fontWeight: 700 } : { borderColor: 'transparent', color: '#9CA3AF' }}>
             {tab}
           </button>
         ))}

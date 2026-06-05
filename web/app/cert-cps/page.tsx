@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useState } from 'react'
 
@@ -64,10 +65,10 @@ const SECTIONS = [
           <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid #E2F5EF' }}>
             <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr style={{ backgroundColor: '#F0FAF7' }}>
-                  <th className="px-4 py-2.5 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>구분</th>
-                  <th className="px-4 py-2.5 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>용도</th>
-                  <th className="px-4 py-2.5 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>유효기간</th>
+                <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>구분</th>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>용도</th>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>유효기간</th>
                 </tr>
               </thead>
               <tbody className="text-kb-text-body">
@@ -76,7 +77,7 @@ const SECTIONS = [
                   ['AXful인증서(대면용)', '대면 업무용 서비스(마이데이터통합인증)를 위한 전자서명 업무', '발급 후 3시간'],
                   ['AXful인증서(기업)', '전자서명인증이 필요한 모든 전자거래 업무에 이용', '발급일로부터 3년'],
                 ].map(([name, desc, period], i) => (
-                  <tr key={name} style={{ backgroundColor: i % 2 === 1 ? '#F8FFFE' : 'white', borderTop: '1px solid #E2F5EF' }}>
+                  <tr key={name} style={{ backgroundColor: i % 2 === 1 ? KB_PRIMARY_SURFACE : 'white', borderTop: '1px solid #E2F5EF' }}>
                     <td className="px-4 py-2.5">{name}</td>
                     <td className="px-4 py-2.5">{desc}</td>
                     <td className="px-4 py-2.5 whitespace-nowrap">{period}</td>
@@ -173,15 +174,15 @@ const SECTIONS = [
           <div className="overflow-x-auto" style={{ border: '1px solid #E2F5EF', borderRadius: 8 }}>
             <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                   {['인증서 종류', '유효기간'].map(h => (
-                    <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                    <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {[['AXful인증서', '2년'], ['AXful인증서(기업)', '3년'], ['금융인증서', '3년']].map(([name, period], i) => (
-                  <tr key={name} style={{ backgroundColor: i % 2 === 1 ? '#F8FFFE' : 'white', borderTop: '1px solid #E2F5EF' }}>
+                  <tr key={name} style={{ backgroundColor: i % 2 === 1 ? KB_PRIMARY_SURFACE : 'white', borderTop: '1px solid #E2F5EF' }}>
                     <td className="px-4 py-2">{name}</td>
                     <td className="px-4 py-2">{period}</td>
                   </tr>
@@ -312,9 +313,9 @@ const SECTIONS = [
           <div className="overflow-x-auto" style={{ border: '1px solid #E2F5EF', borderRadius: 8 }}>
             <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                   {['필드', '값'].map(h => (
-                    <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                    <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -327,7 +328,7 @@ const SECTIONS = [
                   ['주체 공개키', 'EC P-256'],
                   ['키 용도', 'digitalSignature, nonRepudiation'],
                 ].map(([field, val], i) => (
-                  <tr key={field} style={{ backgroundColor: i % 2 === 1 ? '#F8FFFE' : 'white', borderTop: '1px solid #E2F5EF' }}>
+                  <tr key={field} style={{ backgroundColor: i % 2 === 1 ? KB_PRIMARY_SURFACE : 'white', borderTop: '1px solid #E2F5EF' }}>
                     <td className="px-4 py-2 font-medium text-kb-text">{field}</td>
                     <td className="px-4 py-2 text-kb-text-muted">{val}</td>
                   </tr>
@@ -346,9 +347,9 @@ const SECTIONS = [
         <div className="overflow-x-auto" style={{ border: '1px solid #E2F5EF', borderRadius: 8 }}>
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr style={{ backgroundColor: '#F0FAF7' }}>
+              <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                 {['버전', '개정일', '주요 내용'].map(h => (
-                  <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                  <th key={h} className="px-4 py-2 text-left font-semibold" style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -360,7 +361,7 @@ const SECTIONS = [
                 ['Ver.1.0.11', '2024.06.30', '전자서명법 시행령 개정에 따른 신원확인 조항 수정'],
                 ['Ver.1.0.10', '2024.01.02', '최초 제정 및 시행'],
               ].map(([ver, date, desc], i) => (
-                <tr key={ver} style={{ backgroundColor: i % 2 === 1 ? '#F8FFFE' : 'white', borderTop: '1px solid #E2F5EF' }}>
+                <tr key={ver} style={{ backgroundColor: i % 2 === 1 ? KB_PRIMARY_SURFACE : 'white', borderTop: '1px solid #E2F5EF' }}>
                   <td className="px-4 py-2 font-medium text-kb-text whitespace-nowrap">{ver}</td>
                   <td className="px-4 py-2 text-kb-text-muted whitespace-nowrap">{date}</td>
                   <td className="px-4 py-2 text-kb-text-muted">{desc}</td>
@@ -391,16 +392,16 @@ export default function CertCpsPage() {
       {/* 제목 + 버전 */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-[26px] font-bold text-kb-text">AXful인증서 인증업무준칙(CPS)</h1>
-        <button className="flex items-center gap-2 border rounded-lg px-4 py-2 text-[13px] font-medium transition-colors hover:bg-[#F0FAF7] flex-shrink-0"
-          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+        <button className="flex items-center gap-2 border rounded-lg px-4 py-2 text-[13px] font-medium transition-colors hover:bg-kb-primary-bg flex-shrink-0"
+          style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
           인증업무준칙 (Ver.1.0.14)
           <span className="text-[10px]">▼</span>
         </button>
       </div>
 
       {/* 목차 */}
-      <div className="rounded-xl p-5 mb-8 space-y-1.5" style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
-        <p className="text-[13px] font-bold mb-2" style={{ color: '#0D5C47' }}>목차</p>
+      <div className="rounded-xl p-5 mb-8 space-y-1.5" style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
+        <p className="text-[13px] font-bold mb-2" style={{ color: KB_PRIMARY }}>목차</p>
         {TOC.map((item) => (
           <p key={item.num} className="text-[13px] text-kb-text-muted">
             <span className="font-medium text-kb-text">{item.num}.</span> {item.label}
@@ -408,7 +409,7 @@ export default function CertCpsPage() {
         ))}
       </div>
 
-      <hr className="mb-6" style={{ borderColor: '#E2F5EF' }} />
+      <hr className="mb-6" style={{ borderColor: KB_PRIMARY_BORDER }} />
 
       {/* 섹션 목록 */}
       <div className="space-y-2">
@@ -419,11 +420,11 @@ export default function CertCpsPage() {
               <button
                 onClick={() => toggle(section.num)}
                 className="w-full flex items-center justify-between px-5 py-4 text-left transition-colors"
-                style={{ backgroundColor: isOpen ? '#F0FAF7' : 'white' }}
-                onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.backgroundColor = '#F8FFFE' }}
+                style={{ backgroundColor: isOpen ? KB_PRIMARY_BG : 'white' }}
+                onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.backgroundColor = KB_PRIMARY_SURFACE }}
                 onMouseLeave={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.backgroundColor = 'white' }}
               >
-                <span className="text-[14px] font-bold" style={{ color: isOpen ? '#0D5C47' : '#374151' }}>
+                <span className="text-[14px] font-bold" style={{ color: isOpen ? KB_PRIMARY : '#374151' }}>
                   {section.num}. {section.title}
                 </span>
                 <span className="text-[11px] text-kb-text-muted">{isOpen ? '▲' : '▼'}</span>
@@ -442,9 +443,9 @@ export default function CertCpsPage() {
       </div>
 
       {/* 부칙 */}
-      <div className="mt-6 rounded-xl px-5 py-4 space-y-1" style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
+      <div className="mt-6 rounded-xl px-5 py-4 space-y-1" style={{ border: '1px solid #E2F5EF', backgroundColor: KB_PRIMARY_SURFACE }}>
         <p className="text-[14px] font-bold text-kb-text">부칙</p>
-        <p className="text-[13px] font-medium" style={{ color: '#0D5C47' }}>이 준칙은 2026년 02월 24일부터 시행합니다.</p>
+        <p className="text-[13px] font-medium" style={{ color: KB_PRIMARY }}>이 준칙은 2026년 02월 24일부터 시행합니다.</p>
       </div>
     </div>
   )

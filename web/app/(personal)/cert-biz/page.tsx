@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY_DARK } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -68,7 +69,7 @@ export default function CertBizPage() {
   return (
     <>
       {/* 서브 네비게이션 */}
-      <nav style={{ backgroundColor: '#3D4F47' }} onMouseLeave={() => setHoveredTab(null)}>
+      <nav style={{ backgroundColor: KB_PRIMARY_DARK }} onMouseLeave={() => setHoveredTab(null)}>
         <div className="max-w-kb-container mx-auto px-6">
           <div className="flex">
             {CERT_BIZ_TABS.map((tab) => (

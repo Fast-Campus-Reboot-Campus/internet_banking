@@ -79,16 +79,16 @@ function LoanResultContent() {
         <span className="font-semibold text-kb-text">신청 결과</span>
       </div>
 
-      <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-text">대출 신청 결과</h1>
+      <h1 className="text-[22px] font-bold text-kb-text mb-6 pb-2 border-b-2 border-kb-primary">대출 신청 결과</h1>
 
       {/* 상태 배너 */}
       <div className={`p-8 mb-6 text-center border rounded-xl ${
-        isApproved ? 'border-kb-text bg-[#0D5C47]/10'
+        isApproved ? 'border-kb-text bg-kb-primary/10'
         : isRejected ? 'border-red-300 bg-red-50'
-        : 'border-kb-border bg-kb-beige-light'}`}>
+        : 'border-kb-primary-border bg-kb-primary-bg'}`}>
         {isApproved ? (
           <>
-            <div className="w-16 h-16 rounded-full bg-kb-yellow flex items-center justify-center mx-auto mb-3">
+            <div className="w-16 h-16 rounded-full bg-kb-primary flex items-center justify-center mx-auto mb-3">
               <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
                 <path d="M8 20l8 8 16-16" stroke="#333" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -108,7 +108,7 @@ function LoanResultContent() {
           </>
         ) : (
           <>
-            <div className="w-16 h-16 rounded-full bg-[#0D5C47]/50 flex items-center justify-center mx-auto mb-3">
+            <div className="w-16 h-16 rounded-full bg-kb-primary/50 flex items-center justify-center mx-auto mb-3">
               <svg viewBox="0 0 40 40" fill="none" className="w-9 h-9">
                 <circle cx="20" cy="20" r="14" stroke="#333" strokeWidth="2.5"/>
                 <path d="M20 13v9l5 3" stroke="#333" strokeWidth="2.5" strokeLinecap="round"/>
@@ -148,28 +148,28 @@ function LoanResultContent() {
 
       {/* 신청 상세 */}
       <section className="mb-6">
-        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">신청 상세 내용</h2>
+        <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-primary-border">신청 상세 내용</h2>
         <table className="w-full border-collapse text-[13px]">
           <tbody>
             {applId && (
               <tr>
-                <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[160px]">신청번호</td>
-                <td className="border border-kb-border px-4 py-3 text-kb-text-body">{application?.applNo ?? applId}</td>
-                <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text w-[120px]">진행상태</td>
-                <td className="border border-kb-border px-4 py-3 font-bold text-kb-text">{STATUS_LABEL[statusCd] ?? statusCd}</td>
+                <td className="border border-kb-primary-border bg-kb-primary-bg px-4 py-3 font-semibold text-kb-text w-[160px]">신청번호</td>
+                <td className="border border-kb-primary-border px-4 py-3 text-kb-text-body">{application?.applNo ?? applId}</td>
+                <td className="border border-kb-primary-border bg-kb-primary-bg px-4 py-3 font-semibold text-kb-text w-[120px]">진행상태</td>
+                <td className="border border-kb-primary-border px-4 py-3 font-bold text-kb-text">{STATUS_LABEL[statusCd] ?? statusCd}</td>
               </tr>
             )}
             <tr>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">신청 금액</td>
-              <td className="border border-kb-border px-4 py-3 font-bold text-kb-text text-[15px]">{displayAmount.toLocaleString('ko-KR')}원</td>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">대출 기간</td>
-              <td className="border border-kb-border px-4 py-3 text-kb-text-body">{displayPeriod}개월</td>
+              <td className="border border-kb-primary-border bg-kb-primary-bg px-4 py-3 font-semibold text-kb-text">신청 금액</td>
+              <td className="border border-kb-primary-border px-4 py-3 font-bold text-kb-text text-[15px]">{displayAmount.toLocaleString('ko-KR')}원</td>
+              <td className="border border-kb-primary-border bg-kb-primary-bg px-4 py-3 font-semibold text-kb-text">대출 기간</td>
+              <td className="border border-kb-primary-border px-4 py-3 text-kb-text-body">{displayPeriod}개월</td>
             </tr>
             <tr>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">대출 목적</td>
-              <td className="border border-kb-border px-4 py-3 text-kb-text-body">{purpose}</td>
-              <td className="border border-kb-border bg-kb-beige-light px-4 py-3 font-semibold text-kb-text">월 납부액(예상)</td>
-              <td className="border border-kb-border px-4 py-3 font-bold text-kb-text">{monthly > 0 ? `${monthly.toLocaleString('ko-KR')}원` : '-'}</td>
+              <td className="border border-kb-primary-border bg-kb-primary-bg px-4 py-3 font-semibold text-kb-text">대출 목적</td>
+              <td className="border border-kb-primary-border px-4 py-3 text-kb-text-body">{purpose}</td>
+              <td className="border border-kb-primary-border bg-kb-primary-bg px-4 py-3 font-semibold text-kb-text">월 납부액(예상)</td>
+              <td className="border border-kb-primary-border px-4 py-3 font-bold text-kb-text">{monthly > 0 ? `${monthly.toLocaleString('ko-KR')}원` : '-'}</td>
             </tr>
           </tbody>
         </table>
@@ -178,7 +178,7 @@ function LoanResultContent() {
       {/* 심사 단계별 결과 */}
       {journey && (journey.prescreening || journey.creditEvaluation || journey.dsr) && (
         <section className="mb-6">
-          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">심사 진행 현황</h2>
+          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-primary-border">심사 진행 현황</h2>
           <div className="grid grid-cols-3 gap-4">
             {journey.prescreening && (
               <div className={`border rounded-xl p-5 ${journey.prescreening.resultCd === 'PASS' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
@@ -226,29 +226,29 @@ function LoanResultContent() {
       {/* 상태 변경 이력 */}
       {history.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-border">신청 상태 변경 이력</h2>
+          <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-primary-border">신청 상태 변경 이력</h2>
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr className="bg-kb-beige-light">
-                <th className="border border-kb-border px-4 py-3 text-center font-semibold">변경 일시</th>
-                <th className="border border-kb-border px-4 py-3 text-center font-semibold">이전 상태</th>
-                <th className="border border-kb-border px-4 py-3 text-center font-semibold">변경 상태</th>
-                <th className="border border-kb-border px-4 py-3 text-center font-semibold">사유</th>
+              <tr className="bg-kb-primary-bg">
+                <th className="border border-kb-primary-border px-4 py-3 text-center font-semibold">변경 일시</th>
+                <th className="border border-kb-primary-border px-4 py-3 text-center font-semibold">이전 상태</th>
+                <th className="border border-kb-primary-border px-4 py-3 text-center font-semibold">변경 상태</th>
+                <th className="border border-kb-primary-border px-4 py-3 text-center font-semibold">사유</th>
               </tr>
             </thead>
             <tbody>
               {history.map((h: any, i: number) => (
-                <tr key={i} className="hover:bg-kb-beige-light">
-                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-muted">
+                <tr key={i} className="hover:bg-kb-primary-bg">
+                  <td className="border border-kb-primary-border px-4 py-3 text-center text-kb-text-muted">
                     {h.changedAt ? h.changedAt.slice(0, 19).replace('T', ' ') : '-'}
                   </td>
-                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-muted">
+                  <td className="border border-kb-primary-border px-4 py-3 text-center text-kb-text-muted">
                     {h.beforeStatusCd ?? '-'}
                   </td>
-                  <td className="border border-kb-border px-4 py-3 text-center font-bold text-kb-text">
+                  <td className="border border-kb-primary-border px-4 py-3 text-center font-bold text-kb-text">
                     {h.afterStatusCd ?? '-'}
                   </td>
-                  <td className="border border-kb-border px-4 py-3 text-center text-kb-text-muted">
+                  <td className="border border-kb-primary-border px-4 py-3 text-center text-kb-text-muted">
                     {h.changeReasonCd ?? '-'}
                   </td>
                 </tr>
@@ -265,35 +265,35 @@ function LoanResultContent() {
 
       <div className="flex justify-center gap-3 flex-wrap">
         <Link href="/loans/apply"
-          className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+          className="px-10 py-3 border border-kb-primary-border text-[14px] text-kb-text hover:bg-kb-primary-bg transition-colors">
           다시 신청
         </Link>
         {prodId && (
           <Link href={`/products/loan/credit/${prodId}`}
-            className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+            className="px-10 py-3 border border-kb-primary-border text-[14px] text-kb-text hover:bg-kb-primary-bg transition-colors">
             상품 상세
           </Link>
         )}
         {applId && !isRejected && (
           <Link href={`/loans/apply/${applId}/collateral`}
-            className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+            className="px-10 py-3 border border-kb-primary-border text-[14px] text-kb-text hover:bg-kb-primary-bg transition-colors">
             담보 등록
           </Link>
         )}
         {applId && !isRejected && (
           <Link href={`/loans/apply/${applId}/guarantor`}
-            className="px-10 py-3 border border-kb-border text-[14px] text-kb-text hover:bg-kb-beige-light transition-colors">
+            className="px-10 py-3 border border-kb-primary-border text-[14px] text-kb-text hover:bg-kb-primary-bg transition-colors">
             보증인 동의
           </Link>
         )}
         {applId && !isRejected && (
           <Link href={`/loans/apply/${applId}/documents`}
-            className="px-10 py-3 border border-kb-text text-[14px] font-medium text-kb-text hover:bg-[#F0FAF7] transition-colors">
+            className="px-10 py-3 border border-kb-text text-[14px] font-medium text-kb-text hover:bg-kb-primary-bg transition-colors">
             서류 제출
           </Link>
         )}
         <Link href="/dashboard"
-          className="px-10 py-3 bg-[#0D5C47] text-[14px] font-bold text-kb-text hover:brightness-95 transition-all">
+          className="px-10 py-3 bg-kb-primary text-[14px] font-bold text-kb-text hover:brightness-95 transition-all">
           홈으로
         </Link>
       </div>

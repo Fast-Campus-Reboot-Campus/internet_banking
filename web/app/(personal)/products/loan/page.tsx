@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -138,12 +139,12 @@ export default function LoanMainPage() {
           style={{ width: 'calc(66.667% - 8px)', flexShrink: 0 }}>
           <div>
             <span className="inline-block text-white text-[12px] font-bold px-3 py-0.5 rounded-sm mb-3"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               {current.badge}
             </span>
             <p className="text-[13px] text-kb-text-muted mb-2">{current.sub}</p>
             <h2 className="text-[38px] font-bold text-kb-text leading-tight mb-5">{current.title}</h2>
-            <hr className="border-t-4 border-[#E2F5EF] mb-5" />
+            <hr className="border-t-4 border-kb-primary-border mb-5" />
             <div className="flex gap-14 mb-5">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
@@ -205,7 +206,7 @@ export default function LoanMainPage() {
               </div>
               <button onClick={() => setSlide(s => (s + 1) % SLIDES.length)}
                 className="text-kb-text-muted hover:text-kb-text text-xl leading-none">›</button>
-              <span className="ml-2 text-[11px] text-kb-text-muted border border-[#E2F5EF] px-1.5 py-0.5">II</span>
+              <span className="ml-2 text-[11px] text-kb-text-muted border border-kb-primary-border px-1.5 py-0.5">II</span>
             </div>
             <Link href={current.href} className="text-[14px] font-bold text-kb-text underline hover:opacity-70">
               바로가기
@@ -214,13 +215,13 @@ export default function LoanMainPage() {
         </div>
 
         {/* 우: 카테고리 4개 */}
-        <div className="flex-1 bg-[#F0FAF7] flex flex-col gap-2 p-3">
+        <div className="flex-1 bg-kb-primary-bg flex flex-col gap-2 p-3">
           {CATEGORIES.map(cat => {
             const isActive = cat.key === current.category
             return (
               <Link key={cat.no} href={cat.href}
                 className={`flex items-center justify-between px-5 py-4 flex-1 transition-colors ${
-                  isActive ? 'bg-[#0D5C47]' : 'bg-white hover:bg-[#F0FAF7]'
+                  isActive ? 'bg-kb-primary' : 'bg-white hover:bg-kb-primary-bg'
                 }`}>
                 <div className="flex items-start gap-4">
                   <span className={`text-[22px] font-bold leading-none mt-0.5 ${
@@ -243,9 +244,9 @@ export default function LoanMainPage() {
       </div>
 
       {/* ===== 상품 검색 ===== */}
-      <div className="bg-[#F0FAF7] px-10 py-5 flex items-center gap-4">
+      <div className="bg-kb-primary-bg px-10 py-5 flex items-center gap-4">
         <p className="text-[20px] font-bold text-kb-text whitespace-nowrap">원하시는 대출을 찾아보세요.</p>
-        <div className="flex-1 flex items-center border border-[#E2F5EF] bg-white rounded-full overflow-hidden">
+        <div className="flex-1 flex items-center border border-kb-primary-border bg-white rounded-full overflow-hidden">
           <input type="text" placeholder="대출상품명을 입력하세요." className="flex-1 px-5 py-2.5 text-[20px] outline-none bg-transparent" />
           <button className="px-5 py-2.5 text-kb-text-muted hover:text-kb-text">
             <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="2">
@@ -257,7 +258,7 @@ export default function LoanMainPage() {
 
       <div className="px-10 py-8">
         {/* ===== 주요 서비스 ===== */}
-        <div className="flex items-center gap-14 mb-8 pb-7 border-b border-[#E2F5EF]">
+        <div className="flex items-center gap-14 mb-8 pb-7 border-b border-kb-primary-border">
           <h3 className="text-[18px] font-bold text-kb-text whitespace-nowrap">주요 서비스</h3>
           <div className="flex flex-1 justify-evenly">
             {[
@@ -328,17 +329,17 @@ export default function LoanMainPage() {
         {/* ===== 대출 계산기 ===== */}
         <div className="mb-8">
           <h3 className="text-[17px] font-bold text-kb-text mb-4">대출 계산기</h3>
-          <div className="border border-[#E2F5EF]">
+          <div className="border border-kb-primary-border">
 
             {/* 수평 탭 */}
-            <div className="flex border-b border-[#E2F5EF]">
+            <div className="flex border-b border-kb-primary-border">
               {CALC_TABS.map((t, i) => (
                 <div key={t} className="relative">
                   <button onClick={() => { setCalcTab(i); setCalcResult(null); setTermTooltip(null) }}
                     className={`flex items-center gap-2 px-6 py-3 text-[13px] transition-colors border-b-2 -mb-px ${
                       calcTab === i
-                        ? 'border-[#0D5C47] font-bold text-[#0D5C47] bg-white'
-                        : 'border-transparent text-kb-text-muted bg-[#F0FAF7] hover:text-kb-text'
+                        ? 'border-kb-primary font-bold text-kb-primary bg-white'
+                        : 'border-transparent text-kb-text-muted bg-kb-primary-bg hover:text-kb-text'
                     }`}>
                     {t}
                     <span
@@ -348,7 +349,7 @@ export default function LoanMainPage() {
                     </span>
                   </button>
                   {termTooltip === i && (
-                    <div className="absolute left-0 top-full z-20 bg-white border border-[#E2F5EF] shadow-md p-3 w-64 text-[12px] text-kb-text-body leading-relaxed">
+                    <div className="absolute left-0 top-full z-20 bg-white border border-kb-primary-border shadow-md p-3 w-64 text-[12px] text-kb-text-body leading-relaxed">
                       <button
                         onClick={() => setTermTooltip(null)}
                         className="absolute top-2 right-2 text-kb-text-muted hover:text-kb-text leading-none text-[14px]">
@@ -370,7 +371,7 @@ export default function LoanMainPage() {
                   onFocus={() => setFocusedInput('principal')}
                   onBlur={() => setFocusedInput(null)}
                   className={`border rounded-lg px-3 py-1.5 w-28 outline-none text-right text-[13px] transition-colors ${
-                    focusedInput === 'principal' ? 'border-[#0D5C47] bg-[#F0FAF7]' : 'border-[#E2F5EF]'
+                    focusedInput === 'principal' ? 'border-kb-primary bg-kb-primary-bg' : 'border-kb-primary-border'
                   }`} />
                 <span className="text-kb-text">대출금액 만원을</span>
 
@@ -380,7 +381,7 @@ export default function LoanMainPage() {
                   onFocus={() => setFocusedInput('years')}
                   onBlur={() => setFocusedInput(null)}
                   className={`border rounded-lg px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${
-                    focusedInput === 'years' ? 'border-[#0D5C47] bg-[#F0FAF7]' : 'border-[#E2F5EF]'
+                    focusedInput === 'years' ? 'border-kb-primary bg-kb-primary-bg' : 'border-kb-primary-border'
                   }`} />
                 <span className="text-kb-text">년 동안</span>
 
@@ -390,13 +391,13 @@ export default function LoanMainPage() {
                   onFocus={() => setFocusedInput('rate')}
                   onBlur={() => setFocusedInput(null)}
                   className={`border rounded-lg px-3 py-1.5 w-16 outline-none text-right text-[13px] transition-colors ${
-                    focusedInput === 'rate' ? 'border-[#0D5C47] bg-[#F0FAF7]' : 'border-[#E2F5EF]'
+                    focusedInput === 'rate' ? 'border-kb-primary bg-kb-primary-bg' : 'border-kb-primary-border'
                   }`} />
                 <span className="text-kb-text">%로 대출 받으면?</span>
 
                 <button onClick={handleCalc}
                   className="ml-auto text-white text-[12px] font-bold px-5 py-1.5 hover:opacity-90 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   결과보기
                 </button>
               </div>
@@ -407,7 +408,7 @@ export default function LoanMainPage() {
                   <div className="flex gap-1">
                     {AMT_BTNS.map(b => (
                       <button key={b} onClick={() => handleAmtBtn(b)}
-                        className="border border-[#E2F5EF] px-3 py-1 text-[11px] text-kb-text-body hover:bg-[#F0FAF7]">{b}</button>
+                        className="border border-kb-primary-border px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
                     ))}
                   </div>
                 )}
@@ -415,7 +416,7 @@ export default function LoanMainPage() {
                   <div className="flex gap-1">
                     {YEAR_BTNS.map(b => (
                       <button key={b} onClick={() => handleYearBtn(b)}
-                        className="border border-[#E2F5EF] px-3 py-1 text-[11px] text-kb-text-body hover:bg-[#F0FAF7]">{b}</button>
+                        className="border border-kb-primary-border px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
                     ))}
                   </div>
                 )}
@@ -423,7 +424,7 @@ export default function LoanMainPage() {
                   <div className="flex gap-1">
                     {RATE_BTNS.map(b => (
                       <button key={b} onClick={() => handleRateBtn(b)}
-                        className="border border-[#E2F5EF] px-3 py-1 text-[11px] text-kb-text-body hover:bg-[#F0FAF7]">{b}</button>
+                        className="border border-kb-primary-border px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
                     ))}
                   </div>
                 )}
@@ -432,12 +433,12 @@ export default function LoanMainPage() {
               {/* 안내문 + 다시하기 */}
               <div className="flex items-center justify-between mt-3">
                 <p className="text-[12px] text-kb-text-muted flex items-center gap-1.5">
-                  <span className="border border-[#E2F5EF] rounded-full w-4 h-4 flex items-center justify-center text-[8px] flex-shrink-0">i</span>
+                  <span className="border border-kb-primary-border rounded-full w-4 h-4 flex items-center justify-center text-[8px] flex-shrink-0">i</span>
                   원하시는 정보를 입력하신 후, 예상계산결과를 확인하세요.
                 </p>
                 <button
                   onClick={() => { setPrincipal(''); setYears(''); setRate(''); setCalcResult(null) }}
-                  className="border border-[#E2F5EF] px-4 py-1 text-[12px] text-kb-text-body hover:bg-[#F0FAF7]">
+                  className="border border-kb-primary-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-primary-bg">
                   다시하기
                 </button>
               </div>
@@ -445,22 +446,22 @@ export default function LoanMainPage() {
 
             {/* 결과 영역 */}
             {calcResult && (
-              <div className="border-t border-[#E2F5EF]">
+              <div className="border-t border-kb-primary-border">
                 <p className="px-6 py-4 text-[13px] text-kb-text-body">
                   상환 예정 금액은 <span className="font-bold text-kb-text">{CALC_TABS[calcTab]}</span> 기준 매월 약{' '}
                   <span className="font-bold text-kb-text">{fmtN(calcResult.total)}원</span>이에요.
                 </p>
-                <div className="mx-6 mb-2 border border-[#E2F5EF]">
-                  <div className="bg-[#F0FAF7] px-4 py-2 border-b border-[#E2F5EF] flex items-center justify-between">
+                <div className="mx-6 mb-2 border border-kb-primary-border">
+                  <div className="bg-kb-primary-bg px-4 py-2 border-b border-kb-primary-border flex items-center justify-between">
                     <p className="text-[13px] font-bold text-kb-text">상환예정금액</p>
                     <p className="text-[11px] text-kb-text-muted">대출계산결과</p>
                   </div>
-                  <div className="grid grid-cols-3 divide-x divide-[#E2F5EF] border-b border-[#E2F5EF] bg-[#f8f8f8]">
+                  <div className="grid grid-cols-3 divide-x divide-kb-primary-border border-b border-kb-primary-border bg-[#f8f8f8]">
                     {['상환원금', '이자금액', '월 납부금액'].map(label => (
                       <p key={label} className="px-4 py-2 text-[12px] text-kb-text-muted text-center">{label}</p>
                     ))}
                   </div>
-                  <div className="grid grid-cols-3 divide-x divide-[#E2F5EF]">
+                  <div className="grid grid-cols-3 divide-x divide-kb-primary-border">
                     {[calcResult.principal, calcResult.interest, calcResult.total].map((val, i) => (
                       <p key={i} className="px-4 py-3 text-[14px] font-bold text-kb-text text-right">{fmtN(val)}원</p>
                     ))}
@@ -476,7 +477,7 @@ export default function LoanMainPage() {
 
         {/* ===== 하단 안내 ===== */}
         <div className="flex gap-4">
-          <div className="flex-1 border border-[#E2F5EF] p-6">
+          <div className="flex-1 border border-kb-primary-border p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">이용시간 안내</p>
             <div className="text-[13px] space-y-2">
               <p className="flex items-baseline gap-4">
@@ -491,14 +492,14 @@ export default function LoanMainPage() {
               </p>
             </div>
           </div>
-          <div className="flex-1 border border-[#E2F5EF] p-6">
+          <div className="flex-1 border border-kb-primary-border p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">대출가이드</p>
             <div className="text-[13px] space-y-2">
               <Link href="/products/loan/manage/rate" className="block text-kb-text-body hover:underline">· 가계대출금리</Link>
               <Link href="/products/loan/manage/rate-detail" className="block text-kb-text-body hover:underline">· 금리산정내역서</Link>
             </div>
           </div>
-          <div className="flex-1 border border-[#E2F5EF] p-6">
+          <div className="flex-1 border border-kb-primary-border p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">KB부동산</p>
             <div className="text-[13px] space-y-2">
               <Link href="/products/loan/credit" className="block text-kb-text-body hover:underline">· 신용대출 상품 보기</Link>

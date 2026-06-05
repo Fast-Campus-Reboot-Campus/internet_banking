@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
@@ -17,7 +18,7 @@ function EmptyState({ message, subMessage, actionHref, actionLabel }: {
   actionLabel?: string
 }) {
   return (
-    <div className="rounded-xl px-6 py-5 flex items-center gap-5" style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+    <div className="rounded-xl px-6 py-5 flex items-center gap-5" style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
       <div className="flex-shrink-0">
         <svg viewBox="0 0 56 56" fill="none" className="w-12 h-12">
           <rect x="8" y="6" width="32" height="40" rx="2" fill="#E2F5EF" stroke="#5BC9A8" strokeWidth="1.5"/>
@@ -36,7 +37,7 @@ function EmptyState({ message, subMessage, actionHref, actionLabel }: {
       {actionHref && actionLabel && (
         <Link href={actionHref}
           className="flex-shrink-0 px-5 py-1.5 text-[13px] font-semibold text-white rounded-lg hover:opacity-85 transition-opacity whitespace-nowrap"
-          style={{ backgroundColor: '#0D5C47' }}>
+          style={{ backgroundColor: KB_PRIMARY }}>
           {actionLabel}
         </Link>
       )}
@@ -58,7 +59,7 @@ function SectionHeader({ dotColor, label, count, balance, open, onToggle }: {
         <span className={`w-2.5 h-2.5 rounded-full inline-block flex-shrink-0 ${dotColor}`} />
         <span className="text-[14px] font-bold text-kb-text">{label}</span>
         <span className="text-[13px] text-kb-text-muted">({count}계좌)</span>
-        <span className="text-[14px] font-semibold" style={{ color: '#0D5C47' }}>잔액 {balance}원</span>
+        <span className="text-[14px] font-semibold" style={{ color: KB_PRIMARY }}>잔액 {balance}원</span>
       </div>
       <button onClick={onToggle} className="text-[12px] text-kb-text-muted hover:text-kb-text px-2">
         {open ? '˄' : '˅'}
@@ -162,11 +163,11 @@ export default function AccountsPage() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Link href={`/inquiry/transactions`} className="text-[14px] font-bold hover:underline" style={{ color: '#0D5C47' }}>
+            <Link href={`/inquiry/transactions`} className="text-[14px] font-bold hover:underline" style={{ color: KB_PRIMARY }}>
               {account.number}
             </Link>
             {account.badge && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: '#E2F5EF', color: '#0D5C47' }}>
+              <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                 {account.badge}
               </span>
             )}
@@ -198,13 +199,13 @@ export default function AccountsPage() {
           <h1 className="text-[22px] font-bold text-kb-text mb-4">AXful Bank 계좌조회</h1>
 
           {/* 탭 */}
-          <div className="flex border-b mb-4" style={{ borderColor: '#E2F5EF' }}>
+          <div className="flex border-b mb-4" style={{ borderColor: KB_PRIMARY_BORDER }}>
             {ACCOUNT_TABS.map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-6 py-2.5 text-[14px] font-medium border-b-2 -mb-px transition-colors ${
                   activeTab === tab ? 'font-bold' : 'border-transparent text-kb-text-muted hover:text-kb-text'
                 }`}
-                style={activeTab === tab ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
+                style={activeTab === tab ? { borderColor: KB_PRIMARY, color: KB_PRIMARY } : {}}>
                 {tab}
               </button>
             ))}
@@ -213,7 +214,7 @@ export default function AccountsPage() {
           {/* 조회기준 + 인사 + 잔액 */}
           <p className="text-[12px] text-kb-text-muted mb-4">조회기준일시 : {datetime}</p>
 
-          <div className="flex items-center justify-between mb-6 rounded-xl px-6 py-4" style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+          <div className="flex items-center justify-between mb-6 rounded-xl px-6 py-4" style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
             <p className="text-[16px] font-bold text-kb-text">{userName ? `${userName} 고객님` : '고객님'}</p>
             <div className="text-right">
               <div className="flex items-center justify-end gap-2 mb-1">
@@ -221,7 +222,7 @@ export default function AccountsPage() {
                 <button
                   onClick={() => setBalanceVisible(v => !v)}
                   className="relative w-10 h-5 rounded-full transition-colors"
-                  style={{ backgroundColor: balanceVisible ? '#0D5C47' : '#D1D5DB' }}
+                  style={{ backgroundColor: balanceVisible ? KB_PRIMARY : '#D1D5DB' }}
                 >
                   <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${balanceVisible ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   <span className={`absolute text-[9px] font-bold text-white ${balanceVisible ? 'left-1.5 top-0.5' : 'right-1 top-0.5'}`}>
@@ -230,7 +231,7 @@ export default function AccountsPage() {
                 </button>
               </div>
               <p className="text-[12px] text-kb-text-muted">총 잔액(예금)</p>
-              <p className="text-[22px] font-bold" style={{ color: '#0D5C47' }}>{bal(totalBalance)}원</p>
+              <p className="text-[22px] font-bold" style={{ color: KB_PRIMARY }}>{bal(totalBalance)}원</p>
             </div>
           </div>
 
@@ -240,14 +241,14 @@ export default function AccountsPage() {
               <div className="flex items-center justify-between mb-5">
                 <p className="text-[14px] font-bold text-kb-text">
                   총 예금 잔액{' '}
-                  <span className="text-[18px] font-bold" style={{ color: '#0D5C47' }}>{bal(depositTabBalance)}</span>원
+                  <span className="text-[18px] font-bold" style={{ color: KB_PRIMARY }}>{bal(depositTabBalance)}</span>원
                   <span className="text-kb-text-muted font-normal text-[13px] ml-1">({depositTabCount}계좌)</span>
                 </p>
               </div>
 
               {/* 예금 */}
               <div className="mb-6">
-                <SectionHeader dotColor="bg-[#5BC9A8]" label="예금"
+                <SectionHeader dotColor="bg-kb-mint" label="예금"
                   count={pureDepositAccounts.length}
                   balance={bal(pureDepositAccounts.reduce((s, a) => s + a.balance, 0))}
                   open={depositOpen} onToggle={() => setDepositOpen(v => !v)} />
@@ -258,8 +259,8 @@ export default function AccountsPage() {
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
                             {['조회', '해지예상조회', '계좌관리'].map(label => (
-                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                                style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>{label}</button>
+                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                                style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
                             <Link href="/products/deposit/inquiry/terminate"
                               className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-red-50"
@@ -274,7 +275,7 @@ export default function AccountsPage() {
 
               {/* 정기적금 */}
               <div className="mb-6">
-                <SectionHeader dotColor="bg-[#5BC9A8]" label="정기적금"
+                <SectionHeader dotColor="bg-kb-mint" label="정기적금"
                   count={regularSavingsAccounts.length}
                   balance={bal(regularSavingsAccounts.reduce((s, a) => s + a.balance, 0))}
                   open={regularSavingsOpen} onToggle={() => setRegularSavingsOpen(v => !v)} />
@@ -285,8 +286,8 @@ export default function AccountsPage() {
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
                             {['조회', '해지예상조회', '납입현황', '계좌관리'].map(label => (
-                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                                style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>{label}</button>
+                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                                style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
                           </div>
                         )
@@ -296,7 +297,7 @@ export default function AccountsPage() {
 
               {/* 자유적금 */}
               <div className="mb-6">
-                <SectionHeader dotColor="bg-[#5BC9A8]" label="자유적금"
+                <SectionHeader dotColor="bg-kb-mint" label="자유적금"
                   count={freeSavingsAccounts.length}
                   balance={bal(freeSavingsAccounts.reduce((s, a) => s + a.balance, 0))}
                   open={freeSavingsOpen} onToggle={() => setFreeSavingsOpen(v => !v)} />
@@ -307,8 +308,8 @@ export default function AccountsPage() {
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
                             {['조회', '해지예상조회', '입금', '계좌관리'].map(label => (
-                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                                style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>{label}</button>
+                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                                style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
                           </div>
                         )
@@ -318,7 +319,7 @@ export default function AccountsPage() {
 
               {/* 입출금 */}
               <div className="mb-6">
-                <SectionHeader dotColor="bg-[#5BC9A8]" label="입출금"
+                <SectionHeader dotColor="bg-kb-mint" label="입출금"
                   count={checkingAccounts.length}
                   balance={bal(checkingAccounts.reduce((s, a) => s + a.balance, 0))}
                   open={checkingOpen} onToggle={() => setCheckingOpen(v => !v)} />
@@ -329,27 +330,27 @@ export default function AccountsPage() {
                     <div className="flex flex-col gap-1">
                       <div className="flex gap-1">
                         <Link href="/inquiry/transactions"
-                          className="px-4 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                          style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                          className="px-4 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                          style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                           조회
                         </Link>
                         <Link href="/transfer/account"
                           className="px-4 py-1.5 text-[12px] font-semibold text-white rounded-lg hover:opacity-85 transition-opacity"
-                          style={{ backgroundColor: '#0D5C47' }}>
+                          style={{ backgroundColor: KB_PRIMARY }}>
                           이체
                         </Link>
                       </div>
                       <div className="relative">
                         <button
                           onClick={() => setMgmtOpen(mgmtOpen === account.id ? null : account.id)}
-                          className="w-full px-4 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                          className="w-full px-4 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                          style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                           계좌관리
                         </button>
                         {mgmtOpen === account.id && (
                           <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lg z-50 w-[180px] py-1.5 overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
                             {MANAGEMENT_ITEMS.map(item => (
-                              <button key={item} className="block w-full text-left px-4 py-2 text-[12px] text-kb-text-body hover:bg-[#F0FAF7]">
+                              <button key={item} className="block w-full text-left px-4 py-2 text-[12px] text-kb-text-body hover:bg-kb-primary-bg">
                                 {item}
                               </button>
                             ))}
@@ -363,7 +364,7 @@ export default function AccountsPage() {
 
               {/* 청약 */}
               <div className="mb-8">
-                <SectionHeader dotColor="bg-[#5BC9A8]" label="청약"
+                <SectionHeader dotColor="bg-kb-mint" label="청약"
                   count={subscriptionAccounts.length}
                   balance={bal(subscriptionAccounts.reduce((s, a) => s + a.balance, 0))}
                   open={subscriptionOpen} onToggle={() => setSubscriptionOpen(v => !v)} />
@@ -374,8 +375,8 @@ export default function AccountsPage() {
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
                             {['조회', '납입현황', '계좌관리'].map(label => (
-                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                                style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>{label}</button>
+                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                                style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
                           </div>
                         )
@@ -395,7 +396,7 @@ export default function AccountsPage() {
                 { label: '기타 대출', open: etcLoanOpen, toggle: () => setEtcLoanOpen(v => !v), href: '/loans/apply' },
               ].map(({ label, open, toggle, href }) => (
                 <div key={label}>
-                  <SectionHeader dotColor="bg-[#5BC9A8]" label={label}
+                  <SectionHeader dotColor="bg-kb-mint" label={label}
                     count={0} balance="0"
                     open={open} onToggle={toggle} />
                   {open && (
@@ -420,9 +421,9 @@ export default function AccountsPage() {
                 <div key={label} className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
                   <button onClick={toggle}
                     className="w-full flex items-center justify-between px-5 py-3 text-left"
-                    style={{ backgroundColor: '#F0FAF7' }}>
+                    style={{ backgroundColor: KB_PRIMARY_BG }}>
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#5BC9A8] inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-kb-mint inline-block" />
                       <span className="text-[14px] font-bold text-kb-text">{label}</span>
                     </div>
                     <span className="text-[12px] text-kb-text-muted">{open ? '˄' : '˅'}</span>
@@ -430,9 +431,9 @@ export default function AccountsPage() {
                   {open && (
                     <table className="w-full border-collapse">
                       <thead>
-                        <tr style={{ backgroundColor: '#F8FFFE' }}>
+                        <tr style={{ backgroundColor: KB_PRIMARY_SURFACE }}>
                           {cols.map(col => (
-                            <th key={col} className="px-4 py-2.5 text-[12px] font-semibold text-center" style={{ color: '#0D5C47', borderBottom: '1px solid #E2F5EF' }}>{col}</th>
+                            <th key={col} className="px-4 py-2.5 text-[12px] font-semibold text-center" style={{ color: KB_PRIMARY, borderBottom: '1px solid #E2F5EF' }}>{col}</th>
                           ))}
                         </tr>
                       </thead>
@@ -440,14 +441,14 @@ export default function AccountsPage() {
                         {accounts.length === 0
                           ? <tr><td colSpan={cols.length} className="text-center py-8 text-[13px] text-kb-text-muted">조회된 계좌가 없습니다.</td></tr>
                           : accounts.map(acc => (
-                            <tr key={acc.id} className="border-b hover:bg-[#F8FFFE]" style={{ borderColor: '#E2F5EF' }}>
+                            <tr key={acc.id} className="border-b hover:bg-kb-primary-surface" style={{ borderColor: KB_PRIMARY_BORDER }}>
                               <td className="px-4 py-3 text-[13px] text-center">
-                                <Link href="/inquiry/transactions" className="hover:underline font-medium" style={{ color: '#0D5C47' }}>{acc.number}</Link>
+                                <Link href="/inquiry/transactions" className="hover:underline font-medium" style={{ color: KB_PRIMARY }}>{acc.number}</Link>
                               </td>
                               <td className="px-4 py-3 text-[13px] text-center text-kb-text">{acc.name}</td>
                               <td className="px-4 py-3 text-[13px] text-center text-kb-text-muted">{acc.createdAt}</td>
                               <td className="px-4 py-3 text-[13px] text-center text-kb-text-muted">{acc.maturityDate || '-'}</td>
-                              <td className="px-4 py-3 text-[13px] text-right font-semibold" style={{ color: '#0D5C47' }}>{bal(acc.balance)}원</td>
+                              <td className="px-4 py-3 text-[13px] text-right font-semibold" style={{ color: KB_PRIMARY }}>{bal(acc.balance)}원</td>
                             </tr>
                           ))
                         }

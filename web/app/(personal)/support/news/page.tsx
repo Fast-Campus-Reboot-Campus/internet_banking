@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER } from '@/lib/theme'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -58,21 +59,21 @@ export default function NewsListPage() {
         <p className="text-[13px] text-kb-text-muted mb-8">AXful Bank의 최신 소식과 이벤트를 확인하세요.</p>
 
         {/* 탭 */}
-        <div className="flex gap-0 mb-6 border-b-2 border-[#E2F5EF]">
+        <div className="flex gap-0 mb-6 border-b-2 border-kb-primary-border">
           {TABS.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className="px-6 py-3 text-[14px] font-semibold transition-colors relative"
               style={{
-                color: activeTab === tab ? '#0D5C47' : '#94A3B8',
+                color: activeTab === tab ? KB_PRIMARY : '#94A3B8',
               }}
             >
               {tab}
               {activeTab === tab && (
                 <span
                   className="absolute bottom-[-2px] left-0 right-0 h-[2px]"
-                  style={{ backgroundColor: '#0D5C47' }}
+                  style={{ backgroundColor: KB_PRIMARY }}
                 />
               )}
             </button>
@@ -84,27 +85,27 @@ export default function NewsListPage() {
           {filtered.length === 0 ? (
             <p className="text-center text-kb-text-muted py-16 text-[14px]">해당하는 게시물이 없습니다.</p>
           ) : (
-            <ul className="divide-y" style={{ borderColor: '#E2F5EF' }}>
+            <ul className="divide-y" style={{ borderColor: KB_PRIMARY_BORDER }}>
               {filtered.map((item, idx) => (
                 <li key={idx}>
                   <Link
                     href={item.href}
-                    className="flex items-center gap-4 px-6 py-5 transition-colors group hover:bg-[#F0FAF7]"
+                    className="flex items-center gap-4 px-6 py-5 transition-colors group hover:bg-kb-primary-bg"
                   >
                     {/* 배지 */}
                     <span
                       className="flex-shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full"
                       style={
                         item.type === '새소식'
-                          ? { backgroundColor: '#F0FAF7', color: '#0D5C47', border: '1px solid #0D5C4730' }
-                          : { backgroundColor: '#E8FAF5', color: '#5BC9A8', border: '1px solid #5BC9A840' }
+                          ? { backgroundColor: KB_PRIMARY_BG, color: KB_PRIMARY, border: '1px solid #0D5C4730' }
+                          : { backgroundColor: '#E8FAF5', color: KB_MINT, border: '1px solid #5BC9A840' }
                       }
                     >
                       {item.type}
                     </span>
 
                     {/* 제목 */}
-                    <span className="flex-1 text-[14px] text-kb-text-body group-hover:text-[#0D5C47] transition-colors font-medium">
+                    <span className="flex-1 text-[14px] text-kb-text-body group-hover:text-kb-primary transition-colors font-medium">
                       {item.title}
                     </span>
 
@@ -114,7 +115,7 @@ export default function NewsListPage() {
                     {/* 화살표 */}
                     <span
                       className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold transition-colors"
-                      style={{ backgroundColor: '#F0FAF7', color: '#0D5C47' }}
+                      style={{ backgroundColor: KB_PRIMARY_BG, color: KB_PRIMARY }}
                     >
                       ›
                     </span>

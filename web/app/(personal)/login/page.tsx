@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_DARK,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
@@ -26,7 +27,7 @@ export default function LoginPage() {
       </div>
 
       {/* 본문 */}
-      <div className="py-6" style={{ backgroundColor: '#F0FAF7' }}>
+      <div className="py-6" style={{ backgroundColor: KB_PRIMARY_BG }}>
         <div className="w-full max-w-[1100px] mx-auto">
 
           {/* 로그인 카드 */}
@@ -58,16 +59,16 @@ export default function LoginPage() {
               <div className="grid grid-cols-4">
                 {[
                   { icon: <KBShieldIcon size={20} />, label: 'AXful인증서 발급', href: '/cert-cps' as string | null },
-                  { icon: <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" style={{ color: '#0D5C47' }}><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>, label: '인증센터', href: '/cert' as string | null },
-                  { icon: <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" style={{ color: '#0D5C47' }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>, label: '로그인 설정', href: null },
-                  { icon: <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" style={{ color: '#0D5C47' }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>, label: '인증서 이용 안내', href: '/banking/first-visit' as string | null },
+                  { icon: <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" style={{ color: KB_PRIMARY }}><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>, label: '인증센터', href: '/cert' as string | null },
+                  { icon: <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" style={{ color: KB_PRIMARY }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>, label: '로그인 설정', href: null },
+                  { icon: <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="currentColor" strokeWidth="1.8" style={{ color: KB_PRIMARY }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>, label: '인증서 이용 안내', href: '/banking/first-visit' as string | null },
                 ].map((item, i) => (
                   item.href === null ? (
                     <button
                       key={item.label}
                       onClick={() => setShowLoginSetting(true)}
                       className={`flex flex-col items-center gap-1.5 py-4 text-sm text-kb-text-body
-                                  hover:bg-[#F0FAF7] transition-colors w-full
+                                  hover:bg-kb-primary-bg transition-colors w-full
                                   ${i > 0 ? 'border-l border-kb-border' : ''}`}
                     >
                       <div className="flex items-center justify-center w-6 h-6">{item.icon}</div>
@@ -78,7 +79,7 @@ export default function LoginPage() {
                       key={item.label}
                       href={item.href}
                       className={`flex flex-col items-center gap-1.5 py-4 text-sm text-kb-text-body
-                                  hover:bg-[#F0FAF7] transition-colors
+                                  hover:bg-kb-primary-bg transition-colors
                                   ${i > 0 ? 'border-l border-kb-border' : ''}`}
                     >
                       <div className="flex items-center justify-center w-6 h-6">{item.icon}</div>
@@ -94,10 +95,10 @@ export default function LoginPage() {
 
           {/* 카드 하단 안내 */}
           <div className="mt-4 px-1 space-y-1">
-            <p className="text-sm" style={{ color: '#0D5C47' }}>
+            <p className="text-sm" style={{ color: KB_PRIMARY }}>
               • 인터넷뱅킹 종료 시, 안전한 금융거래를 위하여 반드시 [로그아웃]버튼을 눌러 종료하시기 바랍니다.
             </p>
-            <p className="text-sm" style={{ color: '#0D5C47' }}>
+            <p className="text-sm" style={{ color: KB_PRIMARY }}>
               • 로그인설정 버튼을 통해 자주 쓰는 로그인 방식을 설정해두면 더 간편하게 로그인 하실 수 있습니다.
             </p>
           </div>
@@ -124,9 +125,9 @@ function TabButton({
                   flex items-center justify-center gap-1.5
         ${active
           ? 'bg-white border-b-2'
-          : 'bg-[#F0FAF7] text-kb-text-muted hover:bg-[#E2F5EF]'
+          : 'bg-kb-primary-bg text-kb-text-muted hover:bg-kb-primary-border'
         }`}
-      style={active ? { color: '#0D5C47', borderColor: '#0D5C47' } : {}}
+      style={active ? { color: KB_PRIMARY, borderColor: KB_PRIMARY } : {}}
     >
       {children}
     </button>
@@ -259,8 +260,8 @@ function KBCertTab() {
         )}
         {status === 'scanned' && (
           <div className="absolute inset-0 bg-white/75 flex flex-col items-center justify-center gap-1">
-            <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: '#5BC9A8', borderTopColor: 'transparent' }} />
-            <span className="text-[11px] font-bold" style={{ color: '#0D5C47' }}>앱 확인 중</span>
+            <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: KB_MINT, borderTopColor: 'transparent' }} />
+            <span className="text-[11px] font-bold" style={{ color: KB_PRIMARY }}>앱 확인 중</span>
           </div>
         )}
         {status === 'approved' && (
@@ -268,7 +269,7 @@ function KBCertTab() {
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#5BC9A8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/>
             </svg>
-            <span className="text-[11px] font-bold" style={{ color: '#0D5C47' }}>승인 완료</span>
+            <span className="text-[11px] font-bold" style={{ color: KB_PRIMARY }}>승인 완료</span>
           </div>
         )}
         {status === 'expired' && (
@@ -290,7 +291,7 @@ function KBCertTab() {
           <button
             onClick={handleGenerate}
             className="w-full py-3.5 text-base font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-            style={{ backgroundColor: '#0D5C47' }}
+            style={{ backgroundColor: KB_PRIMARY }}
           >
             QR코드 생성하기
           </button>
@@ -305,15 +306,15 @@ function KBCertTab() {
         <div className="w-full space-y-3">
           <div className="text-center space-y-1">
             <p className="text-base text-kb-text">확인 코드 <span className="font-bold">{confirmCode}</span></p>
-            <p className="text-base font-medium" style={{ color: '#0D5C47' }}>남은 시간 {mm}분 {ss}초</p>
+            <p className="text-base font-medium" style={{ color: KB_PRIMARY }}>남은 시간 {mm}분 {ss}초</p>
             <p className="text-sm text-kb-text-muted leading-relaxed">
               QR코드를 스캔하여 확인코드를 입력 후 승인해주세요.
             </p>
           </div>
 
           {/* 테스트용 모바일 승인 */}
-          <div className="border rounded-xl p-4 space-y-2" style={{ borderColor: '#E2F5EF', backgroundColor: '#F8FFFE' }}>
-            <p className="text-[12px] font-bold text-center" style={{ color: '#0D5C47' }}>
+          <div className="border rounded-xl p-4 space-y-2" style={{ borderColor: KB_PRIMARY_BORDER, backgroundColor: KB_PRIMARY_SURFACE }}>
+            <p className="text-[12px] font-bold text-center" style={{ color: KB_PRIMARY }}>
               테스트용 모바일 승인
             </p>
             <input
@@ -322,7 +323,7 @@ function KBCertTab() {
               value={approveId}
               onChange={(e) => setApproveId(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-[13px] outline-none"
-              style={{ borderColor: '#5BC9A8' }}
+              style={{ borderColor: KB_MINT }}
             />
             <input
               type="password"
@@ -331,14 +332,14 @@ function KBCertTab() {
               onChange={(e) => setApprovePw(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleApprove()}
               className="w-full border rounded-lg px-3 py-2 text-[13px] outline-none"
-              style={{ borderColor: '#5BC9A8' }}
+              style={{ borderColor: KB_MINT }}
             />
             {approveError && <p className="text-[12px] text-red-500">{approveError}</p>}
             <button
               onClick={handleApprove}
               disabled={approveLoading}
               className="w-full py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-60 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}
+              style={{ backgroundColor: KB_PRIMARY }}
             >
               {approveLoading ? '승인 중...' : '앱에서 승인하기'}
             </button>
@@ -351,15 +352,15 @@ function KBCertTab() {
 
       {status === 'scanned' && (
         <div className="text-center space-y-1">
-          <p className="text-base font-bold" style={{ color: '#0D5C47' }}>앱에서 인증 중입니다...</p>
+          <p className="text-base font-bold" style={{ color: KB_PRIMARY }}>앱에서 인증 중입니다...</p>
           <p className="text-sm text-kb-text-muted">잠시 후 자동으로 로그인됩니다.</p>
-          <p className="text-sm" style={{ color: '#0D5C47' }}>남은 시간 {mm}분 {ss}초</p>
+          <p className="text-sm" style={{ color: KB_PRIMARY }}>남은 시간 {mm}분 {ss}초</p>
         </div>
       )}
 
       {status === 'approved' && (
         <div className="text-center space-y-1">
-          <p className="text-base font-bold" style={{ color: '#0D5C47' }}>인증 완료! 로그인 중...</p>
+          <p className="text-base font-bold" style={{ color: KB_PRIMARY }}>인증 완료! 로그인 중...</p>
         </div>
       )}
 
@@ -369,7 +370,7 @@ function KBCertTab() {
           <button
             onClick={handleReset}
             className="w-full py-3 text-base font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-            style={{ backgroundColor: '#0D5C47' }}
+            style={{ backgroundColor: KB_PRIMARY }}
           >
             다시 생성하기
           </button>
@@ -392,14 +393,14 @@ function CommonCertTab() {
         <div className="flex-1 flex flex-col items-center gap-4 px-10">
           <p className="text-sm text-kb-text-body whitespace-nowrap">공동인증서(구 공인인증서)</p>
           <button
-            className="w-full py-3 text-sm whitespace-nowrap font-semibold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}
+            className="w-full py-3 text-sm whitespace-nowrap font-semibold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}
             onClick={() => setShowJointCertModal(true)}
           >공동인증서(구 공인인증서) 로그인</button>
-          <button className="w-full py-3 text-sm whitespace-nowrap font-semibold rounded-lg border-2 hover:bg-[#F0FAF7] transition-colors" style={{ borderColor: '#0D5C47', color: '#0D5C47' }} onClick={() => setShowKBStarModal(true)}>AXful 앱 연동 로그인</button>
+          <button className="w-full py-3 text-sm whitespace-nowrap font-semibold rounded-lg border-2 hover:bg-kb-primary-bg transition-colors" style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }} onClick={() => setShowKBStarModal(true)}>AXful 앱 연동 로그인</button>
           <p className="text-sm whitespace-nowrap">
-            <Link href="/cert/joint-cert-issue" className="hover:underline" style={{ color: '#0D5C47' }}>공동인증서(구 공인인증서) 발급</Link>
+            <Link href="/cert/joint-cert-issue" className="hover:underline" style={{ color: KB_PRIMARY }}>공동인증서(구 공인인증서) 발급</Link>
             <span className="mx-2 text-kb-border">|</span>
-            <Link href="/cert/joint-cert-management" className="hover:underline" style={{ color: '#0D5C47' }}>인증서 관리</Link>
+            <Link href="/cert/joint-cert-management" className="hover:underline" style={{ color: KB_PRIMARY }}>인증서 관리</Link>
           </p>
         </div>
 
@@ -408,14 +409,14 @@ function CommonCertTab() {
           <p className="text-sm text-kb-text-body whitespace-nowrap">금융인증서(브라우저인증서)</p>
           <button
             onClick={() => setShowCertModal(true)}
-            className="w-full py-3 text-sm whitespace-nowrap font-semibold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}
+            className="w-full py-3 text-sm whitespace-nowrap font-semibold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}
           >
             금융인증서(브라우저인증서) 로그인
           </button>
           <p className="text-sm whitespace-nowrap">
-            <Link href="/cert/fin-cert-issue" className="hover:underline" style={{ color: '#0D5C47' }}>금융인증서 발급</Link>
+            <Link href="/cert/fin-cert-issue" className="hover:underline" style={{ color: KB_PRIMARY }}>금융인증서 발급</Link>
             <span className="mx-2 text-kb-border">|</span>
-            <Link href="/cert/cert-management" className="hover:underline" style={{ color: '#0D5C47' }}>인증서 관리</Link>
+            <Link href="/cert/cert-management" className="hover:underline" style={{ color: KB_PRIMARY }}>인증서 관리</Link>
           </p>
         </div>
       </div>
@@ -526,7 +527,7 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
       <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden" style={{ width: 500 }}>
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: '#0D5C47' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: KB_PRIMARY }}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
               <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" className="w-4 h-4">
@@ -543,12 +544,12 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* AXful 배너 */}
-        <div className="flex items-center gap-4 px-6 py-3 border-b" style={{ backgroundColor: '#F0FAF7', borderColor: '#E2F5EF' }}>
+        <div className="flex items-center gap-4 px-6 py-3 border-b" style={{ backgroundColor: KB_PRIMARY_BG, borderColor: KB_PRIMARY_BORDER }}>
           <div className="flex-1">
-            <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>금융생활을 넘어 일상생활까지 AXful인증서로</p>
+            <p className="text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>금융생활을 넘어 일상생활까지 AXful인증서로</p>
             <p className="text-[11px] text-kb-text-muted mt-0.5">간편 발급 · 안전 보관 · 평생 이용</p>
           </div>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-extrabold shadow-sm" style={{ backgroundColor: '#0D5C47' }}>AX</div>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-[11px] font-extrabold shadow-sm" style={{ backgroundColor: KB_PRIMARY }}>AX</div>
         </div>
 
         <div className="px-6 py-5 space-y-5">
@@ -563,11 +564,11 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
                   onClick={() => setStorageType(st.label)}
                   className={`flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl border-2 text-[11px] transition-all
                     ${storageType === st.label
-                      ? 'border-[#0D5C47] bg-[#F0FAF7] text-[#0D5C47] font-bold shadow-sm'
-                      : 'border-transparent bg-[#F8F8F8] text-kb-text-muted hover:border-[#E2F5EF] hover:bg-[#F0FAF7]'
+                      ? 'border-kb-primary bg-kb-primary-bg text-kb-primary font-bold shadow-sm'
+                      : 'border-transparent bg-[#F8F8F8] text-kb-text-muted hover:border-kb-primary-border hover:bg-kb-primary-bg'
                     }`}
                 >
-                  <span className={storageType === st.label ? 'text-[#0D5C47]' : 'text-kb-text-muted'}>{st.icon}</span>
+                  <span className={storageType === st.label ? 'text-kb-primary' : 'text-kb-text-muted'}>{st.icon}</span>
                   <span className="leading-tight text-center">{st.label}</span>
                 </button>
               ))}
@@ -577,10 +578,10 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
           {/* 인증서 목록 */}
           <div>
             <p className="text-[12px] font-semibold text-kb-text-muted uppercase tracking-wide mb-2.5">인증서 선택</p>
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#E2F5EF' }}>
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: KB_PRIMARY_BORDER }}>
               <table className="w-full text-[12px]">
                 <thead>
-                  <tr style={{ backgroundColor: '#F0FAF7', borderBottom: '1px solid #E2F5EF' }}>
+                  <tr style={{ backgroundColor: KB_PRIMARY_BG, borderBottom: '1px solid #E2F5EF' }}>
                     {['구분', '사용자', '만료일', '발급자'].map((h) => (
                       <th key={h} className="py-2.5 px-3 font-semibold text-left text-kb-text-muted">{h}</th>
                     ))}
@@ -591,7 +592,7 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
                     <tr
                       key={cert.id}
                       onClick={() => setSelectedCert(cert.id)}
-                      className={`cursor-pointer transition-colors ${selectedCert === cert.id ? 'bg-[#F0FAF7]' : 'hover:bg-[#FAFAFA]'}`}
+                      className={`cursor-pointer transition-colors ${selectedCert === cert.id ? 'bg-kb-primary-bg' : 'hover:bg-[#FAFAFA]'}`}
                     >
                       <td className="py-3 px-3 font-medium text-kb-text">{cert.type}</td>
                       <td className="py-3 px-3 text-kb-text">{cert.user}</td>
@@ -605,14 +606,14 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
             <div className="flex justify-end gap-1.5 mt-2">
               <button
                 onClick={() => { if (!selectedCert) { setError('인증서를 먼저 선택해 주세요.'); return } setSubModal('view') }}
-                className="text-[11px] px-3 py-1.5 rounded-lg border text-kb-text-muted hover:bg-[#F0FAF7] hover:text-kb-text transition-colors"
-                style={{ borderColor: '#E2F5EF' }}>
+                className="text-[11px] px-3 py-1.5 rounded-lg border text-kb-text-muted hover:bg-kb-primary-bg hover:text-kb-text transition-colors"
+                style={{ borderColor: KB_PRIMARY_BORDER }}>
                 인증서 보기
               </button>
               <button
                 onClick={() => setSubModal('find')}
-                className="text-[11px] px-3 py-1.5 rounded-lg border text-kb-text-muted hover:bg-[#F0FAF7] hover:text-kb-text transition-colors"
-                style={{ borderColor: '#E2F5EF' }}>
+                className="text-[11px] px-3 py-1.5 rounded-lg border text-kb-text-muted hover:bg-kb-primary-bg hover:text-kb-text transition-colors"
+                style={{ borderColor: KB_PRIMARY_BORDER }}>
                 인증서 찾기
               </button>
               <button
@@ -625,14 +626,14 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
 
             {/* 인증서 보기 패널 */}
             {subModal === 'view' && activeCert && (
-              <div className="mt-3 rounded-xl border-2 overflow-hidden" style={{ borderColor: '#0D5C47' }}>
-                <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: '#0D5C47' }}>
+              <div className="mt-3 rounded-xl border-2 overflow-hidden" style={{ borderColor: KB_PRIMARY }}>
+                <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: KB_PRIMARY }}>
                   <span className="text-[12px] font-bold text-white">인증서 상세 정보</span>
                   <button onClick={() => setSubModal(null)} className="text-white/70 hover:text-white">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
                 </div>
-                <div className="bg-white divide-y divide-[#E2F5EF] text-[12px]">
+                <div className="bg-white divide-y divide-kb-primary-border text-[12px]">
                   {[
                     ['인증서 구분', activeCert.type],
                     ['소유자', activeCert.user],
@@ -660,12 +661,12 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
                 <p className="text-[11px] text-kb-text-muted mb-3">인증서 파일(.pfx, .p12)을 직접 선택하여 등록할 수 있습니다.</p>
-                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer hover:bg-[#F0FAF7] transition-colors" style={{ borderColor: '#0D5C47' }}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5 flex-shrink-0" style={{ color: '#0D5C47' }}>
+                <label className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer hover:bg-kb-primary-bg transition-colors" style={{ borderColor: KB_PRIMARY }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5 flex-shrink-0" style={{ color: KB_PRIMARY }}>
                     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                   </svg>
                   <div>
-                    <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>파일 선택</p>
+                    <p className="text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>파일 선택</p>
                     <p className="text-[11px] text-kb-text-muted">.pfx, .p12 형식 지원</p>
                   </div>
                   <input type="file" accept=".pfx,.p12" className="hidden" onChange={() => setSubModal(null)} />
@@ -685,7 +686,7 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
                 onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
                 placeholder="암호를 입력하세요"
                 className="w-full rounded-xl border-2 px-4 py-2.5 text-[13px] outline-none transition-colors"
-                style={{ borderColor: password ? '#0D5C47' : '#E2E8F0' }}
+                style={{ borderColor: password ? KB_PRIMARY : '#E2E8F0' }}
               />
             </div>
             <p className="text-[11px] text-kb-text-muted mt-1.5">6개월마다 인증서 암호를 변경하시기 바랍니다.</p>
@@ -740,13 +741,13 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
             onClick={handleConfirm}
             disabled={loading}
             className="flex-1 py-3 text-white text-[14px] font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
-            style={{ backgroundColor: '#0D5C47' }}
+            style={{ backgroundColor: KB_PRIMARY }}
           >
             {loading ? '확인 중...' : '확인'}
           </button>
           <button
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl border-2 text-[14px] font-medium text-kb-text-muted hover:bg-[#F0FAF7] hover:text-kb-text transition-colors"
+            className="flex-1 py-3 rounded-xl border-2 text-[14px] font-medium text-kb-text-muted hover:bg-kb-primary-bg hover:text-kb-text transition-colors"
             style={{ borderColor: '#E2E8F0' }}
           >
             취소
@@ -845,12 +846,12 @@ function IdLoginTab() {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="w-full py-3 text-body font-bold text-white rounded-lg hover:opacity-85 transition-opacity disabled:opacity-60" style={{ backgroundColor: '#0D5C47' }}
+          className="w-full py-3 text-body font-bold text-white rounded-lg hover:opacity-85 transition-opacity disabled:opacity-60" style={{ backgroundColor: KB_PRIMARY }}
         >
           {loading ? '로그인 중...' : '로그인'}
         </button>
 
-        <div className="flex items-center justify-center gap-3 mt-4 text-caption" style={{ color: '#0D5C47' }}>
+        <div className="flex items-center justify-center gap-3 mt-4 text-caption" style={{ color: KB_PRIMARY }}>
           <Link href="/support/customer-info/id-password" className="hover:underline">ID 조회 / 사용자암호 설정</Link>
           <span className="text-kb-border">|</span>
           <Link href="/login/pin" className="hover:underline">간편비밀번호 로그인</Link>
@@ -894,7 +895,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
             className={`px-4 py-2 text-[13px] font-medium border transition-colors
               ${tab === 'push'
                 ? 'text-white border-transparent'
-                : 'bg-white text-gray-500 border-gray-300 hover:bg-[#F0FAF7]'}`}
+                : 'bg-white text-gray-500 border-gray-300 hover:bg-kb-primary-bg'}`}
           >
             PUSH(휴대폰 번호)
           </button>
@@ -903,7 +904,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
             className={`px-4 py-2 text-[13px] font-medium border-t border-b border-r transition-colors
               ${tab === 'qr'
                 ? 'text-white border-transparent'
-                : 'bg-white text-gray-500 border-gray-300 hover:bg-[#F0FAF7]'}`}
+                : 'bg-white text-gray-500 border-gray-300 hover:bg-kb-primary-bg'}`}
           >
             QR코드 또는 인증번호
           </button>
@@ -915,10 +916,10 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-4">
               {/* 안내 문구 */}
               <div className="flex gap-2 text-[12px] text-gray-600 leading-relaxed">
-                <span className="text-[#0D5C47] flex-shrink-0 mt-0.5">ℹ</span>
+                <span className="text-kb-primary flex-shrink-0 mt-0.5">ℹ</span>
                 <div>
                   인증서가 저장된 휴대폰번호를 입력하시지요.<br />
-                  <span className="text-[#0D5C47]">모바일뱅킹앱 실행 시 지문·Face ID인증 팝업이 나오는경우</span><br />
+                  <span className="text-kb-primary">모바일뱅킹앱 실행 시 지문·Face ID인증 팝업이 나오는경우</span><br />
                   해당 팝업 종료 후 연동인증을 진행해주세요.
                 </div>
               </div>
@@ -939,7 +940,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
                   maxLength={4}
                   value={phoneMiddle}
                   onChange={(e) => setPhoneMiddle(e.target.value.replace(/\D/g, ''))}
-                  className="border border-gray-400 px-2 py-1.5 text-[13px] w-[80px] outline-none focus:border-[#5BC9A8]"
+                  className="border border-gray-400 px-2 py-1.5 text-[13px] w-[80px] outline-none focus:border-kb-mint"
                 />
                 <span className="text-gray-400">-</span>
                 <input
@@ -947,7 +948,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
                   maxLength={4}
                   value={phoneLast}
                   onChange={(e) => setPhoneLast(e.target.value.replace(/\D/g, ''))}
-                  className="border border-gray-400 px-2 py-1.5 text-[13px] w-[80px] outline-none focus:border-[#5BC9A8]"
+                  className="border border-gray-400 px-2 py-1.5 text-[13px] w-[80px] outline-none focus:border-kb-mint"
                 />
               </div>
 
@@ -966,7 +967,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
               <button
                 onClick={handleSend}
                 disabled={!phoneMiddle || !phoneLast}
-                className="w-full py-2.5 text-white text-[14px] font-bold rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity" style={{ backgroundColor: '#0D5C47' }}
+                className="w-full py-2.5 text-white text-[14px] font-bold rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}
               >
                 전송
               </button>
@@ -975,8 +976,8 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
 
           {tab === 'push' && sent && (
             <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-              <div className="w-14 h-14 rounded-full border-2 border-[#5BC9A8] flex items-center justify-center">
-                <span className="text-[#5BC9A8] text-2xl">📱</span>
+              <div className="w-14 h-14 rounded-full border-2 border-kb-mint flex items-center justify-center">
+                <span className="text-kb-mint text-2xl">📱</span>
               </div>
               <p className="text-[14px] font-bold text-kb-text">모바일뱅킹 앱을 확인해주세요</p>
               <p className="text-[12px] text-gray-500">앱에서 인증을 완료하면 자동으로 로그인됩니다.</p>
@@ -997,7 +998,7 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
 
         {/* AXful 뱅킹 아이콘 */}
         <div className="px-5 pb-2">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-[10px] font-extrabold" style={{ backgroundColor: '#0D5C47' }}>
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-[10px] font-extrabold" style={{ backgroundColor: KB_PRIMARY }}>
             AX
           </div>
         </div>
@@ -1104,12 +1105,12 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
               <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-sm px-1">✕</button>
             </div>
             <div className="flex-1 flex flex-col items-center justify-center gap-4 px-8 py-8">
-              <div className="w-12 h-12 rounded border-2 border-[#5BC9A8] flex items-center justify-center">
-                <span className="text-[#5BC9A8] text-2xl font-bold">✓</span>
+              <div className="w-12 h-12 rounded border-2 border-kb-mint flex items-center justify-center">
+                <span className="text-kb-mint text-2xl font-bold">✓</span>
               </div>
               <p className="text-[16px] font-medium text-kb-text">팝업창을 확인해주세요.</p>
               <p className="text-[13px] text-center leading-relaxed text-gray-500">
-                <span className="text-[#0D5C47] font-medium">클라우드에 저장하는</span>{' '}
+                <span className="text-kb-primary font-medium">클라우드에 저장하는</span>{' '}
                 <span className="text-kb-text font-medium">새로운 인증서</span>
                 <br />
                 금융인증서의 팝업창이 열리지 않았다면{' '}
@@ -1120,7 +1121,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
               <button
                 onClick={() => setStep('yeskey')}
                 className="mt-2 px-10 py-2 text-white text-[14px] font-bold rounded-lg hover:opacity-85 transition-opacity"
-                style={{ backgroundColor: '#0D5C47' }}
+                style={{ backgroundColor: KB_PRIMARY }}
               >
                 확인
               </button>
@@ -1156,7 +1157,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div className="px-4 py-3 border-t border-gray-200">
-            <button className="text-[11px] text-[#0D5C47] hover:underline">다시 보지않기</button>
+            <button className="text-[11px] text-kb-primary hover:underline">다시 보지않기</button>
           </div>
         </div>
       </div>
@@ -1165,7 +1166,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
       {step === 'yeskey' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
           <div className="bg-white shadow-2xl" style={{ width: 500 }}>
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-kb-border" style={{ backgroundColor: '#F0FAF7' }}>
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-kb-border" style={{ backgroundColor: KB_PRIMARY_BG }}>
               <span className="text-[13px] font-medium text-kb-text">금융인증서비스</span>
               <button onClick={onClose} className="text-kb-text-muted hover:text-kb-text">✕</button>
             </div>
@@ -1187,7 +1188,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
 
               {/* 우: PIN 입력 */}
               <div className="flex-1 flex flex-col items-center py-6 px-5 gap-3">
-                <p className="text-[13px] font-medium" style={{ color: '#0D5C47' }}>
+                <p className="text-[13px] font-medium" style={{ color: KB_PRIMARY }}>
                   고객님의 금융인증서
                 </p>
                 <p className="text-[17px] font-bold text-kb-text">비밀번호를 입력해주세요</p>
@@ -1197,14 +1198,14 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
                     <div
                       key={i}
                       className="w-9 h-9 rounded flex items-center justify-center border-2"
-                      style={i < pin.length ? { backgroundColor: '#0D5C47', borderColor: '#0D5C47' } : { borderColor: '#D1D5DB', backgroundColor: 'white' }}
+                      style={i < pin.length ? { backgroundColor: KB_PRIMARY, borderColor: KB_PRIMARY } : { borderColor: '#D1D5DB', backgroundColor: 'white' }}
                     >
                       {i < pin.length && <span className="text-white text-sm font-bold">●</span>}
                     </div>
                   ))}
                 </div>
 
-                <button className="text-[12px] hover:underline" style={{ color: '#0D5C47' }}>
+                <button className="text-[12px] hover:underline" style={{ color: KB_PRIMARY }}>
                   비밀번호를 잊으셨나요?
                 </button>
 
@@ -1253,7 +1254,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => setErrorMsg('')}
               className="mt-5 text-body hover:underline"
-              style={{ color: '#0D5C47' }}
+              style={{ color: KB_PRIMARY }}
             >
               확인
             </button>
@@ -1388,13 +1389,13 @@ function LoginSettingModal({ onApply, onClose }: { onApply: (tab: LoginTab) => v
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40">
       <div className="bg-white w-[400px] shadow-lg">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: '#3D4F47' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: KB_PRIMARY_DARK }}>
           <p className="text-body font-bold text-white">로그인 설정</p>
           <button onClick={onClose} className="text-white/80 hover:text-white text-xl leading-none">✕</button>
         </div>
 
         {/* 안내 */}
-        <div className="mx-6 mt-5 mb-4 border border-kb-border px-4 py-3 bg-[#F0FAF7]">
+        <div className="mx-6 mt-5 mb-4 border border-kb-border px-4 py-3 bg-kb-primary-bg">
           <p className="text-caption text-kb-text-body">
             · 자주 쓰는 로그인 방식을 설정하고 간편하게 로그인하세요.
           </p>
@@ -1405,7 +1406,7 @@ function LoginSettingModal({ onApply, onClose }: { onApply: (tab: LoginTab) => v
           {LOGIN_SETTING_OPTIONS.map((option) => (
             <label
               key={option}
-              className="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-[#F0FAF7] transition-colors"
+              className="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-kb-primary-bg transition-colors"
             >
               <input
                 type="radio"
@@ -1425,7 +1426,7 @@ function LoginSettingModal({ onApply, onClose }: { onApply: (tab: LoginTab) => v
           <button
             onClick={handleApply}
             className="px-14 py-2.5 text-white text-body font-bold rounded-lg hover:opacity-85 transition-opacity"
-            style={{ backgroundColor: '#0D5C47' }}
+            style={{ backgroundColor: KB_PRIMARY }}
           >
             설정
           </button>

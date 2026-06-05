@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { Fragment, useState, useEffect } from 'react'
@@ -108,8 +109,8 @@ export default function TransactionsPage() {
 
   const periodBtn = (p: string) => (
     <button key={p} onClick={() => setPeriod(p)}
-      className="border rounded-lg px-4 py-1.5 text-[12px] font-medium transition-colors hover:bg-[#F0FAF7]"
-      style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+      className="border rounded-lg px-4 py-1.5 text-[12px] font-medium transition-colors hover:bg-kb-primary-bg"
+      style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
       {p}
     </button>
   )
@@ -126,12 +127,12 @@ export default function TransactionsPage() {
           <h1 className="text-[22px] font-bold text-kb-text mb-5">거래내역 조회</h1>
 
           {/* 탭 */}
-          <div className="flex border-b mb-5" style={{ borderColor: '#E2F5EF' }}>
+          <div className="flex border-b mb-5" style={{ borderColor: KB_PRIMARY_BORDER }}>
             {['간편조회', '상세조회', '달력으로 보기'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className="px-6 py-2.5 text-[14px] font-medium border-b-2 -mb-px transition-colors"
                 style={activeTab === tab
-                  ? { borderColor: '#0D5C47', color: '#0D5C47', fontWeight: 700 }
+                  ? { borderColor: KB_PRIMARY, color: KB_PRIMARY, fontWeight: 700 }
                   : { borderColor: 'transparent', color: '#9CA3AF' }}>
                 {tab}
               </button>
@@ -145,7 +146,7 @@ export default function TransactionsPage() {
                 <table className="w-full text-[13px]">
                   <tbody>
                     <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                      <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>계좌번호</td>
+                      <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>계좌번호</td>
                       <td className={valueCell}>
                         <select value={calAccount} onChange={e => { setCalAccount(e.target.value); setCalSearched(false) }}
                           className={inputCls + " w-[340px]"} style={inputStyle}>
@@ -156,7 +157,7 @@ export default function TransactionsPage() {
                       </td>
                     </tr>
                     <tr>
-                      <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>조회기간</td>
+                      <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>조회기간</td>
                       <td className={valueCell}>
                         <div className="flex items-center gap-2">
                           <select value={year} onChange={e => { setYear(e.target.value); setCalSearched(false) }}
@@ -179,7 +180,7 @@ export default function TransactionsPage() {
               <div className="flex justify-center mb-6">
                 <button onClick={() => setCalSearched(true)}
                   className="px-14 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   조회
                 </button>
               </div>
@@ -193,7 +194,7 @@ export default function TransactionsPage() {
                         {['일','월','화','수','목','금','토'].map((d, i) => (
                           <th key={d} className="py-2 text-center font-semibold text-[12px]"
                             style={{
-                              backgroundColor: '#F0FAF7',
+                              backgroundColor: KB_PRIMARY_BG,
                               border: '1px solid #E2F5EF',
                               color: i === 0 ? '#E05555' : i === 6 ? '#3B82F6' : '#374151',
                             }}>
@@ -219,7 +220,7 @@ export default function TransactionsPage() {
                                   <>
                                     <p className="font-semibold mb-0.5">{day}</p>
                                     {dayTxs.filter(t => t.directionType === 'IN').map(t => (
-                                      <p key={t.transactionId} className="truncate" style={{ color: '#0D5C47' }}>{formatNumber(Number(t.amount))}</p>
+                                      <p key={t.transactionId} className="truncate" style={{ color: KB_PRIMARY }}>{formatNumber(Number(t.amount))}</p>
                                     ))}
                                     {dayTxs.filter(t => t.directionType === 'OUT').map(t => (
                                       <p key={t.transactionId} className="truncate text-[#E05555]">{formatNumber(Number(t.amount))}</p>
@@ -248,7 +249,7 @@ export default function TransactionsPage() {
                 <table className="w-full text-[13px]">
                   <tbody>
                     <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                      <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>계좌번호</td>
+                      <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>계좌번호</td>
                       <td className={valueCell}>
                         <select value={selectedAccount}
                           onChange={e => { setSelectedAccount(e.target.value); setSearched(false) }}
@@ -262,7 +263,7 @@ export default function TransactionsPage() {
 
                     {activeTab === '상세조회' && (
                       <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                        <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>월별조회</td>
+                        <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>월별조회</td>
                         <td className={valueCell}>
                           <div className="flex items-center gap-2">
                             <select value={year} onChange={e => setYear(e.target.value)} className={inputCls} style={inputStyle}>
@@ -279,7 +280,7 @@ export default function TransactionsPage() {
                     )}
 
                     <tr style={activeTab === '상세조회' ? { borderBottom: '1px solid #E2F5EF' } : {}}>
-                      <td className={labelCell + " align-top pt-4"} style={{ backgroundColor: '#F0FAF7' }}>조회기간</td>
+                      <td className={labelCell + " align-top pt-4"} style={{ backgroundColor: KB_PRIMARY_BG }}>조회기간</td>
                       <td className={valueCell}>
                         <div className="flex flex-wrap gap-1.5 mb-2">
                           {PERIOD_BUTTONS.map(p => periodBtn(p))}
@@ -297,7 +298,7 @@ export default function TransactionsPage() {
                     {activeTab === '상세조회' && (
                       <>
                         <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                          <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>조회내용</td>
+                          <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>조회내용</td>
                           <td className={valueCell}>
                             <div className="flex items-center gap-5">
                               {(['전체', '입금내용만', '출금내용만'] as const).map(v => (
@@ -305,7 +306,7 @@ export default function TransactionsPage() {
                                   <input type="radio" name="txType"
                                     checked={txType === (v === '전체' ? '전체' : v === '입금내용만' ? '입금' : '출금')}
                                     onChange={() => setTxType(v === '전체' ? '전체' : v === '입금내용만' ? '입금' : '출금')}
-                                    style={{ accentColor: '#0D5C47' }} />
+                                    style={{ accentColor: KB_PRIMARY }} />
                                   {v}
                                 </label>
                               ))}
@@ -313,7 +314,7 @@ export default function TransactionsPage() {
                           </td>
                         </tr>
                         <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                          <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>조회결과 순서</td>
+                          <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>조회결과 순서</td>
                           <td className={valueCell}>
                             <div className="flex items-center gap-5">
                               {[['최근', '최근 거래내역이 위로'], ['과거', '과거 거래내역이 위로']].map(([val, label]) => (
@@ -321,7 +322,7 @@ export default function TransactionsPage() {
                                   <input type="radio" name="sortOrder"
                                     checked={sortOrder === val}
                                     onChange={() => setSortOrder(val as '최근' | '과거')}
-                                    style={{ accentColor: '#0D5C47' }} />
+                                    style={{ accentColor: KB_PRIMARY }} />
                                   {label}
                                 </label>
                               ))}
@@ -329,7 +330,7 @@ export default function TransactionsPage() {
                           </td>
                         </tr>
                         <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                          <td className={labelCell} style={{ backgroundColor: '#F0FAF7' }}>메모</td>
+                          <td className={labelCell} style={{ backgroundColor: KB_PRIMARY_BG }}>메모</td>
                           <td className={valueCell}>
                             <select value={memoFilter} onChange={e => setMemoFilter(e.target.value)}
                               className={inputCls + " w-36"} style={inputStyle}>
@@ -340,7 +341,7 @@ export default function TransactionsPage() {
                           </td>
                         </tr>
                         <tr>
-                          <td className={labelCell + " align-top pt-4"} style={{ backgroundColor: '#F0FAF7' }}>추가검색</td>
+                          <td className={labelCell + " align-top pt-4"} style={{ backgroundColor: KB_PRIMARY_BG }}>추가검색</td>
                           <td className={valueCell + " space-y-2"}>
                             <div className="flex items-center gap-2 text-[13px]">
                               <span className="text-kb-text-muted w-24">금액 범위</span>
@@ -367,7 +368,7 @@ export default function TransactionsPage() {
               <div className="flex justify-center mb-6">
                 <button onClick={() => setSearched(true)}
                   className="px-14 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   조회
                 </button>
               </div>
@@ -377,26 +378,26 @@ export default function TransactionsPage() {
                 <div>
                   {/* 선택 계좌 카드 */}
                   {selectedAcc && (
-                    <div className="rounded-xl p-5 mb-4" style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
+                    <div className="rounded-xl p-5 mb-4" style={{ border: '1px solid #E2F5EF', backgroundColor: KB_PRIMARY_SURFACE }}>
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[15px] font-bold text-kb-text">{selectedAcc.number}</span>
                             {selectedAcc.badge && (
-                              <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: '#E2F5EF', color: '#0D5C47' }}>
+                              <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                                 {selectedAcc.badge}
                               </span>
                             )}
                           </div>
                           <p className="text-[12px] text-kb-text-muted mb-1">{selectedAcc.name}</p>
                           <p className="text-[13px] text-kb-text">
-                            잔액 <span className="font-bold text-[16px]" style={{ color: '#0D5C47' }}>{formatNumber(selectedAcc.balance)}원</span>
+                            잔액 <span className="font-bold text-[16px]" style={{ color: KB_PRIMARY }}>{formatNumber(selectedAcc.balance)}원</span>
                             <span className="text-kb-text-muted ml-2 text-[12px]">(출금가능 {formatNumber(selectedAcc.availableBalance)}원)</span>
                           </p>
                         </div>
                         <Link href="/transfer/account"
                           className="px-5 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                          style={{ backgroundColor: '#0D5C47' }}>
+                          style={{ backgroundColor: KB_PRIMARY }}>
                           이체
                         </Link>
                       </div>
@@ -405,7 +406,7 @@ export default function TransactionsPage() {
 
                   {/* 합계 */}
                   <div className="flex justify-between text-[13px] text-kb-text-muted mb-3 px-1">
-                    <span>총 입금 ({filteredTxs.filter(t=>t.directionType==='IN').length}건) <span className="font-semibold" style={{ color: '#0D5C47' }}>{formatNumber(totalDeposit)}원</span></span>
+                    <span>총 입금 ({filteredTxs.filter(t=>t.directionType==='IN').length}건) <span className="font-semibold" style={{ color: KB_PRIMARY }}>{formatNumber(totalDeposit)}원</span></span>
                     <span>총 출금 ({filteredTxs.filter(t=>t.directionType==='OUT').length}건) <span className="font-semibold text-[#E05555]">{formatNumber(totalWithdraw)}원</span></span>
                   </div>
 
@@ -413,10 +414,10 @@ export default function TransactionsPage() {
                   <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
                     <table className="w-full border-collapse text-[12px]">
                       <thead>
-                        <tr style={{ backgroundColor: '#F0FAF7' }}>
+                        <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                           {['거래일시', '적요', '보낸분/받는분', '출금액(원)', '입금액(원)', '잔액(원)', '메모'].map(h => (
                             <th key={h} className="px-3 py-2.5 text-center font-semibold text-[12px]"
-                              style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>
+                              style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>
                               {h}
                             </th>
                           ))}
@@ -439,9 +440,9 @@ export default function TransactionsPage() {
                                 onClick={() => setExpandedTxId(isExpanded ? null : tx.transactionId)}
                                 className="cursor-pointer transition-colors"
                                 style={isExpanded
-                                  ? { backgroundColor: '#F0FAF7' }
+                                  ? { backgroundColor: KB_PRIMARY_BG }
                                   : undefined}
-                                onMouseEnter={e => { if (!isExpanded) (e.currentTarget as HTMLElement).style.backgroundColor = '#F8FFFE' }}
+                                onMouseEnter={e => { if (!isExpanded) (e.currentTarget as HTMLElement).style.backgroundColor = KB_PRIMARY_SURFACE }}
                                 onMouseLeave={e => { if (!isExpanded) (e.currentTarget as HTMLElement).style.backgroundColor = '' }}
                               >
                                 <td className="px-3 py-2.5 text-center" style={{ borderBottom: '1px solid #F0F0F0' }}>{tx.transactionAt?.slice(0,16).replace('T',' ')}</td>
@@ -450,7 +451,7 @@ export default function TransactionsPage() {
                                 <td className="px-3 py-2.5 text-right font-semibold" style={{ borderBottom: '1px solid #F0F0F0', color: '#E05555' }}>
                                   {!isIn ? formatNumber(amt) : ''}
                                 </td>
-                                <td className="px-3 py-2.5 text-right font-semibold" style={{ borderBottom: '1px solid #F0F0F0', color: '#0D5C47' }}>
+                                <td className="px-3 py-2.5 text-right font-semibold" style={{ borderBottom: '1px solid #F0F0F0', color: KB_PRIMARY }}>
                                   {isIn ? formatNumber(amt) : ''}
                                 </td>
                                 <td className="px-3 py-2.5 text-right" style={{ borderBottom: '1px solid #F0F0F0', color: '#6B7280' }}>-</td>
@@ -458,7 +459,7 @@ export default function TransactionsPage() {
                               </tr>
                               {isExpanded && (
                                 <tr>
-                                  <td colSpan={7} style={{ backgroundColor: '#F8FFFE', borderBottom: '1px solid #E2F5EF' }}>
+                                  <td colSpan={7} style={{ backgroundColor: KB_PRIMARY_SURFACE, borderBottom: '1px solid #E2F5EF' }}>
                                     <div className="flex gap-10 px-6 py-4 text-[12px]">
                                       <div className="space-y-1.5">
                                         {[
@@ -468,7 +469,7 @@ export default function TransactionsPage() {
                                         ].map(([k, v]) => (
                                           <div key={k} className="flex gap-3">
                                             <span className="text-kb-text-muted w-20">{k}</span>
-                                            <span className="font-medium" style={{ color: k === '거래구분' ? (isIn ? '#0D5C47' : '#E05555') : '#374151' }}>{v}</span>
+                                            <span className="font-medium" style={{ color: k === '거래구분' ? (isIn ? KB_PRIMARY : '#E05555') : '#374151' }}>{v}</span>
                                           </div>
                                         ))}
                                       </div>
@@ -485,12 +486,12 @@ export default function TransactionsPage() {
                                         ))}
                                       </div>
                                       <div className="ml-auto flex items-start gap-2 pt-1">
-                                        <button className="border rounded-lg px-3 py-1 text-[12px] transition-colors hover:bg-[#F0FAF7]"
-                                          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                                        <button className="border rounded-lg px-3 py-1 text-[12px] transition-colors hover:bg-kb-primary-bg"
+                                          style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                                           거래영수증
                                         </button>
-                                        <button className="border rounded-lg px-3 py-1 text-[12px] transition-colors hover:bg-[#F0FAF7]"
-                                          style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                                        <button className="border rounded-lg px-3 py-1 text-[12px] transition-colors hover:bg-kb-primary-bg"
+                                          style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                                           메모 수정
                                         </button>
                                       </div>
