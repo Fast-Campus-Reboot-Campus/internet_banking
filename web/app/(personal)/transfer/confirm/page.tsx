@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 import { executeDepositTransfer, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import { createInstantTransfer, newIdempotencyKey, newAuthToken, PAYMENT_BANK_CODE_MAP } from '@/lib/payment-api'
 
 type PendingTransfer = {
   fromAccountId?: number
@@ -56,20 +57,44 @@ export default function TransferConfirmPage() {
           setShowCertModal(false)
           try {
             if (!data.fromAccountId) throw new Error('출금계좌 정보가 없습니다.')
-            const res = await executeDepositTransfer(getCurrentDepositCustomerId(), {
-              fromAccountId: data.fromAccountId,
-              toAccountId: data.toAccountId,
-              toAccountNo: data.toAccount,
-              amount: data.amount,
-              transferType: data.transferType,
-              counterpartyBankCode: data.toBankCode,
-              counterpartyBankName: data.toBank,
-              counterpartyName: data.receiverName,
-            })
-            sessionStorage.setItem('paymentResult', JSON.stringify({
-              status: 'COMPLETED',
-              txNo: String(res.transactionId),
-            }))
+            if (data.transferType === 'EXTERNAL') {
+              const authTokenNo = newAuthToken()
+              const userId = getCurrentDepositCustomerId()
+              const res = await createInstantTransfer(
+                {
+                  senderAccountId:      String(data.fromAccountId),
+                  receiverBankCode:     PAYMENT_BANK_CODE_MAP[data.toBankCode] ?? data.toBankCode,
+                  receiverAccountNo:    data.toAccount,
+                  transferAmount:       data.amount,
+                  expectedReceiverName: data.receiverName,
+                  authTokenNo,
+                  channel:              'MOBILE',
+                },
+                {
+                  userId,
+                  authTokenId:    authTokenNo,
+                  idempotencyKey: newIdempotencyKey(),
+                  channel:        'MOBILE',
+                  requestId:      crypto.randomUUID(),
+                }
+              )
+              sessionStorage.setItem('paymentResult', JSON.stringify({ status: 'COMPLETED', txNo: res.transactionNo }))
+            } else {
+              const res = await executeDepositTransfer(getCurrentDepositCustomerId(), {
+                fromAccountId: data.fromAccountId,
+                toAccountId: data.toAccountId,
+                toAccountNo: data.toAccount,
+                amount: data.amount,
+                transferType: data.transferType,
+                counterpartyBankCode: data.toBankCode,
+                counterpartyBankName: data.toBank,
+                counterpartyName: data.receiverName,
+              })
+              sessionStorage.setItem('paymentResult', JSON.stringify({
+                status: 'COMPLETED',
+                txNo: String(res.transactionId),
+              }))
+            }
           } catch (e: unknown) {
             const err = e as { response?: { data?: { error?: string } }; message?: string }
             sessionStorage.setItem('paymentResult', JSON.stringify({
