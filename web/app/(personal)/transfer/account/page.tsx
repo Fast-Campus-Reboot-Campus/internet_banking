@@ -27,10 +27,10 @@ export default function TransferAccountPage() {
   const [validationMessage, setValidationMessage] = useState('')
   const [innerBankTab, setInnerBankTab] = useState<'own' | 'other'>('own')
 
+  // 계좌 목록 로딩 — 마운트 시 1회 또는 requestedFromAccount 변경 시만 실행
   useEffect(() => {
     async function loadAccounts() {
       let loadedAccounts: DepositViewAccount[] = []
-
       let fallbackAccounts: DepositViewAccount[] = []
       try {
         const raw = localStorage.getItem('joinedAccounts')
@@ -41,35 +41,40 @@ export default function TransferAccountPage() {
         const customerId = getCurrentDepositCustomerId()
         const accs = await fetchDepositAccountViewModels(customerId)
         loadedAccounts = accs.length > 0 ? accs : fallbackAccounts
-        setAccounts(loadedAccounts)
-        if (loadedAccounts.length > 0) {
-          const requestedAccountKey = requestedFromAccount || fromAccount
-          const requestedAccount = loadedAccounts.find(a =>
-            a.id === requestedAccountKey ||
-            a.number === requestedAccountKey ||
-            String(a.apiAccountId) === requestedAccountKey
-          )
-          if (requestedAccount?.rawAccountType === 'DEPOSIT' && requestedAccount.isWithdrawable !== false) {
-            setFromAccount(requestedAccount.id)
-          } else if (!fromAccount && !requestedFromAccount) {
-            const firstTransferable = loadedAccounts.find(a => a.rawAccountType === 'DEPOSIT' && a.isWithdrawable !== false)
-            setFromAccount((firstTransferable ?? loadedAccounts[0]).id)
-          }
-        }
       } catch {
         loadedAccounts = fallbackAccounts
-        setAccounts(fallbackAccounts)
-        if (fallbackAccounts.length > 0 && !fromAccount && !requestedFromAccount) {
-          const firstTransferable = fallbackAccounts.find(a => a.rawAccountType === 'DEPOSIT' && a.isWithdrawable !== false)
-          setFromAccount((firstTransferable ?? fallbackAccounts[0]).id)
-        }
       }
+
+      setAccounts(loadedAccounts)
+
+      // 출금 계좌 초기 선택 — 이미 선택된 경우 변경하지 않음
+      setFromAccount(prev => {
+        if (prev) return prev
+        if (requestedFromAccount) {
+          const requested = loadedAccounts.find(a =>
+            a.id === requestedFromAccount ||
+            a.number === requestedFromAccount ||
+            String(a.apiAccountId) === requestedFromAccount
+          )
+          if (requested && requested.isWithdrawable !== false) return requested.id
+        }
+        const first = loadedAccounts.find(a => a.rawAccountType === 'DEPOSIT' && a.isWithdrawable !== false)
+          ?? loadedAccounts[0]
+        return first?.id ?? ''
+      })
+    }
+    loadAccounts()
+  }, [requestedFromAccount])
+
+  // 최근 이체 내역 로딩 — 출금 계좌 변경 시 실행
+  useEffect(() => {
+    if (!fromAccount || accounts.length === 0) return
+    async function loadRecent() {
       try {
-        const recentSourceAccount =
-          loadedAccounts.find(a => a.id === fromAccount) ?? loadedAccounts[0]
-        const firstAccId = recentSourceAccount?.apiAccountId
-        if (!firstAccId) return
-        const txs = await fetchTransactions({ accountId: firstAccId })
+        const sourceAcc = accounts.find(a => a.id === fromAccount) ?? accounts[0]
+        const accId = sourceAcc?.apiAccountId
+        if (!accId) return
+        const txs = await fetchTransactions({ accountId: accId })
         const seen = new Set<string>()
         const recent = txs
           .filter((t: DepositTransaction) => t.transactionType === 'TRANSFER' && t.directionType === 'OUT' && t.counterpartyAccountNo)
@@ -84,8 +89,8 @@ export default function TransferAccountPage() {
         setRecentAccounts(recent)
       } catch {}
     }
-    loadAccounts()
-  }, [fromAccount, requestedFromAccount])
+    loadRecent()
+  }, [fromAccount, accounts])
 
   const transferableAccounts = accounts.filter(a =>
     a.rawAccountType === 'DEPOSIT' &&
