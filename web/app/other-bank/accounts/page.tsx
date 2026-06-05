@@ -6,7 +6,7 @@ import { useState } from 'react'
 /* ── 다온은행 데모 목데이터 (KB 사이트와 분리된 독립 데이터) ── */
 const DAON_ACCOUNT = {
   number: '880-21-0457-118',
-  name: '다온 기업자유예금',
+  name: '다온 주거래 입출금통장',
   holder: '김민준',
   createdAt: '2025.11.03',
   balance: 8_120_000,
@@ -58,7 +58,7 @@ export default function DaonAccountsPage() {
     <div className="max-w-kb-container mx-auto px-6 py-4 pb-16">
       {/* 브레드크럼 */}
       <div className="flex justify-end mb-4 text-[12px] text-kb-text-muted gap-1">
-        <span>기업뱅킹</span><span>&gt;</span>
+        <span>개인뱅킹</span><span>&gt;</span>
         <span>조회</span><span>&gt;</span>
         <span className="hover:underline">계좌조회</span>
         <span>&gt;</span>
