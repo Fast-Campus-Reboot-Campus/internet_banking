@@ -1,5 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- 대출 API 응답 타입 미정의 구간, 빌드 차단 방지용 임시 처리 */
-import { api } from "./api";
+import axios from "axios";
+
+// loan-service 전용 axios 인스턴스.
+// 인증·고객 API(@/lib/api)는 customer-service를 가리키지만, 대출 엔드포인트는
+// loan-service(기본 8083)를 직접 호출한다. (게이트웨이 미경유 로컬 개발 구성)
+// loan-service의 JwtFallbackAuthFilter가 Bearer 토큰을 직접 파싱해 인증한다.
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_LOAN_API_URL || "http://localhost:8083",
+  headers: { "Content-Type": "application/json" },
+});
+
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("accessToken");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("access_token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(err);
+  },
+);
 
 // ─── 공통 타입 ───────────────────────────────────────────────
 
@@ -22,8 +51,8 @@ export interface LoanProduct {
 export interface PreferentialRatePolicy {
   policyId: number;
   policyName: string;
-  discountBps: number;
-  conditionDesc: string;
+  preferentialRateBps: number;
+  conditionCd: string;
 }
 
 export interface LoanApplication {
@@ -424,20 +453,20 @@ export const adminLoanApi = {
 // ─── 영업일 캘린더 ────────────────────────────────────────────
 
 export const businessCalendarApi = {
-  list: (params?: { year?: number; page?: number; size?: number }) =>
-    api.get<any>("/api/business-calendars", { params }),
+  list: (params?: { from?: string; to?: string; page?: number; size?: number }) =>
+    api.get<any>("/api/business-calendar", { params }),
 
   get: (calId: number) =>
-    api.get<any>(`/api/business-calendars/${calId}`),
+    api.get<any>(`/api/business-calendar/${calId}`),
 
   create: (body: object) =>
-    api.post<any>("/api/business-calendars", body),
+    api.post<any>("/api/business-calendar", body),
 
   update: (calId: number, body: object) =>
-    api.patch<any>(`/api/business-calendars/${calId}`, body),
+    api.put<any>(`/api/business-calendar/${calId}`, body),
 
   delete: (calId: number) =>
-    api.delete<any>(`/api/business-calendars/${calId}`),
+    api.delete<any>(`/api/business-calendar/${calId}`),
 };
 
 // ─── 신용정보 보고서 ──────────────────────────────────────────
