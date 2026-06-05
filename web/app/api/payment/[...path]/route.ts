@@ -20,6 +20,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
         ...(request.headers.get('X-Idempotency-Key') ? { 'X-Idempotency-Key': request.headers.get('X-Idempotency-Key')! } : {}),
         ...(request.headers.get('X-Channel')    ? { 'X-Channel':    request.headers.get('X-Channel')! }    : {}),
         ...(request.headers.get('X-Request-Id') ? { 'X-Request-Id': request.headers.get('X-Request-Id')! } : {}),
+        ...(request.headers.get('authorization') ? { 'Authorization': request.headers.get('authorization')! } : {}),
       },
       body,
       cache: 'no-store',
