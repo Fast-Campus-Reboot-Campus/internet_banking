@@ -87,7 +87,7 @@ class PolicyCitationCacheTest {
         cache.get(RULE_CD, QUERY_TEXT, TOP_K);
 
         // 두 번 모두 같은 키로 조회
-        verify(valueOps, times(2)).get(argThat(k ->
+        verify(valueOps, times(2)).get(argThat((String k) ->
                 k.startsWith(PolicyCitationCache.KEY_PREFIX + RULE_CD + ":" + TOP_K + ":")));
     }
 
