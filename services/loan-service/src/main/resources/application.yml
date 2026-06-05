@@ -157,6 +157,8 @@ advisory:
         read-timeout-ms: ${ADVISORY_OPENAI_READ_TIMEOUT_MS:10000}
         max-attempts: ${ADVISORY_OPENAI_MAX_ATTEMPTS:3}
         retry-backoff-ms: ${ADVISORY_OPENAI_RETRY_BACKOFF_MS:300}
+    cache:
+      ttl-hours: ${ADVISORY_RAG_CACHE_TTL_HOURS:6}
 
 ai-service:
   base-url: ${AI_SERVICE_BASE_URL:http://localhost:8086}

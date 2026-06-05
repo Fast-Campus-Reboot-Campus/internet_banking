@@ -336,11 +336,11 @@ services:
       retries: 10
       start_period: 60s
 
-  ai-service:
+  auto-loan-review:
     build:
       context: .
-      dockerfile: services/ai-service/Dockerfile
-    container_name: ib-ai-service
+      dockerfile: services/auto-loan-review/Dockerfile
+    container_name: ib-auto-loan-review
     environment:
       AI_APP_PORT: 8086
       AI_DB_HOST: ai-db
@@ -351,6 +351,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       LOG_DIR: /logs
+      AI_LLM_PROVIDER: ${AI_LLM_PROVIDER:-stub}
+      AI_LLM_MODEL: ${AI_LLM_MODEL:-stub-v1}
+      AI_LLM_BASE_URL: ${AI_LLM_BASE_URL:-}
+      AI_LLM_API_KEY: ${AI_LLM_API_KEY:-}
     depends_on:
       ai-db:
         condition: service_healthy
@@ -580,7 +584,7 @@ services:
         condition: service_healthy
       master-service:
         condition: service_healthy
-      ai-service:
+      auto-loan-review:
         condition: service_healthy
       redis:
         condition: service_healthy
