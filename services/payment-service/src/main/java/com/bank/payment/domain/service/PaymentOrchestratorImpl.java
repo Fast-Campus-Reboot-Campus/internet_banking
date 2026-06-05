@@ -340,7 +340,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             //       + kftc_clearing_transaction REQUESTED INSERT + 멱등키완료
             String numericBankCode = BankCodeMapper.toNumeric(bankCode);
             return txService.txStep4InterBank(pi, withdrawStep.txData(), command,
-                    validation.senderHolderName(), numericBankCode);
+                    validation.senderHolderName(), validation.receiverHolderName(), numericBankCode);
 
         } catch (PaymentValidationException e) {
             // step2 검증 실패 — 자금변동 없음(B-3 미도달). 200 OK + status=FAILED

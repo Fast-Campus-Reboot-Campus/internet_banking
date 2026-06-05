@@ -57,6 +57,12 @@ __pycache__/
 # Docker volumes (compose local 데이터)
 data/
 
+# 브랜치 작업 결과 정리 파일
+PR_*.md
+*_PR.md
+*-result.md
+브랜치_정리_결과.md
+
 # Claude Code (worktree·세션 메타데이터·로컬 설정)
 .claude/
 CLAUDE.local.md

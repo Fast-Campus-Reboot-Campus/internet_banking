@@ -382,14 +382,15 @@ public class PaymentTransactionService {
      * @param pi authorize까지 끝난 결제지시 (version=0, DB version=1)
      * @param withdrawResult B-3 출금 응답 (TRANSFER_OUT 분개 잔액박제용)
      * @param command 원 명령 (금액/계좌/수신은행 등)
-     * @param senderHolderName 송신 예금주명 (step2 A-2 조회값)
+     * @param senderHolderName 송신 예금주명 (step2 A-2 조회값, "미조회")
+     * @param receiverHolderName 수신 예금주명 (step2 A-2 조회값, "미조회") — DB 스냅샷용; Outbox payload는 command.receiverHolderName() 사용
      * @param senderBankCode 자행 3자리 은행코드 (004/088 — Orchestrator에서 계산해 전달)
      * @return PaymentResult (CLEARING, completedAt=null — KFTC 응답 대기)
      */
     @Transactional
     public PaymentResult txStep4InterBank(PaymentInstruction pi, BalanceTxData withdrawResult,
                                            PaymentCommand command, String senderHolderName,
-                                           String senderBankCode) {
+                                           String receiverHolderName, String senderBankCode) {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
         String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -520,7 +521,7 @@ public class PaymentTransactionService {
                 senderHolderName,
                 command.receiverBankCode(),
                 command.receiverAccountNo(),
-                command.receiverHolderName(),        // 타행: 요청값 그대로 박제
+                receiverHolderName,                  // 정식 연동 전까지 "미조회". 요청값은 미검증값이므로 DB 스냅샷에 박지 않음
                 transferAmount,
                 clearingRequestedAt);
         clearingTransactionMapper.insert(clearingTx);

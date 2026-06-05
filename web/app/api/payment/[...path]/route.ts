@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PAYMENT_API_URL = process.env.PAYMENT_API_URL || 'http://localhost:8084'
+const PAYMENT_API_URL = process.env.PAYMENT_API_URL || 'http://localhost:8080'
 
 type RouteContext = { params: { path: string[] } }
 
@@ -18,6 +18,8 @@ async function proxy(request: NextRequest, context: RouteContext) {
         ...(request.headers.get('X-User-Id') ? { 'X-User-Id': request.headers.get('X-User-Id')! } : {}),
         ...(request.headers.get('X-Auth-Token-Id') ? { 'X-Auth-Token-Id': request.headers.get('X-Auth-Token-Id')! } : {}),
         ...(request.headers.get('X-Idempotency-Key') ? { 'X-Idempotency-Key': request.headers.get('X-Idempotency-Key')! } : {}),
+        ...(request.headers.get('X-Channel')    ? { 'X-Channel':    request.headers.get('X-Channel')! }    : {}),
+        ...(request.headers.get('X-Request-Id') ? { 'X-Request-Id': request.headers.get('X-Request-Id')! } : {}),
       },
       body,
       cache: 'no-store',
