@@ -374,8 +374,7 @@ services:
     env_file: ../../.env.prod
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      # ai-service 와 같은 AI_APP_PORT 사용하므로 명시적으로 오버라이드
-      AI_APP_PORT: 8089
+      AUTO_LOAN_REVIEW_APP_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
       AI_DB_HOST: ai-db
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     mem_limit: 768m
@@ -420,8 +419,8 @@ services:
       PAYMENT_APP_PORT: 8084
       MASTER_SERVICE_HOST: master-service
       MASTER_APP_PORT: 8085
-      AI_SERVICE_HOST: ai-service
-      AI_APP_PORT: 8086
+      AI_SERVICE_HOST: auto-loan-review
+      AI_SERVICE_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
     ports:
       - "${GATEWAY_PUBLIC_PORT:-8080}:8080"   # 외부 노출 (Oracle 방화벽 룰 필요)
     mem_limit: 512m

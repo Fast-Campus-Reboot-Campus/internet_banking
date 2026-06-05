@@ -342,7 +342,7 @@ services:
       dockerfile: services/auto-loan-review/Dockerfile
     container_name: ib-auto-loan-review
     environment:
-      AI_APP_PORT: 8086
+      AUTO_LOAN_REVIEW_APP_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
       AI_DB_HOST: ai-db
       AI_DB_PORT: 5432
       AI_DB_NAME: ${AI_DB_NAME:-ai_db}
@@ -351,17 +351,17 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       LOG_DIR: /logs
-      AI_LLM_PROVIDER: ${AI_LLM_PROVIDER:-stub}
-      AI_LLM_MODEL: ${AI_LLM_MODEL:-stub-v1}
-      AI_LLM_BASE_URL: ${AI_LLM_BASE_URL:-}
-      AI_LLM_API_KEY: ${AI_LLM_API_KEY:-}
+      AI_LLM_PROVIDER: ${GEMINI_LOAN_PROVIDER:-stub}
+      AI_LLM_MODEL: ${GEMINI_LOAN_MODEL:-stub-v1}
+      GEMINI_BASE_URL: ${GEMINI_LOAN_BASE_URL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       ai-db:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health | grep -q UP"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${AUTO_LOAN_REVIEW_APP_PORT:-8089}/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -572,7 +572,7 @@ services:
       MASTER_SERVICE_HOST: master-service
       MASTER_SERVICE_PORT: ${MASTER_APP_PORT:-8085}
       AI_SERVICE_HOST: auto-loan-review
-      AI_SERVICE_PORT: ${AI_APP_PORT:-8086}
+      AI_SERVICE_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
     depends_on:
       customer-service:
         condition: service_healthy
