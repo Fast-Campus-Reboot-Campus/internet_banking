@@ -133,19 +133,40 @@ internet_banking/
 
 ## deposit-service 주요 기능
 
+### 상품 관리
+
+- 예금·적금·청약 상품 조회 (유형별 필터링, 판매 상태 기준)
+- 상품별 기본금리·우대금리·가입기간·가입금액 조건 관리
+- 가입 대상 그룹(연령·직군 등) 연동
+
 ### 계약 관리
 
 - 계약 생성·조회·상태변경·해지·만기 처리
 - 가입금액 검증: `minJoinAmount` 이상, `maxJoinAmount` 이하
 - 계좌 자동 생성, 우대금리 이력, 특약 동의 관리
+- 자동이체 설정 및 만기 처리
+
+### 계좌 관리
+
+- 계좌 목록 조회 (고객 ID 기준, CLOSED 계좌 제외)
+- 계좌 유형별 분류: 예금 / 적금 / 청약 / 입출금
+- `isWithdrawable` 플래그 기반 출금 가능 계좌 구분
+- 잔액·거래내역 조회
+
+### 거래 관리
+
+- 입금·출금·이체 거래 원장(Transaction) 기록
+- 당행이체 (`INTERNAL`): 수취 계좌 실존 여부 및 계좌번호 일치 검증
+- 타행이체 (`EXTERNAL`): 상대 은행 코드·이름·예금주명 기록
+- 이체 실행 지점 단일화 — result 페이지에서만 호출, 중복 실행 방지
 
 ### 상품 추천 (RecommendAgentService)
 
-고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다.
+고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다. 외부 AI 없이 규칙 기반으로 처리한다.
 
 ```
 순현금흐름(netCashFlow) / periodMonth → estimatedSavingsAmount
-→ minJoinAmount 이상 상품 필터 → bestRate 내림차순 최대 5개 반환
+→ minJoinAmount 이상 상품 필터 → 판매 중 상품 필터 → bestRate 내림차순 최대 5개 반환
 ```
 
 ```
@@ -159,11 +180,16 @@ X-Customer-Id: {customerId}
 
 | 단계 | 프런트 라우트 | 역할 |
 |---|---|---|
-| STEP 1. 이체정보 입력 | `web/app/(personal)/transfer/account/page.tsx` | 출금 가능 계좌 조회, 입금 계좌/금액 입력, `pendingTransfer` 생성 |
+| STEP 1. 이체정보 입력 | `web/app/(personal)/transfer/account/page.tsx` | 출금 계좌 선택, 당행/타행 탭 전환, 입금 계좌·금액 입력, `pendingTransfer` 생성 |
 | STEP 2. 이체정보 확인 | `web/app/(personal)/transfer/confirm/page.tsx` | 금융인증서 PIN 확인 후 결과 화면으로 이동 |
 | STEP 3. 이체결과 | `web/app/(personal)/transfer/result/page.tsx` | `executeDepositTransfer()`를 호출해 실제 이체 실행 |
 
-중복 이체를 막기 위해 실제 API 호출은 `result` 페이지 한 곳에서만 수행한다. `confirm` 페이지는 인증 및 화면 전환만 담당하며, `payment-service`의 `createInstantTransfer()`를 호출하지 않는다.
+중복 이체를 막기 위해 실제 API 호출은 `result` 페이지 한 곳에서만 수행한다. `confirm` 페이지는 인증 및 화면 전환만 담당한다.
+
+#### 당행/타행 이체 구분
+
+- **당행 탭**: 내 계좌 드롭다운으로 수취 계좌 선택 → `transferType: INTERNAL`
+- **타행 탭**: 은행 선택 모달 + 계좌번호 직접 입력 → `transferType: EXTERNAL`
 
 ```
 POST /api/transactions/transfer
@@ -172,13 +198,17 @@ X-Customer-Id: {customerId}
 
 프런트의 `executeDepositTransfer()`는 다음 값을 deposit API로 전달한다.
 
-- `fromAccountId`: 출금 계좌 ID
-- `toAccountId`: 당행 내 계좌 이체인 경우 입금 계좌 ID
-- `toAccountNo`: 입금 계좌번호
-- `amount`: 이체금액
-- `transferType`: `INTERNAL` 또는 `EXTERNAL`
-- `counterpartyBankCode`, `counterpartyBankName`, `counterpartyName`
-- `channelType`: `INTERNET`
+| 파라미터 | 설명 |
+|---|---|
+| `fromAccountId` | 출금 계좌 ID |
+| `toAccountId` | 당행이체 시 입금 계좌 ID |
+| `toAccountNo` | 입금 계좌번호 |
+| `amount` | 이체금액 |
+| `transferType` | `INTERNAL`(당행) 또는 `EXTERNAL`(타행) |
+| `counterpartyBankCode` | 타행 은행 코드 |
+| `counterpartyBankName` | 타행 은행명 |
+| `counterpartyName` | 수취인 성명 |
+| `channelType` | 항상 `INTERNET` |
 
 출금 계좌 목록은 백엔드의 `isWithdrawable` 값을 우선 사용한다. 값이 없는 로컬 fallback 데이터는 계좌 유형명과 상품명에 `입출금` 또는 `통장`이 포함된 경우에만 출금 가능 계좌로 간주한다.
 
