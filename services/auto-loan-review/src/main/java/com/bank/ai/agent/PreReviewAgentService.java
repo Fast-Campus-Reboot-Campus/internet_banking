@@ -6,6 +6,8 @@ import com.bank.ai.agent.rejection.RejectionReasonAgentService;
 import com.bank.ai.agent.tools.PolicyFlagTool;
 import com.bank.ai.agent.tools.PurposeAnalysisTool;
 import com.bank.ai.agent.tools.RecomputeWithTermsTool;
+import com.bank.ai.metrics.AgentMetricsRecorder;
+import com.bank.ai.metrics.AgentOutcome;
 import com.bank.ai.rag.retrieval.RagRetrievalService;
 import com.bank.ai.rag.search.Chunk;
 import com.bank.ai.llm.client.LlmCallException;
@@ -61,6 +63,7 @@ public class PreReviewAgentService {
     private final SemanticDisagreementDetector disagreementDetector;
     private final RejectionReasonAgentService rejectionReasonAgentService;
     private final RagRetrievalService ragRetrievalService;
+    private final AgentMetricsRecorder metricsRecorder;
 
     /**
      * @param revId    loan_review PK (멱등성 체크 및 로그용)
@@ -91,11 +94,15 @@ public class PreReviewAgentService {
 
     private AgentOpinion runTrack3(Long revId, AutoReviewRequest request, TrackDecision decision) {
         var guard = new AgentLoopGuard(agentProps.maxToolCalls(), agentProps.maxLlmCalls());
+        AgentOpinion result = null;
+        AgentOutcome outcome = AgentOutcome.ERROR;
 
         try {
             // 1. 정책 소프트 경고 플래그
             if (!guard.acquireTool()) {
-                return loopGuardFallback(revId);
+                result = loopGuardFallback(revId);
+                outcome = AgentOutcome.FALLBACK;
+                return result;
             }
             List<String> policyFlags = new PolicyFlagTool(request).evaluatePolicyFlags();
 
@@ -108,7 +115,9 @@ public class PreReviewAgentService {
 
             // 3. 신청 사유 분석
             if (!guard.acquireTool()) {
-                return loopGuardFallback(revId);
+                result = loopGuardFallback(revId);
+                outcome = AgentOutcome.FALLBACK;
+                return result;
             }
             PurposeAnalysisTool.PurposeAnalysisResult purpose =
                     new PurposeAnalysisTool(purposeAnalysisService, request).analyzePurpose(null);
@@ -116,7 +125,9 @@ public class PreReviewAgentService {
             // 3. What-if 시뮬레이션 (2 시나리오)
             List<SimulationResult> simulations = runSimulations(guard, request, decision, revId);
             if (simulations == null) {
-                return loopGuardFallback(revId);
+                result = loopGuardFallback(revId);
+                outcome = AgentOutcome.FALLBACK;
+                return result;
             }
 
             // 4. LLM 추론 요약
@@ -141,17 +152,27 @@ public class PreReviewAgentService {
             if (!groundingResult.passed()) {
                 log.warn("PreReviewAgentService: GROUNDING_FAILED revId={} issues={}",
                         revId, groundingResult.issues());
-                return AgentOpinion.fallback(FallbackReason.GROUNDING_FAILED);
+                result = AgentOpinion.fallback(FallbackReason.GROUNDING_FAILED);
+                outcome = AgentOutcome.FALLBACK;
+                return result;
             }
 
             log.info("PreReviewAgentService: Track 3 완료 revId={} tools={} llm={} disagreement={}",
                     revId, guard.getToolCallCount(), guard.getLlmCallCount(), disagreement);
 
-            return opinion;
+            result = opinion;
+            outcome = AgentOutcome.SUCCESS;
+            return result;
 
         } catch (Exception e) {
             log.error("PreReviewAgentService: Track 3 오류 revId={}", revId, e);
-            return AgentOpinion.fallback(FallbackReason.TOOL_ERROR);
+            result = AgentOpinion.fallback(FallbackReason.TOOL_ERROR);
+            outcome = AgentOutcome.ERROR;
+            return result;
+        } finally {
+            metricsRecorder.recordPerRunGuardCounts(
+                    decision.track(), outcome,
+                    guard.getToolCallCount(), guard.getLlmCallCount());
         }
     }
 

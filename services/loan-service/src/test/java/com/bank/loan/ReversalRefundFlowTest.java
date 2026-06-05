@@ -114,8 +114,9 @@ class ReversalRefundFlowTest extends AbstractLoanIntegrationTest {
 
     @Test @Order(11)
     void 자동이체_역분개_환급이체_FAILED_422_LOAN186() throws Exception {
+        // 환급 멱등키는 호출자 키가 아니라 rtxId 로 결정적으로 구성된다(REV-{cntrId}-{rtxId})
         PAYMENT_MOCK.stubFor(WireMock.post(urlEqualTo("/api/v1/payments"))
-                .withHeader("X-Idempotency-Key", containing("rev-fail"))
+                .withHeader("X-Idempotency-Key", containing("REV-" + cntrId + "-" + tx2RtxId))
                 .atPriority(1)
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")

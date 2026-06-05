@@ -59,8 +59,9 @@ class ClearingResultServiceTest {
 
         service.handle("PI-2", false);
 
+        // FAILED 기록은 배치 멱등키와 충돌하지 않도록 -FAIL 네임스페이스를 쓴다
         verify(repaymentService).repayInstallment(eq(100L), any(),
-                eq("AUTO-100-200-20260601"), eq(RepaymentTransaction.STATUS_FAILED), eq("PI-2"));
+                eq("AUTO-100-200-20260601-FAIL"), eq(RepaymentTransaction.STATUS_FAILED), eq("PI-2"));
         assertThat(p.getStatus()).isEqualTo(AutoDebitClearingPending.STATUS_FAILED);
     }
 

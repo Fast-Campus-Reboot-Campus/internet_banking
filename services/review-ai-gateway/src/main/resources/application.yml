@@ -62,6 +62,10 @@ prompt:
     system-resource: classpath:prompts/compliance/system.txt
     user-resource: classpath:prompts/compliance/user.txt
 
+aigateway:
+  agent:
+    max-turns: 5   # 근거: 정상종료 run turns p95 + run당 토큰예산 역산 중 min (docs/plan/agent-loop-limits-metrics-plan.md)
+
 llm:
   provider: ${LLM_PROVIDER:mock}
   claude:

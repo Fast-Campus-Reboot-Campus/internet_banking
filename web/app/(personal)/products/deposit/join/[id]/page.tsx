@@ -268,26 +268,6 @@ export default function DepositJoinPage() {
     setStep(3)
   }
 
-  function saveFallbackAccount() {
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`
-    const rand6 = String(Math.floor(100000 + Math.random() * 900000))
-    const newAcc = {
-      id: String(now.getTime()),
-      number: `531089-04-${rand6}`,
-      type: isHousing ? '청약' : isSavings ? '적금' : isChecking ? '입출금' : '예금',
-      name: productName,
-      balance: parseInt(amount.replace(/,/g, '')) || 0,
-      availableBalance: 0,
-      createdAt: dateStr,
-      maturityDate: maturityDate !== '-' ? maturityDate : undefined,
-      monthlyAmount: isRegularSavings ? (parseInt(amount.replace(/,/g, '')) || 0) : undefined,
-    }
-    const prev = JSON.parse(localStorage.getItem('joinedAccounts') || '[]')
-    prev.unshift(newAcc)
-    localStorage.setItem('joinedAccounts', JSON.stringify(prev))
-  }
-
   async function handleFinalConfirm() {
     if (submitting) return
     const pw = mouseInput ? mouseConfirmPw : confirmPw

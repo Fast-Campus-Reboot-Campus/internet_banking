@@ -76,9 +76,9 @@ INSERT INTO auth_method (customer_id, auth_method_type_code, auth_method_status_
                          primary_auth_method_yn, auth_method_registered_date,
                          created_at, updated_at, version)
 VALUES
-    (1, 'CERT_COMMON', 'ACTIVE', 'F', TO_CHAR(CURRENT_DATE, 'YYYYMMDD'), NOW(), NOW(), 0),
-    (1, 'CERT_FIN',    'ACTIVE', 'T', TO_CHAR(CURRENT_DATE, 'YYYYMMDD'), NOW(), NOW(), 0),
-    (1, 'CERT_AXFUL',  'ACTIVE', 'F', TO_CHAR(CURRENT_DATE, 'YYYYMMDD'), NOW(), NOW(), 0);
+    (9001, 'CERT_COMMON', 'ACTIVE', 'F', TO_CHAR(CURRENT_DATE, 'YYYYMMDD'), NOW(), NOW(), 0),
+    (9001, 'CERT_FIN',    'ACTIVE', 'T', TO_CHAR(CURRENT_DATE, 'YYYYMMDD'), NOW(), NOW(), 0),
+    (9001, 'CERT_AXFUL',  'ACTIVE', 'F', TO_CHAR(CURRENT_DATE, 'YYYYMMDD'), NOW(), NOW(), 0);
 
 -- certificate 3건
 INSERT INTO certificate (customer_id, auth_method_id,
@@ -90,7 +90,7 @@ INSERT INTO certificate (customer_id, auth_method_id,
                          cert_login_failure_count, max_cert_login_failure_count,
                          created_at, updated_at, version)
 SELECT
-    1,
+    9001,
     am.auth_method_id,
     am.auth_method_type_code,
     CASE am.auth_method_type_code
@@ -117,6 +117,6 @@ SELECT
     0, 5,
     NOW(), NOW(), 0
 FROM auth_method am
-WHERE am.customer_id = 1
+WHERE am.customer_id = 9001
   AND am.auth_method_type_code IN ('CERT_COMMON', 'CERT_FIN', 'CERT_AXFUL')
   AND am.deleted_at IS NULL;

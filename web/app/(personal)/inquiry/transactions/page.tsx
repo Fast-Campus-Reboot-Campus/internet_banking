@@ -87,7 +87,6 @@ export default function TransactionsPage() {
 
   const calTxs = (() => {
     if (!calSearched || !calAccount) return []
-    const acc = accounts.find(a => a.id === calAccount)
     const prefix = `${year}-${month}`
     return allTransactions.filter(t => acc?.number === t.accountNumber && t.transactionAt.startsWith(prefix))
   })()

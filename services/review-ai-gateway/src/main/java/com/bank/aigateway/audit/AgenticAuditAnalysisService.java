@@ -85,6 +85,7 @@ public class AgenticAuditAnalysisService {
             if (loopResult.timedOut()) {
                 metrics.recordLoopTimeout(req.analysisType());
             }
+            metrics.recordLoopTurns(req.analysisType(), loopResult.turnsUsed(), loopResult.timedOut());
 
             AuditResponseParser.ParsedAuditResult parsed = parser.parse(loopResult.text());
             metrics.recordAnalysisResult(req.analysisType(), parsed.conclusion());

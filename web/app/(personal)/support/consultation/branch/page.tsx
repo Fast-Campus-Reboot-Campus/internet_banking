@@ -4,7 +4,7 @@ import { KB_PRIMARY,KB_PRIMARY_BORDER } from '@/lib/theme'
 /* eslint-disable @typescript-eslint/no-unused-vars -- 예약 폼 미사용 state, 추후 기능 연결 예정 (빌드 차단 방지) */
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 
 const CONTENT_TYPES = [
@@ -30,28 +30,14 @@ const TIMES = [
 ]
 
 export default function BranchConsultationPage() {
-  const [userName, setUserName] = useState('고객')
   const [pageTab, setPageTab] = useState<'apply' | 'history'>('apply')
   const [branch, setBranch] = useState('')
   const [contentType, setContentType] = useState('선택')
-  const [contentDetail, setContentDetail] = useState('선택')
   const [month, setMonth] = useState('선택')
-  const [day, setDay] = useState('선택')
   const [time, setTime] = useState('선택')
-  const [timeDetail, setTimeDetail] = useState('선택')
   const [reserveType, setReserveType] = useState<'auto' | 'manual'>('auto')
   const [staffSelect, setStaffSelect] = useState('선택')
   const [memo, setMemo] = useState('')
-
-  useEffect(() => {
-    try {
-      const token = localStorage.getItem('access_token')
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        if (payload?.name) setUserName(payload.name)
-      }
-    } catch {}
-  }, [])
 
   function handleSubmit() {
     if (!branch) { alert('상담 지점을 입력해주세요.'); return }

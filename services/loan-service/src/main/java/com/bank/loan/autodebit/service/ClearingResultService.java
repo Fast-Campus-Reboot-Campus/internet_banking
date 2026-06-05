@@ -49,11 +49,17 @@ public class ClearingResultService {
         RepayInstallmentRequest req = new RepayInstallmentRequest(
                 pending.getInstallmentNo(), CHANNEL_AUTO_DEBIT, pending.getBaseDate());
 
+        // FAILED 기록은 배치 멱등키(AUTO-{cntr}-{rsch}-{baseDate})를 그대로 쓰면 같은 baseDate
+        // 재수납 키와 충돌해 당일 재수납이 막힌다. 별도 -FAIL 네임스페이스로 분리한다.
+        String ledgerIdemKey = completed
+                ? pending.getIdempotencyKey()
+                : pending.getIdempotencyKey() + "-FAIL";
+
         log.info("clearing result: piId={} completed={} cntrId={} rschId={}",
                 piId, completed, pending.getCntrId(), pending.getRschId());
 
         repaymentService.repayInstallment(pending.getCntrId(), req,
-                pending.getIdempotencyKey(), paymentStatus, piId);
+                ledgerIdemKey, paymentStatus, piId);
 
         pending.resolve(completed);
     }

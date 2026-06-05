@@ -43,6 +43,7 @@ jobs:
   deploy:
     name: Deploy ${{ inputs.service-name }} to Oracle
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
