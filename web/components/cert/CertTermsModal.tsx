@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import { createPortal } from 'react-dom'
 
@@ -94,15 +95,15 @@ function TermContent({ index }: { index: number }) {
       <table className="w-full border-collapse text-[12px] mb-5">
         <tbody>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center w-28 align-top bg-[#F0FAF7]">수집·이용 목적</td>
+            <td className="border border-kb-border px-3 py-3 font-bold text-center w-28 align-top bg-kb-primary-bg">수집·이용 목적</td>
             <td className="border border-kb-border px-4 py-3">– 금융결제원 인증서 발급 업무를 위한 온라인 신원확인</td>
           </tr>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-[#F0FAF7]">보유 및 이용기간</td>
+            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-kb-primary-bg">보유 및 이용기간</td>
             <td className="border border-kb-border px-4 py-3">– 신원확인 완료 시까지 보유·이용됩니다.</td>
           </tr>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-[#F0FAF7]">거부권리및불이익</td>
+            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-kb-primary-bg">거부권리및불이익</td>
             <td className="border border-kb-border px-4 py-3">귀하는 동의를 거부하실 수 있습니다. 다만, 위 개인(신용)정보 수집·이용에 관한 동의는 공동/금융인증서 발급을 위한 필수적 사항이므로, 위 사항에 동의하셔야만 공동/금융인증서 발급 업무가 가능합니다.</td>
           </tr>
         </tbody>
@@ -112,7 +113,7 @@ function TermContent({ index }: { index: number }) {
       <table className="w-full border-collapse text-[12px]">
         <tbody>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold align-top bg-[#F0FAF7] w-[130px]">
+            <td className="border border-kb-border px-3 py-3 font-bold align-top bg-kb-primary-bg w-[130px]">
               개인(신용)정보<br />
               <span className="font-normal text-[11px]">└ 일반개인정보</span><br />
               <span className="font-normal text-[11px]">└ 신용거래정보</span>
@@ -145,15 +146,15 @@ function TermContent({ index }: { index: number }) {
       <table className="w-full border-collapse text-[12px] mb-5">
         <tbody>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center w-28 align-top bg-[#F0FAF7]">수집·이용 목적</td>
+            <td className="border border-kb-border px-3 py-3 font-bold text-center w-28 align-top bg-kb-primary-bg">수집·이용 목적</td>
             <td className="border border-kb-border px-4 py-3">– 공동/금융인증서 발급 업무를 위한 신원 확인</td>
           </tr>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-[#F0FAF7]">보유 및 이용기간</td>
+            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-kb-primary-bg">보유 및 이용기간</td>
             <td className="border border-kb-border px-4 py-3">– 신원확인 완료 시까지 보유·이용됩니다.</td>
           </tr>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-[#F0FAF7]">거부권리및불이익</td>
+            <td className="border border-kb-border px-3 py-3 font-bold text-center align-top bg-kb-primary-bg">거부권리및불이익</td>
             <td className="border border-kb-border px-4 py-3">귀하는 동의를 거부하실 수 있습니다. 다만, 위 고유식별정보 수집·이용에 관한 동의는 공동/금융인증서 발급을 위한 필수적 사항이므로, 위 사항에 동의하셔야만 공동/금융인증서 발급 업무가 가능합니다.</td>
           </tr>
         </tbody>
@@ -163,7 +164,7 @@ function TermContent({ index }: { index: number }) {
       <table className="w-full border-collapse text-[12px]">
         <tbody>
           <tr>
-            <td className="border border-kb-border px-3 py-3 font-bold align-top bg-[#F0FAF7] w-28">고유식별정보</td>
+            <td className="border border-kb-border px-3 py-3 font-bold align-top bg-kb-primary-bg w-28">고유식별정보</td>
             <td className="border border-kb-border px-4 py-3">
               – 주민등록번호, 여권번호, 외국인등록번호<br />
               위 고유식별정보 수집·이용에 동의하십니까?&nbsp;&nbsp;
@@ -194,7 +195,7 @@ export function CertTermsModal({ termIndex, onClose, onAgreeOne, onAgreeAll }: C
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
       <div className="bg-white w-[720px] max-h-[85vh] flex flex-col border border-kb-border shadow-2xl relative">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-kb-border bg-[#F0FAF7]">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-kb-border bg-kb-primary-bg">
           <div className="flex items-center gap-2">
             <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="1.5">
               <line x1="3" y1="2" x2="3" y2="18"/><line x1="3" y1="2" x2="16" y2="2"/>
@@ -226,7 +227,7 @@ export function CertTermsModal({ termIndex, onClose, onAgreeOne, onAgreeAll }: C
         {/* 다음 화살표 */}
         {termIndex < CERT_TERMS.length - 1 && (
           <button onClick={() => onAgreeOne(termIndex + 1)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full hover:opacity-85 flex items-center justify-center text-white text-[18px] font-bold shadow" style={{ backgroundColor: '#0D5C47' }}>
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full hover:opacity-85 flex items-center justify-center text-white text-[18px] font-bold shadow" style={{ backgroundColor: KB_PRIMARY }}>
             ›
           </button>
         )}
@@ -234,11 +235,11 @@ export function CertTermsModal({ termIndex, onClose, onAgreeOne, onAgreeAll }: C
         {/* 하단 버튼 */}
         <div className="px-5 py-4 border-t border-kb-border flex items-center justify-between">
           <button onClick={() => { onAgreeOne(termIndex); onClose() }}
-            className="border border-kb-border px-6 py-2 text-[13px] text-kb-text-body hover:bg-[#F0FAF7]">
+            className="border border-kb-border px-6 py-2 text-[13px] text-kb-text-body hover:bg-kb-primary-bg">
             이 약관만 동의
           </button>
           <button onClick={onAgreeAll}
-            className="flex items-center gap-2 px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+            className="flex items-center gap-2 px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
             <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3,8 6.5,11.5 13,4.5"/>
             </svg>

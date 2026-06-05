@@ -1,5 +1,7 @@
 'use client'
 
+import { KB_PRIMARY } from '@/lib/theme'
+
 export default function Error({
   error,
   reset,
@@ -13,7 +15,8 @@ export default function Error({
       <p className="text-sm text-kb-text-muted">{error.message || '알 수 없는 오류입니다.'}</p>
       <button
         onClick={() => reset()}
-        className="px-6 py-2 bg-kb-yellow text-kb-text font-semibold hover:bg-kb-yellow-dark transition-colors"
+        className="px-6 py-2 text-white font-semibold rounded-lg hover:opacity-85 transition-opacity"
+        style={{ backgroundColor: KB_PRIMARY }}
       >
         다시 시도
       </button>

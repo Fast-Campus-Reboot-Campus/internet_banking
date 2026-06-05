@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -77,18 +78,18 @@ export default function SecurityFaqPage() {
   )
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F0FAF7' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: KB_PRIMARY_BG }}>
 
       {/* 헤더 */}
       <header className="bg-white shadow-sm">
         <div className="max-w-[1200px] mx-auto px-6 h-[60px] flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-[6px] h-[26px] rounded-full" style={{ backgroundColor: '#5BC9A8' }} />
-            <span className="text-[22px] font-bold tracking-[0.02em]" style={{ color: '#0D5C47' }}>AXful Bank</span>
+            <div className="w-[6px] h-[26px] rounded-full" style={{ backgroundColor: KB_MINT }} />
+            <span className="text-[22px] font-bold tracking-[0.02em]" style={{ color: KB_PRIMARY }}>AXful Bank</span>
           </Link>
           <Link href="/security-install"
-            className="text-[14px] font-semibold px-4 py-1.5 rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+            className="text-[14px] font-semibold px-4 py-1.5 rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
             보안프로그램 설치
           </Link>
         </div>
@@ -98,7 +99,7 @@ export default function SecurityFaqPage() {
       <main className="flex-1 max-w-[900px] mx-auto w-full px-6 py-10 space-y-6">
 
         <div>
-          <p className="text-[13px] font-semibold mb-1" style={{ color: '#5BC9A8' }}>FAQ</p>
+          <p className="text-[13px] font-semibold mb-1" style={{ color: KB_MINT }}>FAQ</p>
           <h1 className="text-[24px] font-bold text-kb-text mb-2">자주 묻는 질문</h1>
           <p className="text-[14px] text-kb-text-muted">보안프로그램 설치·이용과 관련하여 자주 묻는 질문을 모았습니다.</p>
         </div>
@@ -109,8 +110,8 @@ export default function SecurityFaqPage() {
             <button key={cat} onClick={() => { setActiveCategory(cat); setOpenIndex(null) }}
               className="px-4 py-1.5 rounded-full text-[13px] font-semibold transition-colors"
               style={activeCategory === cat
-                ? { backgroundColor: '#0D5C47', color: 'white' }
-                : { backgroundColor: 'white', color: '#0D5C47', border: '1px solid #5BC9A8' }}>
+                ? { backgroundColor: KB_PRIMARY, color: 'white' }
+                : { backgroundColor: 'white', color: KB_PRIMARY, border: '1px solid #5BC9A8' }}>
               {cat}
             </button>
           ))}
@@ -118,18 +119,18 @@ export default function SecurityFaqPage() {
 
         {/* FAQ 아코디언 */}
         <div className="space-y-2">
-          {filtered.map((item, i) => {
+          {filtered.map((item) => {
             const globalIndex = FAQ_ITEMS.indexOf(item)
             const isOpen = openIndex === globalIndex
             return (
               <div key={globalIndex} className="bg-white rounded-xl overflow-hidden shadow-sm"
-                style={{ border: `1px solid ${isOpen ? '#5BC9A8' : '#E2F5EF'}` }}>
+                style={{ border: `1px solid ${isOpen ? KB_MINT : KB_PRIMARY_BORDER}` }}>
                 <button
                   onClick={() => setOpenIndex(isOpen ? null : globalIndex)}
-                  className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-[#F8FFFE] transition-colors">
+                  className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-kb-primary-surface transition-colors">
                   <div className="flex items-center gap-3">
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: '#F0FAF7', color: '#0D5C47', border: '1px solid #5BC9A820' }}>
+                      style={{ backgroundColor: KB_PRIMARY_BG, color: KB_PRIMARY, border: '1px solid #5BC9A820' }}>
                       {item.category}
                     </span>
                     <span className="text-[14px] font-semibold text-kb-text">{item.q}</span>
@@ -138,7 +139,7 @@ export default function SecurityFaqPage() {
                 </button>
                 {isOpen && (
                   <div className="px-6 pb-5 pt-0">
-                    <div className="border-t pt-4" style={{ borderColor: '#E2F5EF' }}>
+                    <div className="border-t pt-4" style={{ borderColor: KB_PRIMARY_BORDER }}>
                       <p className="text-[14px] text-kb-text-body leading-relaxed">{item.a}</p>
                     </div>
                   </div>
@@ -157,7 +158,7 @@ export default function SecurityFaqPage() {
           </div>
           <Link href="tel:15880000"
             className="px-5 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity flex-shrink-0"
-            style={{ backgroundColor: '#0D5C47' }}>
+            style={{ backgroundColor: KB_PRIMARY }}>
             1588-0000
           </Link>
         </div>
@@ -166,19 +167,19 @@ export default function SecurityFaqPage() {
         <div className="flex gap-3">
           <Link href="/security-install"
             className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-            style={{ backgroundColor: '#0D5C47' }}>
+            style={{ backgroundColor: KB_PRIMARY }}>
             보안프로그램 설치하기
           </Link>
           <Link href="/security-guide"
-            className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-            style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+            className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+            style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
             이용안내 보기
           </Link>
         </div>
       </main>
 
       {/* 푸터 */}
-      <footer className="bg-white border-t" style={{ borderColor: '#E2F5EF' }}>
+      <footer className="bg-white border-t" style={{ borderColor: KB_PRIMARY_BORDER }}>
         <div className="max-w-[900px] mx-auto px-6 py-5 space-y-2">
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-kb-text-muted">
             {['보호금융상품등록부', '전자민원접수', '전자금융거래기본약관', '개인정보 처리방침', '신용정보활용체제', '위치기반서비스 이용약관', '경영공시'].map(item => (

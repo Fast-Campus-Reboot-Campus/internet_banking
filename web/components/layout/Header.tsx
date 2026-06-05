@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -234,8 +235,8 @@ export default function Header() {
       <div className="max-w-kb-container mx-auto px-6 flex items-center justify-between h-[60px]">
         {/* 로고 */}
         <Link href="/" className="flex items-center gap-3">
-          <div className="w-[6px] h-[26px] rounded-full" style={{ backgroundColor: '#5BC9A8' }} />
-          <span className="text-[26px] font-bold tracking-[0.02em]" style={{ color: '#0D5C47' }}>AXful Bank</span>
+          <div className="w-[6px] h-[26px] rounded-full" style={{ backgroundColor: KB_MINT }} />
+          <span className="text-[26px] font-bold tracking-[0.02em]" style={{ color: KB_PRIMARY }}>AXful Bank</span>
         </Link>
 
         {/* 우측: 사용자 영역 */}
@@ -253,8 +254,8 @@ export default function Header() {
                 )}
                 <button onClick={handleExtend}
                   disabled={extending}
-                  className="px-3 py-1 text-[13px] font-semibold rounded-full border transition-colors hover:bg-[#F0FAF7] disabled:opacity-50"
-                  style={{ borderColor: extendError ? '#EF4444' : '#5BC9A8', color: extendError ? '#EF4444' : '#0D5C47' }}>
+                  className="px-3 py-1 text-[13px] font-semibold rounded-full border transition-colors hover:bg-kb-primary-bg disabled:opacity-50"
+                  style={{ borderColor: extendError ? '#EF4444' : KB_MINT, color: extendError ? '#EF4444' : KB_PRIMARY }}>
                   {extending ? '연장 중...' : extendError ? '재시도' : '연장'}
                 </button>
                 <button onClick={handleLogout}
@@ -263,20 +264,20 @@ export default function Header() {
                 </button>
                 <Link href="/cert"
                   className="px-3 py-1 text-[13px] font-semibold rounded-full text-white transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   인증센터
                 </Link>
               </>
             ) : (
               <>
                 <Link href="/login"
-                  className="px-4 py-1 text-[13px] font-semibold rounded-full border transition-colors hover:bg-[#F0FAF7]"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                  className="px-4 py-1 text-[13px] font-semibold rounded-full border transition-colors hover:bg-kb-primary-bg"
+                  style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                   로그인
                 </Link>
                 <Link href="/cert"
                   className="px-4 py-1 text-[13px] font-semibold rounded-full text-white transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   인증센터
                 </Link>
               </>
@@ -288,7 +289,7 @@ export default function Header() {
       {/* ===== 2. GNB + 메가메뉴 ===== */}
       {!hideGnb && <nav
         className="relative border-t"
-        style={{ backgroundColor: '#F8FFFE', borderColor: '#E2F5EF' }}
+        style={{ backgroundColor: KB_PRIMARY_SURFACE, borderColor: KB_PRIMARY_BORDER }}
         onMouseLeave={() => setActiveMenu(null)}
       >
         <div className="max-w-kb-container mx-auto px-6">
@@ -309,15 +310,15 @@ export default function Header() {
                       flex items-center justify-center w-full px-5
                       text-[16px] font-semibold transition-colors duration-150 whitespace-nowrap relative
                       ${isActive
-                        ? 'text-[#0D5C47] font-bold'
+                        ? 'text-kb-primary font-bold'
                         : isOpen
-                        ? 'text-[#0D5C47] bg-[#F0FAF7]'
-                        : 'text-kb-text-body hover:text-[#0D5C47] hover:bg-[#F0FAF7]'}
+                        ? 'text-kb-primary bg-kb-primary-bg'
+                        : 'text-kb-text-body hover:text-kb-primary hover:bg-kb-primary-bg'}
                     `}
                   >
                     {menu.label}
                     {isActive && (
-                      <span className="absolute bottom-0 left-1/4 right-1/4 h-[2px] rounded-full" style={{ backgroundColor: '#5BC9A8' }} />
+                      <span className="absolute bottom-0 left-1/4 right-1/4 h-[2px] rounded-full" style={{ backgroundColor: KB_MINT }} />
                     )}
                   </Link>
                 </li>

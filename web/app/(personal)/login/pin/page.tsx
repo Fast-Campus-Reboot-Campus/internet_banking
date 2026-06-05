@@ -1,10 +1,11 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { pinLogin, persistLogin, loadPinDeviceId, authErrorMessage } from '@/lib/customer-auth-api'
 
-const GREEN = '#0D5C47'
+const GREEN = KB_PRIMARY
 
 export default function PinLoginPage() {
   const [deviceId, setDeviceId] = useState<number | null>(null)
@@ -45,7 +46,7 @@ export default function PinLoginPage() {
           <p className="text-[13px] text-kb-text-muted mb-8 text-center">이 기기에 등록한 6자리 PIN으로 로그인합니다.</p>
 
           {deviceId == null ? (
-            <div className="border border-kb-border bg-[#F0FAF7] px-5 py-6 text-center">
+            <div className="border border-kb-border bg-kb-primary-bg px-5 py-6 text-center">
               <p className="text-[14px] text-kb-text-body mb-4">이 기기에 등록된 간편비밀번호가 없습니다.</p>
               <p className="text-[13px] text-kb-text-muted mb-5">일반 로그인 후 설정 › 간편비밀번호(PIN)에서 등록할 수 있습니다.</p>
               <Link href="/login" className="inline-block px-8 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85" style={{ backgroundColor: GREEN }}>

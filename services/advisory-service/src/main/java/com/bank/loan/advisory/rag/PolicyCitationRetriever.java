@@ -32,6 +32,7 @@ public class PolicyCitationRetriever {
     private static final String PROFILE_REVIEW  = "review";
 
     private final AiServiceRagClient             aiServiceRagClient;
+    private final PolicyCitationCache            citationCache;
     private final AdvisoryRetrievalLogRepository logRepo;
 
     /**
@@ -47,7 +48,13 @@ public class PolicyCitationRetriever {
     @Transactional
     public PolicyCitationResponse retrieve(Long advrId, String ruleCd,
                                            String queryText, int topK, Long requestedBy) {
-        List<AiServiceRagClient.ChunkHit> hits = aiServiceRagClient.search(queryText, PROFILE_REVIEW, topK);
+        List<AiServiceRagClient.ChunkHit> hits = citationCache.get(ruleCd, queryText, topK)
+                .orElseGet(() -> {
+                    List<AiServiceRagClient.ChunkHit> fetched =
+                            aiServiceRagClient.search(queryText, PROFILE_REVIEW, topK);
+                    citationCache.put(ruleCd, queryText, topK, fetched);
+                    return fetched;
+                });
 
         List<PolicyCitationResponse.CitationItem> items = hits.stream()
                 .map(h -> new PolicyCitationResponse.CitationItem(

@@ -60,7 +60,7 @@ class LoanReviewEscalateToHqTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/loan-applications/{id}/review/approver-approve", applIdCompleted)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"approverId":20370201,"approverDecisionCd":"APPROVE_AS_IS"}
+                                {"approverDecisionCd":"APPROVE_AS_IS"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.revStatusCd").value("COMPLETED"));

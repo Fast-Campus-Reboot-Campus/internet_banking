@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
@@ -100,14 +101,14 @@ export default function TransferResultPage() {
 
           {/* 완료/실패 배너 */}
           {(!paymentResult || paymentResult.status === 'COMPLETED' || paymentResult.status === 'CLEARING') ? (
-            <div className="rounded-xl p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
-              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="rounded-xl p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: KB_PRIMARY_BG, border: '1px solid #E2F5EF' }}>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
               </div>
               <div>
-                <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>
+                <p className="text-[16px] font-bold mb-1" style={{ color: KB_PRIMARY }}>
                   {paymentResult?.status === 'CLEARING' ? '이체 요청이 접수되었습니다.' : '즉시이체가 완료되었습니다.'}
                 </p>
                 {paymentResult?.txNo && (
@@ -144,10 +145,10 @@ export default function TransferResultPage() {
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #E2F5EF' }}>
               <table className="w-full border-collapse text-[13px]">
                 <thead>
-                  <tr style={{ backgroundColor: '#F0FAF7' }}>
+                  <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                     {['출금계좌번호', '입금계좌번호', '이체금액', '수수료', '받는분', '결과'].map(h => (
                       <th key={h} className="px-4 py-3 text-center font-semibold text-[12px]"
-                        style={{ borderBottom: '2px solid #E2F5EF', color: '#0D5C47' }}>
+                        style={{ borderBottom: '2px solid #E2F5EF', color: KB_PRIMARY }}>
                         {h}
                       </th>
                     ))}
@@ -160,7 +161,7 @@ export default function TransferResultPage() {
                       <p className="font-medium text-kb-text">{data.toBank}</p>
                       <p className="text-kb-text-muted text-[12px]">{data.toAccount}</p>
                     </td>
-                    <td className="px-4 py-4 text-right font-bold text-[15px]" style={{ color: '#0D5C47' }}>
+                    <td className="px-4 py-4 text-right font-bold text-[15px]" style={{ color: KB_PRIMARY }}>
                       {formatNumber(Number(data.amount))}원
                     </td>
                     <td className="px-4 py-4 text-center text-kb-text-muted">
@@ -169,7 +170,7 @@ export default function TransferResultPage() {
                     <td className="px-4 py-4 text-center text-kb-text">{data.receiverName}</td>
                     <td className="px-4 py-4 text-center font-bold">
                       {(!paymentResult || paymentResult.status === 'COMPLETED') ? (
-                        <span style={{ color: '#5BC9A8' }}>정상</span>
+                        <span style={{ color: KB_MINT }}>정상</span>
                       ) : paymentResult.status === 'CLEARING' ? (
                         <span style={{ color: '#F59E0B' }}>처리중</span>
                       ) : (
@@ -182,7 +183,7 @@ export default function TransferResultPage() {
             </div>
             {remainingBalance !== null && (
               <p className="text-right text-[12px] text-kb-text-muted mt-2">
-                이체 후 잔액 : <span className="font-semibold" style={{ color: '#0D5C47' }}>{formatNumber(remainingBalance)}원</span>
+                이체 후 잔액 : <span className="font-semibold" style={{ color: KB_PRIMARY }}>{formatNumber(remainingBalance)}원</span>
               </p>
             )}
           </div>
@@ -191,12 +192,12 @@ export default function TransferResultPage() {
           <div className="flex justify-center gap-3 mb-8">
             <Link href="/transfer/inquiry"
               className="px-8 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               이체결과 조회
             </Link>
             <Link href="/transfer/account"
-              className="border rounded-xl px-8 py-2.5 text-[14px] font-medium transition-colors hover:bg-[#F0FAF7]"
-              style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+              className="border rounded-xl px-8 py-2.5 text-[14px] font-medium transition-colors hover:bg-kb-primary-bg"
+              style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
               이체 다시하기
             </Link>
             <Link href="/"
@@ -207,10 +208,10 @@ export default function TransferResultPage() {
           </div>
 
           {/* 안내 */}
-          <div className="rounded-xl px-5 py-4 text-[12px] text-kb-text-muted space-y-1" style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+          <div className="rounded-xl px-5 py-4 text-[12px] text-kb-text-muted space-y-1" style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
             <p>· 인터넷뱅킹 종료 시 반드시 [로그아웃] 버튼을 눌러 종료하시기 바랍니다.</p>
             <p>· 평소 이체금액을 감안하여 이체한도를 조정하실 수 있습니다.{' '}
-              <Link href="/banking/transfer-limit" className="underline font-medium" style={{ color: '#0D5C47' }}>
+              <Link href="/banking/transfer-limit" className="underline font-medium" style={{ color: KB_PRIMARY }}>
                 이체한도 조회/변경
               </Link>
             </p>

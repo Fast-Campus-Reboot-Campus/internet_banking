@@ -1100,6 +1100,14 @@ class TestRateGuideRich:
         rates = [float(r.get("interest_rate") or 0) for r in pref_rows]
         assert 0.3 in rates or 0.5 in rates  # rich_db 우대금리
 
+    def test_preferential_conditions_sum_rate_column(self, rich_service):
+        conditions = rich_service._get_pref_conditions([1, 2])
+
+        assert conditions[1]["condition"]
+        assert conditions[1]["rate"] == 0.3
+        assert conditions[2]["condition"]
+        assert conditions[2]["rate"] == 0.5
+
     def test_product_id_joined(self, rich_service):
         result = rich_service.execute_feature("RATE_GUIDE", ChatbotFeatureExecuteRequest())
         for item in result.data:

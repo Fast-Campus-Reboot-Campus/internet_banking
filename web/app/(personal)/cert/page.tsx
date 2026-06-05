@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 
@@ -31,7 +32,7 @@ export default function CertPage() {
             <tr className="bg-kb-beige-light">
               {['구분', '인증서 종류', '발급대상', '수수료', '용도'].map(h => (
                 <th key={h}
-                  className="px-4 py-3 text-center font-bold text-kb-text border-b-2 border-[#0D5C47] border-r last:border-r-0 whitespace-nowrap">
+                  className="px-4 py-3 text-center font-bold text-kb-text border-b-2 border-kb-primary border-r last:border-r-0 whitespace-nowrap">
                   {h}
                 </th>
               ))}
@@ -49,7 +50,7 @@ export default function CertPage() {
                   <span className="font-bold text-kb-text">AXful인증서</span>
                   <Link href="/cert/axful-cert-issue"
                     className="text-[11px] font-bold text-white px-3 py-0.5 rounded-sm"
-                    style={{ backgroundColor: '#0D5C47' }}>
+                    style={{ backgroundColor: KB_PRIMARY }}>
                     발급
                   </Link>
                 </div>
@@ -57,13 +58,13 @@ export default function CertPage() {
               <td className="px-4 py-4 border-r border-kb-border text-[13px] text-kb-text-body leading-relaxed">
                 AXful 인터넷뱅킹을 가입한<br />개인 고객
               </td>
-              <td className="px-4 py-4 border-r border-kb-border text-center font-medium text-[#0D5C47]">
+              <td className="px-4 py-4 border-r border-kb-border text-center font-medium text-kb-primary">
                 무료
               </td>
               <td className="px-4 py-4 text-kb-text-body leading-relaxed">
                 <ul className="space-y-0.5">
                   {['온라인 은행 금융거래', '모든 금융거래', '전자정부 민원서비스', '다양한 제휴 서비스'].map(u => (
-                    <li key={u} className="flex items-start gap-1"><span className="text-[#0D5C47] mt-0.5">·</span>{u}</li>
+                    <li key={u} className="flex items-start gap-1"><span className="text-kb-primary mt-0.5">·</span>{u}</li>
                   ))}
                 </ul>
               </td>
@@ -76,7 +77,7 @@ export default function CertPage() {
                   <span className="font-bold text-kb-text">금융인증서</span>
                   <Link href="/cert/fin-cert-issue"
                     className="text-[11px] font-bold text-white px-3 py-0.5 rounded-sm"
-                    style={{ backgroundColor: '#0D5C47' }}>
+                    style={{ backgroundColor: KB_PRIMARY }}>
                     발급
                   </Link>
                 </div>
@@ -84,13 +85,13 @@ export default function CertPage() {
               <td className="px-4 py-4 border-r border-kb-border text-[13px] text-kb-text-body leading-relaxed">
                 AXful 인터넷뱅킹을 가입한<br />개인 고객
               </td>
-              <td className="px-4 py-4 border-r border-kb-border text-center font-medium text-[#0D5C47]">
+              <td className="px-4 py-4 border-r border-kb-border text-center font-medium text-kb-primary">
                 무료
               </td>
               <td className="px-4 py-4 text-kb-text-body leading-relaxed">
                 <ul className="space-y-0.5">
                   {['온라인 은행 금융거래', '보험·증거래 등 모든 금융거래', '전자정부 민원서비스'].map(u => (
-                    <li key={u} className="flex items-start gap-1"><span className="text-[#0D5C47] mt-0.5">·</span>{u}</li>
+                    <li key={u} className="flex items-start gap-1"><span className="text-kb-primary mt-0.5">·</span>{u}</li>
                   ))}
                 </ul>
               </td>
@@ -104,7 +105,7 @@ export default function CertPage() {
                   <span className="text-[11px] text-kb-text-muted">(구 공인인증서)</span>
                   <Link href="/cert/joint-cert-issue"
                     className="text-[11px] font-bold text-white px-3 py-0.5 rounded-sm"
-                    style={{ backgroundColor: '#0D5C47' }}>
+                    style={{ backgroundColor: KB_PRIMARY }}>
                     발급
                   </Link>
                 </div>
@@ -119,7 +120,7 @@ export default function CertPage() {
               <td className="px-4 py-4 text-kb-text-body leading-relaxed">
                 <ul className="space-y-0.5">
                   {['온라인 은행 금융거래', '보험·증거래 등 모든 금융거래', '전자정부 민원서비스'].map(u => (
-                    <li key={u} className="flex items-start gap-1"><span className="text-[#0D5C47] mt-0.5">·</span>{u}</li>
+                    <li key={u} className="flex items-start gap-1"><span className="text-kb-primary mt-0.5">·</span>{u}</li>
                   ))}
                 </ul>
               </td>

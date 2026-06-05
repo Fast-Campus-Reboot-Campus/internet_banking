@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -80,8 +81,8 @@ export default function WithdrawPage() {
                 <div key={s} className="flex items-center gap-1">
                   <div
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold
-                      ${step === i ? 'text-white' : step > i ? 'bg-[#5BC9A8] text-white' : 'border border-kb-border text-kb-text-muted'}`}
-                    style={step === i ? { backgroundColor: '#0D5C47' } : {}}
+                      ${step === i ? 'text-white' : step > i ? 'bg-kb-mint text-white' : 'border border-kb-border text-kb-text-muted'}`}
+                    style={step === i ? { backgroundColor: KB_PRIMARY } : {}}
                   >
                     <span>{i + 1}.</span><span>{s}</span>
                   </div>
@@ -107,13 +108,13 @@ export default function WithdrawPage() {
 
               {/* 탈퇴 안내 목록 */}
               <div className="border border-kb-border mb-5">
-                <div className="px-5 py-3 bg-[#F0FAF7] border-b border-kb-border">
+                <div className="px-5 py-3 bg-kb-primary-bg border-b border-kb-border">
                   <p className="text-[14px] font-bold text-kb-text">탈퇴 전 확인사항</p>
                 </div>
                 <ul className="px-5 py-4 space-y-3">
                   {WITHDRAW_NOTICES.map((notice, i) => (
                     <li key={i} className="flex items-start gap-2 text-[13px] text-kb-text-body">
-                      <span className="flex-shrink-0 font-bold" style={{ color: '#0D5C47' }}>·</span>
+                      <span className="flex-shrink-0 font-bold" style={{ color: KB_PRIMARY }}>·</span>
                       {notice}
                     </li>
                   ))}
@@ -125,8 +126,8 @@ export default function WithdrawPage() {
                 <button
                   onClick={() => setAgreed(!agreed)}
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                    ${agreed ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                  style={agreed ? { backgroundColor: '#0D5C47' } : {}}
+                    ${agreed ? 'border-kb-primary' : 'border-kb-border'}`}
+                  style={agreed ? { backgroundColor: KB_PRIMARY } : {}}
                 >
                   {agreed && (
                     <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5">
@@ -141,11 +142,11 @@ export default function WithdrawPage() {
 
               <div className="flex justify-center gap-3">
                 <Link href="/"
-                  className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">
+                  className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">
                   취소
                 </Link>
                 <button onClick={handleStep0}
-                  className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+                  className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                   다음
                 </button>
               </div>
@@ -155,7 +156,7 @@ export default function WithdrawPage() {
           {/* ── STEP 1: 본인확인 ── */}
           {step === 1 && (
             <div>
-              <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
+              <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
                 <p>· 본인 확인을 위해 현재 사용 중인 비밀번호를 입력해주세요.</p>
                 <p>· 비밀번호 5회 오류 시 계정이 잠길 수 있습니다.</p>
                 <p>· 탈퇴 처리 후에는 즉시 로그아웃되며 인터넷뱅킹 서비스 이용이 중단됩니다.</p>
@@ -164,7 +165,7 @@ export default function WithdrawPage() {
               <table className="w-full text-[13px] border-collapse mb-6">
                 <tbody>
                   <tr className="border-b border-kb-border">
-                    <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">
+                    <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">
                       사용자암호
                     </td>
                     <td className="border border-kb-border px-4 py-3">
@@ -199,7 +200,7 @@ export default function WithdrawPage() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
+                    <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
                       탈퇴 확인
                     </td>
                     <td className="border border-kb-border px-4 py-3">
@@ -215,7 +216,7 @@ export default function WithdrawPage() {
                           <p className="text-[12px] text-red-500">&ldquo;회원탈퇴&rdquo;를 정확히 입력해주세요.</p>
                         )}
                         {confirmText === '회원탈퇴' && (
-                          <p className="text-[12px] font-semibold" style={{ color: '#0D5C47' }}>✓ 확인되었습니다.</p>
+                          <p className="text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 확인되었습니다.</p>
                         )}
                       </div>
                     </td>
@@ -229,13 +230,13 @@ export default function WithdrawPage() {
 
               <div className="flex justify-center gap-3">
                 <button onClick={() => { setStep(0); setPassword(''); setConfirmText(''); setWithdrawError('') }}
-                  className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">
+                  className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">
                   취소
                 </button>
                 <button
                   onClick={handleWithdraw}
                   disabled={loading}
-                  className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity disabled:opacity-50" style={{ backgroundColor: '#0D5C47' }}>
+                  className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity disabled:opacity-50" style={{ backgroundColor: KB_PRIMARY }}>
                   {loading ? '처리 중...' : '회원탈퇴'}
                 </button>
               </div>
@@ -245,7 +246,7 @@ export default function WithdrawPage() {
           {/* ── STEP 2: 탈퇴완료 ── */}
           {step === 2 && (
             <div>
-              <div className="border border-kb-border bg-[#F0FAF7] px-6 py-8 mb-6 flex items-center gap-6">
+              <div className="border border-kb-border bg-kb-primary-bg px-6 py-8 mb-6 flex items-center gap-6">
                 <div className="w-16 h-16 rounded-full bg-kb-border flex items-center justify-center flex-shrink-0">
                   <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
@@ -268,14 +269,14 @@ export default function WithdrawPage() {
                     { label: '개인정보 보관기간', value: '거래 종료일로부터 5년' },
                   ].map(row => (
                     <tr key={row.label} className="border-b border-kb-border last:border-b-0">
-                      <td className="bg-[#F0FAF7] border border-kb-border px-4 py-3 font-semibold text-kb-text w-40 whitespace-nowrap">{row.label}</td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-40 whitespace-nowrap">{row.label}</td>
                       <td className="border border-kb-border px-4 py-3">{row.value}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
-              <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-6 text-[12px] text-kb-text-muted space-y-1">
+              <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-6 text-[12px] text-kb-text-muted space-y-1">
                 <p>· 보유하신 계좌 및 상품 관련 문의는 AXful Bank 영업점 또는 고객센터(1588-0000)로 연락주세요.</p>
                 <p>· 재가입을 원하시면 온라인 고객 신규가입 또는 가까운 영업점을 방문하세요.</p>
               </div>
@@ -283,11 +284,11 @@ export default function WithdrawPage() {
               <div className="flex justify-center gap-3">
                 <button
                   onClick={() => router.push('/')}
-                  className="px-10 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: '#0D5C47' }}>
+                  className="px-10 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity" style={{ backgroundColor: KB_PRIMARY }}>
                   메인으로
                 </button>
                 <Link href="/support/customer-info/online-join"
-                  className="border border-kb-border px-10 py-3 text-[14px] font-semibold text-kb-text-body hover:bg-[#F0FAF7]">
+                  className="border border-kb-border px-10 py-3 text-[14px] font-semibold text-kb-text-body hover:bg-kb-primary-bg">
                   재가입하기
                 </Link>
               </div>

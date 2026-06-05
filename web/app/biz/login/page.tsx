@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY_DARK } from '@/lib/theme'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -684,7 +685,7 @@ function BizLoginSettingModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40">
       <div className="bg-white w-[400px] shadow-lg">
-        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: '#3D4F47' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: KB_PRIMARY_DARK }}>
           <p className="text-body font-bold text-white">로그인 설정</p>
           <button onClick={onClose} className="text-white/80 hover:text-white text-xl leading-none">✕</button>
         </div>

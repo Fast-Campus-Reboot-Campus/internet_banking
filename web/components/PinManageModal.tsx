@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY as GREEN, KB_PRIMARY_DARK } from '@/lib/theme'
 
 import { useEffect, useState } from 'react'
 import {
@@ -10,7 +11,6 @@ import {
   authErrorMessage,
 } from '@/lib/customer-auth-api'
 
-const GREEN = '#0D5C47'
 
 /**
  * 간편비밀번호(PIN) 등록/해제 모달.
@@ -77,7 +77,7 @@ export default function PinManageModal({ onClose, onChanged }: { onClose: () => 
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40">
       <div className="bg-white w-[420px] shadow-lg">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: '#3D4F47' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ backgroundColor: KB_PRIMARY_DARK }}>
           <p className="text-body font-bold text-white">간편비밀번호(PIN) 설정</p>
           <button onClick={onClose} className="text-white/80 hover:text-white text-xl leading-none">✕</button>
         </div>
@@ -88,7 +88,7 @@ export default function PinManageModal({ onClose, onChanged }: { onClose: () => 
           </p>
 
           {registeredDeviceId != null ? (
-            <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4">
+            <div className="border border-kb-border bg-kb-primary-bg px-5 py-4">
               <p className="text-[14px] font-semibold mb-1" style={{ color: GREEN }}>✓ 이 기기에 PIN이 등록되어 있습니다.</p>
               <p className="text-[12px] text-kb-text-body mb-3">로그인 화면에서 간편비밀번호 로그인을 이용할 수 있습니다.</p>
               <button

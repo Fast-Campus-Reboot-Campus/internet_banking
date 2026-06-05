@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -21,7 +22,7 @@ type LoanContract = {
 
 const STATUS = {
   SIGNED:    { label: '약정완료', bg: '#EFF6FF', color: '#1A56DB' },
-  ACTIVE:    { label: '대출중',   bg: '#ECFDF5', color: '#0D5C47' },
+  ACTIVE:    { label: '대출중',   bg: '#ECFDF5', color: KB_PRIMARY },
   CLOSED:    { label: '상환완료', bg: '#F3F4F6', color: '#6B7280' },
   CANCELLED: { label: '취소',     bg: '#F3F4F6', color: '#9CA3AF' },
 }
@@ -94,7 +95,7 @@ export default function MyLoanPage() {
           <LoanSidebar />
           <div className="flex-1 min-w-0">
             <h1 className="text-[22px] font-bold text-kb-text mb-2">내 대출 현황</h1>
-            <div className="border-t-2 mb-5" style={{ borderColor: '#0D5C47' }} />
+            <div className="border-t-2 mb-5" style={{ borderColor: KB_PRIMARY }} />
 
             {/* 요약 카드 */}
             {!loading && !error && contracts.length > 0 && (
@@ -137,7 +138,7 @@ export default function MyLoanPage() {
                   },
                 ].map(({ label, value, sub, icon }) => (
                   <div key={label} className="rounded-xl p-4"
-                    style={{ border: '1px solid #E2F5EF', backgroundColor: '#F8FFFE' }}>
+                    style={{ border: '1px solid #E2F5EF', backgroundColor: KB_PRIMARY_SURFACE }}>
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: '#E8F7F3' }}>
@@ -156,7 +157,7 @@ export default function MyLoanPage() {
             {loading && (
               <div className="py-12 text-center">
                 <div className="inline-block w-7 h-7 border-2 border-t-transparent rounded-full animate-spin mb-3"
-                  style={{ borderColor: '#0D5C47', borderTopColor: 'transparent' }} />
+                  style={{ borderColor: KB_PRIMARY, borderTopColor: 'transparent' }} />
                 <p className="text-[13px] text-kb-text-muted">불러오는 중...</p>
               </div>
             )}
@@ -193,7 +194,7 @@ export default function MyLoanPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-[11px] text-kb-text-muted mb-0.5">대출금액</p>
-                      <p className="text-[22px] font-bold" style={{ color: isActive ? '#0D5C47' : '#6B7280' }}>
+                      <p className="text-[22px] font-bold" style={{ color: isActive ? KB_PRIMARY : '#6B7280' }}>
                         {fmt(c.contractedAmount)}원
                       </p>
                     </div>
@@ -211,10 +212,10 @@ export default function MyLoanPage() {
                         { label: '만기일',     value: fmtDate(c.cntrEndDate) },
                       ].map(({ label, value, highlight }) => (
                         <div key={label} className="rounded-lg px-3 py-2.5 text-center"
-                          style={{ backgroundColor: highlight ? '#F0FAF7' : '#F5F6F8' }}>
+                          style={{ backgroundColor: highlight ? KB_PRIMARY_BG : '#F5F6F8' }}>
                           <p className="text-[11px] text-kb-text-muted mb-1">{label}</p>
                           <p className="text-[14px] font-bold"
-                            style={{ color: highlight ? '#0D5C47' : '#1F2937' }}>
+                            style={{ color: highlight ? KB_PRIMARY : '#1F2937' }}>
                             {value}
                           </p>
                         </div>
@@ -228,9 +229,9 @@ export default function MyLoanPage() {
                           <span>대출 진행률 <span className="font-semibold text-kb-text">{progress}%</span></span>
                           <span>잔여 <span className="font-semibold text-kb-text">{remaining}개월</span></span>
                         </div>
-                        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#E2F5EF' }}>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: KB_PRIMARY_BORDER }}>
                           <div className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${progress}%`, backgroundColor: '#0D5C47' }} />
+                            style={{ width: `${progress}%`, backgroundColor: KB_PRIMARY }} />
                         </div>
                       </div>
                     )}
@@ -238,7 +239,7 @@ export default function MyLoanPage() {
                     {/* 월 납부 예정액 */}
                     {isActive && monthlyPayment > 0 && (
                       <div className="rounded-lg px-4 py-3 mb-4 flex items-center justify-between"
-                        style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
+                        style={{ backgroundColor: KB_PRIMARY_BG, border: '1px solid #E2F5EF' }}>
                         <div className="flex items-center gap-2">
                           <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 flex-shrink-0" stroke="#0D5C47" strokeWidth="1.8">
                             <rect x="3" y="4" width="14" height="13" rx="2"/>
@@ -246,9 +247,9 @@ export default function MyLoanPage() {
                             <line x1="7" y1="2" x2="7" y2="6"/>
                             <line x1="13" y1="2" x2="13" y2="6"/>
                           </svg>
-                          <span className="text-[12px] font-medium" style={{ color: '#0D5C47' }}>이번 달 납부 예정액</span>
+                          <span className="text-[12px] font-medium" style={{ color: KB_PRIMARY }}>이번 달 납부 예정액</span>
                         </div>
-                        <span className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>{fmt(monthlyPayment)}원</span>
+                        <span className="text-[16px] font-bold" style={{ color: KB_PRIMARY }}>{fmt(monthlyPayment)}원</span>
                       </div>
                     )}
 
@@ -263,8 +264,8 @@ export default function MyLoanPage() {
                           { label: '금리인하요구권', href: '/products/loan/manage/rate-cut' },
                         ].map(({ label, href }) => (
                           <Link key={label} href={`${href}?cntrId=${c.cntrId}`}
-                            className="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-                            style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                            className="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                            style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                             {label}
                           </Link>
                         ))}
@@ -278,7 +279,7 @@ export default function MyLoanPage() {
             {/* 빈 상태 */}
             {!loading && !error && contracts.length === 0 && (
               <div className="rounded-xl px-6 py-14 text-center"
-                style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+                style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
                 <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
                   style={{ backgroundColor: '#E8F7F3' }}>
                   <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7" stroke="#0D5C47" strokeWidth="1.5">
@@ -290,7 +291,7 @@ export default function MyLoanPage() {
                 <p className="text-[13px] text-kb-text-muted mb-5">AXful Bank의 다양한 대출 상품을 확인해 보세요.</p>
                 <Link href="/products/loan/credit"
                   className="inline-block px-8 py-2.5 text-[13px] font-bold text-white rounded-xl hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   대출 상품 보기
                 </Link>
               </div>

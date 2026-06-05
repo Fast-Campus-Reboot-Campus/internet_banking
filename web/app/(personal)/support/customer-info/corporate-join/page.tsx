@@ -1,11 +1,11 @@
 'use client'
+import { KB_PRIMARY as GREEN, KB_MINT } from '@/lib/theme'
 
 import { useState } from 'react'
 import Link from 'next/link'
 import MobileAuthField from '@/components/MobileAuthField'
 import { TAX_TYPES, registerCorporate, authErrorMessage } from '@/lib/customer-auth-api'
 
-const GREEN = '#0D5C47'
 const STEPS = ['약관동의', '법인정보', '대표자확인', '가입완료']
 
 export default function CorporateJoinPage() {
@@ -113,7 +113,7 @@ export default function CorporateJoinPage() {
                   <div
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold
                       ${step === i ? 'text-white' : step > i ? 'text-white' : 'border border-kb-border text-kb-text-muted'}`}
-                    style={step === i ? { backgroundColor: GREEN } : step > i ? { backgroundColor: '#5BC9A8' } : {}}
+                    style={step === i ? { backgroundColor: GREEN } : step > i ? { backgroundColor: KB_MINT } : {}}
                   >
                     <span>{i + 1}.</span>
                     <span>{s}</span>
@@ -127,7 +127,7 @@ export default function CorporateJoinPage() {
           {/* STEP 0: 약관동의 */}
           {step === 0 && (
             <div>
-              <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-4 text-[13px] text-kb-text-body space-y-1.5">
+              <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-4 text-[13px] text-kb-text-body space-y-1.5">
                 <p>· 법인·개인사업자 고객은 본 화면에서 인터넷뱅킹 온라인 신규가입이 가능합니다.</p>
                 <p>· 가입에는 사업자등록증·법인등기부등본상의 정보와 대표자 명의 휴대폰 본인인증이 필요합니다.</p>
                 <p>· 등록된 정보는 사업자 진위확인 및 컴플라이언스 심사에 이용됩니다.</p>
@@ -143,7 +143,7 @@ export default function CorporateJoinPage() {
                 <button onClick={handleStep0} className="px-14 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85" style={{ backgroundColor: GREEN }}>
                   확인
                 </button>
-                <Link href="/support/customer-info/online-join" className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">
+                <Link href="/support/customer-info/online-join" className="border border-kb-border px-14 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">
                   취소
                 </Link>
               </div>
@@ -188,7 +188,7 @@ export default function CorporateJoinPage() {
                 </select>
               </FormRow>
               <div className="flex justify-center gap-3 mt-6">
-                <button onClick={() => setStep(0)} className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">이전</button>
+                <button onClick={() => setStep(0)} className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">이전</button>
                 <button onClick={handleStep1} className="px-10 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85" style={{ backgroundColor: GREEN }}>다음</button>
               </div>
             </div>
@@ -219,7 +219,7 @@ export default function CorporateJoinPage() {
               {submitError && <p className="text-[13px] text-red-500 mt-4">{submitError}</p>}
 
               <div className="flex justify-center gap-3 mt-6">
-                <button onClick={() => setStep(1)} className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">이전</button>
+                <button onClick={() => setStep(1)} className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">이전</button>
                 <button onClick={handleSubmit} disabled={loading} className="px-10 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50" style={{ backgroundColor: GREEN }}>
                   {loading ? '처리 중...' : '가입하기'}
                 </button>
@@ -230,7 +230,7 @@ export default function CorporateJoinPage() {
           {/* STEP 3: 완료 */}
           {step === 3 && result && (
             <div className="max-w-xl mx-auto text-center py-12">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ backgroundColor: '#5BC9A8' }}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style={{ backgroundColor: KB_MINT }}>
                 <svg viewBox="0 0 24 20" fill="none" className="w-8 h-7"><polyline points="2,11 9,18 22,2" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </div>
               <h2 className="text-[20px] font-bold text-kb-text mb-2">법인 회원가입이 완료되었습니다.</h2>
@@ -238,7 +238,7 @@ export default function CorporateJoinPage() {
               <p className="text-[13px] text-kb-text-muted mb-8">고객번호: {result.customerId}</p>
               <div className="flex justify-center gap-3">
                 <Link href="/login" className="px-10 py-3 text-[14px] font-bold text-white rounded-lg hover:opacity-85" style={{ backgroundColor: GREEN }}>로그인하기</Link>
-                <Link href="/" className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-[#F0FAF7]">홈으로</Link>
+                <Link href="/" className="border border-kb-border px-10 py-3 text-[14px] text-kb-text-body hover:bg-kb-primary-bg">홈으로</Link>
               </div>
             </div>
           )}

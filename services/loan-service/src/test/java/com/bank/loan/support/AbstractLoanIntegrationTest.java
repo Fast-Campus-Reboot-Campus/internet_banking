@@ -109,6 +109,9 @@ public abstract class AbstractLoanIntegrationTest {
         r.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
 
         r.add("loan.review.bias-check.enabled", () -> "false");
+        // 가심사→ceval→DSR 자동 트리거(비동기)는 테스트의 수동 ceval/DSR 호출과 같은 appl_id 에
+        // 충돌(unique 위반)하므로 통합테스트에서는 끈다. 각 플로우는 값을 직접 통제한다.
+        r.add("loan.auto-trigger.enabled", () -> "false");
         r.add("doc-agent.base-url", () -> "http://localhost:" + DOC_AGENT_MOCK.port());
         r.add("auto-review.base-url", () -> "http://localhost:" + AUTO_REVIEW_MOCK.port());
         r.add("advisory.service.base-url", () -> "http://localhost:" + ADVISORY_MOCK.port());

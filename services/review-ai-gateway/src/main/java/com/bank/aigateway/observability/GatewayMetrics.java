@@ -1,6 +1,7 @@
 package com.bank.aigateway.observability;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
@@ -48,5 +49,23 @@ public class GatewayMetrics {
                 .tag("type", analysisType)
                 .register(registry)
                 .increment();
+    }
+
+    /**
+     * run 1회당 턴 수 분포 기록 (type, outcome 태그).
+     *
+     * <p>outcome="completed" 필터 시 정상 종료 run의 턴 분포를 구할 수 있어
+     * MAX_TURNS 상한(aigateway.agent.max-turns) 근거를 p95/p99로 산출한다.
+     */
+    public void recordLoopTurns(String analysisType, int turns, boolean timedOut) {
+        String outcome = timedOut ? "timeout" : "completed";
+        DistributionSummary.builder("aigateway.loop.turns.per_run")
+                .tag("type", analysisType)
+                .tag("outcome", outcome)
+                .publishPercentileHistogram()
+                .minimumExpectedValue(1.0)
+                .maximumExpectedValue(8.0)
+                .register(registry)
+                .record(turns);
     }
 }
