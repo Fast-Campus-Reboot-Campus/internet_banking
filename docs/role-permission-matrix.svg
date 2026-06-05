@@ -1,0 +1,601 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1020" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 18px; font-weight: bold; fill: #1a1a2e; }
+      .subtitle { font-size: 11px; fill: #555; }
+      .role-header { font-size: 10px; font-weight: bold; fill: #fff; }
+      .role-abbr { font-size: 9px; fill: #fff; opacity: 0.85; }
+      .section-label { font-size: 10px; font-weight: bold; fill: #fff; }
+      .endpoint { font-size: 9px; fill: #222; }
+      .method { font-size: 8px; font-weight: bold; }
+      .method-get { fill: #0d6efd; }
+      .method-post { fill: #198754; }
+      .method-patch { fill: #fd7e14; }
+      .check { font-size: 13px; fill: #198754; }
+      .partial { font-size: 11px; fill: #fd7e14; }
+      .deny { font-size: 11px; fill: #dee2e6; }
+      .pii-full { font-size: 8px; fill: #0d6efd; font-weight: bold; }
+      .pii-masked { font-size: 8px; fill: #6f42c1; font-weight: bold; }
+      .pii-redacted { font-size: 8px; fill: #adb5bd; }
+      .legend-text { font-size: 10px; fill: #333; }
+      .note { font-size: 9px; fill: #666; font-style: italic; }
+      .row-even { fill: #f8f9fa; }
+      .row-odd { fill: #ffffff; }
+      .row-section { fill: #e9ecef; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="1020" fill="#f0f2f5" rx="8"/>
+  <rect x="16" y="16" width="1168" height="988" fill="white" rx="6" stroke="#dee2e6" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="600" y="44" text-anchor="middle" class="title">Internet Banking — Role &amp; Permission Matrix</text>
+  <text x="600" y="60" text-anchor="middle" class="subtitle">Gateway → GatewayHeaderAuthFilter(X-User-Role) → Spring Security hasRole() 체인 기준</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: Role Hierarchy -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Role color palette header row -->
+  <!-- ADMIN -->
+  <rect x="32" y="76" width="108" height="44" rx="4" fill="#1a1a2e"/>
+  <text x="86" y="96" text-anchor="middle" class="role-header">ADMIN</text>
+  <text x="86" y="111" text-anchor="middle" class="role-abbr">ADM · 최상위</text>
+
+  <!-- OPS -->
+  <rect x="148" y="76" width="108" height="44" rx="4" fill="#0d3b6e"/>
+  <text x="202" y="96" text-anchor="middle" class="role-header">OPS</text>
+  <text x="202" y="111" text-anchor="middle" class="role-abbr">운영팀</text>
+
+  <!-- INTERNAL -->
+  <rect x="264" y="76" width="108" height="44" rx="4" fill="#1a4971"/>
+  <text x="318" y="96" text-anchor="middle" class="role-header">INTERNAL</text>
+  <text x="318" y="111" text-anchor="middle" class="role-abbr">INT · 서비스간</text>
+
+  <!-- HQ_REVIEWER -->
+  <rect x="380" y="76" width="108" height="44" rx="4" fill="#5c4a1e"/>
+  <text x="434" y="96" text-anchor="middle" class="role-header">HQ_REVIEWER</text>
+  <text x="434" y="111" text-anchor="middle" class="role-abbr">HQR · 본사심사</text>
+
+  <!-- COMPLIANCE -->
+  <rect x="496" y="76" width="108" height="44" rx="4" fill="#3d1a5e"/>
+  <text x="550" y="96" text-anchor="middle" class="role-header">COMPLIANCE</text>
+  <text x="550" y="111" text-anchor="middle" class="role-abbr">CMP · 감사</text>
+
+  <!-- BRANCH_MANAGER -->
+  <rect x="612" y="76" width="108" height="44" rx="4" fill="#1e4d35"/>
+  <text x="666" y="96" text-anchor="middle" class="role-header">BRANCH_MGR</text>
+  <text x="666" y="111" text-anchor="middle" class="role-abbr">BMG · 지점장</text>
+
+  <!-- DEPUTY_MANAGER -->
+  <rect x="728" y="76" width="108" height="44" rx="4" fill="#2d5a3d"/>
+  <text x="782" y="96" text-anchor="middle" class="role-header">DEPUTY_MGR</text>
+  <text x="782" y="111" text-anchor="middle" class="role-abbr">DMG · 부점장</text>
+
+  <!-- TELLER -->
+  <rect x="844" y="76" width="108" height="44" rx="4" fill="#4a4a1e"/>
+  <text x="898" y="96" text-anchor="middle" class="role-header">TELLER</text>
+  <text x="898" y="111" text-anchor="middle" class="role-abbr">TEL · 창구직원</text>
+
+  <!-- CUSTOMER -->
+  <rect x="960" y="76" width="108" height="44" rx="4" fill="#6c757d"/>
+  <text x="1014" y="96" text-anchor="middle" class="role-header">CUSTOMER</text>
+  <text x="1014" y="111" text-anchor="middle" class="role-abbr">CST · 고객</text>
+
+  <!-- PII Level header -->
+  <rect x="1076" y="76" width="108" height="44" rx="4" fill="#495057"/>
+  <text x="1130" y="96" text-anchor="middle" class="role-header">PII Level</text>
+  <text x="1130" y="111" text-anchor="middle" class="role-abbr">개인정보 노출</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- Column headers (role abbr repeated for matrix) -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+
+  <!-- Row y-start: 136 -->
+  <!-- Columns: endpoint(32-380), ADM(380), OPS(445), INT(510), HQR(575), CMP(640), BMG(705), DMG(770), TEL(835), CST(900), PII(965) -->
+
+  <!-- Column widths: endpoint=348, each role=65, PII=95 -->
+  <!-- Col starts: ADM=380, OPS=445, INT=510, HQR=575, CMP=640, BMG=705, DMG=770, TEL=835, CST=900, PII=965 -->
+
+  <!-- Header row for matrix -->
+  <rect x="32" y="132" width="1152" height="22" rx="0" fill="#343a40"/>
+  <text x="206" y="147" text-anchor="middle" fill="white" font-size="10" font-weight="bold">엔드포인트</text>
+  <line x1="380" y1="132" x2="380" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="412" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">ADM</text>
+  <line x1="445" y1="132" x2="445" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="477" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">OPS</text>
+  <line x1="510" y1="132" x2="510" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="542" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">INT</text>
+  <line x1="575" y1="132" x2="575" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="607" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">HQR</text>
+  <line x1="640" y1="132" x2="640" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="672" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">CMP</text>
+  <line x1="705" y1="132" x2="705" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="737" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">BMG</text>
+  <line x1="770" y1="132" x2="770" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="802" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">DMG</text>
+  <line x1="835" y1="132" x2="835" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="867" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">TEL</text>
+  <line x1="900" y1="132" x2="900" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="932" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">CST</text>
+  <line x1="965" y1="132" x2="965" y2="154" stroke="#555" stroke-width="1"/>
+  <text x="1072" y="147" text-anchor="middle" fill="white" font-size="9" font-weight="bold">PII 노출</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- SECTION: Loan Service -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="32" y="154" width="1152" height="18" fill="#0d3b6e"/>
+  <text x="40" y="167" class="section-label" fill="white">▸ Loan Service  (loan-service / SecurityConfig + LoanActorContext)</text>
+
+  <!-- Helper macro: row at y, bg=even/odd -->
+  <!-- ROW 1: /api/internal/** ALL INTERNAL -->
+  <rect x="32" y="172" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="187" class="endpoint">  /api/internal/**</text>
+  <text x="370" y="187" text-anchor="end" class="method method-post">ALL</text>
+  <text x="412" y="187" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="187" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="187" text-anchor="middle" class="check">✓</text>
+  <text x="607" y="187" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="187" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="187" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="187" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="187" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="187" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="187" text-anchor="middle" class="pii-full">FULL</text>
+
+  <!-- ROW 2: /api/internal/eod/** OPS -->
+  <rect x="32" y="194" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="209" class="endpoint">  /api/internal/eod/**  (일배치)</text>
+  <text x="370" y="209" text-anchor="end" class="method method-post">GET·POST</text>
+  <text x="412" y="209" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="209" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="209" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="209" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="209" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="209" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="209" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="209" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="209" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="209" text-anchor="middle" class="pii-full">FULL</text>
+
+  <!-- ROW 3: bias-ops-note OPS -->
+  <rect x="32" y="216" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="231" class="endpoint">  /api/internal/loan-reviews/{id}/bias-ops-note</text>
+  <text x="370" y="231" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="231" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="231" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="231" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="231" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="231" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="231" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="231" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="231" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="231" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="231" text-anchor="middle" class="pii-full">FULL</text>
+
+  <!-- ROW 4: bias-override HQR -->
+  <rect x="32" y="238" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="253" class="endpoint">  /api/loan-reviews/{id}/bias-override</text>
+  <text x="370" y="253" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="253" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="253" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="253" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="253" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="253" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="253" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="253" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="253" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="253" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="253" text-anchor="middle" class="pii-masked">MASKED</text>
+
+  <!-- ROW 5: escalated GET HQR -->
+  <rect x="32" y="260" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="275" class="endpoint">  /api/loan-reviews/escalated</text>
+  <text x="370" y="275" text-anchor="end" class="method method-get">GET</text>
+  <text x="412" y="275" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="275" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="275" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="275" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="275" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="275" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="275" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="275" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="275" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="275" text-anchor="middle" class="pii-masked">MASKED</text>
+
+  <!-- ROW 6: review POST DMG+OPS -->
+  <rect x="32" y="282" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="297" class="endpoint">  /api/loan-applications/{id}/review  (수동심사)</text>
+  <text x="370" y="297" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="297" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="297" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="297" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="297" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="297" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="297" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="297" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="297" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="297" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="297" text-anchor="middle" class="pii-full">FULL</text>
+
+  <!-- ROW 7: review GET authenticated -->
+  <rect x="32" y="304" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="319" class="endpoint">  /api/loan-applications/{id}/review  (심사결과 조회)</text>
+  <text x="370" y="319" text-anchor="end" class="method method-get">GET</text>
+  <text x="412" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="607" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="932" y="319" text-anchor="middle" class="check">✓</text>
+  <text x="1072" y="319" text-anchor="middle" class="pii-redacted">역할별</text>
+
+  <!-- ROW 8: auto-decide OPS -->
+  <rect x="32" y="326" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="341" class="endpoint">  /api/loan-applications/{id}/review/auto-decide</text>
+  <text x="370" y="341" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="341" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="341" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="341" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="341" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="341" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="341" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="341" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="341" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="341" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="341" text-anchor="middle" class="pii-full">FULL</text>
+
+  <!-- ROW 9: confirm DMG+OPS -->
+  <rect x="32" y="348" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="363" class="endpoint">  /api/loan-applications/{id}/review/confirm</text>
+  <text x="370" y="363" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="363" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="363" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="363" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="363" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="363" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="363" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="363" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="363" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="363" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="363" text-anchor="middle" class="pii-full">FULL</text>
+
+  <!-- ROW 10: acknowledge-bias DMG+OPS -->
+  <rect x="32" y="370" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="385" class="endpoint">  /api/loan-applications/{id}/review/acknowledge-bias</text>
+  <text x="370" y="385" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="385" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="385" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="385" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="385" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="385" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="385" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="385" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="385" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="385" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="385" text-anchor="middle" class="pii-full">FULL</text>
+
+  <!-- ROW 11: approver-approve BMG -->
+  <rect x="32" y="392" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="407" class="endpoint">  /api/loan-applications/{id}/review/approver-approve</text>
+  <text x="370" y="407" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="407" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="407" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="407" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="407" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="407" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="407" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="407" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="407" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="407" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="407" text-anchor="middle" class="pii-masked">MASKED</text>
+
+  <!-- ROW 12: escalate-to-hq BMG -->
+  <rect x="32" y="414" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="429" class="endpoint">  /api/loan-applications/{id}/review/escalate-to-hq</text>
+  <text x="370" y="429" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="429" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="429" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="429" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="429" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="429" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="429" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="429" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="429" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="429" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="429" text-anchor="middle" class="pii-masked">MASKED</text>
+
+  <!-- ROW 13: break-glass ALL except CST -->
+  <rect x="32" y="436" width="1152" height="22" fill="#fff3cd"/>
+  <text x="40" y="451" class="endpoint">  /api/break-glass  (긴급접근 — CUSTOMER 제외 전 직원)</text>
+  <text x="370" y="451" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="451" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="451" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="451" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="451" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="451" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="451" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="451" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="451" text-anchor="middle" class="check">✓</text>
+  <text x="932" y="451" text-anchor="middle" class="deny">✗</text>
+  <text x="1072" y="451" text-anchor="middle" class="pii-full">FULL(감사)</text>
+
+  <!-- ROW 14: audit COMPLIANCE -->
+  <rect x="32" y="458" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="473" class="endpoint">  /api/audit/**  (감사로그 조회)</text>
+  <text x="370" y="473" text-anchor="end" class="method method-get">GET</text>
+  <text x="412" y="473" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="473" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="473" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="473" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="473" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="473" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="473" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="473" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="473" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="473" text-anchor="middle" class="pii-masked">MASKED</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- SECTION: Customer Service -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="32" y="480" width="1152" height="18" fill="#1e4d35"/>
+  <text x="40" y="493" class="section-label" fill="white">▸ Customer Service  (customer-service / SecurityConfig + GatewayHeaderAuthFilter)</text>
+
+  <rect x="32" y="498" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="513" class="endpoint">  /api/v1/internal/**  (등급·신용·FDS 룰 등 고영향 관리 API)</text>
+  <text x="370" y="513" text-anchor="end" class="method method-post">ALL</text>
+  <text x="412" y="513" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="513" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="513" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="513" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="513" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="513" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="513" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="513" text-anchor="middle" class="check">✓</text>
+  <text x="932" y="513" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="513" text-anchor="middle" class="pii-full">FULL</text>
+
+  <rect x="32" y="520" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="535" class="endpoint">  /api/v1/**  (그 외 — 게이트웨이 1차 검증)</text>
+  <text x="370" y="535" text-anchor="end" class="method method-get">ALL</text>
+  <text x="412" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="607" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="932" y="535" text-anchor="middle" class="check">✓</text>
+  <text x="1072" y="535" text-anchor="middle" class="pii-redacted">permitAll</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- SECTION: Deposit Service -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="32" y="542" width="1152" height="18" fill="#5c4a1e"/>
+  <text x="40" y="555" class="section-label" fill="white">▸ Deposit Service  (deposit-service / EmployeeRole: TELLER · MANAGER · ADMIN)</text>
+
+  <rect x="32" y="560" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="575" class="endpoint">  관리자 기능  (직원 전용 API — EmployeeRole 기반)</text>
+  <text x="370" y="575" text-anchor="end" class="method method-post">ALL</text>
+  <text x="412" y="575" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="575" text-anchor="middle" fill="#888" font-size="9">MANAGER</text>
+  <text x="542" y="575" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="575" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="575" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="575" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="575" text-anchor="middle" fill="#888" font-size="9">TELLER</text>
+  <text x="867" y="575" text-anchor="middle" fill="#888" font-size="9">TELLER</text>
+  <text x="932" y="575" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="575" text-anchor="middle" class="note">자체 enum</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- SECTION: Payment Service -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="32" y="582" width="1152" height="18" fill="#6c757d"/>
+  <text x="40" y="595" class="section-label" fill="white">▸ Payment Service  (payment-service / 게이트웨이 위임 — 자체 권한 검증 없음)</text>
+
+  <rect x="32" y="600" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="615" class="endpoint">  /api/v1/payments  (즉시이체)</text>
+  <text x="370" y="615" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="607" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="932" y="615" text-anchor="middle" class="check">✓</text>
+  <text x="1072" y="615" text-anchor="middle" class="note">GW 위임</text>
+
+  <rect x="32" y="622" width="1152" height="22" fill="#ffffff"/>
+  <text x="40" y="637" class="endpoint">  /api/v1/payments/scheduled  (예약이체)</text>
+  <text x="370" y="637" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="607" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="932" y="637" text-anchor="middle" class="check">✓</text>
+  <text x="1072" y="637" text-anchor="middle" class="note">GW 위임</text>
+
+  <rect x="32" y="644" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="659" class="endpoint">  /api/v1/payments/{id}/operator-cancel  (운영자 강제취소)</text>
+  <text x="370" y="659" text-anchor="end" class="method method-post">POST</text>
+  <text x="412" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="477" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="542" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="607" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="672" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="737" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="802" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="867" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="932" y="659" text-anchor="middle" class="check">✓</text>
+  <text x="1072" y="659" text-anchor="middle" class="note">GW 위임</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- SECTION: Advisory Service -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="32" y="666" width="1152" height="18" fill="#3d1a5e"/>
+  <text x="40" y="679" class="section-label" fill="white">▸ Advisory Service  (advisory-service / AdvisoryViewerRole: REVIEWER · AUDITOR · ADMIN)</text>
+
+  <rect x="32" y="684" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="699" class="endpoint">  리포트 조회  REVIEWER=본인, AUDITOR=전체, ADMIN=전체+룰변경</text>
+  <text x="370" y="699" text-anchor="end" class="method method-get">GET</text>
+  <text x="412" y="699" text-anchor="middle" fill="#0d6efd" font-size="9">전체+룰</text>
+  <text x="477" y="699" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="699" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="699" text-anchor="middle" fill="#6f42c1" font-size="9">AUDITOR</text>
+  <text x="672" y="699" text-anchor="middle" fill="#6f42c1" font-size="9">AUDITOR</text>
+  <text x="737" y="699" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="699" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="699" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="699" text-anchor="middle" fill="#adb5bd" font-size="9">본인</text>
+  <text x="1072" y="699" text-anchor="middle" class="note">별도 enum</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- PII Level Table -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="32" y="718" width="1152" height="18" fill="#495057"/>
+  <text x="40" y="731" class="section-label" fill="white">▸ PII 노출 레벨 — LoanActorContext.piiLevel()  (Loan Service)</text>
+
+  <rect x="32" y="736" width="1152" height="22" fill="#e8f4fd"/>
+  <text x="40" y="751" class="endpoint">  FULL — 전체 공개</text>
+  <text x="412" y="751" text-anchor="middle" class="pii-full">FULL</text>
+  <text x="477" y="751" text-anchor="middle" class="pii-full">FULL</text>
+  <text x="542" y="751" text-anchor="middle" class="pii-full">FULL</text>
+  <text x="607" y="751" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="751" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="751" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="751" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="751" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="751" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="751" text-anchor="middle" class="pii-full">FULL</text>
+
+  <rect x="32" y="758" width="1152" height="22" fill="#f3e8ff"/>
+  <text x="40" y="773" class="endpoint">  MASKED — 일부 마스킹 (담당자 아닌 경우)</text>
+  <text x="412" y="773" text-anchor="middle" class="deny">—</text>
+  <text x="477" y="773" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="773" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="773" text-anchor="middle" class="pii-masked">MASKED</text>
+  <text x="672" y="773" text-anchor="middle" class="pii-masked">MASKED</text>
+  <text x="737" y="773" text-anchor="middle" class="pii-masked">MASKED</text>
+  <text x="802" y="773" text-anchor="middle" class="deny">—</text>
+  <text x="867" y="773" text-anchor="middle" class="deny">—</text>
+  <text x="932" y="773" text-anchor="middle" class="deny">—</text>
+  <text x="1072" y="773" text-anchor="middle" class="pii-masked">MASKED</text>
+
+  <rect x="32" y="780" width="1152" height="22" fill="#f8f9fa"/>
+  <text x="40" y="795" class="endpoint">  REDACTED — 개인정보 비공개 (고객 본인 데이터만 FULL)</text>
+  <text x="412" y="795" text-anchor="middle" class="deny">—</text>
+  <text x="477" y="795" text-anchor="middle" class="deny">—</text>
+  <text x="542" y="795" text-anchor="middle" class="deny">—</text>
+  <text x="607" y="795" text-anchor="middle" class="deny">—</text>
+  <text x="672" y="795" text-anchor="middle" class="deny">—</text>
+  <text x="737" y="795" text-anchor="middle" class="deny">—</text>
+  <text x="802" y="795" text-anchor="middle" class="pii-redacted">REDACT</text>
+  <text x="867" y="795" text-anchor="middle" class="pii-redacted">REDACT</text>
+  <text x="932" y="795" text-anchor="middle" fill="#0d6efd" font-size="9">FULL(본인)</text>
+  <text x="1072" y="795" text-anchor="middle" class="pii-redacted">REDACTED</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- Auth Flow Diagram -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="32" y="812" width="560" height="140" rx="6" fill="#f8f9fa" stroke="#dee2e6"/>
+  <text x="44" y="830" font-size="11" font-weight="bold" fill="#343a40">인증 흐름 (Loan / Customer Service)</text>
+
+  <!-- Flow boxes -->
+  <rect x="44" y="838" width="120" height="28" rx="4" fill="#0d3b6e"/>
+  <text x="104" y="857" text-anchor="middle" fill="white" font-size="9" font-weight="bold">API Gateway</text>
+
+  <text x="176" y="857" text-anchor="middle" fill="#555" font-size="14">→</text>
+
+  <rect x="188" y="838" width="120" height="28" rx="4" fill="#1a4971"/>
+  <text x="248" y="851" text-anchor="middle" fill="white" font-size="8">JWT 검증 후</text>
+  <text x="248" y="862" text-anchor="middle" fill="white" font-size="8">X-User-Role 주입</text>
+
+  <text x="320" y="857" text-anchor="middle" fill="#555" font-size="14">→</text>
+
+  <rect x="332" y="838" width="140" height="28" rx="4" fill="#1e4d35"/>
+  <text x="402" y="851" text-anchor="middle" fill="white" font-size="8">GatewayHeaderAuthFilter</text>
+  <text x="402" y="862" text-anchor="middle" fill="white" font-size="8">SecurityContext 등록</text>
+
+  <text x="484" y="857" text-anchor="middle" fill="#555" font-size="14">→</text>
+
+  <rect x="496" y="838" width="84" height="28" rx="4" fill="#198754"/>
+  <text x="538" y="851" text-anchor="middle" fill="white" font-size="8">hasRole()</text>
+  <text x="538" y="862" text-anchor="middle" fill="white" font-size="8">체크</text>
+
+  <!-- Internal token flow -->
+  <text x="44" y="894" font-size="10" font-weight="bold" fill="#343a40">내부 서비스 호출 (X-Internal-Token)</text>
+  <rect x="44" y="900" width="130" height="28" rx="4" fill="#5c4a1e"/>
+  <text x="109" y="919" text-anchor="middle" fill="white" font-size="9">내부 서비스</text>
+  <text x="186" y="919" text-anchor="middle" fill="#555" font-size="14">→</text>
+  <rect x="198" y="900" width="140" height="28" rx="4" fill="#4a4a1e"/>
+  <text x="268" y="913" text-anchor="middle" fill="white" font-size="8">X-Internal-Token</text>
+  <text x="268" y="924" text-anchor="middle" fill="white" font-size="8">헤더 검증</text>
+  <text x="350" y="919" text-anchor="middle" fill="#555" font-size="14">→</text>
+  <rect x="362" y="900" width="120" height="28" rx="4" fill="#198754"/>
+  <text x="422" y="913" text-anchor="middle" fill="white" font-size="8">ROLE_INTERNAL</text>
+  <text x="422" y="924" text-anchor="middle" fill="white" font-size="8">부여</text>
+
+  <text x="44" y="944" font-size="9" fill="#666" font-style="italic">* X-User-Role은 쉼표 구분 멀티롤 지원: "ROLE_OPS,ROLE_ADMIN"</text>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- Legend -->
+  <!-- ════════════════════════════════════════════ -->
+  <rect x="608" y="812" width="576" height="140" rx="6" fill="#f8f9fa" stroke="#dee2e6"/>
+  <text x="620" y="830" font-size="11" font-weight="bold" fill="#343a40">범례</text>
+
+  <!-- Check symbols -->
+  <text x="620" y="850" class="check">✓</text>
+  <text x="636" y="850" class="legend-text">접근 허용</text>
+  <text x="720" y="850" fill="#dc3545" font-size="13">✗</text>
+  <text x="736" y="850" class="legend-text">명시적 거부</text>
+  <text x="820" y="850" class="deny" font-size="13">—</text>
+  <text x="836" y="850" class="legend-text">권한 없음 (403)</text>
+
+  <!-- PII colors -->
+  <rect x="620" y="862" width="10" height="10" fill="#0d6efd" rx="2"/>
+  <text x="636" y="872" class="legend-text">PII FULL — 전체 공개</text>
+  <rect x="720" y="862" width="10" height="10" fill="#6f42c1" rx="2"/>
+  <text x="736" y="872" class="legend-text">PII MASKED — 일부 마스킹</text>
+  <rect x="900" y="862" width="10" height="10" fill="#adb5bd" rx="2"/>
+  <text x="916" y="872" class="legend-text">PII REDACTED</text>
+
+  <!-- HTTP Methods -->
+  <text x="620" y="892" class="method method-get">GET</text>
+  <text x="650" y="892" class="legend-text">조회</text>
+  <text x="720" y="892" class="method method-post">POST</text>
+  <text x="754" y="892" class="legend-text">생성·실행</text>
+  <text x="820" y="892" class="method method-patch">PATCH</text>
+  <text x="856" y="892" class="legend-text">수정</text>
+
+  <!-- Warning note -->
+  <rect x="620" y="906" width="552" height="34" rx="4" fill="#fff3cd" stroke="#ffc107" stroke-width="1"/>
+  <text x="630" y="920" font-size="9" fill="#856404" font-weight="bold">⚠ Payment Service는 게이트웨이에 인증을 완전히 위임 — 서비스 자체 권한 검증 없음.</text>
+  <text x="630" y="933" font-size="9" fill="#856404">  operator-cancel 등 운영자 전용 기능도 게이트웨이 단에서만 제어됨.</text>
+
+  <!-- Grid lines (vertical separators) -->
+  <line x1="380" y1="154" x2="380" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="445" y1="154" x2="445" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="510" y1="154" x2="510" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="575" y1="154" x2="575" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="640" y1="154" x2="640" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="705" y1="154" x2="705" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="770" y1="154" x2="770" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="835" y1="154" x2="835" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="900" y1="154" x2="900" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+  <line x1="965" y1="154" x2="965" y2="802" stroke="#dee2e6" stroke-width="0.5"/>
+
+  <!-- Footer -->
+  <text x="600" y="966" text-anchor="middle" font-size="9" fill="#999">generated from SecurityConfig · GatewayHeaderAuthFilter · LoanActorContext — 2026-06-05</text>
+</svg>
