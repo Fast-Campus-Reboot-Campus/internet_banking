@@ -7,7 +7,6 @@ import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +15,6 @@ import java.math.BigDecimal;
 
 @Component
 @Profile("local")
-@ConditionalOnBean(EntityManagerFactory.class)
 @RequiredArgsConstructor
 public class LocalDataSeeder implements ApplicationRunner {
 
