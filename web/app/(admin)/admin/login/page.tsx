@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ADMIN_ACCOUNTS, ROLE_LABELS, AdminRole } from '@/lib/admin-mock-data'
+import { api } from '@/lib/api'
 
 const ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
   ROLE_HQ_AUDIT:      '전 지점 모든 데이터 Full Access',
@@ -30,7 +31,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  function handleLogin() {
+  async function handleLogin() {
     if (!selectedId) { setError('계정을 선택해주세요.'); return }
     if (!password)   { setError('비밀번호를 입력해주세요.'); return }
 
@@ -38,6 +39,23 @@ export default function AdminLoginPage() {
     // 목업: 비밀번호 "admin1234" 고정
     if (password !== 'admin1234') {
       setError('비밀번호가 올바르지 않습니다. (힌트: admin1234)')
+      return
+    }
+
+    // 어드민 화면의 백엔드 호출은 localStorage.accessToken(Bearer)에 의존한다.
+    // 별도 직원 로그인 엔드포인트가 없으므로, 시드된 직원 계정으로 백엔드 로그인하여
+    // 실제 JWT를 받아 저장한다. (역할 구분은 아래 admin_role 목업으로 유지)
+    try {
+      const { data } = await api.post('/api/v1/auth/login', {
+        loginId: 'employee01',
+        password: 'Employee1234!',
+      })
+      localStorage.setItem('accessToken',  data.data.accessToken)
+      localStorage.setItem('access_token', data.data.accessToken)
+      if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
+      if (data.data.customerId != null) localStorage.setItem('customerId', String(data.data.customerId))
+    } catch {
+      setError('인증 토큰 발급에 실패했습니다. customer-service(8080)가 실행 중인지 확인하세요.')
       return
     }
 
