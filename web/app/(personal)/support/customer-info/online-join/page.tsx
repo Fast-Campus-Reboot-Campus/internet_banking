@@ -268,6 +268,13 @@ export default function OnlineJoinPage() {
             {/* ── STEP 0: 약관동의 ── */}
             {step === 0 && (
               <div>
+                {/* 법인 고객 안내 */}
+                <div className="flex items-center justify-between border border-kb-border bg-[#F0FAF7] px-5 py-3 mb-4">
+                  <span className="text-[13px] text-kb-text-body">법인·개인사업자 고객이신가요? 기업 인터넷뱅킹은 별도 화면에서 가입하실 수 있습니다.</span>
+                  <Link href="/support/customer-info/corporate-join" className="border px-4 py-1.5 text-[13px] font-semibold whitespace-nowrap hover:bg-white" style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+                    법인 신규가입 ›
+                  </Link>
+                </div>
                 <div className="border border-kb-border mb-4">
                   {/* 전체약관보기 */}
                   <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-[#F0FAF7]">

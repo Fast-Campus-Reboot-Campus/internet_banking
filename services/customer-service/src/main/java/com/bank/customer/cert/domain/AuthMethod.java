@@ -15,6 +15,9 @@ public class AuthMethod extends BaseEntity {
     public static final String STATUS_ACTIVE   = "ACTIVE";
     public static final String STATUS_INACTIVE = "INACTIVE";
 
+    /** auth_method_type_code CHECK 제약 허용값 중 간편비밀번호 타입 */
+    public static final String TYPE_PIN = "PIN";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "auth_method_id")

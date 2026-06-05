@@ -15,13 +15,17 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 최고금리 계산 | 활성화된 금리 row 중 기본금리 또는 기간기본금리의 최댓값에 우대금리를 합산해 최고금리를 계산합니다. |
 | 프론트 상품 표시 | 상품 카드와 상품 상세 화면에서 `최고 연 n%`, `기본 연 n%`를 구분해 표시합니다. |
 | 계좌이체 단일화 | 이체 실행 지점을 result 페이지 하나로 단일화했습니다. confirm 페이지의 중복 호출을 제거하고, result 페이지에서 `/transactions/transfer` API만 호출합니다. |
-| 이체 가능 계좌 | 입출금 계좌이면서 출금 가능하고 닫히지 않은 계좌만 출금계좌로 선택되도록 보정했습니다. |
+| 이체 계좌 조회 fallback | deposit API 실패 시 localStorage의 `joinedAccounts`로 fallback해 출금계좌 목록을 표시합니다. |
+| 이체 가능 계좌 | `rawAccountType === 'DEPOSIT'`이고 출금 가능하며 해지되지 않은 계좌만 출금계좌로 선택합니다. |
 | 이체 결과 | 이체 처리 중 로딩 표시를 추가했습니다. 이체 성공 후 계좌 잔액을 다시 조회하고, 실패 시 오류 메시지를 화면에 표시합니다. |
 | 이체 조회 | 계좌별 거래내역을 조회해 즉시이체 결과조회에 반영합니다. |
 | 거래내역 | 기본 계좌 자동 선택, 이체 메모 문구 정리, 거래 후 잔액 표시를 추가했습니다. |
 | 거래 채널 | `TransactionChannel`에 `CHATBOT` 값을 추가했습니다. |
 | 테스트 | 상품 목록/상세 응답의 `bestRate` 계산과 컨트롤러 응답 검증을 추가했습니다. |
 | 테스트 보정 | 최신 계약/거래 서비스 시그니처와 계좌 조회 방식에 맞춰 기존 테스트 fixture를 보정했습니다. |
+| 이체 시나리오 테스트 | INTERNAL 토AccountId null, 존재하지 않는 계좌, CLOSED 계좌, 계좌번호 불일치, 타행이체 잔액 차감 검증 추가. |
+| 챗봇 상품 추천 우대금리 표시 | 상품 추천 카드에 우대금리 수치(+X%)와 조건을 함께 표시합니다. `banking_deposit_product_interest_rates` 테이블의 PREFERENTIAL 금리 합산값과 조건을 카드에 노출합니다. |
+| 이체 API 중복 함수 제거 | `web/lib/deposit-api.ts`의 `executeDepositTransfer` 중복 정의를 제거했습니다. |
 
 ## 백엔드 변경 상세
 
@@ -104,7 +108,7 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 파일 | 내용 |
 | --- | --- |
 | `web/lib/deposit-api.ts` | `executeDepositTransfer` API 함수와 거래 응답 잔액 필드 추가 |
-| `web/app/(personal)/transfer/account/page.tsx` | 출금 가능 계좌 필터링, 내부이체 대상 계좌 ID 저장 |
+| `web/app/(personal)/transfer/account/page.tsx` | 출금 가능 계좌 필터링, API 실패 시 localStorage fallback, 내부이체 대상 계좌 ID 저장 |
 | `web/app/(personal)/transfer/result/page.tsx` | 실제 이체 API 호출, 성공/실패 표시, 잔액 갱신 |
 | `web/app/(personal)/transfer/inquiry/page.tsx` | 계좌별 거래내역 기반 이체 결과 조회 |
 
@@ -121,21 +125,112 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 
 ## 테스트
 
-추가/수정된 테스트:
+추가/수정된 테스트 (전체 261개 PASS, BUILD SUCCESSFUL):
+
+### 거래 서비스 (`TransactionServiceTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 타행이체 출금 거래 생성 | OUT 방향, TRF- 번호, 잔액 차감 검증 |
+| 당행이체 양방향 거래 생성 | OUT+IN 각각 생성, 채널 SYSTEM, "이체 수신" 메모 |
+| 잔액 부족 이체 예외 | `BusinessException` 발생 |
+| INTERNAL toAccountId null 예외 | `BusinessException` 발생 |
+| 존재하지 않는 출금 계좌 예외 | `BusinessException` 발생 |
+| CLOSED 계좌 이체 예외 | `BusinessException` 발생 |
+| 당행이체 계좌번호 불일치 예외 | `BusinessException` 발생 |
+| 타행이체 잔액 정확히 차감 | 잔액 = 이전잔액 - 이체금액 |
+| 전액 이체 후 잔액 0 | 잔액 0 검증 |
+| 순차 이체 두 번 후 잔액 | 누적 차감 정확성 |
+| 음수 잔액 방지 | 실패 시 잔액 불변 |
+| 멀티스레드 순차 호출 잔액 | 잔액 ≥ 0 보장 |
+| DEPOSIT 타입 거래 취소 불가 | `BusinessException` 발생 |
+| 이미 취소된 거래 재취소 불가 | `BusinessException` 발생 |
+| 취소 거래 생성 | REVERSAL 타입, REV- 번호 |
+
+### 거래 컨트롤러 (`TransactionControllerTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 이체 정상 | 201 Created, `TRANSFER` 타입 반환 |
+| fromAccountId 누락 | 400 Bad Request |
+| 금액 0원 | 400 Bad Request |
+| 금액 음수 | 400 Bad Request |
+| 서비스 예외 (잔액 부족) | 4xx 반환 |
+| 없는 거래 취소 | 404 Not Found |
+| 입금/출금/적금납입/취소 | 201/200 정상 반환 |
+| 없는 거래 조회 | 404 Not Found |
+
+### 계좌 서비스 (`AccountServiceTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 계좌번호로 정상 조회 | accountNumber, customerId 일치 |
+| 없는 계좌번호 조회 예외 | `BusinessException` 발생 |
+| 고객 계좌 없을 때 빈 리스트 | 빈 리스트 반환 |
+
+### 계좌 컨트롤러 (`AccountControllerTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| `GET /accounts/by-number/{accountNo}` 정상 | 200, accountNumber/customerId 반환 |
+| `GET /accounts/by-number/없는번호` | 404 Not Found |
+| 인증 헤더 없이 계좌 생성 | 403 Forbidden |
+
+### 기존 테스트 (보정 포함)
 
 | 파일 | 검증 내용 |
 | --- | --- |
-| `src/test/java/com/bank/deposit/controller/ProductControllerTest.java` | 상품 목록/상세 응답에 `bestRate`가 포함되는지 검증 |
-| `src/test/java/com/bank/deposit/service/ProductServiceTest.java` | 활성 금리 row를 기준으로 `bestRate`가 계산되는지 검증 |
-| `src/test/java/com/bank/deposit/controller/ContractControllerTest.java` | 계약 해지 API mock 인자를 현재 컨트롤러 호출 방식에 맞게 보정 |
-| `src/test/java/com/bank/deposit/service/ContractServiceTest.java` | 계약 생성 테스트를 현재 서비스 시그니처와 고정 Clock 기준에 맞게 보정 |
-| `src/test/java/com/bank/deposit/service/TransactionServiceTest.java` | 거래 서비스 테스트를 `findByIdForUpdate`와 `LocalDate` 계좌 날짜 기준에 맞게 보정 |
+| `ProductControllerTest` | 상품 목록/상세 응답에 `bestRate` 포함 검증 |
+| `ProductServiceTest` | 활성 금리 row 기준 `bestRate` 계산 검증 |
+| `ContractControllerTest` | 해지 API mock 인자 보정 |
+| `ContractServiceTest` | 계약 생성 시그니처·Clock 기준 보정 |
 
 테스트 실행:
 
 ```bash
 ./gradlew :services:deposit-service:test
+./gradlew :services:deposit-service:build
 ```
+
+## 챗봇 상품 추천 우대금리 표시
+
+챗봇 상품 추천 카드에 우대금리 수치와 조건을 함께 표시합니다.
+
+### 데이터 출처
+
+`banking_deposit_product_interest_rates` 테이블(deposit DB)에서 `rate_type = 'PREFERENTIAL'`인 행을 상품별로 집계합니다.
+
+- 우대금리 수치: `SUM(interest_rate)` → 카드에 `+X%` 형식으로 표시
+- 우대금리 조건: `STRING_AGG(condition_description)` → 카드에 조건 텍스트로 표시
+
+### 표시 예시
+
+```
+🎁 우대금리 +0.6% 조건: 자동이체 설정 우대
+```
+
+DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback 조건을 사용합니다.
+
+| 키워드 | fallback 조건 |
+| --- | --- |
+| 내맘대로 | 자동이체 설정 |
+| 자유적금 | 자동이체 설정 |
+| 맑은하늘 | 맑은하늘 앱 설치 후 인증코드 등록 |
+| 직장인우대 | 급여이체 실적 등록 |
+| 달러 | 달러 환전 실적 보유 |
+| 청년도약 | 소득 요건 충족 확인 |
+| 수퍼정기 | 비대면 가입 |
+| 정기예금 | 비대면(인터넷·스타뱅킹) 가입 |
+| 꿈적금 | 만기 유지 |
+| 함께적금 | 2인 이상 공동 가입 |
+
+### 관련 파일
+
+| 파일 | 내용 |
+| --- | --- |
+| `web/components/chatbot/ChatbotWidget.tsx` | 추천 카드에 `pref_rate`, `pref_condition` 표시 추가 |
+
+---
 
 ## 변경 파일 목록
 
@@ -145,15 +240,19 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 - `services/deposit-service/src/main/java/com/bank/deposit/domain/enums/TransactionChannel.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/dto/response/ProductResponse.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/service/ProductService.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/controller/AccountControllerTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/controller/ProductControllerTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/controller/ContractControllerTest.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/controller/TransactionControllerTest.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/service/AccountServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/ContractServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/ProductServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/TransactionServiceTest.java`
 
 프론트엔드 deposit 연동:
 
-- `web/lib/deposit-api.ts`
+- `web/lib/deposit-api.ts` (중복 함수 제거)
+- `web/components/chatbot/ChatbotWidget.tsx` (우대금리 수치 표시 추가)
 - `web/components/home/ProductShowcase.tsx`
 - `web/app/(personal)/products/deposit/[id]/page.tsx`
 - `web/app/(personal)/transfer/account/page.tsx`

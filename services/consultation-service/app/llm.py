@@ -369,14 +369,18 @@ class LlmAdapter:
             ) if has_data else "거래 내역이 충분하지 않아 현금흐름 분석이 제한됩니다."
 
             # ── 상품 목록 텍스트 ─────────────────────────────────────────────────
-            product_lines = [
-                f"- {p.get('deposit_product_name') or p.get('product_name', '')} "
-                f"({p.get('deposit_product_type') or p.get('product_type', '')}) "
-                f"기본금리 {p.get('base_interest_rate', '')}%  "
-                f"가입금액 {p.get('min_join_amount', '')}~{p.get('max_join_amount', '')}원  "
-                f"{p.get('min_period_month', '')}~{p.get('max_period_month', '')}개월"
-                for p in products[:8]
-            ]
+            def _product_line(p: dict) -> str:
+                pref_cond = p.get("pref_condition", "")
+                pref_note = f" [우대조건: {pref_cond}]" if pref_cond else ""
+                return (
+                    f"- {p.get('deposit_product_name') or p.get('product_name', '')} "
+                    f"({p.get('deposit_product_type') or p.get('product_type', '')}) "
+                    f"기본금리 {p.get('base_interest_rate', '')}%  "
+                    f"가입금액 {p.get('min_join_amount', '')}~{p.get('max_join_amount', '')}원  "
+                    f"{p.get('min_period_month', '')}~{p.get('max_period_month', '')}개월"
+                    f"{pref_note}"
+                )
+            product_lines = [_product_line(p) for p in products[:8]]
             product_text = (
                 "\n".join(product_lines) if product_lines else "현재 판매 중인 수신 상품 없음"
             )

@@ -1,9 +1,9 @@
 ﻿'use client'
 
-import Link from 'next/link'
 import { use, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { loanApplicationApi } from '@/lib/loan-api'
 
 const DOC_STATUS_LABEL: Record<string, string> = {
@@ -320,13 +320,7 @@ export default function CreditEvalPage({ params }: { params: Promise<{ slug: str
   return (
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
-        <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/personal" className="hover:underline">개인뱅킹</Link><span>›</span>
-          <Link href="/products/deposit" className="hover:underline">금융상품</Link><span>›</span>
-          <Link href="/products/loan" className="hover:underline">대출</Link><span>›</span>
-          <span className="text-kb-text font-medium">신용평가 및 여신심사 자료제출</span><span>›</span>
-          <span className="text-kb-text font-medium">{meta.breadcrumb}</span>
-        </nav>
+        <AutoBreadcrumb leaf={meta.breadcrumb} />
         <div className="flex gap-8">
           <LoanSidebar />
           <div className="flex-1 min-w-0">

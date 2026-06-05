@@ -153,6 +153,35 @@ GET /api/products/recommend-agent?customerId={customerId}&periodMonth={periodMon
 X-Customer-Id: {customerId}
 ```
 
+### 계좌이체 실행 흐름
+
+개인뱅킹 계좌이체 화면은 `deposit-service`의 거래 API를 최종 실행 지점으로 사용한다.
+
+| 단계 | 프런트 라우트 | 역할 |
+|---|---|---|
+| STEP 1. 이체정보 입력 | `web/app/(personal)/transfer/account/page.tsx` | 출금 가능 계좌 조회, 입금 계좌/금액 입력, `pendingTransfer` 생성 |
+| STEP 2. 이체정보 확인 | `web/app/(personal)/transfer/confirm/page.tsx` | 금융인증서 PIN 확인 후 결과 화면으로 이동 |
+| STEP 3. 이체결과 | `web/app/(personal)/transfer/result/page.tsx` | `executeDepositTransfer()`를 호출해 실제 이체 실행 |
+
+중복 이체를 막기 위해 실제 API 호출은 `result` 페이지 한 곳에서만 수행한다. `confirm` 페이지는 인증 및 화면 전환만 담당하며, `payment-service`의 `createInstantTransfer()`를 호출하지 않는다.
+
+```
+POST /api/transactions/transfer
+X-Customer-Id: {customerId}
+```
+
+프런트의 `executeDepositTransfer()`는 다음 값을 deposit API로 전달한다.
+
+- `fromAccountId`: 출금 계좌 ID
+- `toAccountId`: 당행 내 계좌 이체인 경우 입금 계좌 ID
+- `toAccountNo`: 입금 계좌번호
+- `amount`: 이체금액
+- `transferType`: `INTERNAL` 또는 `EXTERNAL`
+- `counterpartyBankCode`, `counterpartyBankName`, `counterpartyName`
+- `channelType`: `INTERNET`
+
+출금 계좌 목록은 백엔드의 `isWithdrawable` 값을 우선 사용한다. 값이 없는 로컬 fallback 데이터는 계좌 유형명과 상품명에 `입출금` 또는 `통장`이 포함된 경우에만 출금 가능 계좌로 간주한다.
+
 ---
 
 ## consultation-service 주요 기능

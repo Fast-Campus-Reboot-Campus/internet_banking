@@ -158,6 +158,45 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.accountNumber").value("ACC-001"));
     }
 
+    @Test
+    @DisplayName("인증 헤더 없이 계좌 생성 시 403을 반환한다")
+    void createWithoutAuthHeader() throws Exception {
+        mockMvc.perform(post("/accounts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "customerId": "CUST-001",
+                                  "contractId": 1,
+                                  "accountType": "DEPOSIT",
+                                  "accountAlias": "내 예금",
+                                  "accountPassword": "1234"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("계좌번호로 계좌를 조회한다")
+    void getByNumber() throws Exception {
+        given(accountService.findByAccountNumber("ACC-001"))
+                .willReturn(account("ACC-001", "CUST-001"));
+
+        mockMvc.perform(get("/accounts/by-number/ACC-001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountNumber").value("ACC-001"))
+                .andExpect(jsonPath("$.customerId").value("CUST-001"));
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 계좌번호 조회 시 404를 반환한다")
+    void getByNumberNotFound() throws Exception {
+        given(accountService.findByAccountNumber("NONE-999"))
+                .willThrow(new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+
+        mockMvc.perform(get("/accounts/by-number/NONE-999"))
+                .andExpect(status().isNotFound());
+    }
+
     // ── 픽스처 ──────────────────────────────────────────────────────────────
 
     private Account account(String number, String customerId) {

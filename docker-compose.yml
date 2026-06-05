@@ -282,6 +282,8 @@ services:
       context: .
       dockerfile: services/payment-service/Dockerfile
     container_name: ib-payment-service
+    ports:
+      - "${PAYMENT_APP_PORT:-8084}:8084"
     environment:
       PAYMENT_APP_PORT: 8084
       PAYMENT_DB_HOST: payment-db
@@ -293,6 +295,8 @@ services:
       BOK_KAFKA_BOOTSTRAP: kafka:29092
       INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
       LOG_DIR: /logs
+      DEPOSIT_ACCOUNT_URL: http://deposit-service:${DEPOSIT_APP_PORT:-8082}
+      DEPOSIT_BALANCE_URL: http://deposit-service:${DEPOSIT_APP_PORT:-8082}
     depends_on:
       payment-db:
         condition: service_healthy

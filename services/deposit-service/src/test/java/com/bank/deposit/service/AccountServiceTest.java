@@ -64,6 +64,17 @@ class AccountServiceTest {
             assertThat(result.get(0).getCustomerId()).isEqualTo("CUST-001");
             then(accountRepository).should().findByCustomerId("CUST-001");
         }
+
+        @Test
+        @DisplayName("계좌가 없는 고객은 빈 리스트를 반환한다")
+        void findByCustomerEmpty() {
+            given(accountRepository.findByCustomerId("CUST-NONE"))
+                    .willReturn(List.of());
+
+            List<Account> result = accountService.findByCustomer("CUST-NONE");
+
+            assertThat(result).isEmpty();
+        }
     }
 
     @Nested
@@ -201,6 +212,33 @@ class AccountServiceTest {
         Account result = accountService.updateAlias(1L, "급여 통장");
 
         assertThat(result.getAccountAlias()).isEqualTo("급여 통장");
+    }
+
+    @Nested
+    @DisplayName("계좌번호로 계좌 조회")
+    class FindByAccountNumber {
+
+        @Test
+        @DisplayName("계좌번호로 계좌를 조회한다")
+        void findByAccountNumber() {
+            given(accountRepository.findByAccountNumber("ACC-001"))
+                    .willReturn(Optional.of(account("ACC-001", "CUST-001")));
+
+            Account result = accountService.findByAccountNumber("ACC-001");
+
+            assertThat(result.getAccountNumber()).isEqualTo("ACC-001");
+            assertThat(result.getCustomerId()).isEqualTo("CUST-001");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 계좌번호 조회 시 예외가 발생한다")
+        void findByAccountNumberNotFound() {
+            given(accountRepository.findByAccountNumber("NONE-999"))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> accountService.findByAccountNumber("NONE-999"))
+                    .isInstanceOf(BusinessException.class);
+        }
     }
 
     // ── 픽스처 ──────────────────────────────────────────────────────────────

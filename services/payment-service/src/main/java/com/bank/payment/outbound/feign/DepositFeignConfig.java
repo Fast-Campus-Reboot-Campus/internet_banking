@@ -1,7 +1,9 @@
 package com.bank.payment.outbound.feign;
 
 import com.bank.payment.common.BankCodeMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.RequestInterceptor;
+import feign.codec.ErrorDecoder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,5 +28,10 @@ public class DepositFeignConfig {
             // ★ Authorization(JWT)은 Stage 5+ 인증 연동 시 추가 (지금은 미박)
             // ★ X-Idempotency-Key는 @RequestHeader로 메서드에서 받음
         };
+    }
+
+    @Bean
+    public ErrorDecoder depositFeignErrorDecoder(ObjectMapper objectMapper) {
+        return new DepositFeignErrorDecoder(objectMapper);
     }
 }

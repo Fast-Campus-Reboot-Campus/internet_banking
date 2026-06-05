@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { api } from '@/lib/api'
 
 type LoanContract = {
@@ -87,12 +88,7 @@ export default function MyLoanPage() {
   return (
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
-        <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/" className="hover:underline">개인뱅킹</Link><span>›</span>
-          <Link href="/products/loan" className="hover:underline">대출</Link><span>›</span>
-          <span className="text-kb-text font-medium">대출관리</span><span>›</span>
-          <span className="text-kb-text font-medium">내 대출 현황</span>
-        </nav>
+        <AutoBreadcrumb as="/products/loan/manage/rate" leaf="내 대출 현황" />
 
         <div className="flex gap-8">
           <LoanSidebar />

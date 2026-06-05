@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { use, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { loanApplicationApi, loanContractApi } from '@/lib/loan-api'
 
 // ─── 사후 서류 제출 ─────────────────────────────────────────
@@ -330,13 +331,7 @@ function StatusSlugContent({ slug }: { slug: string }) {
   return (
     <main className="pb-16">
       <div className="max-w-kb-container mx-auto px-6 pt-6">
-        <nav className="text-[12px] text-kb-text-muted mb-4 flex items-center gap-1">
-          <Link href="/personal" className="hover:underline">개인뱅킹</Link><span>›</span>
-          <Link href="/products/deposit" className="hover:underline">금융상품</Link><span>›</span>
-          <Link href="/products/loan" className="hover:underline">대출</Link><span>›</span>
-          <Link href="/products/loan/status" className="hover:underline">대출진행현황</Link><span>›</span>
-          <span className="text-kb-text font-medium">{meta?.breadcrumb ?? slug}</span>
-        </nav>
+        <AutoBreadcrumb leaf={meta?.breadcrumb ?? slug} />
         <div className="flex gap-8">
           <LoanSidebar />
           <div className="flex-1 min-w-0">

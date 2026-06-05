@@ -177,6 +177,84 @@ class TransactionControllerTest {
                 .andExpect(jsonPath("$.transactionType").value("REVERSAL"));
     }
 
+    @Test
+    @DisplayName("이체 요청에 fromAccountId가 없으면 400을 반환한다")
+    void transferMissingFromAccountId() throws Exception {
+        mockMvc.perform(post("/transactions/transfer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "toAccountNo": "ACC-002",
+                                  "amount": 100000,
+                                  "transferType": "EXTERNAL"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("이체 금액이 0이면 400을 반환한다")
+    void transferZeroAmount() throws Exception {
+        mockMvc.perform(post("/transactions/transfer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fromAccountId": 1,
+                                  "toAccountNo": "ACC-002",
+                                  "amount": 0,
+                                  "transferType": "EXTERNAL"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("이체 금액이 음수이면 400을 반환한다")
+    void transferNegativeAmount() throws Exception {
+        mockMvc.perform(post("/transactions/transfer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fromAccountId": 1,
+                                  "toAccountNo": "ACC-002",
+                                  "amount": -1000,
+                                  "transferType": "EXTERNAL"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 거래 취소 시 404를 반환한다")
+    void cancelNotFound() throws Exception {
+        given(transactionService.reversal(999L, null))
+                .willThrow(new BusinessException(ErrorCode.TRANSACTION_NOT_FOUND));
+
+        mockMvc.perform(patch("/transactions/999/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("서비스 예외 발생 시 이체 API가 4xx를 반환한다")
+    void transferServiceException() throws Exception {
+        given(transactionService.transfer(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .willThrow(new BusinessException(ErrorCode.INSUFFICIENT_BALANCE));
+
+        mockMvc.perform(post("/transactions/transfer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "fromAccountId": 1,
+                                  "toAccountNo": "ACC-002",
+                                  "amount": 999999999,
+                                  "transferType": "EXTERNAL"
+                                }
+                                """))
+                .andExpect(status().is4xxClientError());
+    }
+
     private Transaction transaction(String number, TransactionType type, DirectionType direction) {
         return Transaction.builder()
                 .transactionNumber(number)

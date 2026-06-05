@@ -31,6 +31,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     /** 인증 없이 통과할 경로 접두사 목록 */
     private static final List<String> PUBLIC_PATH_PREFIXES = List.of(
             "/api/v1/auth/",
+            "/api/v1/mobile-auth/",
             "/actuator/"
     );
 
