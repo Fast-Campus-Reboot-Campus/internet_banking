@@ -71,16 +71,16 @@ const QUICK_MENUS = [
 ]
 
 const NEWS_ITEMS = [
-  { type: '새소식', text: '신규거래 법인고객 수수료 우대 혜택 안내' },
-  { type: '새소식', text: '「다온인증서(기업)」 개인정보 이용·제공.' },
+  { type: '새소식', text: '신규거래 고객 수수료 우대 혜택 안내' },
+  { type: '새소식', text: '「다온인증서」 개인정보 이용·제공.' },
   { type: 'FAQ', text: '[확인증 출력] 이체확인증 출력시 한장에 여러.' },
   { type: 'FAQ', text: '[보안토큰] PC를 포맷하거나 교체한 후 HS.' },
 ]
 
-const BIZ_GUIDE = [
-  '기업뱅킹 이용가이드',
+const BANKING_GUIDE = [
+  '개인뱅킹 이용가이드',
   '다온보안센터',
-  '인증센터(기업)',
+  '인증센터',
 ]
 
 export default function DaonHomePage() {
@@ -112,7 +112,7 @@ export default function DaonHomePage() {
 
       <DaonProductCarousel />
 
-      {/* 새소식/FAQ + 기업뱅킹안내 + 고객센터 */}
+      {/* 새소식/FAQ + 개인뱅킹안내 + 고객센터 */}
       <section className="py-16 border-t border-kb-border" style={{ backgroundColor: '#f8f8f8' }}>
         <div className="max-w-kb-container mx-auto px-6 gap-16" style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.85fr 0.85fr' }}>
 
@@ -137,11 +137,11 @@ export default function DaonHomePage() {
             </ul>
           </div>
 
-          {/* 다온기업뱅킹안내 */}
+          {/* 다온개인뱅킹안내 */}
           <div>
-            <h2 className="text-2xl font-bold text-kb-text mb-6">다온기업뱅킹안내</h2>
+            <h2 className="text-2xl font-bold text-kb-text mb-6">다온개인뱅킹안내</h2>
             <ul className="space-y-3 pt-3">
-              {BIZ_GUIDE.map((item) => (
+              {BANKING_GUIDE.map((item) => (
                 <li key={item}>
                   <Link href="#" className="text-base text-kb-text-body block py-1">· {item}</Link>
                 </li>
@@ -149,8 +149,8 @@ export default function DaonHomePage() {
             </ul>
             <div className="mt-4 mx-2 p-4 flex items-center gap-3 hover:opacity-90 transition-opacity cursor-pointer" style={{ backgroundColor: '#d9e4fa' }}>
               <div>
-                <p className="text-sm text-kb-text whitespace-nowrap">다온기업뱅킹 좀더 쉽게 이용하기</p>
-                <p className="text-lg font-semibold whitespace-nowrap" style={{ color: '#1545c3' }}>기업뱅킹 체험관</p>
+                <p className="text-sm text-kb-text whitespace-nowrap">다온개인뱅킹 좀더 쉽게 이용하기</p>
+                <p className="text-lg font-semibold whitespace-nowrap" style={{ color: '#1545c3' }}>개인뱅킹 체험관</p>
               </div>
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function DaonHomePage() {
             <div>
               <p className="text-xl font-bold" style={{ color: '#1B3A6B' }}>1599·0000</p>
               <p className="text-sm text-kb-text-body mt-1 mb-2">평일 08~22시 / 토·요일 09~14시</p>
-              <p className="text-base font-bold text-kb-text">기업뱅킹서비스 1599-1111</p>
+              <p className="text-base font-bold text-kb-text">개인뱅킹서비스 1599-1111</p>
               <p className="text-sm text-kb-text-muted mt-1 mb-3">평일 09~18시</p>
               <p className="text-base font-bold text-kb-text">Daon CMS 1599-2222</p>
               <p className="text-sm text-kb-text-muted mt-1 mb-3">평일 09~18시</p>

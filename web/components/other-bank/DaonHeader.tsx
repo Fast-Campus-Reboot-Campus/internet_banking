@@ -28,40 +28,57 @@ const DAON_GNB_MENUS: {
     ]},
     { items: [
       { label: '전체계좌조회', href: '/other-bank/accounts' },
-      { label: '통합계좌조회(CMS)' },
+      { label: '잔액·거래내역조회' },
       { label: '다온금융그룹조회' },
       { label: '계좌통합관리서비스(어카운트인포)' },
     ]},
   ]},
 
-  { id: 'banking', label: '뱅킹업무', columns: [
+  { id: 'deposit', label: '예금/신탁', columns: [
     { items: [
-      { label: '자금관리', arrow: true, active: true },
-      { label: '공과금', arrow: true },
-      { label: '예금/신탁', arrow: true },
-      { label: '대출', arrow: true },
+      { label: '예금/적금', arrow: true, active: true },
+      { label: '입출금', arrow: true },
+      { label: '신탁', arrow: true },
       { label: '펀드', arrow: true },
-      { label: '보험/공제', arrow: true },
-      { label: '전자세금계산서 발행', arrow: true },
+      { label: '보험', arrow: true },
+      { label: '퇴직연금(IRP)', arrow: true },
     ]},
     { items: [
       { label: '조회', arrow: true, active: true },
-      { label: '나의 사업장 조회', arrow: true },
-      { label: '자금관리서비스 안내/가입' },
-      { label: '자금관리서비스 변경관리', arrow: true },
-      { label: '원화 가상계좌', arrow: true },
-      { label: '외화 가상계좌', arrow: true },
-      { label: 'Daon CMS Global' },
-      { label: '설치프로그램안내' },
+      { label: '예적금 신규가입' },
+      { label: '예적금 해지' },
+      { label: '자동이체 관리', arrow: true },
+      { label: '만기·재예치 안내', arrow: true },
+      { label: '비과세·세금우대 안내' },
     ]},
     { items: [
-      { label: '통합계좌조회' },
-      { label: '통합계좌 거래내역조회' },
-      { label: '매입/매출 조회' },
-      { label: '카드사용내역 조회' },
-      { label: '카드한도조회' },
-      { label: '바로ERP 일괄조회' },
-      { label: '글로벌계좌발신 전문조회' },
+      { label: '내 예적금 한눈에 보기' },
+      { label: '목표저축 현황' },
+      { label: '펀드 수익률 조회' },
+      { label: '연금 가입현황' },
+    ]},
+  ]},
+
+  { id: 'loan', label: '대출', columns: [
+    { items: [
+      { label: '대출조회', arrow: true, active: true },
+      { label: '신용대출', arrow: true },
+      { label: '담보대출', arrow: true },
+      { label: '전세자금대출', arrow: true },
+      { label: '비상금대출', arrow: true },
+    ]},
+    { items: [
+      { label: '내 대출 현황', arrow: true, active: true },
+      { label: '대출 한도조회' },
+      { label: '대출이자 납입', arrow: true },
+      { label: '중도상환', arrow: true },
+      { label: '대출연장·재약정', arrow: true },
+      { label: '상환내역 조회' },
+    ]},
+    { items: [
+      { label: '맞춤대출 추천' },
+      { label: '대출금리 안내' },
+      { label: '대출서류 안내' },
     ]},
   ]},
 
@@ -69,38 +86,14 @@ const DAON_GNB_MENUS: {
     { items: [
       { label: '금융상품 HOME', active: true },
       { label: '예금', arrow: true },
-      { label: '외화예금', arrow: true },
-      { label: '대출', arrow: true },
+      { label: '적금', arrow: true },
       { label: '입출금', arrow: true },
+      { label: '대출', arrow: true },
       { label: '펀드', arrow: true },
       { label: '신탁', arrow: true },
-      { label: '보험/공제', arrow: true },
+      { label: '보험', arrow: true },
+      { label: '카드' },
       { label: '쿠폰함' },
-    ]},
-  ]},
-
-  { id: 'b2b', label: 'B2B', columns: [
-    { items: [
-      { label: '통합서비스', arrow: true, active: true },
-      { label: '세금계산서 관리', arrow: true },
-      { label: '구매기업', arrow: true },
-      { label: '판매기업', arrow: true },
-      { label: '전자어음 및 기타상품', arrow: true },
-    ]},
-    { items: [
-      { label: 'My B2B', arrow: true, active: true },
-      { label: '약정현황조회' },
-      { label: '판매기업 통합조회', arrow: true },
-      { label: '서비스신규약정', arrow: true },
-      { label: '매출채권통지서비스', arrow: true },
-      { label: 'B2B제증명서 발급', arrow: true },
-      { label: 'B2B통합조회(금융결제원)', arrow: true },
-      { label: 'B2B상품 안내', arrow: true },
-      { label: '중계기업(e-MP)', arrow: true },
-    ]},
-    { items: [
-      { label: '판매기업' },
-      { label: '구매기업' },
     ]},
   ]},
 
@@ -108,48 +101,47 @@ const DAON_GNB_MENUS: {
     { items: [
       { label: '외환HOME', active: true },
       { label: '마이외환', arrow: true },
-      { label: '환율/금리', arrow: true },
+      { label: '환율조회', arrow: true },
       { label: '외화송금', arrow: true },
       { label: '국내외화이체/외화예금입출금', arrow: true },
       { label: '외화현찰환전', arrow: true },
-      { label: '수출입', arrow: true },
-      { label: '해외투자/자본거래 신고', arrow: true },
-      { label: '외국인직접투자/자본거래 신고', arrow: true },
-      { label: 'FX/파생상품', arrow: true },
+      { label: '환전주머니', arrow: true },
+      { label: '해외주식 투자', arrow: true },
+      { label: '여행자보험', arrow: true },
     ]},
   ]},
 
-  { id: 'esg', label: '경영지원/ESG', columns: [
+  { id: 'asset', label: '자산관리', columns: [
     { items: [
-      { label: '정책자금 맞춤추천', arrow: true, active: true },
-      { label: '다온 ESG 자가진단 서비스', arrow: true },
-      { label: '다온 탄소관리시스템' },
-      { label: '사장님 필수 콘텐츠', arrow: true },
+      { label: '내 자산 한눈에', arrow: true, active: true },
+      { label: '마이데이터', arrow: true },
+      { label: '소비·지출 분석', arrow: true },
+      { label: '목표저축', arrow: true },
     ]},
     { items: [
-      { label: '정책자금 맞춤추천 HOME', active: true },
-      { label: '신청가능 정책자금' },
-      { label: '전체 정책자금' },
-      { label: '나의 관심정책자금' },
+      { label: '자산현황 HOME', active: true },
+      { label: '월별 지출 리포트' },
+      { label: '카드사용 내역' },
+      { label: '나의 관심상품' },
     ]},
   ]},
 
   { id: 'mgmt', label: '뱅킹관리', columns: [
     { items: [
-      { label: '결제/권한관리', arrow: true, active: true },
-      { label: '인터넷뱅킹 관리', arrow: true },
-      { label: '자금관리', arrow: true },
-      { label: '통지/편의서비스 신청', arrow: true },
+      { label: '인터넷뱅킹 관리', arrow: true, active: true },
+      { label: '이체한도 관리', arrow: true },
+      { label: '보안서비스', arrow: true },
+      { label: '알림·통지서비스 신청', arrow: true },
       { label: '이용안내', arrow: true },
     ]},
     { items: [
-      { label: '결재관리', arrow: true, active: true },
-      { label: '사용자 관리', arrow: true },
+      { label: '내 정보 관리', arrow: true, active: true },
+      { label: '비밀번호·이체비밀번호 변경' },
     ]},
     { items: [
-      { label: '결재진행 내역' },
-      { label: '결재완료 내역' },
-      { label: '권한설정 승인' },
+      { label: '로그인 기록 조회' },
+      { label: '자동이체 관리' },
+      { label: '이용중인 서비스' },
     ]},
   ]},
 ]
@@ -166,7 +158,7 @@ export default function DaonHeader() {
 
   useEffect(() => {
     if (!activeMenu) return
-    const refId = ['banking', 'products', 'b2b', 'fx', 'esg', 'mgmt'].includes(activeMenu) ? 'transfer' : activeMenu
+    const refId = ['deposit', 'loan', 'products', 'fx', 'asset', 'mgmt'].includes(activeMenu) ? 'transfer' : activeMenu
     const idx = DAON_GNB_MENUS.findIndex((m) => m.id === refId)
     const li = liRefs.current[idx]
     const container = gnbContainerRef.current
@@ -193,7 +185,7 @@ export default function DaonHeader() {
               <span key={item} className="flex items-center">
                 <Link href="/other-bank"
                   className={`text-[15px] px-2 hover:text-kb-text transition-colors
-                    ${item === '기업' ? 'text-kb-text font-semibold' : 'text-kb-text-muted'}`}>
+                    ${item === '개인' ? 'text-kb-text font-semibold' : 'text-kb-text-muted'}`}>
                   {item}
                 </Link>
                 {i === 0 && <span className="text-kb-border text-[15px]">|</span>}
@@ -229,11 +221,11 @@ export default function DaonHeader() {
         </div>
       </div>
 
-      {/* 기업 타이틀 + 버튼 */}
+      {/* 개인 타이틀 + 버튼 */}
       {!isLoginPage && (
         <div className="bg-white border-b border-kb-border">
           <div className="max-w-kb-container mx-auto px-6 flex items-center justify-between h-[60px]">
-            <span className="text-[28px] font-bold text-kb-text pl-8">기업</span>
+            <span className="text-[28px] font-bold text-kb-text pl-8">개인</span>
             <div className="flex items-center gap-2">
               <Link href="/other-bank/login"
                 className="px-3 py-1 border border-kb-border-dark text-sm text-kb-text-body hover:bg-kb-beige-light transition-colors rounded-lg">
