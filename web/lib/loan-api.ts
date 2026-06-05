@@ -177,14 +177,14 @@ export const loanApplicationApi = {
   getPrescreening: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/prescreening`),
 
-  runCreditEvaluation: (applId: number) =>
-    api.post<any>(`/api/loan-applications/${applId}/credit-evaluation`, {}),
+  runCreditEvaluation: (applId: number, body: { cevalEngine: string; cevalDecisionCd: string; cevalEngineVersion?: string; cevalGrade?: string; cevalScore?: number; evalLimitAmount?: number; evalRateBps?: number }) =>
+    api.post<any>(`/api/loan-applications/${applId}/credit-evaluation`, body),
 
   getCreditEvaluation: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/credit-evaluation`),
 
-  runDsr: (applId: number, body?: { newAnnualRepayAmt?: number }) =>
-    api.post<any>(`/api/loan-applications/${applId}/dsr-calculation`, body ?? {}),
+  runDsr: (applId: number, body: { annualIncomeAmt: number; newAnnualRepayAmt?: number; existingAnnualRepayAmt?: number }) =>
+    api.post<any>(`/api/loan-applications/${applId}/dsr-calculation`, body),
 
   getDsr: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/dsr-calculation`),

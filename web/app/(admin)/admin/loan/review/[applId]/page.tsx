@@ -38,6 +38,7 @@ export default function LoanReviewDetailPage() {
 
   // review form state
   const [revType, setRevType]               = useState('MANUAL')
+  const [revDecision, setRevDecision]       = useState('APPROVED')
   const [reviewerId, setReviewerId]         = useState('1')
   const [approverId, setApproverId]         = useState('2')
   const [confirmRemark, setConfirmRemark]   = useState('')
@@ -47,8 +48,14 @@ export default function LoanReviewDetailPage() {
   const [reviseAmount, setReviseAmount]     = useState('')
   const [reviseRate, setReviseRate]         = useState('')
   const [reviseReject, setReviseReject]     = useState('CREDIT_SCORE')
-  const [checkItem, setCheckItem]           = useState('')
-  const [checkResult, setCheckResult]       = useState('PASS')
+  const [revisitReason, setRevisitReason]   = useState('')
+  const [checkItemCd, setCheckItemCd]       = useState('DOCUMENT_CHECK')
+  const [checkResultCd, setCheckResultCd]   = useState('PASS')
+  // 신용평가 입력
+  const [cevalEngine, setCevalEngine]       = useState('KCB')
+  const [cevalDecision, setCevalDecision]   = useState('APPROVE')
+  // DSR 입력
+  const [annualIncome, setAnnualIncome]     = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -163,8 +170,28 @@ export default function LoanReviewDetailPage() {
                   <p className="text-sm text-gray-400 mb-3">신용평가 미실행</p>
                 )}
                 {!ceDone && psPass && (
-                  <Btn label="신용평가 실행" disabled={busy}
-                    onClick={() => act(() => loanApplicationApi.runCreditEvaluation(numApplId), '신용평가가 완료되었습니다.')} />
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <label className="text-[12px] text-gray-600">
+                      CB 엔진
+                      <select value={cevalEngine} onChange={e => setCevalEngine(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="KCB">KCB</option>
+                        <option value="NICE">NICE</option>
+                        <option value="INTERNAL">내부</option>
+                      </select>
+                    </label>
+                    <label className="text-[12px] text-gray-600">
+                      결정
+                      <select value={cevalDecision} onChange={e => setCevalDecision(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="APPROVE">APPROVE</option>
+                        <option value="REVIEW">REVIEW</option>
+                        <option value="REJECT">REJECT</option>
+                      </select>
+                    </label>
+                    <Btn label="신용평가 실행" disabled={busy}
+                      onClick={() => act(() => loanApplicationApi.runCreditEvaluation(numApplId, { cevalEngine, cevalDecisionCd: cevalDecision }), '신용평가가 완료되었습니다.')} />
+                  </div>
                 )}
                 {!ceDone && !psPass && (
                   <p className="text-[12px] text-gray-400">가심사 통과 후 실행 가능</p>
@@ -187,8 +214,16 @@ export default function LoanReviewDetailPage() {
                   <p className="text-sm text-gray-400 mb-3">DSR 미산정</p>
                 )}
                 {!dsrDone && ceDone && (
-                  <Btn label="DSR 실행" disabled={busy}
-                    onClick={() => act(() => loanApplicationApi.runDsr(numApplId), 'DSR 산정이 완료되었습니다.')} />
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <label className="text-[12px] text-gray-600">
+                      연 소득(원) *
+                      <input type="number" value={annualIncome} onChange={e => setAnnualIncome(e.target.value)}
+                        placeholder="예: 50000000"
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-36" />
+                    </label>
+                    <Btn label="DSR 실행" disabled={busy || !annualIncome}
+                      onClick={() => act(() => loanApplicationApi.runDsr(numApplId, { annualIncomeAmt: parseInt(annualIncome) }), 'DSR 산정이 완료되었습니다.')} />
+                  </div>
                 )}
                 {!dsrDone && !ceDone && (
                   <p className="text-[12px] text-gray-400">신용평가 완료 후 실행 가능</p>
@@ -247,12 +282,20 @@ export default function LoanReviewDetailPage() {
                       </select>
                     </label>
                     <label className="text-[12px] text-gray-600">
+                      결정 *
+                      <select value={revDecision} onChange={e => setRevDecision(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="APPROVED">승인</option>
+                        <option value="REJECTED">거절</option>
+                      </select>
+                    </label>
+                    <label className="text-[12px] text-gray-600">
                       심사자 ID
                       <input type="number" value={reviewerId} onChange={e => setReviewerId(e.target.value)}
                         className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
                     </label>
                     <Btn label="본심사 시작" disabled={busy || !dsrDone}
-                      onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, reviewerId: parseInt(reviewerId) }), '본심사가 시작되었습니다.')} />
+                      onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, revDecisionCd: revDecision, reviewerId: parseInt(reviewerId) }), '본심사가 시작되었습니다.')} />
                     <Btn label="자동 결정" disabled={busy || !dsrDone} variant="outline"
                       onClick={() => act(() => adminReviewApi.autoDecide(numApplId), '자동 결정이 완료되었습니다.')} />
                     {!dsrDone && <span className="text-[11px] text-gray-400">DSR 완료 후 본심사 가능</span>}
@@ -331,9 +374,9 @@ export default function LoanReviewDetailPage() {
                           className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
                       </label>
                       <Btn label="승인" disabled={busy}
-                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverId: parseInt(approverId), approvalDecision: 'APPROVED' }), '승인이 완료되었습니다.')} />
+                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverDecisionCd: 'APPROVED' }), '승인이 완료되었습니다.')} />
                       <Btn label="반려" disabled={busy} variant="danger"
-                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverId: parseInt(approverId), approvalDecision: 'REJECTED' }), '반려 처리되었습니다.')} />
+                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverDecisionCd: 'REJECTED' }), '반려 처리되었습니다.')} />
                     </div>
                   </div>
                 )}
@@ -373,9 +416,15 @@ export default function LoanReviewDetailPage() {
                           </select>
                         </label>
                       )}
-                      <Btn label="정정 저장" disabled={busy}
+                      <label className="text-[12px] text-gray-600">
+                        정정 사유 *
+                        <input type="text" value={revisitReason} onChange={e => setRevisitReason(e.target.value)}
+                          placeholder="정정 사유 코드"
+                          className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-40" />
+                      </label>
+                      <Btn label="정정 저장" disabled={busy || !revisitReason}
                         onClick={() => {
-                          const body: any = { revDecisionCd: reviseDecision }
+                          const body: any = { revDecisionCd: reviseDecision, revisitReasonCd: revisitReason }
                           if (reviseDecision === 'APPROVED') {
                             if (reviseAmount) body.approvedAmount = parseInt(reviseAmount)
                             if (reviseRate)   body.approvedRateBps = parseInt(reviseRate)
@@ -446,10 +495,10 @@ export default function LoanReviewDetailPage() {
                     <tbody className="divide-y divide-gray-100">
                       {checks.map((c: any, i: number) => (
                         <tr key={i}>
-                          <td className="px-3 py-2 text-gray-700">{c.checkItem}</td>
+                          <td className="px-3 py-2 text-gray-700">{c.checkItemCd}</td>
                           <td className="px-3 py-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.checkResult === 'PASS' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {c.checkResult}
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.checkResultCd === 'PASS' ? 'bg-green-100 text-green-700' : c.checkResultCd === 'FAIL' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                              {c.checkResultCd}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-gray-500">{c.remark ?? '-'}</td>
@@ -463,22 +512,29 @@ export default function LoanReviewDetailPage() {
                   <div className="flex gap-3 items-end">
                     <label className="text-[12px] text-gray-600">
                       체크 항목
-                      <input type="text" value={checkItem} onChange={e => setCheckItem(e.target.value)}
-                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-48" />
+                      <select value={checkItemCd} onChange={e => setCheckItemCd(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="DOCUMENT_CHECK">서류확인</option>
+                        <option value="IDENTITY_CHECK">본인확인</option>
+                        <option value="CROSS_TRANSACTION">교차거래</option>
+                        <option value="ETC">기타</option>
+                      </select>
                     </label>
                     <label className="text-[12px] text-gray-600">
                       결과
-                      <select value={checkResult} onChange={e => setCheckResult(e.target.value)}
+                      <select value={checkResultCd} onChange={e => setCheckResultCd(e.target.value)}
                         className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
                         <option value="PASS">PASS</option>
                         <option value="FAIL">FAIL</option>
+                        <option value="REVIEW">REVIEW</option>
+                        <option value="N_A">N/A</option>
                       </select>
                     </label>
-                    <Btn label="체크 추가" disabled={busy || !checkItem}
+                    <Btn label="체크 추가" disabled={busy}
                       onClick={() => act(
-                        () => adminReviewApi.addCheck(revId, { checkItem, checkResult }),
+                        () => adminReviewApi.addCheck(revId, { checkItemCd, checkResultCd }),
                         '체크가 추가되었습니다.'
-                      ).then(() => setCheckItem(''))} />
+                      )} />
                   </div>
                 )}
               </Section>
