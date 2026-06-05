@@ -15,7 +15,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.database import Base, engine, get_db, SessionLocal
+from app.database import Base, engine, get_db
 from app.kafka import KafkaEventConsumer, KafkaEventPublisher
 from app.metrics import (
     chatbot_active_sessions,
@@ -92,43 +92,17 @@ async def _handle_contract_created(payload: dict) -> None:
 
 
 async def _handle_chatbot_message_received(payload: dict) -> None:
-    """consultation.chatbot.message 토픽 수신 시 로그 출력 + chat_message_history 저장."""
-    chatbot_consultation_id = payload.get("chatbot_consultation_id")
-    sequence_no             = payload.get("sequence_no")
-    message_content         = payload.get("message_content", "")
-    button_value            = payload.get("button_value")
-    sender_type_code_id     = payload.get("sender_type_code_id")
+    """consultation.chatbot.message 토픽 수신 시 로그만 출력.
 
+    DB 저장은 handle_message()의 _record_message()에서 이미 수행하므로
+    Consumer에서 중복 저장하지 않는다.
+    """
     logger.info(
         "[Kafka] ChatbotMessageReceived — chatbot_consultation_id=%s sequence_no=%s message=%s",
-        chatbot_consultation_id,
-        sequence_no,
-        message_content,
+        payload.get("chatbot_consultation_id", ""),
+        payload.get("sequence_no", ""),
+        payload.get("message_content", ""),
     )
-
-    db = SessionLocal()
-    try:
-        from app.models import ChatMessageHistory
-        record = ChatMessageHistory(
-            chatbot_consultation_id=chatbot_consultation_id,
-            sequence_no=sequence_no or 0,
-            sender_type_code_id=sender_type_code_id,
-            message_content=message_content,
-            button_value=button_value,
-            read_yn="N",
-        )
-        db.add(record)
-        db.commit()
-        logger.info(
-            "[Kafka] ChatMessageHistory 저장 완료 — id=%s chatbot_consultation_id=%s",
-            record.chat_message_history_id,
-            chatbot_consultation_id,
-        )
-    except Exception as exc:
-        db.rollback()
-        logger.exception("[Kafka] ChatMessageHistory 저장 실패: %s", exc)
-    finally:
-        db.close()
 
 
 async def _kafka_consume_loop(consumer: KafkaEventConsumer) -> None:

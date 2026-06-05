@@ -659,12 +659,18 @@ class ChatbotService:
             )
         }
 
+        # 날짜 컷오프를 Python에서 계산 → SQLite·PostgreSQL 모두 호환
+        from datetime import datetime, timedelta, timezone
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30 * months)).strftime("%Y-%m-%d")
+
         tx_rows = self._rows(
             f"""
             SELECT *
               FROM deposit_transactions
              WHERE account_id IN ({id_list})
-             """
+               AND COALESCE(transaction_at, created_at) >= :cutoff
+             """,
+            {"cutoff": cutoff},
         )
 
         if not tx_rows:
