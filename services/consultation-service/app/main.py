@@ -15,7 +15,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.database import Base, engine, get_db
+from app.database import Base, engine, get_db, SessionLocal
 from app.kafka import KafkaEventConsumer, KafkaEventPublisher
 from app.metrics import (
     chatbot_active_sessions,
@@ -66,6 +66,7 @@ def _setup_file_logging() -> None:
         handler.setFormatter(logging.Formatter(
             "%(asctime)s [%(threadName)s] %(levelname)-5s %(name)s - %(message)s"
         ))
+        logging.getLogger().setLevel(logging.INFO)
         logging.getLogger().addHandler(handler)
     except Exception as e:
         logging.getLogger(__name__).warning("[logging] 파일 핸들러 설정 실패: %s", e)
@@ -90,12 +91,53 @@ async def _handle_contract_created(payload: dict) -> None:
     )
 
 
+async def _handle_chatbot_message_received(payload: dict) -> None:
+    """consultation.chatbot.message 토픽 수신 시 로그 출력 + chat_message_history 저장."""
+    chatbot_consultation_id = payload.get("chatbot_consultation_id")
+    sequence_no             = payload.get("sequence_no")
+    message_content         = payload.get("message_content", "")
+    button_value            = payload.get("button_value")
+    sender_type_code_id     = payload.get("sender_type_code_id")
+
+    logger.info(
+        "[Kafka] ChatbotMessageReceived — chatbot_consultation_id=%s sequence_no=%s message=%s",
+        chatbot_consultation_id,
+        sequence_no,
+        message_content,
+    )
+
+    db = SessionLocal()
+    try:
+        from app.models import ChatMessageHistory
+        record = ChatMessageHistory(
+            chatbot_consultation_id=chatbot_consultation_id,
+            sequence_no=sequence_no or 0,
+            sender_type_code_id=sender_type_code_id,
+            message_content=message_content,
+            button_value=button_value,
+            read_yn="N",
+        )
+        db.add(record)
+        db.commit()
+        logger.info(
+            "[Kafka] ChatMessageHistory 저장 완료 — id=%s chatbot_consultation_id=%s",
+            record.chat_message_history_id,
+            chatbot_consultation_id,
+        )
+    except Exception as exc:
+        db.rollback()
+        logger.exception("[Kafka] ChatMessageHistory 저장 실패: %s", exc)
+    finally:
+        db.close()
+
+
 async def _kafka_consume_loop(consumer: KafkaEventConsumer) -> None:
     """카프카 이벤트를 수신해 비즈니스 로직을 처리하는 백그라운드 루프.
 
     처리 이벤트:
       - ContractCreated (deposit.contract.events): 고객 계약 완료 → RAG 재빌드
-      - 그 외 consultation 이벤트: 구조화된 로그 출력
+      - ChatbotMessageReceived (consultation.chatbot.message): 수신 로그 출력
+      - 그 외 이벤트: 구조화된 로그 출력
     """
     try:
         async for message in consumer:
@@ -104,6 +146,8 @@ async def _kafka_consume_loop(consumer: KafkaEventConsumer) -> None:
 
             if event_type == "ContractCreated":
                 await _handle_contract_created(payload)
+            elif event_type == "ChatbotMessageReceived":
+                await _handle_chatbot_message_received(payload)
             else:
                 logger.info("[Kafka] event=%s payload=%s", event_type, payload)
 
@@ -128,9 +172,11 @@ async def lifespan(app: FastAPI):
     await _events.start()
     # chatbot_events / chat_events 는 이 서비스가 직접 발행하는 토픽이므로
     # 구독 목록에서 제외 — 자기 발행 메시지를 자신이 소비하는 순환 방지
+    # chatbot_message 는 자기 발행 토픽이나 Consumer가 로그만 출력(재발행 없음) → 루프 없음
     await _consumer.start(
         topics=[
-            settings.kafka_topic_deposit_events,   # deposit-api 계약 이벤트만 수신
+            settings.kafka_topic_deposit_events,    # deposit-api 계약 이벤트
+            settings.kafka_topic_chatbot_message,   # 챗봇 메시지 수신 이벤트
         ],
         group_id="consultation-service",
     )

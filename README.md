@@ -187,16 +187,69 @@ X-Customer-Id: {customerId}
 
 ## consultation-service 주요 기능
 
-- 16개 기능 코드 (PRODUCT_ADVICE / USER_FINANCE / STAFF_SUPPORT)
-- 시나리오 기반 챗봇, 키워드 Intent 분류, 현금흐름 상품추천은 규칙 기반 처리
-- 상담사 실시간 채팅, Kafka 이벤트 발행
+### 챗봇 상담
+
+- Python · FastAPI 기반 시나리오형 챗봇
+- 시나리오 노드·버튼·플로우 DB 구조 설계, 멀티턴 대화 상태 관리
+- 키워드 기반 Intent 분류 → 16개 기능 코드 실행 라우팅
+
+| 카테고리 | 기능 코드 | 설명 |
+|---|---|---|
+| PRODUCT_ADVICE | PRODUCT_GUIDE | 예금·적금·청약 상품 안내 |
+| | RATE_GUIDE | 금리·우대금리 안내 |
+| | JOIN_CONDITION | 가입 조건 안내 |
+| | PRODUCT_COMPARE | 상품 비교 |
+| | TERMS_RAG | 약관 검색 |
+| | FAQ | 자주 묻는 질문 |
+| USER_FINANCE | MY_ACCOUNTS | 내 계좌 조회 |
+| | MY_PRODUCTS | 가입 상품 조회 |
+| | CONTRACT_STATUS | 계약 상태 조회 |
+| | MATURITY_SCHEDULE | 만기 예정 조회 |
+| | INTEREST_HISTORY | 이자 내역 조회 |
+| | MY_CASH_FLOW | 현금 흐름 조회 |
+| | CASH_FLOW_RECOMMEND | 현금흐름 기반 상품 추천 |
+| | SAVINGS_GOAL | 저축 목표 멀티턴 추천 |
+| STAFF_SUPPORT | STAFF_CUSTOMER | 직원용 고객 정보 조회 |
+| | STAFF_CONTRACT | 직원용 고객 계약 조회 |
+| | STAFF_ACCOUNT | 직원용 고객 계좌 조회 |
+| | STAFF_TRANSFER_FLOW | 직원용 이체 흐름 조회 |
+| | STAFF_CONSULTATION_HISTORY | 상담 이력 조회 |
+| | STAFF_CASH_FLOW | 직원용 현금 흐름 조회 |
+
+### 상담사 실시간 채팅
+
+- 챗봇 → 상담사 핸드오프 흐름 (상담 접수·메시지 이력·채팅 종료)
+- 상담사 대기열 조회 및 연결 수락
+- 만족도 점수 기록
+
+### Kafka 연동
+
+| Topic | 이벤트 | 방향 |
+|---|---|---|
+| `consultation.chatbot.events` | ChatbotConsultationStarted, ChatbotMessageHandled, ChatbotAgentTransferRequested | Producer |
+| `consultation.chatbot.message` | ChatbotMessageReceived | Producer + Consumer |
+| `consultation.chat.events` | AgentConnected, ChatMessageSent, ChatEnded | Producer |
+| `deposit.contract.events` | ContractCreated | Consumer |
+
+- `consultation.chatbot.message` 수신 시 `chat_message_history` 테이블 자동 저장
+- Kafka 활성화: `.env`에서 `CONSULTATION_KAFKA_ENABLED=true` 설정
+
+### 주요 API
 
 ```
+GET  /health
 GET  /chatbot/features
+GET  /chatbot/features/{feature_code}
 POST /chatbot/features/{feature_code}/execute
 POST /chatbot/consultations/start
 POST /chatbot/consultations/{id}/messages
+POST /chatbot/transfer
+GET  /chat/queue
 POST /chat/consultations/{id}/connect
+POST /chat/consultations/{id}/messages
+GET  /chat/consultations/{id}/messages
+POST /chat/consultations/{id}/end
+GET  /metrics
 ```
 
 ---

@@ -124,14 +124,22 @@ class ChatbotService:
             raise ValueError("챗봇 상담을 찾을 수 없습니다.")
 
         current_node_id = self._latest_node_id(chatbot.chatbot_consultation_id)
+        user_msg = message or button_value or ""
         self._record_message(
             chatbot,
             None,
             CODE_SENDER_USER,
-            message or button_value or "",
+            user_msg,
             button_value,
             None,
         )
+        await self.events.publish_chatbot_message({
+            "chatbot_consultation_id": chatbot.chatbot_consultation_id,
+            "sequence_no": chatbot.total_turn_count + 1,
+            "message_content": user_msg,
+            "button_value": button_value,
+            "sender_type_code_id": CODE_SENDER_USER,
+        })
         next_node = self._resolve_next_node(chatbot.scenario_id, current_node_id, button_value)
 
         process_method = "SCENARIO"
