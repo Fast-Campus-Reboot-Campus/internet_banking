@@ -74,7 +74,7 @@ internet_banking/
 │       │   ├── schemas.py          # Pydantic 스키마
 │       │   ├── database.py         # DB 연결
 │       │   └── kafka.py            # Kafka 이벤트 발행
-│       └── tests/                  # pytest 테스트 (325개)
+│       └── tests/                  # pytest 테스트 (1614개)
 ├── web/                            # Next.js 프런트엔드
 │   ├── app/
 │   │   ├── (personal)/             # 개인뱅킹 라우트 그룹
@@ -280,7 +280,7 @@ npm run dev   # http://localhost:3001
 # loan-service
 .\gradlew :services:loan-service:test
 
-# consultation-service (325개)
+# consultation-service (1614개)
 cd services/consultation-service
 python -m pytest tests/ -q
 ```
