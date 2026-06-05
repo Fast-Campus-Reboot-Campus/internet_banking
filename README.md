@@ -141,11 +141,12 @@ internet_banking/
 
 ### 상품 추천 (RecommendAgentService)
 
-고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다.
+고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다. 추천 결과는 외부 AI/LLM 호출 없이
+입출금 내역, 월평균 저축 가능 금액, 가입금액 조건, 판매 상태, 금리 기준을 점수화해 산출한다.
 
 ```
 순현금흐름(netCashFlow) / periodMonth → estimatedSavingsAmount
-→ minJoinAmount 이상 상품 필터 → bestRate 내림차순 최대 5개 반환
+→ 가입금액 조건 필터 → 판매 중 상품 필터 → bestRate 내림차순 최대 5개 반환
 ```
 
 ```
@@ -187,7 +188,7 @@ X-Customer-Id: {customerId}
 ## consultation-service 주요 기능
 
 - 16개 기능 코드 (PRODUCT_ADVICE / USER_FINANCE / STAFF_SUPPORT)
-- 시나리오 기반 챗봇, 키워드 Intent 분류, OpenAI GPT-4o-mini 폴백
+- 시나리오 기반 챗봇, 키워드 Intent 분류, 현금흐름 상품추천은 규칙 기반 처리
 - 상담사 실시간 채팅, Kafka 이벤트 발행
 
 ```
