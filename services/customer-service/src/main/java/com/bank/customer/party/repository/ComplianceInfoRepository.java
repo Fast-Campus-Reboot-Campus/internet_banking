@@ -1,6 +1,10 @@
 package com.bank.customer.party.repository;
 
 import com.bank.customer.party.domain.ComplianceInfo;
+import com.bank.customer.party.dto.EddPendingResponse;
+import com.bank.customer.party.dto.SanctionedPartyResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -11,6 +15,27 @@ public interface ComplianceInfoRepository extends JpaRepository<ComplianceInfo, 
 
     Optional<ComplianceInfo> findByPartyIdAndDeletedAtIsNull(Long partyId);
 
+    /**
+     * EDD 심사 대기 목록 — edd_required_yn='T'. 이름은 party 도메인이라 Party 엔티티 조인으로 가져온다.
+     * 식별자는 partyId(컴플라이언스 액션이 모두 partyId 기준). party_id 역순 고정 정렬.
+     */
+    @Query(value = """
+            SELECT new com.bank.customer.party.dto.EddPendingResponse(
+                ci.partyId, p.partyName, ci.amlRiskLevelCode, ci.cddLevelCode,
+                ci.kycStatusCode, ci.eddNextReviewDate)
+            FROM ComplianceInfo ci JOIN Party p ON p.partyId = ci.partyId
+            WHERE ci.eddRequiredYn = 'T'
+              AND ci.deletedAt IS NULL
+            ORDER BY ci.partyId DESC
+            """,
+            countQuery = """
+            SELECT COUNT(ci)
+            FROM ComplianceInfo ci JOIN Party p ON p.partyId = ci.partyId
+            WHERE ci.eddRequiredYn = 'T'
+              AND ci.deletedAt IS NULL
+            """)
+    Page<EddPendingResponse> searchEddPending(Pageable pageable);
+
     /** 제재 대상자 목록 (직원 모니터링용) */
     @Query("""
             SELECT c FROM ComplianceInfo c
@@ -18,6 +43,33 @@ public interface ComplianceInfoRepository extends JpaRepository<ComplianceInfo, 
               AND c.deletedAt IS NULL
             """)
     List<ComplianceInfo> findAllSanctioned();
+
+    /**
+     * 제재대상 스크리닝 목록 — OFAC·UN·EU·KR 중 하나라도 제재인 party를 이름·인적사항과 함께 반환한다.
+     * is_sanctioned_yn(GENERATED)이 아닌 원천 플래그 OR로 필터한다(소스 오브 트루스이자 H2 검증 가능).
+     * party_id 역순 고정 정렬.
+     */
+    @Query(value = """
+            SELECT new com.bank.customer.party.dto.SanctionedPartyResponse(
+                ci.partyId, p.partyName, pp.birthDate, pp.nationalityCode,
+                ci.isOfacSanctionedYn, ci.isUnSanctionedYn, ci.isEuSanctionedYn, ci.isKrSanctionedYn,
+                ci.amlRiskLevelCode, ci.sanctionLastScreenedAt)
+            FROM ComplianceInfo ci
+            JOIN Party p ON p.partyId = ci.partyId
+            LEFT JOIN PartyPerson pp ON pp.partyId = ci.partyId
+            WHERE (ci.isOfacSanctionedYn = 'T' OR ci.isUnSanctionedYn = 'T'
+                   OR ci.isEuSanctionedYn = 'T' OR ci.isKrSanctionedYn = 'T')
+              AND ci.deletedAt IS NULL
+            ORDER BY ci.partyId DESC
+            """,
+            countQuery = """
+            SELECT COUNT(ci)
+            FROM ComplianceInfo ci
+            WHERE (ci.isOfacSanctionedYn = 'T' OR ci.isUnSanctionedYn = 'T'
+                   OR ci.isEuSanctionedYn = 'T' OR ci.isKrSanctionedYn = 'T')
+              AND ci.deletedAt IS NULL
+            """)
+    Page<SanctionedPartyResponse> searchSanctioned(Pageable pageable);
 
     /** KYC 만료 예정 목록 */
     @Query("""

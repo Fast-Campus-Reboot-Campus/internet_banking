@@ -92,7 +92,35 @@ public class PartyManageService {
                 .representationScope(req.representationScope())
                 .proofUrl(req.proofUrl())
                 .relationStartDate(req.relationStartDate())
+                .relationReviewStatusCode(PartyRelation.REVIEW_PENDING) // 신규 관계는 직원 검토 대기
                 .build());
+        return PartyRelationResponse.from(relation);
+    }
+
+    // ── 대리인 위임장 검토 (직원용) ────────────────────────────────────────────
+
+    /** 대리인 위임장 검토 대기 목록(review_status='PENDING'). 대리인 검토 화면의 진입점. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<com.bank.customer.party.dto.AgentReviewResponse>
+            listPendingAgentReviews(org.springframework.data.domain.Pageable pageable) {
+        return partyRelationRepository.searchPendingReviews(pageable);
+    }
+
+    @Transactional
+    public PartyRelationResponse approveReview(Long relationId) {
+        PartyRelation relation = partyRelationRepository.findById(relationId)
+                .filter(r -> r.getDeletedAt() == null)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_114));
+        relation.approveReview();
+        return PartyRelationResponse.from(relation);
+    }
+
+    @Transactional
+    public PartyRelationResponse rejectReview(Long relationId) {
+        PartyRelation relation = partyRelationRepository.findById(relationId)
+                .filter(r -> r.getDeletedAt() == null)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_114));
+        relation.rejectReview();
         return PartyRelationResponse.from(relation);
     }
 
@@ -106,6 +134,20 @@ public class PartyManageService {
     }
 
     // ── 컴플라이언스 조회/수정 (직원용) ────────────────────────────────────────
+
+    /** EDD 심사 대기 목록(edd_required_yn='T'). EDD 심사·승인 화면의 진입점. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<com.bank.customer.party.dto.EddPendingResponse>
+            listEddPending(org.springframework.data.domain.Pageable pageable) {
+        return complianceInfoRepository.searchEddPending(pageable);
+    }
+
+    /** 제재대상 스크리닝 목록(OFAC·UN·EU·KR 제재). 제재대상 Hit 검토 화면의 진입점. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<com.bank.customer.party.dto.SanctionedPartyResponse>
+            listSanctioned(org.springframework.data.domain.Pageable pageable) {
+        return complianceInfoRepository.searchSanctioned(pageable);
+    }
 
     @Transactional(readOnly = true)
     public ComplianceInfo getCompliance(Long partyId) {

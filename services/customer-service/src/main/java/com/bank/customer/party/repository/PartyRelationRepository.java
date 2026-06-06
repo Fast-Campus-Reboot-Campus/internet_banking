@@ -1,6 +1,9 @@
 package com.bank.customer.party.repository;
 
 import com.bank.customer.party.domain.PartyRelation;
+import com.bank.customer.party.dto.AgentReviewResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,4 +30,28 @@ public interface PartyRelationRepository extends JpaRepository<PartyRelation, Lo
               AND pr.deletedAt IS NULL
             """)
     List<PartyRelation> findAllActiveRelations(@Param("partyId") Long partyId);
+
+    /**
+     * 대리인 위임장 검토 대기 목록 — review_status='PENDING'. 대리인(toParty) 이름을 Party 조인으로 가져온다.
+     * relation_id 역순 고정 정렬.
+     */
+    @Query(value = """
+            SELECT new com.bank.customer.party.dto.AgentReviewResponse(
+                pr.relationId, pr.fromPartyId, pr.toPartyId, p.partyName,
+                pr.relationTypeCode, pr.relationDetailCode, pr.representationScope,
+                pr.proofUrl, pr.relationStartDate, pr.relationReviewStatusCode)
+            FROM PartyRelation pr JOIN Party p ON p.partyId = pr.toPartyId
+            WHERE pr.relationReviewStatusCode = 'PENDING'
+              AND pr.relationEndDate IS NULL
+              AND pr.deletedAt IS NULL
+            ORDER BY pr.relationId DESC
+            """,
+            countQuery = """
+            SELECT COUNT(pr)
+            FROM PartyRelation pr JOIN Party p ON p.partyId = pr.toPartyId
+            WHERE pr.relationReviewStatusCode = 'PENDING'
+              AND pr.relationEndDate IS NULL
+              AND pr.deletedAt IS NULL
+            """)
+    Page<AgentReviewResponse> searchPendingReviews(Pageable pageable);
 }
