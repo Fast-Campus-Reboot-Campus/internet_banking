@@ -45,6 +45,7 @@ export default function LoanReviewDetailPage() {
   const [confirmRemark, setConfirmRemark]   = useState('')
   const [ackRemark, setAckRemark]           = useState('')
   const [overrideReason, setOverrideReason] = useState('')
+  const [escalateReason, setEscalateReason] = useState('')
   const [reviseDecision, setReviseDecision] = useState('APPROVED')
   const [reviseAmount, setReviseAmount]     = useState('')
   const [reviseRate, setReviseRate]         = useState('')
@@ -103,6 +104,7 @@ export default function LoanReviewDetailPage() {
   const canAuto    = hasAnyRole(roles, BankRole.OPS)                          // 자동 심사 실행
   const canBiasOvr = hasAnyRole(roles, BankRole.HQ_REVIEWER)                  // 이상거래 편향 우회 승인
   const canApprove = hasAnyRole(roles, BankRole.BRANCH_MANAGER)              // 최종 결재 / 결정 정정
+  const canEscalate = hasAnyRole(roles, BankRole.BRANCH_MANAGER)             // 이상거래 본사 상신
 
   // 가심사 통과 여부
   const psPass  = prescreening?.prescResultCd === 'PASS'
@@ -327,6 +329,20 @@ export default function LoanReviewDetailPage() {
                           <Btn label="편향 인지 처리" disabled={busy}
                             onClick={() => act(() => adminReviewApi.acknowledgeBias(numApplId, { acknowledgeRemark: ackRemark }), '편향 인지가 처리되었습니다.')} />
                         )}
+                      </div>
+                    )}
+
+                    {/* 이상거래 본사 상신 (지점장) — 중복 상신은 백엔드(LOAN_203)에서 차단 */}
+                    {canEscalate && (
+                      <div className="flex flex-wrap gap-3 items-end mt-3 pt-3 border-t border-gray-100">
+                        <label className="text-[12px] text-gray-600">
+                          상신 사유
+                          <input type="text" value={escalateReason} onChange={e => setEscalateReason(e.target.value)}
+                            placeholder="본사 상신 사유"
+                            className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-64" />
+                        </label>
+                        <Btn label="본사 상신" variant="outline" disabled={busy || !escalateReason}
+                          onClick={() => act(() => adminReviewApi.escalateToHq(numApplId, { escalateReason }), '본사로 상신되었습니다.')} />
                       </div>
                     )}
                   </div>

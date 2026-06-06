@@ -397,6 +397,14 @@ export const adminReviewApi = {
 
   getAdvisoryReports: (revId: number) =>
     api.get<any>(`/api/loan-reviews/${revId}/advisory-reports`),
+
+  // 본사 상신 건 목록 (ROLE_HQ_REVIEWER) — Page 응답(content/totalElements 등)
+  listEscalated: (page = 0, size = 20) =>
+    api.get<any>('/api/loan-reviews/escalated', { params: { page, size } }),
+
+  // 이상거래 본사 상신 (ROLE_BRANCH_MANAGER)
+  escalateToHq: (applId: number, body: { escalateReason: string }) =>
+    api.post<any>(`/api/loan-applications/${applId}/review/escalate-to-hq`, body),
 };
 
 // ─── 어드민 - 담보·서류·우대금리 ─────────────────────────────
