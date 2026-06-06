@@ -4,9 +4,12 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { AdminUser, AdminRole, ROLE_LABELS } from '@/lib/admin-mock-data'
+import { getAdminRoles, hasAnyRole } from '@/lib/admin-auth'
 
-type NavItem    = { label: string; href: string; roles?: AdminRole[] }
-type NavSection = { section: string; dot: string; roles: AdminRole[]; items: NavItem[] }
+// roles: 기존 AdminRole(7) 기준. bankRoles: BankRole(JWT) 기준 — 있으면 우선 적용한다.
+// 대출 섹션은 양혜민 매트릭스에 맞춰 bankRoles 로 게이팅한다.
+type NavItem    = { label: string; href: string; roles?: AdminRole[]; bankRoles?: string[] }
+type NavSection = { section: string; dot: string; roles: AdminRole[]; bankRoles?: string[]; items: NavItem[] }
 
 const NAV: NavSection[] = [
   {
@@ -73,6 +76,8 @@ const NAV: NavSection[] = [
   {
     section: '대출', dot: 'bg-green-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
+    // 대출 어드민은 심사·운영·결재 직군이 사용한다 (ROLE_ADMIN 은 hasAnyRole 에서 항상 통과).
+    bankRoles: ['ROLE_DEPUTY_MANAGER', 'ROLE_OPS', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER'],
     items: [
       { label: '본심사 목록',    href: '/admin/loan/review' },
       { label: '담보 관리',      href: '/admin/loan/collateral' },
@@ -114,12 +119,14 @@ export default function AdminSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [user, setUser] = useState<AdminUser | null>(null)
+  const [adminRoles, setAdminRoles] = useState<string[]>([])
 
   useEffect(() => {
     try {
       const s = localStorage.getItem('admin_user')
       if (s) setUser(JSON.parse(s))
     } catch {}
+    setAdminRoles(getAdminRoles())
   }, [])
 
   function logout() {
@@ -129,15 +136,16 @@ export default function AdminSidebar() {
   }
 
   const role = user?.role
-  const visibleNav = role
-    ? NAV
-        .filter((g) => g.roles.includes(role))
-        .map((g) => ({
-          ...g,
-          items: g.items.filter((item) => !item.roles || item.roles.includes(role)),
-        }))
-        .filter((g) => g.items.length > 0)
-    : []
+  // bankRoles 가 지정된 섹션/아이템은 JWT 역할(BankRole)로, 아니면 기존 AdminRole(7)로 판정한다.
+  const visibleNav = NAV
+    .filter((g) => g.bankRoles ? hasAnyRole(adminRoles, ...g.bankRoles) : (!!role && g.roles.includes(role)))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) =>
+        item.bankRoles ? hasAnyRole(adminRoles, ...item.bankRoles)
+                       : (!item.roles || (!!role && item.roles.includes(role)))),
+    }))
+    .filter((g) => g.items.length > 0)
 
   return (
     <aside className="w-52 flex-shrink-0 flex flex-col min-h-screen" style={{ backgroundColor: '#1B3A6B' }}>
