@@ -42,6 +42,7 @@ public enum CustomerErrorCode implements ErrorCode {
     // 출금계좌 관리 (050-059)
     CUST_050(HttpStatus.NOT_FOUND,  "출금계좌를 찾을 수 없습니다."),
     CUST_051(HttpStatus.CONFLICT,   "이미 등록된 출금계좌입니다."),
+    CUST_052(HttpStatus.BAD_REQUEST,"본행 보유계좌는 출금계좌 등록 대상이 아닙니다. 타행 계좌만 등록할 수 있습니다."),
 
     // FDS (060-069)
     CUST_060(HttpStatus.FORBIDDEN,  "비정상 접근이 감지되어 요청이 차단되었습니다."),

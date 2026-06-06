@@ -99,7 +99,7 @@ export const GNB_MENUS = [
         title: '계좌관리',
         href: '/banking/withdrawal-account',
         items: [
-          { label: '출금계좌 등록/삭제/순위변경', href: '/banking/withdrawal-account' },
+          { label: '타행 출금계좌 등록/삭제', href: '/banking/withdrawal-account' },
           { label: '이체한도 조회/변경',          href: '/banking/transfer-limit' },
         ],
       },
