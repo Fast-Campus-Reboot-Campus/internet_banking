@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '@/lib/api'
-import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
+import MobileAuthField from '@/components/MobileAuthField'
 
 
 const STEPS = ['약관동의', '본인확인', '정보입력', '가입완료']
@@ -150,11 +150,8 @@ export default function OnlineJoinPage() {
   const [termIndex, setTermIndex] = useState<number | null>(null)  // 모달 인덱스
 
   // Step 1 — 본인확인
-  const [birth,      setBirth]      = useState('')
-  const [accountNo,  setAccountNo]  = useState('')
-  const [accountPw,  setAccountPw]  = useState('')
-  const [mouseInput, setMouseInput] = useState(false)
-  const [mouseAccountPw, setMouseAccountPw] = useState('')
+  const [birth,         setBirth]         = useState('')
+  const [phoneVerified, setPhoneVerified] = useState(false)
 
   // Step 2 — 정보입력 (성명·생년월일은 본인확인에서 가져옴)
   const [name,       setName]      = useState('')
@@ -195,9 +192,8 @@ export default function OnlineJoinPage() {
   }
 
   function handleStep1() {
-    if (!birth)     { alert('생년월일을 입력해주세요.'); return }
-    if (!accountNo) { alert('계좌번호를 입력해주세요.'); return }
-    if (!accountPw) { alert('계좌비밀번호를 입력해주세요.'); return }
+    if (!birth) { alert('생년월일을 입력해주세요.'); return }
+    if (!phoneVerified) { alert('휴대폰 본인인증을 완료해주세요.'); return }
     setStep(2)
   }
 
@@ -334,10 +330,10 @@ export default function OnlineJoinPage() {
               <div>
                 <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
                   <p>· 온라인 고객으로 가입하시면 계좌조회 서비스를 이용하실 수 있습니다.</p>
-                  <p>· AXful Bank 입출금식 상품 계좌를 보유하신 고객에 한하여 신규 가입이 가능합니다.</p>
+                  <p>· 계좌 개설 등 금융거래는 가입 완료 후 별도 단계에서 진행하실 수 있습니다.</p>
                   <p>· 임의단체 또는 개인사업자, 기업 고객님께서는 AXful Bank 영업점을 방문하셔서 인터넷뱅킹에 가입하여 이용하여 주시기 바랍니다. (인터넷을 통한 온라인고객 신규 가입은 불가능 합니다.)</p>
                   <p>· 정보통신부 개인정보보호지침에 따라 만 14세미만 고객은 온라인 고객 가입이 제한됩니다. 가까운 영업점 내점하시어 부모님께서 대리인으로 인터넷뱅킹에 가입하시어 이용하시기 바랍니다.</p>
-                  <p>· 본인확인을 위해 고객정보에 등록된 전화번호로 ARS 전화인증이 필요합니다. 전화번호가 없는 경우 가까운 영업점을 방문하여 주시기 바랍니다.</p>
+                  <p>· 본인확인을 위해 휴대폰 본인인증(SMS 인증번호)이 필요합니다. 인증된 휴대폰 번호로 가입이 진행됩니다.</p>
                   <p>· 생년월일은 실제 생일이 아닌, 주민등록번호 발급 시 신고한 생년월일을 입력해주시기 바랍니다.</p>
                 </div>
 
@@ -354,37 +350,16 @@ export default function OnlineJoinPage() {
                           className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px]" />
                       </td>
                     </tr>
-                    <tr className="border-b border-kb-border">
-                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
-                        계좌번호
-                        <button className="ml-1 text-kb-text-muted border border-kb-border rounded-full w-4 h-4 text-[10px] inline-flex items-center justify-center">ⓘ</button>
-                      </td>
-                      <td className="border border-kb-border px-4 py-3">
-                        <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
-                          placeholder="'-' 없이 입력"
-                          className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px]" />
-                      </td>
-                    </tr>
                     <tr>
-                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
-                        계좌비밀번호
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap align-top">
+                        휴대폰 본인인증
                         <button className="ml-1 text-kb-text-muted border border-kb-border rounded-full w-4 h-4 text-[10px] inline-flex items-center justify-center">ⓘ</button>
                       </td>
                       <td className="border border-kb-border px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {mouseInput ? (
-                            <MouseNumKeypad value={mouseAccountPw} onChange={setMouseAccountPw} maxLength={4} dotCount={4} />
-                          ) : (
-                            <input type="password" value={accountPw}
-                              onChange={e => setAccountPw(e.target.value)} maxLength={4}
-                              placeholder="4자리 입력"
-                              className="border border-kb-border px-3 py-1.5 w-28 outline-none text-[13px] text-center tracking-widest" />
-                          )}
-                          <label className="flex items-center gap-1.5 text-[12px] text-kb-text-body cursor-pointer w-fit">
-                            <input type="checkbox" checked={mouseInput} onChange={e => { setMouseInput(e.target.checked); setMouseAccountPw(''); setAccountPw('') }} className="w-3.5 h-3.5" />
-                            마우스로 입력
-                          </label>
-                        </div>
+                        <MobileAuthField
+                          purpose="SIGNUP"
+                          onVerified={(p) => { setPhone(p); setPhoneVerified(true) }}
+                        />
                       </td>
                     </tr>
                   </tbody>
@@ -407,8 +382,7 @@ export default function OnlineJoinPage() {
             {step === 2 && (
               <div>
                 <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
-                  <p>· 본인확인을 위해 은행에 등록되어 있는 전화번호로 ARS 추가인증 완료 후 이용이 가능합니다.</p>
-                  <p>· 은행에 등록되어 있는 전화번호가 없으신 경우, 가까운 영업점을 방문하셔서 인터넷뱅킹을 가입해주시기 바랍니다.</p>
+                  <p>· 앞 단계에서 휴대폰 본인인증이 완료되었습니다. 인증된 휴대폰 번호로 가입이 진행됩니다.</p>
                   <p>· 인터넷뱅킹ID: 인터넷뱅킹 서비스 이용을 위해 지정하는 정보로서 영문 또는 영문/숫자조합으로 입력(특수문자 제외, 6~12자리)</p>
                   <p>· 사용자암호: 인터넷뱅킹 가입시(영업점 또는 온라인 가입) 등록하는 암호로서 아이디(ID)로그인 시 필요(영문/숫자/특수문자 조합, 8~12자리)</p>
                 </div>
@@ -453,13 +427,10 @@ export default function OnlineJoinPage() {
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
-                        휴대전화 <span className="font-normal text-kb-text-muted text-[11px]">(선택)</span>
-                      </td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">휴대전화</td>
                       <td className="border border-kb-border px-4 py-3">
-                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                          placeholder="01012345678"
-                          className="border border-kb-border px-3 py-1.5 w-52 outline-none text-[13px]" />
+                        <span className="text-kb-text">{phone}</span>
+                        <span className="ml-2 text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 본인인증 완료</span>
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
