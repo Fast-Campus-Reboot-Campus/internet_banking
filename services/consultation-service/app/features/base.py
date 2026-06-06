@@ -49,15 +49,8 @@ class FeatureExecutorBase:
     DB 쿼리 유틸리티, 응답 팩토리, 인증/권한 검증 메서드를 제공한다.
     """
 
-    def __init__(
-        self,
-        db: Session,
-        rag: Any | None = None,
-        llm_adapter: Any | None = None,
-    ) -> None:
+    def __init__(self, db: Session) -> None:
         self.db = db
-        self._rag = rag
-        self._llm_adapter = llm_adapter
 
     # ── DB 쿼리 헬퍼 ──────────────────────────────────────────────────────────
 

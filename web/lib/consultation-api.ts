@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { executeDepositTransfer } from '@/lib/deposit-api'
 
 export type ChatbotButton = {
   id: number
@@ -147,15 +148,28 @@ export type TransferResult = {
 export async function executeChatbotTransfer(payload: {
   customer_no: string
   from_account_id: number
+  to_account_id?: number
   to_account_number: string
+  to_bank_name?: string
   amount: number
   memo?: string
 }): Promise<TransferResult> {
-  const { data } = await consultationApi.post<TransferResult>('/chatbot/transfer', {
-    ...payload,
-    memo: payload.memo ?? '이체',
+  const transfer = await executeDepositTransfer(payload.customer_no, {
+    fromAccountId: payload.from_account_id,
+    toAccountId: payload.to_account_id,
+    toAccountNo: payload.to_account_number,
+    amount: payload.amount,
+    transferType: payload.to_account_id ? 'INTERNAL' : 'EXTERNAL',
+    counterpartyBankName: payload.to_bank_name,
+    transactionMemo: payload.memo ?? '이체',
   })
-  return data
+
+  return {
+    status: 'OK',
+    message: `${payload.amount.toLocaleString('ko-KR')}원이 ${payload.to_account_number}로 이체되었습니다.`,
+    transaction_id: transfer.transactionId,
+    balance_after: Number(transfer.balanceAfter ?? 0),
+  }
 }
 
 export async function endChat(chatConsultationId: number, satisfactionScore?: number): Promise<ChatConsultation> {

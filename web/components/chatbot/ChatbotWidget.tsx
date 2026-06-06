@@ -19,7 +19,18 @@ import {
   sendChatbotMessage,
   startChatbotConsultation,
 } from '@/lib/consultation-api'
-import { getCurrentDepositCustomerId, fetchDepositAccountViewModels, terminateDepositContract } from '@/lib/deposit-api'
+import {
+  getCurrentDepositCustomerId,
+  fetchDepositAccountViewModels,
+  fetchDepositProducts,
+  fetchDepositInterestRates,
+  fetchDepositRecommendAgent,
+  terminateDepositContract,
+  type DepositProduct,
+  type DepositProductType,
+  type DepositRecommendProduct,
+  type DepositInterestRate,
+} from '@/lib/deposit-api'
 import ConsultModal from '@/components/layout/ConsultModal'
 
 type ChatMessage = {
@@ -90,6 +101,29 @@ type ExpandedRow = {
 }
 
 const DEFAULT_CUSTOMER_NO = ''
+
+function canShowTransferButton(row: Record<string, unknown>) {
+  const values = [
+    row.product_type,
+    row.account_type,
+    row.deposit_product_type,
+    row.raw_account_type,
+    row.saving_type,
+  ].map((value) => String(value ?? '').toUpperCase())
+
+  const labels = [
+    row.product_type,
+    row.account_type,
+    row.product_name,
+    row.account_alias,
+  ].map((value) => String(value ?? ''))
+
+  const blockedTypes = new Set(['DEPOSIT', 'SAVINGS', 'SUBSCRIPTION', 'REGULAR', 'FREE'])
+  if (values.some((value) => blockedTypes.has(value))) return false
+  if (labels.some((value) => /예금|적금|청약/.test(value))) return false
+
+  return row.is_withdrawable === true || values.some((value) => value === 'DEMAND' || value === 'CHECKING')
+}
 
 const TEXT = {
   deposit: '\uC608\uAE08',
@@ -316,7 +350,7 @@ export default function ChatbotWidget() {
   useEffect(() => {
     setMounted(true)
     const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
-    const cid = localStorage.getItem('customerId')
+    const cid = localStorage.getItem('customerId') ? getCurrentDepositCustomerId() : ''
     if (token) setIsLoggedIn(true)
     if (cid) setCustomerNo(cid)
   }, [])
@@ -399,6 +433,173 @@ export default function ChatbotWidget() {
   function pushProductSearchResult(result: ChatbotFeatureExecuteResponse) {
     saveRecommendContext(result)
     pushMessages([addFeatureResult(result)])
+  }
+
+  function parseAmount(value?: string) {
+    if (!value) return undefined
+    const n = Number(value.replace(/[^0-9]/g, ''))
+    if (!Number.isFinite(n) || n <= 0) return undefined
+    if (value.includes('만')) return n * 10000
+    return n
+  }
+
+  function productTypeLabel(type?: string) {
+    if (type === 'SAVINGS') return '적금'
+    if (type === 'SUBSCRIPTION') return '청약'
+    return '예금'
+  }
+
+  function getProductId(product: DepositProduct | DepositRecommendProduct) {
+    return Number(
+      ('productId' in product ? product.productId : undefined) ??
+      ('product_id' in product ? product.product_id : undefined) ??
+      0,
+    )
+  }
+
+  function summarizePreferentialRates(rates: DepositInterestRate[]) {
+    const preferential = rates
+      .filter((rate) => rate.rateType === 'PREFERENTIAL' && rate.isActive !== false)
+      .sort((a, b) => Number(b.rate ?? 0) - Number(a.rate ?? 0))
+    const total = preferential.reduce((sum, rate) => sum + Number(rate.rate ?? 0), 0)
+    const conditions = preferential
+      .map((rate) => rate.conditionDescription)
+      .filter((condition): condition is string => Boolean(condition && condition.trim()))
+    return {
+      prefRate: total > 0 ? Number(total.toFixed(2)) : undefined,
+      prefCondition: conditions.length > 0 ? conditions.join(' / ') : undefined,
+    }
+  }
+
+  async function enrichWithPreferentialRates(rows: Record<string, unknown>[]) {
+    const enriched = await Promise.all(rows.map(async (row) => {
+      const productId = Number(row.product_id ?? 0)
+      if (!productId) return row
+      try {
+        const summary = summarizePreferentialRates(await fetchDepositInterestRates(productId))
+        return {
+          ...row,
+          pref_rate: summary.prefRate,
+          pref_condition: summary.prefCondition,
+        }
+      } catch {
+        return row
+      }
+    }))
+    return enriched
+  }
+
+  function inferProductType(text: string): DepositProductType | undefined {
+    if (text.includes('청약')) return 'SUBSCRIPTION'
+    if (text.includes('적금')) return 'SAVINGS'
+    if (text.includes('예금')) return 'DEPOSIT'
+    return undefined
+  }
+
+  function productToRow(
+    product: DepositProduct | DepositRecommendProduct,
+    index: number,
+    reason?: string,
+  ): Record<string, unknown> {
+    const productType = String(
+      ('productType' in product ? product.productType : undefined) ??
+      ('product_type' in product ? product.product_type : undefined) ??
+      'DEPOSIT',
+    )
+
+    return {
+      row_type: 'recommended_product',
+      rank: index + 1,
+      product_id: getProductId(product),
+      product_name: ('productName' in product ? product.productName : undefined) ?? ('product_name' in product ? product.product_name : undefined),
+      product_type: productTypeLabel(productType),
+      base_interest_rate: ('bestRate' in product ? product.bestRate : undefined) ??
+        ('baseInterestRate' in product ? product.baseInterestRate : undefined) ??
+        ('base_interest_rate' in product ? product.base_interest_rate : undefined),
+      min_join_amount: ('minJoinAmount' in product ? product.minJoinAmount : undefined),
+      max_join_amount: ('maxJoinAmount' in product ? product.maxJoinAmount : undefined),
+      min_period_month: ('minPeriodMonth' in product ? product.minPeriodMonth : undefined),
+      max_period_month: ('maxPeriodMonth' in product ? product.maxPeriodMonth : undefined),
+      product_desc: 'description' in product ? product.description : undefined,
+      reason: reason ?? ('reason' in product ? product.reason : undefined),
+    }
+  }
+
+  function buildFeatureResult(featureCode: string, message: string, rows: Record<string, unknown>[]): ChatbotFeatureExecuteResponse {
+    return {
+      feature_code: featureCode,
+      status: rows.length ? 'OK' : 'EMPTY',
+      message,
+      data: rows,
+      requires_auth: false,
+      requires_staff_auth: false,
+    }
+  }
+
+  async function executeDepositProductGuide(query: string) {
+    const productType = inferProductType(query)
+    const products = await fetchDepositProducts(productType ? { productType } : undefined)
+    const rows = products
+      .filter((p) => !p.productStatus || p.productStatus === 'SELLING')
+      .sort((a, b) => Number(b.bestRate ?? b.baseInterestRate ?? 0) - Number(a.bestRate ?? a.baseInterestRate ?? 0))
+      .map((p, i) => productToRow(p, i))
+    const label = productType ? productTypeLabel(productType) : '예금/적금/청약'
+    return buildFeatureResult('PRODUCT_GUIDE', `${label} 상품을 조회했습니다.`, await enrichWithPreferentialRates(rows))
+  }
+
+  async function executeDepositProductSearch(params: {
+    customerId: string
+    period?: number
+    amount?: number
+    productType?: DepositProductType
+    purpose?: 'lump_sum' | 'monthly' | null
+  }) {
+    const products = await fetchDepositProducts(params.productType ? { productType: params.productType } : undefined)
+    const scored = products
+      .filter((p) => !p.productStatus || p.productStatus === 'SELLING')
+      .map((p) => {
+        const rate = Number(p.bestRate ?? p.baseInterestRate ?? 0)
+        const minAmount = Number(p.minJoinAmount ?? 0)
+        const maxAmount = Number(p.maxJoinAmount ?? 0)
+        const amountOk = !params.amount || (
+          params.amount >= minAmount && (!maxAmount || params.amount <= maxAmount)
+        )
+        const periodOk = !params.period || (
+          (!p.minPeriodMonth || params.period >= p.minPeriodMonth) &&
+          (!p.maxPeriodMonth || params.period <= p.maxPeriodMonth)
+        )
+        const purposeBonus =
+          params.purpose === 'monthly' && p.productType === 'SAVINGS' ? 1 :
+          params.purpose === 'lump_sum' && p.productType === 'DEPOSIT' ? 1 :
+          params.productType === 'SUBSCRIPTION' && p.productType === 'SUBSCRIPTION' ? 1 :
+          0
+        return {
+          product: p,
+          score: rate + (amountOk ? 2 : -3) + (periodOk ? 2 : -2) + purposeBonus,
+          amountOk,
+          periodOk,
+        }
+      })
+      .sort((a, b) => b.score - a.score)
+
+    const preferred = scored.filter((s) => s.amountOk && s.periodOk)
+    const selected = (preferred.length ? preferred : scored).slice(0, 3)
+    const rows = selected.map((s, i) => productToRow(
+      s.product,
+      i,
+      s.amountOk && s.periodOk ? '입력한 금액과 기간 조건에 맞는 상품입니다.' : '조건에 완전히 맞는 상품이 적어 가까운 상품을 추천했습니다.',
+    ))
+    return buildFeatureResult('PRODUCT_SEARCH', '조건에 맞는 상품을 추천했습니다.', await enrichWithPreferentialRates(rows))
+  }
+
+  async function executeDepositCashflowRecommend(customerId: string) {
+    try {
+      const result = await fetchDepositRecommendAgent(customerId, 3)
+      const products = result.recommendations ?? result.products ?? []
+      const rows = products.slice(0, 3).map((p, i) => productToRow(p, i, p.reason ?? '최근 현금흐름 기반 추천 상품입니다.'))
+      if (rows.length) return buildFeatureResult('CASH_FLOW_RECOMMEND', '최근 현금흐름 기반 추천 상품입니다.', await enrichWithPreferentialRates(rows))
+    } catch {}
+    return executeDepositProductSearch({ customerId })
   }
 
   function answerProductCompare(text: string): string | null {
@@ -576,6 +777,45 @@ export default function ChatbotWidget() {
   async function handleScenarioMessage(text: string, buttonValue?: string) {
     // 예금/적금/청약 목록 조회 → handleFeature로 라우팅 (상품 카드 표시)
     const trimmed = text.trim()
+    const compactText = trimmed.replace(/\s+/g, '')
+
+    if (['내상품', '내가입상품', '가입상품', '내계좌'].some((word) => compactText.includes(word))) {
+      if (!isLoggedIn) {
+        pendingLoginActionRef.current = 'my_products'
+        setMessages([{
+          id: messageId('auth'),
+          role: 'bot',
+          text: '로그인이 필요한 서비스입니다.',
+          loginForm: true,
+        }])
+        return
+      }
+      await handleFeature('MY_PRODUCTS', trimmed, true)
+      return
+    }
+
+    const hasKoreanProduct = ['예금', '적금', '청약', '상품'].some((word) => trimmed.includes(word))
+    const hasKoreanRecommend = ['추천', '맞는', '나한테', '나에게', '순위', '랭킹'].some((word) => trimmed.includes(word))
+    const hasKoreanGuide = ['알려', '목록', '종류', '뭐가', '보여', '소개'].some((word) => trimmed.includes(word))
+    if (hasKoreanProduct && hasKoreanRecommend) {
+      if (!isLoggedIn) {
+        pendingLoginActionRef.current = 'recommend'
+        setMessages([{
+          id: messageId('auth'),
+          role: 'bot',
+          text: '로그인이 필요한 서비스입니다.',
+          loginForm: true,
+        }])
+        return
+      }
+      await handleFeature('CASH_FLOW_RECOMMEND', trimmed, false)
+      return
+    }
+    if (hasKoreanProduct && hasKoreanGuide) {
+      await handleFeature('PRODUCT_GUIDE', trimmed, false)
+      return
+    }
+
     const compareAnswer = answerProductCompare(trimmed)
     if (compareAnswer) {
       setExpandedRow(null)
@@ -660,10 +900,62 @@ export default function ChatbotWidget() {
       pushMessages([{ id: messageId('user'), role: 'user', text: userText }])
     }
     try {
+      if (featureCode === 'PRODUCT_GUIDE') {
+        const result = await executeDepositProductGuide(userText)
+        if (replaceMessages) {
+          setMessages((current) => [...current, addFeatureResult(result)])
+        } else {
+          pushMessages([addFeatureResult(result)])
+        }
+        return
+      }
+
+      if (featureCode === 'CASH_FLOW_RECOMMEND') {
+        const cid = customerNo.trim() || getCurrentDepositCustomerId()
+        const result = await executeDepositCashflowRecommend(cid)
+        saveRecommendContext(result)
+        if (replaceMessages) {
+          setMessages((current) => [...current, addFeatureResult(result)])
+        } else {
+          pushMessages([addFeatureResult(result)])
+        }
+        return
+      }
+
+      if (featureCode === 'MY_PRODUCTS') {
+        const cid = customerNo.trim() || getCurrentDepositCustomerId()
+        const apiAccounts = await fetchDepositAccountViewModels(cid)
+        const rows = apiAccounts.map((a) => ({
+          account_id: a.apiAccountId ?? 0,
+          contract_id: a.contractId ?? null,
+          account_number: a.number,
+          product_name: a.name,
+          product_type: a.type,
+          saving_type: a.savingType ?? null,
+          balance: a.balance,
+          account_status: a.accountStatus ?? 'ACTIVE',
+          maturity_at: a.maturityDate ?? null,
+          started_at: a.createdAt ?? null,
+          is_withdrawable: a.isWithdrawable ?? false,
+        }))
+        const result = buildFeatureResult(
+          'MY_PRODUCTS',
+          rows.length > 0 ? '가입 상품 조회를 완료했습니다.' : '조회된 가입 상품이 없습니다.',
+          rows,
+        )
+        if (replaceMessages) {
+          setMessages((current) => [...current, addFeatureResult(result)])
+        } else {
+          pushMessages([addFeatureResult(result)])
+        }
+        return
+      }
+
       const consultationId = hasStarted ? chatbotConsultationId : undefined
       const result = await executeChatbotFeature(featureCode, {
-        customer_no: customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO,
+        customer_no: customerNo.trim() || getCurrentDepositCustomerId(),
         query: userText,
+        product_type: featureCode === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
       if (replaceMessages) {
@@ -711,7 +1003,7 @@ export default function ChatbotWidget() {
       return
     }
     if (action.type === 'my_products') {
-      const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+      const cid = customerNo.trim() || getCurrentDepositCustomerId()
       if (!cid) {
         pushMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
         return
@@ -795,7 +1087,7 @@ export default function ChatbotWidget() {
   }
 
   async function startTerminate(row: Record<string, unknown>) {
-    const cid = customerNo.trim() || localStorage.getItem('customerId') || ''
+    const cid = customerNo.trim() || getCurrentDepositCustomerId()
     let checkingAccounts: MyAccount[] = []
     try {
       const accs = await fetchDepositAccountViewModels(cid)
@@ -828,7 +1120,7 @@ export default function ChatbotWidget() {
   }
 
   async function refreshMyProducts() {
-    const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+    const cid = customerNo.trim() || getCurrentDepositCustomerId()
     if (!cid) return
     try {
       const apiAccounts = await fetchDepositAccountViewModels(cid)
@@ -931,12 +1223,15 @@ export default function ChatbotWidget() {
   async function executeTransfer() {
     if (!transferState) return
     const amount = parseInt(transferState.amount.replace(/,/g, ''), 10)
+    const targetAccount = transferState.myAccounts.find((account) => account.account_number === transferState.toAccountNumber)
     setTransferState((s) => s && { ...s, step: 'processing' })
     try {
       const result = await executeChatbotTransfer({
-        customer_no: customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO,
+        customer_no: customerNo.trim() || getCurrentDepositCustomerId(),
         from_account_id: transferState.fromAccountId,
+        to_account_id: targetAccount?.account_id,
         to_account_number: transferState.toAccountNumber,
+        to_bank_name: transferState.toBank || (targetAccount ? 'AXful' : undefined),
         amount,
         memo: transferState.memo || '이체',
       })
@@ -1676,13 +1971,13 @@ export default function ChatbotWidget() {
                             const snap = { ...productSearchState }
                             setProductSearchState(null)
                             setLoading(true)
-                            const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+                            const cid = customerNo.trim() || getCurrentDepositCustomerId()
                             pushMessages([{ id: messageId('user'), role: 'user', text: '전체 상품 추천 요청' }])
                             try {
-                              const result = await executeChatbotFeature('PRODUCT_SEARCH', {
-                                customer_no: cid,
+                              const result = await executeDepositProductSearch({
+                                customerId: cid,
                                 period: Number(snap.period) || undefined,
-                                amount: Number(snap.amount.replace(/[^0-9]/g, '')) || undefined,
+                                amount: parseAmount(snap.amount),
                               })
                               pushProductSearchResult(result)
                             } catch {
@@ -1711,14 +2006,14 @@ export default function ChatbotWidget() {
                           const snap = productSearchState
                           setProductSearchState(null)
                           setLoading(true)
-                          const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+                          const cid = customerNo.trim() || getCurrentDepositCustomerId()
                           pushMessages([{ id: messageId('user'), role: 'user', text: '목돈 굴리기 - 예금 추천 요청' }])
                           try {
-                            const result = await executeChatbotFeature('PRODUCT_SEARCH', {
-                              customer_no: cid,
+                            const result = await executeDepositProductSearch({
+                              customerId: cid,
                               period: Number(snap.period) || undefined,
-                              amount: Number(snap.amount.replace(/[^0-9]/g, '')) || undefined,
-                              product_type: 'DEPOSIT',
+                              amount: parseAmount(snap.amount),
+                              productType: 'DEPOSIT',
                               purpose: 'lump_sum',
                             })
                             pushProductSearchResult(result)
@@ -1736,14 +2031,14 @@ export default function ChatbotWidget() {
                           const snap = productSearchState
                           setProductSearchState(null)
                           setLoading(true)
-                          const cid = customerNo.trim() || localStorage.getItem('customerId') || DEFAULT_CUSTOMER_NO
+                          const cid = customerNo.trim() || getCurrentDepositCustomerId()
                           pushMessages([{ id: messageId('user'), role: 'user', text: '매달 저축 - 적금 추천 요청' }])
                           try {
-                            const result = await executeChatbotFeature('PRODUCT_SEARCH', {
-                              customer_no: cid,
+                            const result = await executeDepositProductSearch({
+                              customerId: cid,
                               period: Number(snap.period) || undefined,
-                              amount: Number(snap.amount.replace(/[^0-9]/g, '')) || undefined,
-                              product_type: 'SAVINGS',
+                              amount: parseAmount(snap.amount),
+                              productType: 'SAVINGS',
                               purpose: 'monthly',
                             })
                             pushProductSearchResult(result)
@@ -1790,7 +2085,11 @@ export default function ChatbotWidget() {
                           {productRows.map((row, index) => (
                             <div key={`${message.id}-${index}`} className="rounded border border-kb-border bg-white p-3 text-xs space-y-1">
                               <div className="flex items-center gap-2">
-                                {row.rank != null && <span className="flex-shrink-0 rounded-full bg-[#2D6A4F] text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center">{String(row.rank)}</span>}
+                                {row.rank != null && (
+                                  <span className="flex-shrink-0 rounded bg-[#2D6A4F] px-2 py-0.5 text-[11px] font-bold text-white">
+                                    {String(row.rank)}위
+                                  </span>
+                                )}
                                 <p className="font-bold text-kb-text">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
                               </div>
                               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-kb-text-muted">
@@ -1799,10 +2098,10 @@ export default function ChatbotWidget() {
                                 {row.target_groups != null && <span>가입대상 {String(row.target_groups)}</span>}
                                 {row.description != null && <span>{String(row.description)}</span>}
                               </div>
-                              {row.reason != null && <p className="text-[11px] text-[#2D6A4F] font-medium">✓ {String(row.reason)}</p>}
+                              {row.reason != null && <p className="text-[11px] text-[#2D6A4F] font-medium">{String(row.reason)}</p>}
                               {row.pref_condition != null && String(row.pref_condition).trim() !== '' && (
                                 <p className="text-[11px] text-orange-600 font-medium">
-                                  🎁 우대금리{row.pref_rate ? ` +${row.pref_rate}%` : ''} 조건: {String(row.pref_condition)}
+                                  우대금리{row.pref_rate ? ` +${row.pref_rate}%` : ''} 조건: {String(row.pref_condition)}
                                 </p>
                               )}
                               {(row.min_join_amount != null || row.max_join_amount != null) && (
@@ -1842,7 +2141,7 @@ export default function ChatbotWidget() {
                                   <span className="block truncate text-[11px] text-kb-text-muted">{summary.meta}</span>
                                 </button>
                                 <div className="flex flex-none items-center gap-1.5">
-                                  {message.featureCode === 'MY_PRODUCTS' && row.is_withdrawable === true && (
+                                  {message.featureCode === 'MY_PRODUCTS' && canShowTransferButton(row) && (
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -1958,7 +2257,7 @@ export default function ChatbotWidget() {
                     {message.loginForm && !isLoggedIn && (
                       <InlineLoginForm onSuccess={() => {
                         setIsLoggedIn(true)
-                        const cid = localStorage.getItem('customerId')
+                        const cid = getCurrentDepositCustomerId()
                         if (cid) setCustomerNo(cid)
                         setMessages(prev => prev.map(m => m.loginForm ? { ...m, loginForm: false } : m))
                         const pending = pendingLoginActionRef.current
@@ -1967,7 +2266,7 @@ export default function ChatbotWidget() {
                           setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null })
                         } else {
                           // my_products: isLoggedIn이 아직 setState 반영 전이므로 직접 실행
-                          const cidVal = cid || customerNo.trim() || DEFAULT_CUSTOMER_NO
+                          const cidVal = cid || customerNo.trim() || getCurrentDepositCustomerId()
                           if (cidVal) {
                             setLoading(true)
                             setExpandedRow(null)

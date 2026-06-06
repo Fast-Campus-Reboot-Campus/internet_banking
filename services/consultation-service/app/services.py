@@ -10,8 +10,7 @@ from sqlalchemy.orm import Session, aliased
 from app.features import ProductFeatureExecutor, StaffFeatureExecutor, UserFinanceFeatureExecutor
 from app.features.base import build_history_context
 from app.kafka import KafkaEventPublisher
-from app.llm import FeatureAnswerFormatter, IntentClassifier, LlmAdapter, LlmHandoffAdapter
-from app.rag import ProductRagEngine
+from app.llm import FeatureAnswerFormatter, IntentClassifier
 from app.models import (
     ChatConsultation,
     ChatMessageHistory,
@@ -50,19 +49,9 @@ CODE_MESSAGE_TYPE_TEXT = 1
 
 
 class ChatbotService:
-    def __init__(
-        self,
-        db: Session,
-        events: KafkaEventPublisher,
-        llm: LlmHandoffAdapter,
-        llm_adapter: LlmAdapter | None = None,
-        rag_engine: ProductRagEngine | None = None,
-    ):
+    def __init__(self, db: Session, events: KafkaEventPublisher, *unused_adapters):
         self.db = db
         self.events = events
-        self.llm = llm
-        self._llm_adapter = llm_adapter
-        self._rag = rag_engine
         self._classifier = IntentClassifier()
         self._formatter = FeatureAnswerFormatter()
 
@@ -135,14 +124,22 @@ class ChatbotService:
             raise ValueError("챗봇 상담을 찾을 수 없습니다.")
 
         current_node_id = self._latest_node_id(chatbot.chatbot_consultation_id)
+        user_msg = message or button_value or ""
         self._record_message(
             chatbot,
             None,
             CODE_SENDER_USER,
-            message or button_value or "",
+            user_msg,
             button_value,
             None,
         )
+        await self.events.publish_chatbot_message({
+            "chatbot_consultation_id": chatbot.chatbot_consultation_id,
+            "sequence_no": chatbot.total_turn_count + 1,
+            "message_content": user_msg,
+            "button_value": button_value,
+            "sender_type_code_id": CODE_SENDER_USER,
+        })
         next_node = self._resolve_next_node(chatbot.scenario_id, current_node_id, button_value)
 
         process_method = "SCENARIO"
@@ -205,41 +202,6 @@ class ChatbotService:
                 agent_transfer_required = False
                 if intent_record:
                     chatbot.intent_id = intent_record.intent_id
-            elif self._llm_adapter:
-                # intent 분류 실패 → LLM 응답
-                # 대화 이력 + RAG 상품 데이터를 context로 전달
-                llm_intent = self._get_intent(chatbot.scenario_id, "LLM_FALLBACK")
-                history_ctx = self._build_history_context(chatbot.chatbot_consultation_id)
-                rag_ctx = self._build_rag_context(message or "")
-                llm_context = "\n\n".join(filter(None, [rag_ctx, history_ctx]))
-
-                llm_result = self._llm_adapter.answer(message or "", context=llm_context)
-                if isinstance(llm_result, tuple):
-                    llm_response, llm_is_error = llm_result
-                else:
-                    llm_response = llm_result
-                    llm_is_error = self._is_llm_error(llm_response)
-
-                # LLM 실패 시(에러 메시지 반환) → 상담사 이관
-                if llm_is_error:
-                    agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_ERROR_FALLBACK")
-                    response_message = "죄송합니다, 일시적인 오류가 발생했습니다. 상담사에게 연결해 드리겠습니다."
-                    process_method = "STAFF_ERROR_FALLBACK"
-                    process_code = CODE_PROCESS_LLM
-                    node_id = current_node_id or 0
-                    agent_transfer_required = True
-                    chatbot.agent_connected_yn = "Y"
-                    if agent_intent:
-                        chatbot.intent_id = agent_intent.intent_id
-                    self._open_chat_consultation(chatbot)
-                else:
-                    response_message = llm_response
-                    process_method = self._llm_adapter.process_method_code
-                    process_code = CODE_PROCESS_LLM
-                    node_id = current_node_id or 0
-                    agent_transfer_required = False
-                    if llm_intent:
-                        chatbot.intent_id = llm_intent.intent_id
             else:
                 agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_REQUEST")
                 process_method = "STAFF_REQUEST"
@@ -541,20 +503,18 @@ class ChatbotService:
 
         우선순위:
           0. 명시적 상품 유형 요청(청약/예금/적금): 항상 DB 직접 조회로 타입 필터링
-          1. RAG + 현금흐름: customer_no 있고 RAG 준비됨 → 현금흐름 쿼리로 RAG 검색
-          2. RAG 단독: customer_no 없고 RAG 준비됨 → query 텍스트로 RAG 검색
-          3. Fallback: RAG 없음 → DB 전체 상품 목록
+          1. 명시적 상품 유형 요청(청약/예금/적금): DB 직접 필터링
+          2. Fallback: DB 전체 상품 목록
         """
-        from app.rag import ProductRagEngine
-
-        # ── 경로 0: 명시적 상품 유형 → DB 직접 필터링 (RAG 우선순위보다 앞) ──
+        # ── 경로 0: 명시적 상품 유형 → DB 직접 필터링 ──
         query_text = (request.query or "").lower()
         _type_map = {
             "청약": "SUBSCRIPTION",
             "적금": "SAVINGS",
             "예금": "DEPOSIT",
         }
-        product_type_filter = next(
+        requested_type = (request.product_type or "").upper()
+        product_type_filter = requested_type if requested_type in {"DEPOSIT", "SAVINGS", "SUBSCRIPTION"} else next(
             (db_type for keyword, db_type in _type_map.items() if keyword in query_text),
             None,
         )
@@ -599,25 +559,7 @@ class ChatbotService:
                 f"판매 중인 {type_label} 상품이 없습니다.",
             )
 
-        # ── 경로 1: RAG + 현금흐름 기반 개인화 추천 ───────────────────────────
-        if self._rag and self._rag.is_ready() and request.customer_no:
-            cf = self._analyze_customer_cash_flow(request.customer_no)
-            if cf and cf["has_data"]:
-                query = ProductRagEngine.build_cashflow_query(cf)
-                rag_results = self._rag.search(query, top_k=5, doc_type="product")
-                rows = self._enrich_rag_results(rag_results, cf)
-                msg = "고객님의 거래 패턴과 상품 내용을 분석해 맞춤 상품을 추천해 드립니다."
-                return self._data_response("PRODUCT_GUIDE", rows, msg, "등록된 수신 상품 데이터가 없습니다.")
-
-        # ── 경로 2: RAG 단독 (쿼리 텍스트 기반) ──────────────────────────────
-        if self._rag and self._rag.is_ready():
-            query = request.query or "수신 상품 추천"
-            rag_results = self._rag.search(query, top_k=5, doc_type="product")
-            rows = self._enrich_rag_results(rag_results, cf=None)
-            msg = "질문과 관련된 상품을 찾았습니다."
-            return self._data_response("PRODUCT_GUIDE", rows, msg, "등록된 수신 상품 데이터가 없습니다.")
-
-        # ── 경로 3: RAG 없음 → DB 전체 목록 ──────────────────────────────────
+        # ── DB 전체 목록 ──────────────────────────────────────────────────────
         rows = self._rows(
             """
             SELECT banking_product_id AS product_id,
@@ -688,7 +630,7 @@ class ChatbotService:
         Returns {total_balance, monthly_surplus, monthly_tx_count, has_data, _debug}
         """
         accounts = self._rows(
-            "SELECT account_id, balance, account_status, is_withdrawable FROM deposit_accounts WHERE customer_id = :cno",
+            "SELECT account_id, balance, account_status FROM deposit_accounts WHERE customer_id = :cno",
             {"cno": customer_no},
         )
         if not accounts:
@@ -698,33 +640,17 @@ class ChatbotService:
         active    = [a for a in accounts if str(a.get("account_status", "")).upper() == "ACTIVE"]
         # 전체 ACTIVE 잔액 (참고용)
         total_balance = sum(float(a.get("balance") or 0) for a in active)
-        # 신규 상품 투자 가능 잔액: is_withdrawable=True 계좌만 (적금/정기예금 등 잠긴 계좌 제외)
+        # 신규 상품 투자 가능 잔액: 출금가능 컬럼이 없으면 ACTIVE 잔액 전체를 사용한다.
         investable_balance = sum(
             float(a.get("balance") or 0)
             for a in active
-            if a.get("is_withdrawable") is True
+            if a.get("is_withdrawable", True) is not False
         )
 
         if not all_ids:
             return None
 
         id_list = ",".join(str(i) for i in all_ids)
-
-        # 30일 이상 된 거래 이력이 있는 계좌만 분석 대상 (테스트 계좌 제외)
-        historical = self._rows(
-            f"""
-            SELECT DISTINCT account_id
-              FROM deposit_transactions
-             WHERE account_id IN ({id_list})
-               AND COALESCE(transaction_at, created_at) < NOW() - INTERVAL '30 days'
-            """
-        )
-        analysis_ids = {int(r["account_id"]) for r in historical} if historical else all_ids
-
-        if not analysis_ids:
-            analysis_ids = all_ids
-
-        aid_list = ",".join(str(i) for i in analysis_ids)
 
         # 본인 계좌번호 목록 (counterparty_account_no 대조용)
         own_acc_numbers = {
@@ -734,34 +660,18 @@ class ChatbotService:
             )
         }
 
-        # 같은 날 같은 금액의 DEPOSIT+WITHDRAW 쌍 감지 (counterparty 없는 내부 이체 처리)
-        internal_keys = set()
-        if len(all_ids) > 1:
-            matched = self._rows(
-                f"""
-                SELECT transaction_type, amount,
-                       DATE(COALESCE(transaction_at, created_at)) AS day
-                  FROM deposit_transactions
-                 WHERE account_id IN ({id_list})
-                   AND status = 'SUCCESS'
-                   AND transaction_type IN ('DEPOSIT', 'WITHDRAW', 'WITHDRAWAL')
-                   AND COALESCE(transaction_at, created_at) >= NOW() - INTERVAL '{months} months'
-                """
-            )
-            deps = {(float(r["amount"]), str(r["day"])) for r in matched if r.get("transaction_type") == "DEPOSIT"}
-            wits = {(float(r["amount"]), str(r["day"])) for r in matched if r.get("transaction_type") in ("WITHDRAW", "WITHDRAWAL")}
-            internal_keys = deps & wits
+        # 날짜 컷오프를 Python에서 계산 → SQLite·PostgreSQL 모두 호환
+        from datetime import datetime, timedelta, timezone
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30 * months)).strftime("%Y-%m-%d")
 
         tx_rows = self._rows(
             f"""
-            SELECT account_id, transaction_type, amount,
-                   counterparty_account_id, counterparty_account_no,
-                   COALESCE(transaction_at, created_at) AS dt
+            SELECT *
               FROM deposit_transactions
-             WHERE account_id IN ({aid_list})
-               AND status = 'SUCCESS'
-               AND COALESCE(transaction_at, created_at) >= NOW() - INTERVAL '{months} months'
-            """
+             WHERE account_id IN ({id_list})
+               AND COALESCE(transaction_at, created_at) >= :cutoff
+             """,
+            {"cutoff": cutoff},
         )
 
         if not tx_rows:
@@ -770,7 +680,7 @@ class ChatbotService:
                 "monthly_surplus":  0.0,
                 "monthly_tx_count": 0.0,
                 "has_data":         False,
-                "_debug":           f"분석계좌={len(analysis_ids)}개, 최근{months}개월 거래 없음",
+                "_debug":           f"분석계좌={len(all_ids)}개, 거래 없음",
             }
 
         inflow = outflow = 0.0
@@ -778,9 +688,12 @@ class ChatbotService:
 
         for r in tx_rows:
             ttype  = str(r.get("transaction_type") or "")
+            status = str(r.get("status") or r.get("transaction_status") or "").upper()
             amount = float(r.get("amount") or 0)
             cp_id  = r.get("counterparty_account_id")
 
+            if status and status not in ("SUCCESS", "COMPLETED"):
+                continue
             # TRANSFER 타입 전체 제외
             if ttype == "TRANSFER":
                 continue
@@ -790,11 +703,6 @@ class ChatbotService:
                 continue
             if cp_no and cp_no in own_acc_numbers:
                 continue
-            # 날짜+금액 쌍 매칭으로 내부 이체 추가 감지
-            day_key = (float(amount), str(r.get("dt", ""))[:10])
-            if day_key in internal_keys:
-                continue
-
             if ttype == "DEPOSIT":
                 inflow += amount
                 external_tx_count += 1
@@ -806,7 +714,7 @@ class ChatbotService:
         monthly_tx_count = external_tx_count / months
 
         debug = (
-            f"분석계좌={len(analysis_ids)}개 | "
+            f"분석계좌={len(all_ids)}개 | "
             f"기준=최근{months}개월 | "
             f"전체ACTIVE잔액={total_balance:,.0f}원 | "
             f"투자가능잔액(출금가능)={investable_balance:,.0f}원 | "
@@ -881,24 +789,7 @@ class ChatbotService:
         )
 
         if has_concept_compare and not product_ids:
-            # LLM이 있으면 LLM으로, 없으면 고정 텍스트
-            if self._llm_adapter:
-                try:
-                    explanation, is_err = self._llm_adapter.answer(
-                        query,
-                        context="고객이 예금/적금/청약의 개념적 차이를 묻고 있습니다. 각 상품의 특징과 차이를 명확하게 설명해 주세요.",
-                    )
-                    if not is_err:
-                        return ChatbotFeatureExecuteResponse(
-                            feature_code="PRODUCT_COMPARE",
-                            status="OK",
-                            message=explanation,
-                            data=[],
-                        )
-                except Exception:
-                    pass
-
-            # LLM 없거나 실패 → 고정 텍스트
+            # 고정 텍스트 응답
             _COMPARE_TEXT: dict[tuple[str, str], str] = {
                 ("예금", "적금"): (
                     "📌 예금과 적금의 차이\n\n"
@@ -974,14 +865,7 @@ class ChatbotService:
     def _execute_terms_search(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         query = (request.query or "").strip()
 
-        # RAG 준비됐으면 의미 기반 검색 우선
-        if self._rag and self._rag.is_ready() and query:
-            rag_results = self._rag.search(query, top_k=5, doc_type="term")
-            if rag_results:
-                rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rag_results]
-                return self._data_response("TERMS_RAG", rows, "관련 약관을 찾았습니다.", "검색 가능한 약관 데이터가 없습니다.")
-
-        # Fallback: SQL LIKE 검색 (빈 쿼리 시 "%" → 전체 반환)
+        # SQL LIKE 검색 (빈 쿼리 시 "%" → 전체 반환)
         like = f"%{query}%" if query else "%"
         rows = self._rows(
             """
@@ -1336,15 +1220,13 @@ class ChatbotService:
     def _execute_cash_flow_recommend(
         self, request: ChatbotFeatureExecuteRequest
     ) -> ChatbotFeatureExecuteResponse:
-        """현금흐름 분석 → LLM 기반 개인화 상품 추천.
+        """현금흐름 분석 → 규칙 기반 개인화 상품 추천.
 
         흐름:
           1. customer_no 인증 확인
           2. 현금흐름 분석 (잔액·월 잉여자금·거래 빈도)
-          3. 판매 중인 수신 상품 전체 조회 → LLM 컨텍스트로 전달
-          4. 대화 이력 → LLM 컨텍스트로 전달
-          5. LlmAdapter.recommend() 호출 → 개인화 추천 생성
-          6. LLM 미연결 시 룰 기반 fallback 추천
+          3. 판매 중인 수신 상품 조회
+          4. 현금흐름·금리·가입금액 점수 기반 추천
         """
         if not request.customer_no:
             return self._auth_required(
@@ -1447,32 +1329,14 @@ class ChatbotService:
             if rate:
                 p["pref_rate"] = rate
 
-        # ── 3. LLM 추천 ───────────────────────────────────────────────────────
-        if self._llm_adapter:
-            history_ctx = (
-                self._build_history_context(request.chatbot_consultation_id)
-                if request.chatbot_consultation_id
-                else ""
-            )
-            try:
-                recommendation = self._llm_adapter.recommend(
-                    cash_flow=cf,
-                    products=products,
-                    user_query=resolved_query or "내 현금 흐름에 맞는 상품을 추천해줘",
-                    history_ctx=history_ctx,
-                )
-            except Exception:
-                recommendation = (
-                    "죄송합니다, 추천 생성 중 오류가 발생했습니다. "
-                    "상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
-                )
-        else:
-            # LLM 미연결 → _rank_products 기반 추천
-            ranked = self._rank_products(cf, products)
-            recommendation = self._format_rank_based_recommend(cf, ranked)
+        # ── 3. 규칙 기반 추천 ────────────────────────────────────────────────
+        # 은행 상품 추천은 외부 생성형 AI 판단에 맡기지 않는다.
+        # 고객 현금흐름, 가입금액, 상품 유형, 금리, 우대조건을 점수화한 결과만 사용한다.
+        ranked = self._rank_products(cf, products)
+        recommendation = self._format_rank_based_recommend(cf, ranked)
 
         # ── 4. data 구성: 현금흐름 요약 + 추천 상품 카드 ─────────────────────
-        # LLM 유무와 관계없이 항상 _rank_products 기반 카드 포함
+        # 화면 카드도 동일한 규칙 기반 순위를 사용한다.
         ranked_for_data = self._rank_products(cf, products)
 
         product_cards = [
@@ -1505,6 +1369,13 @@ class ChatbotService:
             },
             *product_cards,
         ]
+
+        if (
+            not str(recommendation or "").strip()
+            or "제공할 수 없습니다" in recommendation
+            or "죄송" in recommendation
+        ):
+            recommendation = self._format_rank_based_recommend(cf, ranked_for_data)
 
         recommendation = self._append_preferential_rate_notice(recommendation, product_cards)
 
@@ -2300,11 +2171,7 @@ class ChatbotService:
 
     def _execute_savings_goal(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         from app.features.savings_goal import SavingsGoalFeatureExecutor
-        executor = SavingsGoalFeatureExecutor(
-            db=self.db,
-            rag=self._rag,
-            llm_adapter=self._llm_adapter,
-        )
+        executor = SavingsGoalFeatureExecutor(db=self.db)
         return executor.execute_savings_goal(request)
 
     def _execute_staff_cash_flow(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
@@ -2755,35 +2622,6 @@ class ChatbotService:
             lines.append(f"{label}: {row.message_content}")
         return "\n".join(lines)
 
-    def _build_rag_context(self, message: str) -> str:
-        """RAG 검색 결과를 LLM context 문자열로 변환한다.
-
-        상품/약관 3건을 이름+설명 형식으로 포맷팅한다.
-        RAG 미준비 또는 빈 메시지일 때는 빈 문자열 반환.
-        """
-        if not self._rag or not self._rag.is_ready() or not message:
-            return ""
-        results = self._rag.search(message, top_k=3)
-        if not results:
-            return ""
-        lines: list[str] = ["[관련 상품/약관 정보]"]
-        for r in results:
-            name = (
-                r.get("deposit_product_name")
-                or r.get("product_name")
-                or r.get("special_term_name", "")
-            )
-            desc = r.get("description") or r.get("special_term_summary", "")
-            if name:
-                lines.append(f"- {name}: {desc}" if desc else f"- {name}")
-        return "\n".join(lines) if len(lines) > 1 else ""
-
-    def _is_llm_error(self, response: str) -> bool:
-        """LlmAdapter.answer() 가 오류 응답을 반환했는지 확인한다.
-
-        LlmAdapter 예외 처리에서 항상 이 접두어로 시작하는 메시지를 반환한다.
-        """
-        return response.startswith("죄송합니다, 일시적인 오류가 발생했습니다.")
 
     def _ensure_default_intents(self, scenario_id: int) -> None:
         """챗봇의도 기본 레코드를 시딩한다."""

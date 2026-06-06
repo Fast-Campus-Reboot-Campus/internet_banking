@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any
 
 from app.features.base import FeatureExecutorBase
-from app.rag import ProductRagEngine
 from app.schemas import ChatbotFeatureExecuteRequest, ChatbotFeatureExecuteResponse
 
 
@@ -104,34 +103,7 @@ class ProductFeatureExecutor(FeatureExecutorBase):
         """
         query = (request.query or "").strip()
 
-        # RAG 검색 시도 (의미 기반으로 가장 유사한 상품 1건 추출)
-        if self._rag and self._rag.is_ready() and query:
-            rag_results = self._rag.search(query, top_k=1, doc_type="product")
-            if rag_results:
-                # 검색된 상품 ID로 전체 정보 재조회 (상세 필드 보강)
-                p_id = rag_results[0].get("banking_product_id")
-                rows = self._rows(
-                    """
-                    SELECT banking_product_id AS product_id,
-                           deposit_product_name AS product_name,
-                           deposit_product_type AS product_type,
-                           description,
-                           base_interest_rate,
-                           min_join_amount,
-                           max_join_amount,
-                           min_period_month,
-                           max_period_month,
-                           is_early_termination_allowed,
-                           is_tax_benefit_available
-                      FROM deposit_banking_products
-                     WHERE banking_product_id = :p_id
-                    """,
-                    {"p_id": p_id}
-                )
-                if rows:
-                    return self._data_response("PRODUCT_DETAIL", rows, f"'{rows[0]['product_name']}' 상품의 상세 정보입니다.")
-
-        # Fallback: 상품명 LIKE 검색
+        # 상품명 LIKE 검색
         if query:
             escaped = query.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
             like = f"%{escaped}%"
@@ -247,14 +219,7 @@ class ProductFeatureExecutor(FeatureExecutorBase):
     def execute_terms_search(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         query = (request.query or "").strip()
 
-        # RAG 준비됐으면 의미 기반 검색 우선
-        if self._rag and self._rag.is_ready() and query:
-            rag_results = self._rag.search(query, top_k=5, doc_type="term")
-            if rag_results:
-                rows = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rag_results]
-                return self._data_response("TERMS_RAG", rows, "관련 약관을 찾았습니다.", "검색 가능한 약관 데이터가 없습니다.")
-
-        # Fallback: SQL LIKE 검색 (빈 쿼리 시 "%" → 전체 반환)
+        # SQL LIKE 검색 (빈 쿼리 시 "%" → 전체 반환)
         # %, _, \ 이스케이프해 사용자 입력이 와일드카드로 동작하지 않도록 방지
         if query:
             escaped = query.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
