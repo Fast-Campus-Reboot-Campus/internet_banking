@@ -4,9 +4,14 @@ import com.bank.common.web.ApiResponse;
 import com.bank.customer.party.domain.ComplianceInfo;
 import com.bank.customer.party.dto.AddPartyRelationRequest;
 import com.bank.customer.party.dto.AgentReviewResponse;
+import com.bank.customer.party.dto.DuplicateReviewResponse;
 import com.bank.customer.party.dto.EddPendingResponse;
+import com.bank.customer.party.dto.FatcaReportableResponse;
+import com.bank.customer.party.dto.KycExpiringResponse;
+import com.bank.customer.party.dto.MinorResponse;
 import com.bank.customer.party.dto.PartyRelationResponse;
 import com.bank.customer.party.dto.PartyRoleResponse;
+import com.bank.customer.party.dto.SanctionHitResponse;
 import com.bank.customer.party.dto.SanctionedPartyResponse;
 import com.bank.customer.party.service.PartyManageService;
 import jakarta.validation.Valid;
@@ -120,6 +125,86 @@ public class PartyController {
     public ResponseEntity<ApiResponse<Page<SanctionedPartyResponse>>> listSanctioned(
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(partyManageService.listSanctioned(pageable)));
+    }
+
+    /** FATCA/CRS 보고대상 목록 (직원용) — FATCA/CRS 화면의 진입점 */
+    @GetMapping("/internal/compliance/fatca-crs")
+    public ResponseEntity<ApiResponse<Page<FatcaReportableResponse>>> listFatcaCrsReportable(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(partyManageService.listFatcaCrsReportable(pageable)));
+    }
+
+    /** KYC 만료 예정 목록 (직원용) — targetDate(YYYYMMDD) 이하 만료분 */
+    @GetMapping("/internal/compliance/kyc-expiring")
+    public ResponseEntity<ApiResponse<Page<KycExpiringResponse>>> listKycExpiring(
+            @RequestParam String targetDate,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(partyManageService.listKycExpiring(targetDate, pageable)));
+    }
+
+    /** 미성년(만 19세 미만) 목록 (직원용) — 미성년 검토 화면의 진입점 */
+    @GetMapping("/internal/party/minors")
+    public ResponseEntity<ApiResponse<Page<MinorResponse>>> listMinors(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(partyManageService.listMinors(pageable)));
+    }
+
+    // ── 제재 스크리닝 Hit 검토 (직원용) ────────────────────────────────────────
+
+    /** 제재 스크리닝 검토 대기 큐 — 제재대상 Hit 검토 화면의 진입점 */
+    @GetMapping("/internal/compliance/screening-hits/pending")
+    public ResponseEntity<ApiResponse<Page<SanctionHitResponse>>> listPendingScreeningHits(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(partyManageService.listPendingScreeningHits(pageable)));
+    }
+
+    /** Hit 무혐의 처리 (동명이인 등) */
+    @PatchMapping("/internal/compliance/screening-hits/{hitId}/clear")
+    public ResponseEntity<ApiResponse<Void>> clearScreeningHit(
+            @PathVariable Long hitId,
+            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestParam(required = false) String comment) {
+        partyManageService.clearScreeningHit(hitId, reviewerEmployeeId, comment);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    /** Hit 제재 확정 처리 */
+    @PatchMapping("/internal/compliance/screening-hits/{hitId}/confirm")
+    public ResponseEntity<ApiResponse<Void>> confirmScreeningHit(
+            @PathVariable Long hitId,
+            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestParam(required = false) String comment) {
+        partyManageService.confirmScreeningHit(hitId, reviewerEmployeeId, comment);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    // ── 중복고객 검토 (직원용) ─────────────────────────────────────────────────
+
+    /** 중복고객 검토 대기 큐 — 중복고객 검토 화면의 진입점 */
+    @GetMapping("/internal/party/duplicates/pending")
+    public ResponseEntity<ApiResponse<Page<DuplicateReviewResponse>>> listPendingDuplicates(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(partyManageService.listPendingDuplicates(pageable)));
+    }
+
+    /** 복본 확정 */
+    @PatchMapping("/internal/party/duplicates/{caseId}/duplicate")
+    public ResponseEntity<ApiResponse<Void>> markDuplicate(
+            @PathVariable Long caseId,
+            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestParam(required = false) String comment) {
+        partyManageService.markDuplicate(caseId, reviewerEmployeeId, comment);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    /** 별개(동명이인 등) 확정 */
+    @PatchMapping("/internal/party/duplicates/{caseId}/distinct")
+    public ResponseEntity<ApiResponse<Void>> markDistinct(
+            @PathVariable Long caseId,
+            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestParam(required = false) String comment) {
+        partyManageService.markDistinct(caseId, reviewerEmployeeId, comment);
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     /** 컴플라이언스 정보 조회 (직원용) */

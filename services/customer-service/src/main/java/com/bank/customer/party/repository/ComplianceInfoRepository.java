@@ -2,6 +2,8 @@ package com.bank.customer.party.repository;
 
 import com.bank.customer.party.domain.ComplianceInfo;
 import com.bank.customer.party.dto.EddPendingResponse;
+import com.bank.customer.party.dto.FatcaReportableResponse;
+import com.bank.customer.party.dto.KycExpiringResponse;
 import com.bank.customer.party.dto.SanctionedPartyResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,4 +82,52 @@ public interface ComplianceInfoRepository extends JpaRepository<ComplianceInfo, 
             """)
     List<ComplianceInfo> findKycExpiringBefore(
             @org.springframework.data.repository.query.Param("targetDate") String targetDate);
+
+    /**
+     * FATCA/CRS 보고대상 목록 — fatca_reportable_yn='T' OR crs_reportable_yn='T'.
+     * 이름·인적사항을 Party·PartyPerson 조인으로 가져온다. party_id 역순 고정 정렬.
+     */
+    @Query(value = """
+            SELECT new com.bank.customer.party.dto.FatcaReportableResponse(
+                ci.partyId, p.partyName, pp.birthDate, pp.nationalityCode,
+                ci.fatcaStatusCode, ci.fatcaReportableYn, ci.crsStatusCode, ci.crsReportableYn,
+                ci.fatcaLastReviewedAt)
+            FROM ComplianceInfo ci
+            JOIN Party p ON p.partyId = ci.partyId
+            LEFT JOIN PartyPerson pp ON pp.partyId = ci.partyId
+            WHERE (ci.fatcaReportableYn = 'T' OR ci.crsReportableYn = 'T')
+              AND ci.deletedAt IS NULL
+            ORDER BY ci.partyId DESC
+            """,
+            countQuery = """
+            SELECT COUNT(ci)
+            FROM ComplianceInfo ci
+            WHERE (ci.fatcaReportableYn = 'T' OR ci.crsReportableYn = 'T')
+              AND ci.deletedAt IS NULL
+            """)
+    Page<FatcaReportableResponse> searchFatcaCrsReportable(Pageable pageable);
+
+    /**
+     * KYC 만료 예정 목록(페이지네이션·이름조인) — kyc_status='COMPLETED'이며 만료일이 기준일 이하.
+     * 만료 임박 순(만료일 오름차순) 정렬.
+     */
+    @Query(value = """
+            SELECT new com.bank.customer.party.dto.KycExpiringResponse(
+                ci.partyId, p.partyName, ci.kycStatusCode, ci.kycExpiryDate, ci.kycNextReviewDate)
+            FROM ComplianceInfo ci JOIN Party p ON p.partyId = ci.partyId
+            WHERE ci.kycExpiryDate <= :targetDate
+              AND ci.kycStatusCode = 'COMPLETED'
+              AND ci.deletedAt IS NULL
+            ORDER BY ci.kycExpiryDate ASC
+            """,
+            countQuery = """
+            SELECT COUNT(ci)
+            FROM ComplianceInfo ci
+            WHERE ci.kycExpiryDate <= :targetDate
+              AND ci.kycStatusCode = 'COMPLETED'
+              AND ci.deletedAt IS NULL
+            """)
+    Page<KycExpiringResponse> searchKycExpiring(
+            @org.springframework.data.repository.query.Param("targetDate") String targetDate,
+            Pageable pageable);
 }

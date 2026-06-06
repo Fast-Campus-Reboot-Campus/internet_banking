@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
@@ -53,4 +55,40 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
             @Param("status")  String status,
             @Param("grade")   String grade,
             Pageable pageable);
+
+    // ── 가입 통계 집계 (가입 대시보드) ─────────────────────────────────────────
+
+    /** 코드별 건수 한 행. GROUP BY 결과 매핑용 인터페이스 프로젝션. */
+    interface CodeCount {
+        String getCode();
+        long   getCount();
+    }
+
+    @Query("""
+            SELECT c.customerStatusCode AS code, COUNT(c) AS count
+            FROM Customer c
+            WHERE c.deletedAt IS NULL
+            GROUP BY c.customerStatusCode
+            """)
+    List<CodeCount> countByStatus();
+
+    @Query("""
+            SELECT c.customerGradeCode AS code, COUNT(c) AS count
+            FROM Customer c
+            WHERE c.deletedAt IS NULL
+            GROUP BY c.customerGradeCode
+            """)
+    List<CodeCount> countByGrade();
+
+    @Query("""
+            SELECT c.joinChannelCode AS code, COUNT(c) AS count
+            FROM Customer c
+            WHERE c.deletedAt IS NULL
+            GROUP BY c.joinChannelCode
+            """)
+    List<CodeCount> countByChannel();
+
+    long countByDeletedAtIsNull();
+
+    long countByJoinedAtGreaterThanEqualAndDeletedAtIsNull(OffsetDateTime since);
 }

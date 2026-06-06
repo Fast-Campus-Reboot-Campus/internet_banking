@@ -9,9 +9,16 @@ import com.bank.customer.party.domain.PartyRole;
 import com.bank.customer.party.dto.AddPartyRelationRequest;
 import com.bank.customer.party.dto.PartyRelationResponse;
 import com.bank.customer.party.dto.PartyRoleResponse;
+import com.bank.customer.party.domain.DuplicateReviewCase;
+import com.bank.customer.party.domain.SanctionScreeningHit;
+import com.bank.customer.party.dto.DuplicateReviewResponse;
+import com.bank.customer.party.dto.SanctionHitResponse;
 import com.bank.customer.party.repository.ComplianceInfoRepository;
+import com.bank.customer.party.repository.DuplicateReviewCaseRepository;
+import com.bank.customer.party.repository.PartyPersonRepository;
 import com.bank.customer.party.repository.PartyRelationRepository;
 import com.bank.customer.party.repository.PartyRoleRepository;
+import com.bank.customer.party.repository.SanctionScreeningHitRepository;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,10 +34,13 @@ public class PartyManageService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    private final PartyRoleRepository      partyRoleRepository;
-    private final PartyRelationRepository  partyRelationRepository;
-    private final ComplianceInfoRepository complianceInfoRepository;
-    private final CustomerRepository       customerRepository;
+    private final PartyRoleRepository             partyRoleRepository;
+    private final PartyRelationRepository         partyRelationRepository;
+    private final ComplianceInfoRepository        complianceInfoRepository;
+    private final PartyPersonRepository           partyPersonRepository;
+    private final SanctionScreeningHitRepository  sanctionScreeningHitRepository;
+    private final DuplicateReviewCaseRepository   duplicateReviewCaseRepository;
+    private final CustomerRepository              customerRepository;
 
     // ── 역할 관리 ─────────────────────────────────────────────────────────────
 
@@ -147,6 +157,82 @@ public class PartyManageService {
     public org.springframework.data.domain.Page<com.bank.customer.party.dto.SanctionedPartyResponse>
             listSanctioned(org.springframework.data.domain.Pageable pageable) {
         return complianceInfoRepository.searchSanctioned(pageable);
+    }
+
+    /** FATCA/CRS 보고대상 목록. FATCA/CRS 화면의 진입점. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<com.bank.customer.party.dto.FatcaReportableResponse>
+            listFatcaCrsReportable(org.springframework.data.domain.Pageable pageable) {
+        return complianceInfoRepository.searchFatcaCrsReportable(pageable);
+    }
+
+    /** KYC 만료 예정 목록. targetDate(YYYYMMDD) 이하 만료분을 만료 임박 순으로 반환한다. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<com.bank.customer.party.dto.KycExpiringResponse>
+            listKycExpiring(String targetDate, org.springframework.data.domain.Pageable pageable) {
+        return complianceInfoRepository.searchKycExpiring(targetDate, pageable);
+    }
+
+    /** 미성년(만 19세 미만) 목록. 기준일=오늘-19년 이후 출생자. 미성년 검토 화면의 진입점. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<com.bank.customer.party.dto.MinorResponse>
+            listMinors(org.springframework.data.domain.Pageable pageable) {
+        String thresholdYmd = LocalDate.now().minusYears(19).format(DATE_FMT);
+        return partyPersonRepository.searchMinors(thresholdYmd, pageable);
+    }
+
+    // ── 제재 스크리닝 Hit 검토 (직원용) ────────────────────────────────────────
+
+    /** 제재 스크리닝 검토 대기 큐(status='PENDING'). 제재대상 Hit 검토 화면의 진입점. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<SanctionHitResponse>
+            listPendingScreeningHits(org.springframework.data.domain.Pageable pageable) {
+        return sanctionScreeningHitRepository.searchPending(pageable);
+    }
+
+    /** Hit 무혐의(동명이인 등) 처리. */
+    @Transactional
+    public void clearScreeningHit(Long hitId, Long reviewerEmployeeId, String comment) {
+        findHit(hitId).clearAsHomonym(reviewerEmployeeId, comment);
+    }
+
+    /** Hit 제재 확정 처리. */
+    @Transactional
+    public void confirmScreeningHit(Long hitId, Long reviewerEmployeeId, String comment) {
+        findHit(hitId).confirmSanction(reviewerEmployeeId, comment);
+    }
+
+    private SanctionScreeningHit findHit(Long hitId) {
+        return sanctionScreeningHitRepository.findById(hitId)
+                .filter(h -> h.getDeletedAt() == null)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_115));
+    }
+
+    // ── 중복고객 검토 (직원용) ─────────────────────────────────────────────────
+
+    /** 중복고객 검토 대기 큐(status='PENDING'). 중복고객 검토 화면의 진입점. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<DuplicateReviewResponse>
+            listPendingDuplicates(org.springframework.data.domain.Pageable pageable) {
+        return duplicateReviewCaseRepository.searchPending(pageable);
+    }
+
+    /** 복본 확정 처리. */
+    @Transactional
+    public void markDuplicate(Long caseId, Long reviewerEmployeeId, String comment) {
+        findDuplicateCase(caseId).markDuplicate(reviewerEmployeeId, comment);
+    }
+
+    /** 별개(동명이인 등) 확정 처리. */
+    @Transactional
+    public void markDistinct(Long caseId, Long reviewerEmployeeId, String comment) {
+        findDuplicateCase(caseId).markDistinct(reviewerEmployeeId, comment);
+    }
+
+    private DuplicateReviewCase findDuplicateCase(Long caseId) {
+        return duplicateReviewCaseRepository.findById(caseId)
+                .filter(d -> d.getDeletedAt() == null)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
     }
 
     @Transactional(readOnly = true)

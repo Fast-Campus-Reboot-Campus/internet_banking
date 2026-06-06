@@ -7,6 +7,7 @@ import com.bank.customer.customer.dto.ChangeGradeRequest;
 import com.bank.customer.customer.dto.CloseCustomerRequest;
 import com.bank.customer.customer.dto.CustomerDetailResponse;
 import com.bank.customer.customer.dto.CustomerSummaryResponse;
+import com.bank.customer.customer.dto.JoinStatsResponse;
 import com.bank.customer.customer.dto.UpdateCreditRatingRequest;
 import com.bank.customer.customer.service.CustomerLifecycleService;
 import com.bank.customer.customer.service.CustomerQueryService;
@@ -63,6 +64,12 @@ public class CustomerLifecycleController {
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(
                 queryService.searchCustomers(keyword, status, grade, pageable)));
+    }
+
+    /** 가입 현황 통계 — 가입 대시보드의 데이터원(customer 집계) */
+    @GetMapping("/internal/customers/join-stats")
+    public ResponseEntity<ApiResponse<JoinStatsResponse>> getJoinStats() {
+        return ResponseEntity.ok(ApiResponse.ok(queryService.getJoinStats()));
     }
 
     /**
