@@ -60,10 +60,14 @@ export default function TransferConfirmPage() {
             if (data.transferType === 'EXTERNAL') {
               const authTokenNo = newAuthToken()
               const userId = getCurrentDepositCustomerId()
+              // 타행이체는 금융결제원 표준 기관코드만 게이트웨이로 보낸다.
+              // 매핑에 없는 내부 코드(KB 등)가 그대로 새어나가지 않도록 여기서 차단.
+              const receiverBankCode = PAYMENT_BANK_CODE_MAP[data.toBankCode]
+              if (!receiverBankCode) throw new Error('지원하지 않는 은행입니다. 다시 선택해 주세요.')
               const res = await createInstantTransfer(
                 {
                   senderAccountId:      String(data.fromAccountId),
-                  receiverBankCode:     PAYMENT_BANK_CODE_MAP[data.toBankCode] ?? data.toBankCode,
+                  receiverBankCode,
                   receiverAccountNo:    data.toAccount,
                   transferAmount:       data.amount,
                   expectedReceiverName: data.receiverName,
