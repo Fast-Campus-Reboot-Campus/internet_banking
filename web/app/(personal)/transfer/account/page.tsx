@@ -112,15 +112,12 @@ export default function TransferAccountPage() {
       setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
       return
     }
-    // 자행/타행 판정은 "받는 은행" 기준. AXful(자행)이면 INTERNAL(deposit-service),
-    // 그 외 은행은 EXTERNAL(payment-service)로 라우팅한다.
-    // (받는 계좌번호가 내 계좌인지로 판정하면, 같은 AXful의 남 계좌가 타행으로 오판됨)
-    const isOwnBank = toBank === 'AXful'
-    const ownAccount = accounts.find(acc => acc.number === toAccount)
+    // AXful 내 계좌로의 이체면 INTERNAL, 아니면 EXTERNAL (deposit-service 이체 실행에 사용)
+    const targetAccount = accounts.find(acc => acc.number === toAccount)
     sessionStorage.setItem('pendingTransfer', JSON.stringify({
       fromAccountId: fromAcc?.apiAccountId,
-      toAccountId: isOwnBank ? ownAccount?.apiAccountId : undefined,
-      transferType: isOwnBank ? 'INTERNAL' : 'EXTERNAL',
+      toAccountId: targetAccount?.apiAccountId,
+      transferType: targetAccount ? 'INTERNAL' : 'EXTERNAL',
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
