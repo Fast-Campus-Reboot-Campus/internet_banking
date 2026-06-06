@@ -66,6 +66,8 @@ payment:
     poll-interval-ms: ${PAYMENT_TIMEOUT_POLL_INTERVAL_MS:10000}
   scheduled:
     poll-interval-ms: ${PAYMENT_SCHEDULED_POLL_INTERVAL_MS:30000}
+  settlement:
+    kftc-cutoff-cron: ${PAYMENT_SETTLEMENT_KFTC_CUTOFF_CRON:0 0 11 * * *}
   kafka:
     kftc:
       bootstrap-servers: ${KFTC_KAFKA_BOOTSTRAP:localhost:9092}

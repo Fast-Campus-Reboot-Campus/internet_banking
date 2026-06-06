@@ -521,4 +521,77 @@ public class Ledger {
                 .postingStatus("POSTED")
                 .build();
     }
+
+    // ── 정산 분개: 청산대기 해소 [정산 JN 차변] ──────────
+    /**
+     * 청산대기 계정 해소 분개. DEBIT CLEARING_PENDING_UNWIND. (KFTC 마감정산 / BOK RTGS 정산)
+     * accountId/accountNoSnap/holderNameSnap: 원분개 CLEARING_PENDING에서 계승.
+     *   KFTC → "KB-CLR-088" / "KB청산대기(신한)"
+     *   BOK  → "KB-CLR-BOK" / "KB청산대기(한은)"
+     * isReversal=false — 역분개가 아닌 정산 시점의 신규 회계 사건.
+     * balance=0,0 (내부계정, 결제계 미추적).
+     */
+    public static Ledger clearingPendingUnwind(
+            String ledgerId, String paymentInstructionId,
+            String accountId, String accountNoSnap, String holderNameSnap,
+            String journalNo, BigDecimal amount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId(accountId)
+                .journalNo(journalNo)
+                .accountNoSnap(accountNoSnap)
+                .holderNameSnap(holderNameSnap)
+                .debitCredit("DEBIT")
+                .journalType("CLEARING_PENDING_UNWIND")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
+
+    // ── 정산 분개: 한은당좌 정산 [정산 JN 대변] ──────────
+    /**
+     * 한은당좌 정산 분개. KB-DDA CREDIT INTERBANK_SETTLEMENT. (KFTC 마감정산 / BOK RTGS 정산)
+     * clearingPendingUnwind의 차대변 상대편.
+     * isReversal=false — 역분개가 아닌 정산 시점의 신규 회계 사건.
+     * balance=0,0 (내부계정, 결제계 미추적).
+     */
+    public static Ledger bokDda(
+            String ledgerId, String paymentInstructionId,
+            String journalNo, BigDecimal amount,
+            String currency, String transactionDate, String postingDate, String valueDate,
+            LocalDateTime postedAt, String systemDescription) {
+        return Ledger.builder()
+                .ledgerId(ledgerId)
+                .paymentInstructionId(paymentInstructionId)
+                .accountId("KB-DDA")
+                .journalNo(journalNo)
+                .accountNoSnap("KB-DDA")
+                .holderNameSnap("KB한은당좌")
+                .debitCredit("CREDIT")
+                .journalType("INTERBANK_SETTLEMENT")
+                .amount(amount)
+                .currency(currency)
+                .balanceBefore(BigDecimal.ZERO)
+                .balanceAfter(BigDecimal.ZERO)
+                .transactionDate(transactionDate)
+                .postingDate(postingDate)
+                .valueDate(valueDate)
+                .postedAt(postedAt)
+                .systemDescription(systemDescription)
+                .isReversal(false)
+                .postingStatus("POSTED")
+                .build();
+    }
 }
