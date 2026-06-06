@@ -4,10 +4,15 @@ import com.bank.common.web.ApiResponse;
 import com.bank.customer.customer.domain.CustomerGradeHistory;
 import com.bank.customer.customer.domain.CustomerStatusHistory;
 import com.bank.customer.customer.dto.ChangeGradeRequest;
+import com.bank.customer.customer.dto.CustomerSummaryResponse;
 import com.bank.customer.customer.dto.UpdateCreditRatingRequest;
 import com.bank.customer.customer.service.CustomerLifecycleService;
+import com.bank.customer.customer.service.CustomerQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -26,6 +31,7 @@ import java.util.List;
 public class CustomerLifecycleController {
 
     private final CustomerLifecycleService lifecycleService;
+    private final CustomerQueryService     queryService;
 
     // ── 고객용 이력 조회 ──────────────────────────────────────────────────────
 
@@ -42,6 +48,20 @@ public class CustomerLifecycleController {
     }
 
     // ── 직원용 관리 API (게이트웨이가 X-User-Id, X-User-Role 주입) ─────────────
+
+    /**
+     * 고객 목록·검색 — 모든 list 화면의 진입점.
+     * keyword(이름·전화 부분일치)·status·grade는 선택 필터, customer_id 역순 고정 정렬.
+     */
+    @GetMapping("/internal/customers")
+    public ResponseEntity<ApiResponse<Page<CustomerSummaryResponse>>> searchCustomers(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String grade,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                queryService.searchCustomers(keyword, status, grade, pageable)));
+    }
 
     /** 고객 등급 변경 — 다중 필드 → RequestBody */
     @PatchMapping("/internal/customers/{customerId}/grade")
