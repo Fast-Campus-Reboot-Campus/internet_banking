@@ -8,7 +8,7 @@ import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
-import com.bank.customer.config.EmployeeDirectoryProperties;
+import com.bank.customer.party.service.EmployeeDirectoryService;
 import com.bank.customer.fds.service.FdsService;
 import com.bank.customer.login.domain.LoginAttempt;
 import com.bank.customer.login.dto.LoginRequest;
@@ -49,7 +49,7 @@ class LoginServiceTest {
     @Mock PasswordEncoder      passwordEncoder;
     @Mock StringRedisTemplate  redisTemplate;
     @Mock ValueOperations<String, String> valueOps;
-    @Mock EmployeeDirectoryProperties employeeDirectory;
+    @Mock EmployeeDirectoryService employeeDirectory;
     @Mock LoginAttemptRepository      loginAttemptRepository;
     @Mock FdsService                  fdsService;
     @Mock LoginSessionService         loginSessionService;
@@ -74,7 +74,8 @@ class LoginServiceTest {
                 employeeDirectory, loginAttemptRepository, fdsService, loginSessionService);
 
         // 직원 디렉토리 미등록(일반 고객) 기본값 — buildAccessToken NPE 방지
-        given(employeeDirectory.find(anyLong())).willReturn(Optional.empty());
+        // mockCustomer 는 partyId 를 스텁하지 않아 null 이 넘어오므로 any() 로 매칭한다.
+        given(employeeDirectory.findByPartyId(any())).willReturn(Optional.empty());
 
         // 로그인 시도 이력 저장은 referenceId(getLoginAttemptId)를 후속 호출에 사용
         LoginAttempt attempt = org.mockito.Mockito.mock(LoginAttempt.class);

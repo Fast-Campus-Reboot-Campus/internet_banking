@@ -2,7 +2,6 @@ package com.bank.customer.config;
 
 import com.bank.common.security.BankRole;
 import com.bank.customer.security.GatewayHeaderAuthFilter;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,7 +22,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  */
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(EmployeeDirectoryProperties.class)
 public class SecurityConfig {
 
     /** 직원 역할(고객 제외) — /internal 관리 API 접근 허용 대상 */

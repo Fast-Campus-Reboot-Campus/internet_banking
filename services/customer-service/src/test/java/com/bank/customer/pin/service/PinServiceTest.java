@@ -5,7 +5,7 @@ import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.customer.cert.domain.AuthMethod;
 import com.bank.customer.cert.repository.AuthMethodRepository;
-import com.bank.customer.config.EmployeeDirectoryProperties;
+import com.bank.customer.party.service.EmployeeDirectoryService;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
@@ -50,7 +50,7 @@ class PinServiceTest {
     @Mock JwtProvider                jwtProvider;
     @Mock JwtProperties              jwtProperties;
     @Mock StringRedisTemplate        redisTemplate;
-    @Mock EmployeeDirectoryProperties employeeDirectory;
+    @Mock EmployeeDirectoryService employeeDirectory;
 
     private PinService pinService;
 

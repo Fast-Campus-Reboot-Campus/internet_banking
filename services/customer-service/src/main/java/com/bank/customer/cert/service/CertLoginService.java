@@ -1,5 +1,6 @@
 package com.bank.customer.cert.service;
 
+import com.bank.common.security.BankRole;
 import com.bank.common.web.BusinessException;
 import com.bank.customer.cert.domain.Certificate;
 import com.bank.customer.cert.dto.CertLoginRequest;
@@ -11,7 +12,7 @@ import com.bank.customer.fds.domain.FdsDetection;
 import com.bank.customer.fds.service.FdsService;
 import com.bank.customer.history.domain.CertificateUse;
 import com.bank.customer.history.repository.CertificateUseRepository;
-import com.bank.customer.login.config.EmployeeDirectoryProperties;
+import com.bank.customer.party.service.EmployeeDirectoryService;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.support.CustomerErrorCode;
 import com.bank.common.security.jwt.JwtProvider;
@@ -45,7 +46,7 @@ public class CertLoginService {
     private final JwtProvider               jwtProvider;
     private final JwtProperties             jwtProperties;
     private final StringRedisTemplate       redisTemplate;
-    private final EmployeeDirectoryProperties employeeDirectory;
+    private final EmployeeDirectoryService   employeeDirectory;
     private final FdsService                fdsService;
 
     /**
@@ -112,10 +113,10 @@ public class CertLoginService {
             // 성공 경로에서도 FDS 평가 — BLOCK 발동해도 로그인은 막지 않고 로그만 남긴다(모니터링)
             evaluateFdsSilently(cert.getCustomerId(), use.getCertificateUseId());
 
-            var emp    = employeeDirectory.findById(customer.getCustomerId());
-            var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
-            var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
-            var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
+            var emp    = employeeDirectory.findByPartyId(customer.getPartyId());
+            var roles  = emp.map(EmployeeDirectoryService.EmployeeInfo::roles).orElse(List.of(BankRole.CUSTOMER.authority()));
+            var branch = emp.map(EmployeeDirectoryService.EmployeeInfo::branch).orElse(null);
+            var grade  = emp.map(EmployeeDirectoryService.EmployeeInfo::grade).orElse(null);
 
             String accessToken  = jwtProvider.generateAccessToken(
                     customer.getCustomerId(), customer.getEmail(), roles, branch, grade);

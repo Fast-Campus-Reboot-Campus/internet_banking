@@ -1,13 +1,13 @@
 package com.bank.customer.login.service;
 
+import com.bank.common.security.BankRole;
 import com.bank.common.security.jwt.JwtClaims;
 import com.bank.common.security.jwt.JwtProperties;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.security.jwt.TokenType;
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;
-import com.bank.customer.config.EmployeeDirectoryProperties;
-import com.bank.customer.config.EmployeeDirectoryProperties.EmployeeEntry;
+import com.bank.customer.party.service.EmployeeDirectoryService;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
@@ -49,7 +49,7 @@ public class LoginService {
     private final JwtProvider              jwtProvider;
     private final JwtProperties            jwtProperties;
     private final StringRedisTemplate      redisTemplate;
-    private final EmployeeDirectoryProperties employeeDirectory;
+    private final EmployeeDirectoryService  employeeDirectory;
     private final LoginAttemptRepository   loginAttemptRepository;
     private final FdsService               fdsService;
     private final LoginSessionService      loginSessionService;
@@ -162,13 +162,13 @@ public class LoginService {
     }
 
     private String buildAccessToken(Customer customer) {
-        return employeeDirectory.find(customer.getCustomerId())
+        return employeeDirectory.findByPartyId(customer.getPartyId())
                 .map(emp -> jwtProvider.generateAccessToken(
                         customer.getCustomerId(), customer.getEmail(),
                         emp.roles(), emp.branch(), emp.grade()))
                 .orElseGet(() -> jwtProvider.generateAccessToken(
                         customer.getCustomerId(), customer.getEmail(),
-                        List.of("ROLE_CUSTOMER")));
+                        List.of(BankRole.CUSTOMER.authority())));
     }
 
     private void storeRefreshToken(Long customerId, String refreshToken) {

@@ -12,7 +12,7 @@ import com.bank.customer.fds.domain.FdsDetection;
 import com.bank.customer.fds.service.FdsService;
 import com.bank.customer.history.domain.CertificateUse;
 import com.bank.customer.history.repository.CertificateUseRepository;
-import com.bank.customer.login.config.EmployeeDirectoryProperties;
+import com.bank.customer.party.service.EmployeeDirectoryService;
 import com.bank.customer.support.CustomerErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,7 +54,7 @@ class CertLoginServiceTest {
     @Mock JwtProvider                 jwtProvider;
     @Mock JwtProperties               jwtProperties;
     @Mock StringRedisTemplate         redisTemplate;
-    @Mock EmployeeDirectoryProperties employeeDirectory;
+    @Mock EmployeeDirectoryService employeeDirectory;
     @Mock FdsService                  fdsService;
 
     private CertLoginService certLoginService;

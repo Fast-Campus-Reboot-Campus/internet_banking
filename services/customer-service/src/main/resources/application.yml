@@ -67,29 +67,8 @@ jwt:
   access-token-validity: 600000   # 10분 (밀리초)
   refresh-token-validity: 3600000 # 1시간 (밀리초)
 
-employee-directory:
-  enabled: true
-  employees:
-    - customer-id: 1001
-      branch: "0001"
-      grade: BRANCH_MANAGER
-      roles: [ROLE_BRANCH_MANAGER]
-    - customer-id: 1002
-      branch: "0001"
-      grade: DEPUTY_MANAGER
-      roles: [ROLE_DEPUTY_MANAGER]
-    - customer-id: 1003
-      branch: "0001"
-      grade: TELLER
-      roles: [ROLE_TELLER]
-    - customer-id: 9001
-      branch: "0001"
-      grade: BRANCH_MANAGER
-      roles: [ROLE_BRANCH_MANAGER]
-    - customer-id: 9002
-      branch: "0001"
-      grade: DEPUTY_MANAGER
-      roles: [ROLE_DEPUTY_MANAGER]
+# 직원 디렉토리는 V11 이후 DB(employee 테이블 + EMPLOYEE party_role)로 관리한다.
+# (구 employee-directory yaml 설정 + EmployeeDirectoryProperties 는 제거됨)
 
 logging:
   file:

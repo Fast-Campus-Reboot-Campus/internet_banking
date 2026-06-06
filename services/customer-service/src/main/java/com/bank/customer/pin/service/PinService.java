@@ -1,9 +1,10 @@
 package com.bank.customer.pin.service;
 
+import com.bank.common.security.BankRole;
 import com.bank.common.security.jwt.JwtProperties;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.web.BusinessException;
-import com.bank.customer.config.EmployeeDirectoryProperties;
+import com.bank.customer.party.service.EmployeeDirectoryService;
 import com.bank.customer.cert.domain.AuthMethod;
 import com.bank.customer.cert.repository.AuthMethodRepository;
 import com.bank.customer.customer.domain.Credential;
@@ -49,7 +50,7 @@ public class PinService {
     private final JwtProvider                 jwtProvider;
     private final JwtProperties               jwtProperties;
     private final StringRedisTemplate         redisTemplate;
-    private final EmployeeDirectoryProperties employeeDirectory;
+    private final EmployeeDirectoryService     employeeDirectory;
 
     /** PIN 등록 — 기존 비밀번호로 본인 확인 후 디바이스+고객 기준 PIN 저장 */
     @Transactional
@@ -149,10 +150,10 @@ public class PinService {
 
         pin.recordLoginSuccess();
 
-        var emp    = employeeDirectory.find(customer.getCustomerId());
-        var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
-        var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
-        var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
+        var emp    = employeeDirectory.findByPartyId(customer.getPartyId());
+        var roles  = emp.map(EmployeeDirectoryService.EmployeeInfo::roles).orElse(List.of(BankRole.CUSTOMER.authority()));
+        var branch = emp.map(EmployeeDirectoryService.EmployeeInfo::branch).orElse(null);
+        var grade  = emp.map(EmployeeDirectoryService.EmployeeInfo::grade).orElse(null);
 
         String accessToken  = jwtProvider.generateAccessToken(
                 customer.getCustomerId(), customer.getEmail(), roles, branch, grade);

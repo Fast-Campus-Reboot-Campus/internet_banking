@@ -1,5 +1,6 @@
 package com.bank.customer.cert.service;
 
+import com.bank.common.security.BankRole;
 import com.bank.common.security.jwt.JwtProperties;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.web.BusinessException;
@@ -12,7 +13,7 @@ import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
-import com.bank.customer.login.config.EmployeeDirectoryProperties;
+import com.bank.customer.party.service.EmployeeDirectoryService;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -44,7 +45,7 @@ public class QrLoginService {
     private final JwtProvider jwtProvider;
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate redisTemplate;
-    private final EmployeeDirectoryProperties employeeDirectory;
+    private final EmployeeDirectoryService employeeDirectory;
 
     /** PC에서 QR 생성 */
     @Transactional
@@ -133,10 +134,10 @@ public class QrLoginService {
 
         credential.recordLoginSuccess();
 
-        var emp    = employeeDirectory.findById(customer.getCustomerId());
-        var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
-        var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
-        var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
+        var emp    = employeeDirectory.findByPartyId(customer.getPartyId());
+        var roles  = emp.map(EmployeeDirectoryService.EmployeeInfo::roles).orElse(List.of(BankRole.CUSTOMER.authority()));
+        var branch = emp.map(EmployeeDirectoryService.EmployeeInfo::branch).orElse(null);
+        var grade  = emp.map(EmployeeDirectoryService.EmployeeInfo::grade).orElse(null);
 
         String accessToken  = jwtProvider.generateAccessToken(
                 customer.getCustomerId(), customer.getEmail(), roles, branch, grade);
