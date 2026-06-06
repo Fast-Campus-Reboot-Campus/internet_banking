@@ -25,6 +25,16 @@ const ROLE_BADGE_COLOR: Record<AdminRole, string> = {
   ROLE_OTHER_BRANCH:  'bg-gray-100 text-gray-500',
 }
 
+/** accessToken(JWT) payload 의 roles(BankRole) 배열을 추출한다. roles 는 ASCII 라 atob 로 충분. */
+function decodeRoles(token: string): string[] {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return Array.isArray(payload.roles) ? payload.roles : []
+  } catch {
+    return []
+  }
+}
+
 export default function AdminLoginPage() {
   const router = useRouter()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -36,29 +46,28 @@ export default function AdminLoginPage() {
     if (!password)   { setError('비밀번호를 입력해주세요.'); return }
 
     const account = ADMIN_ACCOUNTS.find((a) => a.id === selectedId)!
-    // 목업: 비밀번호 "admin1234" 고정
-    if (password !== 'admin1234') {
-      setError('비밀번호가 올바르지 않습니다. (힌트: admin1234)')
-      return
-    }
 
-    // 어드민 화면의 백엔드 호출은 localStorage.accessToken(Bearer)에 의존한다.
-    // 별도 직원 로그인 엔드포인트가 없으므로, 시드된 직원 계정으로 백엔드 로그인하여
-    // 실제 JWT를 받아 저장한다. (역할 구분은 아래 admin_role 목업으로 유지)
+    // 선택한 직원 계정으로 실제 백엔드 로그인 → 표시 신원과 인증 신원을 일치시킨다.
+    // (V11 시드: account.loginId, 데모 비밀번호 'Employee1234!')
+    let roles: string[] = []
     try {
       const { data } = await api.post('/api/v1/auth/login', {
-        loginId: 'employee01',
-        password: 'Employee1234!',
+        loginId: account.loginId,
+        password,
       })
       localStorage.setItem('accessToken',  data.data.accessToken)
       localStorage.setItem('access_token', data.data.accessToken)
       if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
       if (data.data.customerId != null) localStorage.setItem('customerId', String(data.data.customerId))
-    } catch {
-      setError('인증 토큰 발급에 실패했습니다. customer-service(8080)가 실행 중인지 확인하세요.')
+      roles = decodeRoles(data.data.accessToken)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '로그인에 실패했습니다. 비밀번호를 확인하세요.')
       return
     }
 
+    // JWT 의 실제 역할(BankRole) 배열 — 역할별 메뉴/버튼 게이팅(후속)에 사용한다.
+    localStorage.setItem('admin_roles', JSON.stringify(roles))
     localStorage.setItem('admin_role', account.role)
     localStorage.setItem('admin_user', JSON.stringify(account))
     router.push('/admin/dashboard')
@@ -121,6 +130,7 @@ export default function AdminLoginPage() {
               placeholder="비밀번호를 입력하세요"
               className="w-full border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-400 rounded"
             />
+            <p className="text-xs text-gray-400 mt-1.5">데모 비밀번호: Employee1234!</p>
           </div>
 
           {error && <p className="text-sm text-red-500 mb-3">{error}</p>}

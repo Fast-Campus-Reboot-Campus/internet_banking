@@ -15,16 +15,20 @@ export interface AdminUser {
   role: AdminRole
   branchId: string
   branchName: string
+  /** 백엔드 직원 계정 loginId (V11 시드). 로그인 시 실제 인증에 사용한다. */
+  loginId: string
 }
 
+// loginId 는 customer-service V11 마이그레이션이 시드한 직원 계정과 1:1 매칭된다.
+// 비밀번호는 데모 공통 'Employee1234!'.
 export const ADMIN_ACCOUNTS: AdminUser[] = [
-  { id: 'A001', name: '김감사',   role: 'ROLE_HQ_AUDIT',      branchId: 'HQ',   branchName: '본사 감사부' },
-  { id: 'A002', name: '이심사',   role: 'ROLE_HQ_REVIEW',     branchId: 'HQ',   branchName: '본사 심사부' },
-  { id: 'A003', name: '박리스크', role: 'ROLE_HQ_RISK',       branchId: 'HQ',   branchName: '본사 리스크관리부' },
-  { id: 'A004', name: '최마케팅', role: 'ROLE_HQ_MARKETING',  branchId: 'HQ',   branchName: '본사 마케팅/기획부' },
-  { id: 'A005', name: '정담당',   role: 'ROLE_PRIMARY_OWNER', branchId: 'B001', branchName: '강남지점' },
-  { id: 'A006', name: '한직원',   role: 'ROLE_BRANCH_STAFF',  branchId: 'B001', branchName: '강남지점' },
-  { id: 'A007', name: '오타지점', role: 'ROLE_OTHER_BRANCH',  branchId: 'B002', branchName: '종로지점' },
+  { id: 'A001', name: '김감사',   role: 'ROLE_HQ_AUDIT',      branchId: 'HQ',   branchName: '본사 감사부',          loginId: 'audit01'  },
+  { id: 'A002', name: '이심사',   role: 'ROLE_HQ_REVIEW',     branchId: 'HQ',   branchName: '본사 심사부',          loginId: 'review01' },
+  { id: 'A003', name: '박리스크', role: 'ROLE_HQ_RISK',       branchId: 'HQ',   branchName: '본사 리스크관리부',    loginId: 'risk01'   },
+  { id: 'A004', name: '최마케팅', role: 'ROLE_HQ_MARKETING',  branchId: 'HQ',   branchName: '본사 마케팅/기획부',   loginId: 'mkt01'    },
+  { id: 'A005', name: '정담당',   role: 'ROLE_PRIMARY_OWNER', branchId: 'B001', branchName: '강남지점',            loginId: 'owner01'  },
+  { id: 'A006', name: '한직원',   role: 'ROLE_BRANCH_STAFF',  branchId: 'B001', branchName: '강남지점',            loginId: 'staff01'  },
+  { id: 'A007', name: '오타지점', role: 'ROLE_OTHER_BRANCH',  branchId: 'B002', branchName: '종로지점',            loginId: 'other01'  },
 ]
 
 export const ROLE_LABELS: Record<AdminRole, string> = {
