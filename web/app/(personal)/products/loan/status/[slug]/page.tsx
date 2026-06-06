@@ -123,16 +123,16 @@ function ConsentForm({ title, consentTypeCd, fields, applId }: {
   return (
     <div className="max-w-lg">
       {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
-      <div className="bg-[#F5F5F5] border border-kb-primary-border p-4 mb-5 text-[13px] text-kb-text-body">
+      <div className="bg-[#F5F5F5] border border-kb-primary-border rounded-xl p-4 mb-5 text-[13px] text-kb-text-body">
         <p className="font-bold mb-1">{title} 동의</p>
         <p>금융거래 목적으로 개인(신용)정보를 제3자에게 제공하는 것에 동의합니다.</p>
       </div>
-      <div className="border border-kb-primary-border p-5 space-y-4">
+      <div className="border border-kb-primary-border rounded-xl p-5 space-y-4">
         {fields.map(field => (
           <div key={field} className="flex items-center gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">{field}</label>
             <input type="text" placeholder="입력하세요"
-              className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+              className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
           </div>
         ))}
       </div>
@@ -225,7 +225,7 @@ function ESignForm({ applId }: { applId: number | null }) {
           <p className="font-bold mb-1">전자서명 완료 — 대출 실행 정보를 입력해 주세요.</p>
           <p>지정 계좌로 대출금이 즉시 지급됩니다.</p>
         </div>
-        <div className="border border-kb-primary-border divide-y divide-kb-border">
+        <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
           {appl && (
             <>
               <div className="flex items-center px-5 py-3 gap-6">
@@ -242,13 +242,13 @@ function ESignForm({ applId }: { applId: number | null }) {
             <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">입금 계좌번호 <span className="text-kb-red">*</span></span>
             <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
               placeholder="계좌번호 입력 (예: 123-456-789012)"
-              className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
+              className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
           </div>
         </div>
         {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
         <div className="flex justify-center mt-5 gap-3">
           <button onClick={() => { setStep('sign'); setError('') }}
-            className="px-8 py-2.5 text-[13px] border border-kb-primary-border text-kb-text hover:bg-kb-primary-bg">
+            className="px-8 py-2.5 text-[13px] border border-kb-primary-border rounded-xl text-kb-text hover:bg-kb-primary-bg">
             이전
           </button>
           <button onClick={handleExecute} disabled={submitting || !accountNo}
@@ -268,7 +268,7 @@ function ESignForm({ applId }: { applId: number | null }) {
         <p className="font-bold mb-1">전자서명 안내</p>
         <p>약정 체결을 위한 전자서명 후 지정 계좌로 대출금이 지급됩니다.</p>
       </div>
-      <div className="border border-kb-primary-border p-5 space-y-4">
+      <div className="border border-kb-primary-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">신청번호</label>
           <span className="text-[13px] text-kb-text font-bold">{applId ?? '-'}</span>
@@ -276,7 +276,7 @@ function ESignForm({ applId }: { applId: number | null }) {
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">인증 수단</label>
           <select value={certType} onChange={e => setCertType(e.target.value)}
-            className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none">
             <option>금융인증서</option>
             <option>공동인증서 (구 공인인증서)</option>
           </select>

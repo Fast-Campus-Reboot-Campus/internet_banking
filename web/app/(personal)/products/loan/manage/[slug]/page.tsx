@@ -44,7 +44,7 @@ function ContractSelect({ contracts, selectedId, onChange }: {
         <span className="text-[13px] text-kb-text-muted">해당계좌가 없습니다.</span>
       ) : (
         <select value={selectedId ?? ''} onChange={e => onChange(parseInt(e.target.value, 10))}
-          className="border border-kb-primary-border px-3 py-1.5 text-[13px] focus:outline-none min-w-[220px]">
+          className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] focus:outline-none min-w-[220px]">
           {contracts.map(c => (
             <option key={c.cntrId} value={c.cntrId}>
               {c.cntrNo} ({formatAmount(c.contractedAmount)})
@@ -59,9 +59,9 @@ function ContractSelect({ contracts, selectedId, onChange }: {
 function StepIndicator() {
   return (
     <div className="flex items-center gap-1 mb-5">
-      <span className="px-4 py-1.5 text-[13px] font-bold bg-[#3D3D3D] text-white">1. 계좌선택</span>
+      <span className="px-4 py-1.5 text-[13px] font-bold bg-[#3D3D3D] text-white rounded-lg">1. 계좌선택</span>
       {[2, 3, 4, 5].map(n => (
-        <span key={n} className="px-4 py-1.5 text-[13px] text-kb-text-body border border-kb-primary-border">{n}</span>
+        <span key={n} className="px-4 py-1.5 text-[13px] text-kb-text-body border border-kb-primary-border rounded-lg">{n}</span>
       ))}
     </div>
   )
@@ -101,11 +101,11 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-kb-primary-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
+      <div className="border border-kb-primary-border rounded-xl bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1.5">
         <p>· 조회기간을 선택하지 않을 경우에는 현재 적용금리가 조회됩니다.</p>
         <p>· 대출 잔액이 있는 가계대출에 한하여 조회 가능합니다.</p>
       </div>
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">조회기간</span>
@@ -127,7 +127,7 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {contract && (
-        <div className="mt-6 border border-kb-primary-border">
+        <div className="mt-6 border border-kb-primary-border rounded-xl overflow-hidden">
           <div className="bg-kb-primary-bg px-5 py-3 border-b border-kb-primary-border">
             <p className="text-[13px] font-bold text-kb-text">현재 적용금리</p>
           </div>
@@ -152,7 +152,7 @@ function RateInfo({ contracts, selectedId, setSelectedId }: {
         </div>
       )}
       {rateChanges.length > 0 && (
-        <div className="mt-4 border border-kb-primary-border">
+        <div className="mt-4 border border-kb-primary-border rounded-xl overflow-hidden">
           <div className="bg-kb-primary-bg px-5 py-3 border-b border-kb-primary-border">
             <p className="text-[13px] font-bold text-kb-text">금리변동 내역</p>
           </div>
@@ -226,7 +226,7 @@ function InterestPaymentForm({ contracts, selectedId, setSelectedId }: {
   return (
     <div>
       <StepIndicator />
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
@@ -237,7 +237,7 @@ function InterestPaymentForm({ contracts, selectedId, setSelectedId }: {
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {schedules.length > 0 && (
-        <div className="mt-6 border border-kb-primary-border">
+        <div className="mt-6 border border-kb-primary-border rounded-xl overflow-hidden">
           <table className="w-full text-[13px]">
             <thead><tr className="bg-kb-primary-bg">
               <th className="px-4 py-3 text-center font-semibold border-b border-kb-primary-border">회차</th>
@@ -326,7 +326,7 @@ function RepayForm({ contracts, selectedId, setSelectedId }: {
   return (
     <div>
       <StepIndicator />
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">상환구분</span>
           <div className="flex items-center gap-6">
@@ -345,13 +345,13 @@ function RepayForm({ contracts, selectedId, setSelectedId }: {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <input type="text" value={amount} onChange={e => setAmount(e.target.value)} placeholder=""
-                  className="border border-kb-primary-border px-3 py-1.5 text-[13px] focus:outline-none w-[200px] text-right" />
+                  className="border border-kb-primary-border rounded-lg px-3 py-1.5 text-[13px] focus:outline-none w-[200px] text-right" />
                 <span className="text-[13px]">원</span>
               </div>
               <div className="flex gap-1">
                 {AMT_BTNS.map(btn => (
                   <button key={btn} onMouseDown={e => e.preventDefault()} onClick={() => handleAmtBtn(btn)}
-                    className="px-3 py-1 text-[12px] border border-kb-primary-border text-kb-text-body hover:bg-kb-primary-bg">
+                    className="px-3 py-1 text-[12px] border border-kb-primary-border rounded-lg text-kb-text-body hover:bg-kb-primary-bg">
                     {btn}
                   </button>
                 ))}
@@ -405,15 +405,15 @@ function RateCutForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div className="max-w-lg">
-      <div className="bg-[#F5F5F5] border border-kb-primary-border p-4 mb-5 text-[13px] text-kb-text-body">
+      <div className="bg-[#F5F5F5] border border-kb-primary-border rounded-xl p-4 mb-5 text-[13px] text-kb-text-body">
         <p>신용 상태가 개선된 경우(신용점수 상승, 소득 증가 등) 금리 인하를 요구할 수 있습니다.</p>
       </div>
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">요구 사유</span>
           <select value={reason} onChange={e => setReason(e.target.value)}
-            className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none">
             <option value="">선택하세요</option>
             <option value="CREDIT_IMPROVED">신용점수 상승</option>
             <option value="INCOME_INCREASED">소득 증가</option>
@@ -472,7 +472,7 @@ function ExtendForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div className="max-w-lg">
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         {contract && (
           <div className="flex items-center px-5 py-3 gap-6">
@@ -483,7 +483,7 @@ function ExtendForm({ contracts, selectedId, setSelectedId }: {
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">연장기간</span>
           <select value={months} onChange={e => setMonths(e.target.value)}
-            className="border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none">
+            className="border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none">
             {[3, 6, 12].map(m => <option key={m} value={m}>{m}개월</option>)}
           </select>
         </div>
@@ -586,12 +586,12 @@ function PaymentMethodForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div className="max-w-lg">
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
         <div className="flex items-center px-5 py-3 gap-6">
           <span className="w-32 text-[13px] font-medium text-kb-text flex-shrink-0">새 납입 계좌</span>
           <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
-            placeholder="계좌번호 입력" className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none" />
+            placeholder="계좌번호 입력" className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none" />
         </div>
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
@@ -643,11 +643,11 @@ function DelinquencyView({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-kb-primary-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+      <div className="border border-kb-primary-border rounded-xl bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
         <p>· 연체가 발생한 경우 연체 현황을 조회할 수 있습니다.</p>
         <p>· 연체 해소를 위해 즉시 납입해 주시기 바랍니다.</p>
       </div>
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
@@ -658,7 +658,7 @@ function DelinquencyView({ contracts, selectedId, setSelectedId }: {
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {dlq && (
-        <div className="mt-6 border border-kb-primary-border">
+        <div className="mt-6 border border-kb-primary-border rounded-xl overflow-hidden">
           <div className="bg-red-50 px-5 py-3 border-b border-kb-primary-border">
             <p className="text-[13px] font-bold text-red-700">연체 정보</p>
           </div>
@@ -724,11 +724,11 @@ function ReversalForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-kb-primary-border bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+      <div className="border border-kb-primary-border rounded-xl bg-[#FAFAFA] px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
         <p>· SCHEDULED(회차) 상환 거래만 역분개 가능합니다. 중도상환 역분개는 지원하지 않습니다.</p>
         <p>· 역분개 시 해당 회차 상태가 PAID → DUE 로 되돌아갑니다.</p>
       </div>
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
@@ -740,7 +740,7 @@ function ReversalForm({ contracts, selectedId, setSelectedId }: {
       {error && <p className="text-[13px] text-kb-red mt-4 text-center">{error}</p>}
       {done && <p className="text-[13px] text-green-600 mt-4 text-center">역분개 처리 완료 (rtxId: {done})</p>}
       {txList.length > 0 && (
-        <div className="mt-6 border border-kb-primary-border">
+        <div className="mt-6 border border-kb-primary-border rounded-xl overflow-hidden">
           <table className="w-full text-[13px]">
             <thead><tr className="bg-kb-primary-bg">
               <th className="px-4 py-3 text-center font-semibold border-b border-kb-primary-border">거래ID</th>
@@ -779,10 +779,10 @@ function ReversalForm({ contracts, selectedId, setSelectedId }: {
             <p className="text-[13px] text-kb-text-body mb-4">거래 rtxId: <strong>{reversing}</strong></p>
             <textarea value={remark} onChange={e => setRemark(e.target.value)}
               rows={3} placeholder="취소 사유 (선택)"
-              className="w-full border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none mb-4 resize-none" />
+              className="w-full border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none mb-4 resize-none" />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setReversing(null)}
-                className="px-6 py-2 border border-kb-primary-border text-[13px] text-kb-text hover:bg-kb-primary-bg">
+                className="px-6 py-2 border border-kb-primary-border rounded-xl text-[13px] text-kb-text hover:bg-kb-primary-bg">
                 닫기
               </button>
               <button onClick={() => handleReverse(reversing)}
@@ -852,7 +852,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
 
   return (
     <div>
-      <div className="border border-kb-primary-border bg-kb-primary-bg px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
+      <div className="border border-kb-primary-border rounded-xl bg-kb-primary-bg px-5 py-4 mb-6 text-[13px] text-kb-text-body space-y-1">
         <p>· 외부 보증기관(SGI/HUG/HF) stub — 발급 요청 즉시 ISSUED 처리됩니다.</p>
         <p>· 계약 상태가 SIGNED 또는 ACTIVE인 경우 발급 가능하며, 활성 보증보험이 1건 초과될 수 없습니다.</p>
       </div>
@@ -889,7 +889,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
         </div>
       ) : (
         <>
-          <div className="border border-kb-primary-border divide-y divide-kb-border mb-5">
+          <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border mb-5">
             <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
 
             <div className="flex items-center px-5 py-4 gap-4">
@@ -911,7 +911,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
                 <input type="text"
                   value={guaranteeAmt ? parseInt(guaranteeAmt.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
                   onChange={e => setGuaranteeAmt(e.target.value.replace(/[^\d]/g, ''))}
-                  placeholder="0" className="border border-kb-primary-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                  placeholder="0" className="border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
                 <span className="text-[13px]">원</span>
               </div>
             </div>
@@ -919,7 +919,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
             <div className="flex items-center px-5 py-4 gap-4">
               <span className="w-36 text-[13px] font-medium text-kb-text flex-shrink-0">보증비율</span>
               <select value={ratioBps} onChange={e => setRatioBps(e.target.value)}
-                className="border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none">
+                className="border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none">
                 <option value="10000">100%</option>
                 <option value="8000">80%</option>
                 <option value="5000">50%</option>
@@ -932,7 +932,7 @@ function GuaranteeInsuranceForm({ contracts, selectedId, setSelectedId }: {
                 <input type="text"
                   value={premium ? parseInt(premium.replace(/,/g, '')).toLocaleString('ko-KR') : ''}
                   onChange={e => setPremium(e.target.value.replace(/[^\d]/g, ''))}
-                  placeholder="0" className="border border-kb-primary-border px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
+                  placeholder="0" className="border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] w-40 focus:outline-none text-right" />
                 <span className="text-[13px]">원</span>
               </div>
             </div>
@@ -985,7 +985,7 @@ function WithdrawForm({ contracts, selectedId, setSelectedId }: {
         <p className="font-bold mb-1">주의</p>
         <p>계약 철회 시 취소가 불가합니다. 신중하게 진행해 주세요.</p>
       </div>
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       {error && <p className="text-[13px] text-kb-red mt-4">{error}</p>}
@@ -1025,7 +1025,7 @@ function SimpleQueryForm({ contracts, selectedId, setSelectedId, apiCall, render
 
   return (
     <div>
-      <div className="border border-kb-primary-border divide-y divide-kb-border">
+      <div className="border border-kb-primary-border rounded-xl overflow-hidden divide-y divide-kb-border">
         <ContractSelect contracts={contracts} selectedId={selectedId} onChange={setSelectedId} />
       </div>
       <div className="flex justify-center mt-5">
@@ -1083,7 +1083,7 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
       return <SimpleQueryForm {...props}
         apiCall={cntrId => closureApi.getClosure(cntrId)}
         renderResult={data => (
-          <div className="border border-kb-primary-border p-4 text-[13px]">
+          <div className="border border-kb-primary-border rounded-xl p-4 text-[13px]">
             <p>해지일: {data?.closedAt?.slice(0, 10) ?? '-'}</p>
             <p>해지사유: {data?.closureReasonCd ?? '-'}</p>
           </div>
@@ -1092,7 +1092,7 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
       return <SimpleQueryForm {...props}
         apiCall={cntrId => loanMiscApi.getCertificate(cntrId, 'RATE_DETAIL')}
         renderResult={data => (
-          <div className="border border-kb-primary-border">
+          <div className="border border-kb-primary-border rounded-xl overflow-hidden">
             <div className="bg-kb-primary-bg px-5 py-3 border-b border-kb-primary-border">
               <p className="text-[13px] font-bold text-kb-text">금리산정내역서</p>
             </div>
@@ -1110,7 +1110,7 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
       return <SimpleQueryForm {...props}
         apiCall={cntrId => loanMiscApi.getCreditInfoReport(cntrId)}
         renderResult={data => (
-          <div className="border border-kb-primary-border">
+          <div className="border border-kb-primary-border rounded-xl overflow-hidden">
             <div className="bg-kb-primary-bg px-5 py-3 border-b border-kb-primary-border">
               <p className="text-[13px] font-bold text-kb-text">신용정보 결과</p>
             </div>
@@ -1130,7 +1130,7 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
         renderResult={data => {
           const items: any[] = data?.items ?? (Array.isArray(data) ? data : [])
           return (
-            <div className="border border-kb-primary-border">
+            <div className="border border-kb-primary-border rounded-xl overflow-hidden">
               <div className="bg-kb-primary-bg px-5 py-3 border-b border-kb-primary-border">
                 <p className="text-[13px] font-bold text-kb-text">이자 발생 내역 ({items.length}건)</p>
               </div>
@@ -1161,7 +1161,7 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
         }} />
     case 'limit':
       return (
-        <div className="max-w-lg border border-kb-primary-border">
+        <div className="max-w-lg border border-kb-primary-border rounded-xl overflow-hidden">
           <div className="flex border-t border-kb-primary-border">
             <div className="w-48 px-4 py-3 bg-[#F5F5F5] text-[13px] font-medium">한도변경</div>
             <div className="px-4 py-3 text-[13px] text-kb-text-muted">백엔드 API 개발 예정</div>
