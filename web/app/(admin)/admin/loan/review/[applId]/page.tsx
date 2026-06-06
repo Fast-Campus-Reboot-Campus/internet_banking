@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import { adminReviewApi, loanApplicationApi } from '@/lib/loan-api'
+import { useAdminRoles } from '@/components/admin/RoleGate'
+import { hasAnyRole, BankRole } from '@/lib/admin-auth'
 
 const REV_STATUS: Record<string, { text: string; cls: string }> = {
   PENDING_APPROVAL:  { text: '확정 대기',   cls: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
@@ -95,6 +97,13 @@ export default function LoanReviewDetailPage() {
   const status = review?.revStatusCd
   const revId  = review?.revId
 
+  // 역할 기반 액션 게이팅 (양혜민 매트릭스 → BankRole). ROLE_ADMIN 은 hasAnyRole 에서 항상 통과.
+  const roles      = useAdminRoles()
+  const canReview  = hasAnyRole(roles, BankRole.DEPUTY_MANAGER, BankRole.OPS) // 수동 심사 실행·확정·편향확인
+  const canAuto    = hasAnyRole(roles, BankRole.OPS)                          // 자동 심사 실행
+  const canBiasOvr = hasAnyRole(roles, BankRole.HQ_REVIEWER)                  // 이상거래 편향 우회 승인
+  const canApprove = hasAnyRole(roles, BankRole.BRANCH_MANAGER)              // 최종 결재 / 결정 정정
+
   // 가심사 통과 여부
   const psPass  = prescreening?.prescResultCd === 'PASS'
   const psDone  = !!prescreening
@@ -137,7 +146,7 @@ export default function LoanReviewDetailPage() {
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">가심사 미실행</p>
                 )}
-                {!psDone && (
+                {!psDone && canReview && (
                   <Btn label="가심사 실행" disabled={busy}
                     onClick={() => act(() => loanApplicationApi.runPrescreening(numApplId), '가심사가 완료되었습니다.')} />
                 )}
@@ -162,7 +171,7 @@ export default function LoanReviewDetailPage() {
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">신용평가 미실행</p>
                 )}
-                {!ceDone && psPass && (
+                {!ceDone && psPass && canReview && (
                   <Btn label="신용평가 실행" disabled={busy}
                     onClick={() => act(() => loanApplicationApi.runCreditEvaluation(numApplId), '신용평가가 완료되었습니다.')} />
                 )}
@@ -186,7 +195,7 @@ export default function LoanReviewDetailPage() {
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">DSR 미산정</p>
                 )}
-                {!dsrDone && ceDone && (
+                {!dsrDone && ceDone && canReview && (
                   <Btn label="DSR 실행" disabled={busy}
                     onClick={() => act(() => loanApplicationApi.runDsr(numApplId), 'DSR 산정이 완료되었습니다.')} />
                 )}
@@ -236,7 +245,7 @@ export default function LoanReviewDetailPage() {
                 )}
 
                 {/* 심사 실행 */}
-                {(!review || status === 'EXPIRED') && (
+                {(!review || status === 'EXPIRED') && (canReview || canAuto) && (
                   <div className="flex flex-wrap gap-3 items-end mt-2">
                     <label className="text-[12px] text-gray-600">
                       유형
@@ -251,16 +260,20 @@ export default function LoanReviewDetailPage() {
                       <input type="number" value={reviewerId} onChange={e => setReviewerId(e.target.value)}
                         className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
                     </label>
-                    <Btn label="본심사 시작" disabled={busy || !dsrDone}
-                      onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, reviewerId: parseInt(reviewerId) }), '본심사가 시작되었습니다.')} />
-                    <Btn label="자동 결정" disabled={busy || !dsrDone} variant="outline"
-                      onClick={() => act(() => adminReviewApi.autoDecide(numApplId), '자동 결정이 완료되었습니다.')} />
+                    {canReview && (
+                      <Btn label="본심사 시작" disabled={busy || !dsrDone}
+                        onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, reviewerId: parseInt(reviewerId) }), '본심사가 시작되었습니다.')} />
+                    )}
+                    {canAuto && (
+                      <Btn label="자동 결정" disabled={busy || !dsrDone} variant="outline"
+                        onClick={() => act(() => adminReviewApi.autoDecide(numApplId), '자동 결정이 완료되었습니다.')} />
+                    )}
                     {!dsrDone && <span className="text-[11px] text-gray-400">DSR 완료 후 본심사 가능</span>}
                   </div>
                 )}
 
                 {/* 확정 (PENDING_APPROVAL) */}
-                {status === 'PENDING_APPROVAL' && (
+                {status === 'PENDING_APPROVAL' && canReview && (
                   <div className="flex flex-wrap gap-3 items-end mt-2 pt-3 border-t border-gray-100">
                     <label className="text-[12px] text-gray-600">
                       확정자 ID
@@ -297,8 +310,10 @@ export default function LoanReviewDetailPage() {
                           <input type="number" value={approverId} onChange={e => setApproverId(e.target.value)}
                             className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
                         </label>
-                        <Btn label="편향 오버라이드" disabled={busy || !overrideReason}
-                          onClick={() => act(() => adminReviewApi.biasOverride(revId, { overrideBy: parseInt(approverId), overrideReason }), '오버라이드가 완료되었습니다.')} />
+                        {canBiasOvr && (
+                          <Btn label="편향 오버라이드" disabled={busy || !overrideReason}
+                            onClick={() => act(() => adminReviewApi.biasOverride(revId, { overrideBy: parseInt(approverId), overrideReason }), '오버라이드가 완료되었습니다.')} />
+                        )}
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-3 items-end">
@@ -308,15 +323,17 @@ export default function LoanReviewDetailPage() {
                             placeholder="(선택)"
                             className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-64" />
                         </label>
-                        <Btn label="편향 인지 처리" disabled={busy}
-                          onClick={() => act(() => adminReviewApi.acknowledgeBias(numApplId, { acknowledgeRemark: ackRemark }), '편향 인지가 처리되었습니다.')} />
+                        {canReview && (
+                          <Btn label="편향 인지 처리" disabled={busy}
+                            onClick={() => act(() => adminReviewApi.acknowledgeBias(numApplId, { acknowledgeRemark: ackRemark }), '편향 인지가 처리되었습니다.')} />
+                        )}
                       </div>
                     )}
                   </div>
                 )}
 
                 {/* 승인자 승인 (PENDING_APPROVER) */}
-                {status === 'PENDING_APPROVER' && (
+                {status === 'PENDING_APPROVER' && canApprove && (
                   <div className="mt-2 pt-3 border-t border-gray-100">
                     {advisoryReports.some(r => r.severityCd === 'CRITICAL' && r.advrStatusCd !== 'ACKED' && r.advrStatusCd !== 'RESOLVED') && (
                       <div className="mb-3 px-3 py-2 bg-red-100 border border-red-400 text-red-800 text-[12px] font-semibold rounded">
@@ -339,7 +356,7 @@ export default function LoanReviewDetailPage() {
                 )}
 
                 {/* 결정 정정 (COMPLETED) */}
-                {status === 'COMPLETED' && (
+                {status === 'COMPLETED' && canApprove && (
                   <div className="mt-2 pt-3 border-t border-gray-100">
                     <p className="text-[12px] text-gray-500 mb-2">결정 정정</p>
                     <div className="flex flex-wrap gap-3 items-end">
