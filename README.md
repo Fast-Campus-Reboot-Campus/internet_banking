@@ -18,7 +18,7 @@ MSA 구조 기반 인터넷뱅킹 플랫폼. 수신·여신·결제·고객·상
 | `review-ai-gateway` | Java 17 / Spring Boot 3.x | 8088 | 심사 AI 라우팅 게이트웨이 |
 | `payment-service` | Java 17 / Spring Boot 3.x | — | 결제·이체 처리, Kafka 이벤트 |
 | `api-gateway` | Java 17 / Spring Cloud Gateway | — | (보조 게이트웨이) |
-| `consultation-service` | Python 3.11 / FastAPI | 8090 | 챗봇·상담사 채팅, LLM 폴백 |
+| `consultation-service` | Python 3.11 / FastAPI | 8087 | 챗봇·상담사 채팅, LLM 폴백, 챗봇 이체 실행 |
 | `web` | Next.js 15 / TypeScript | 3001 | 고객·어드민 통합 프런트엔드 |
 | `common` | Java | — | 서비스 공통 모듈 |
 | `infra` | Docker Compose | — | PostgreSQL 16, Redis 7, Prometheus, Grafana |
@@ -135,9 +135,10 @@ internet_banking/
 
 ### 상품 관리
 
-- 예금·적금·청약 상품 조회 (유형별 필터링, 판매 상태 기준)
+- 예금·적금·청약·입출금 상품 조회 (유형별 필터링, 판매 상태 기준)
 - 상품별 기본금리·우대금리·가입기간·가입금액 조건 관리
 - 가입 대상 그룹(연령·직군 등) 연동
+- `deposit-api` (FastAPI, 포트 8082): deposit-service 앞단 경량 API 레이어. `/transactions/transfer` 이체 엔드포인트 포함
 
 ### 계약 관리
 
@@ -184,7 +185,16 @@ X-Customer-Id: {customerId}
 | STEP 2. 이체정보 확인 | `web/app/(personal)/transfer/confirm/page.tsx` | 금융인증서 PIN 확인 후 결과 화면으로 이동 |
 | STEP 3. 이체결과 | `web/app/(personal)/transfer/result/page.tsx` | `executeDepositTransfer()`를 호출해 실제 이체 실행 |
 
-중복 이체를 막기 위해 실제 API 호출은 `result` 페이지 한 곳에서만 수행한다. `confirm` 페이지는 인증 및 화면 전환만 담당한다.
+이체 인증 흐름은 금융인증서(AXful) 기반 3단계로 구성된다.
+
+| 단계 | 설명 |
+|---|---|
+| 1. 전자서명 원문 확인 | 이체 금액·계좌 정보 표시 및 확인 |
+| 2. 보안카드 번호 입력 | 랜덤 2개 위치의 보안카드 앞 2자리 입력 |
+| 3. 인증서 PIN 6자리 입력 | 핀 6자리 입력 완료 후 `consultation-service /chatbot/transfer` 호출 |
+
+실제 이체 실행은 PIN 입력 완료 시점에 `consultation-service`를 통해 수행된다.  
+결과는 `sessionStorage('paymentResult')`에 저장되고 result 페이지에서 표시한다.
 
 #### 당행/타행 이체 구분
 
@@ -212,6 +222,25 @@ X-Customer-Id: {customerId}
 
 출금 계좌 목록은 백엔드의 `isWithdrawable` 값을 우선 사용한다. 값이 없는 로컬 fallback 데이터는 계좌 유형명과 상품명에 `입출금` 또는 `통장`이 포함된 경우에만 출금 가능 계좌로 간주한다.
 
+### 예금 상품 가입 흐름
+
+| 단계 | 라우트 | 설명 |
+|---|---|---|
+| 상품 목록 | `/products/deposit/list` | 탭별 상품 목록, 가입하기 버튼 |
+| 상품 상세 | `/products/deposit/[id]` | 상품 안내·금리·약관 상세 |
+| 가입 | `/products/deposit/join/[id]` | 약관동의 → 정보입력 → 정보확인 3단계 |
+
+지원 상품 유형: `예금` / `정기적금` / `자유적금` / `입출금자유` / `주택청약`
+
+각 유형별로 약관 목록·가입기간 필드·금액 입력 범위·이자지급방법 표시 여부가 다르게 렌더링된다.
+
+| 유형 | 약관 | 가입기간 | 이자지급방법 | LMS |
+|---|---|---|---|---|
+| 예금 | 거치식예금약관 포함 | O | O | O |
+| 적금 | 적립식예금약관 포함 | O | O | O |
+| 입출금자유 | 보통예금약관 포함 | X | X | X |
+| 주택청약 | 주택청약종합저축약관 | O | O | O |
+
 ---
 
 ## consultation-service 주요 기능
@@ -219,6 +248,9 @@ X-Customer-Id: {customerId}
 - 16개 기능 코드 (PRODUCT_ADVICE / USER_FINANCE / STAFF_SUPPORT)
 - 시나리오 기반 챗봇, 키워드 Intent 분류, OpenAI GPT-4o-mini 폴백
 - 상담사 실시간 채팅, Kafka 이벤트 발행
+- **챗봇 이체 API**: 인증 완료 후 챗봇 경로(`/chatbot/transfer`)로 이체 실행
+
+### 주요 API
 
 ```
 GET  /chatbot/features
@@ -226,6 +258,33 @@ POST /chatbot/features/{feature_code}/execute
 POST /chatbot/consultations/start
 POST /chatbot/consultations/{id}/messages
 POST /chat/consultations/{id}/connect
+POST /chatbot/transfer                         # 챗봇 경로 이체 실행
+```
+
+### 챗봇 이체 (`POST /chatbot/transfer`)
+
+금융인증서 + 보안카드 인증 완료 후 프런트엔드에서 호출하는 이체 실행 엔드포인트.  
+`deposit_accounts` 테이블에 직접 접근해 출금·입금 거래 원장을 생성하고 잔액을 갱신한다.
+
+| 파라미터 | 설명 |
+|---|---|
+| `customer_no` | 출금 고객 ID |
+| `from_account_id` | 출금 계좌 ID |
+| `to_account_number` | 입금 계좌번호 |
+| `amount` | 이체금액 (원) |
+| `memo` | 이체 메모 |
+
+응답: `{ status, message, transaction_id, balance_after }`  
+오류 시 `status: "ERROR"` 와 사유 메시지 반환.
+
+### 독립 실행 (docker compose)
+
+consultation-service는 자체 `docker-compose.yml`로 독립 실행 가능하다.  
+PostgreSQL은 포트 `5439`로 호스트에 노출되어 메인 `docker-compose.yml`의 DB들과 충돌하지 않는다.
+
+```powershell
+cd services/consultation-service
+docker compose up -d
 ```
 
 ---
@@ -262,20 +321,36 @@ Swagger UI: `http://localhost:{port}/swagger-ui/index.html`
 
 ### consultation-service 실행
 
+Docker Compose 사용 (권장):
+
 ```powershell
 cd services/consultation-service
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8090
+docker compose up -d
 ```
 
-또는 스크립트 사용:
+직접 실행:
 
 ```powershell
-.\scripts\start.ps1
+cd services/consultation-service
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8087
 ```
 
-기본 포트: `8090`  
-Swagger UI: `http://localhost:8090/docs`  
-헬스 체크: `http://localhost:8090/health`
+기본 포트: `8087`  
+Swagger UI: `http://localhost:8087/docs`  
+헬스 체크: `http://localhost:8087/health`
+
+> **주의**: consultation-service의 독립 docker-compose는 PostgreSQL을 포트 `5439`에 노출한다. 메인 `docker-compose.yml`과 동시에 실행해도 포트 충돌이 없다.
+
+### customer-service 실행 시 환경변수
+
+customer-service는 `CRYPTO_KEY_BASE64` 환경변수가 없으면 기동 실패한다.
+
+```powershell
+$env:CRYPTO_KEY_BASE64="bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM="
+.\gradlew :services:customer-service:bootRun
+```
+
+> 운영 환경에서는 반드시 별도의 32바이트 AES-256 키(Base64)를 발급해 사용한다.
 
 ### 프런트엔드 실행
 
@@ -290,7 +365,7 @@ npm run dev   # http://localhost:3001
 > ```env
 > NEXT_PUBLIC_API_URL=http://localhost:8080
 > NEXT_PUBLIC_DEPOSIT_API_URL=http://localhost:8082/api
-> NEXT_PUBLIC_CONSULTATION_API_URL=http://localhost:8090
+> NEXT_PUBLIC_CONSULTATION_API_URL=http://localhost:8087
 > NEXT_PUBLIC_LOAN_API_URL=http://localhost:8083
 > NEXT_PUBLIC_ADVISORY_API_URL=http://localhost:8084
 > NEXT_PUBLIC_MASTER_API_URL=http://localhost:8085

@@ -15,7 +15,7 @@ services:
       POSTGRES_USER:     deposit
       POSTGRES_PASSWORD: deposit
     ports:
-      - "5432:5432"
+      - "5439:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/ddl.sql:/docker-entrypoint-initdb.d/01_ddl.sql
