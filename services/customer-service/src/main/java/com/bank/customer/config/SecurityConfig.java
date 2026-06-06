@@ -1,6 +1,6 @@
 package com.bank.customer.config;
 
-import com.bank.customer.security.CustomerRole;
+import com.bank.common.security.BankRole;
 import com.bank.customer.security.GatewayHeaderAuthFilter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -28,13 +28,15 @@ public class SecurityConfig {
 
     /** 직원 역할(고객 제외) — /internal 관리 API 접근 허용 대상 */
     private static final String[] EMPLOYEE_ROLES = {
-            CustomerRole.TELLER.spring(),
-            CustomerRole.DEPUTY_MANAGER.spring(),
-            CustomerRole.BRANCH_MANAGER.spring(),
-            CustomerRole.HQ_REVIEWER.spring(),
-            CustomerRole.COMPLIANCE.spring(),
-            CustomerRole.OPS.spring(),
-            CustomerRole.ADMIN.spring(),
+            BankRole.TELLER.spring(),
+            BankRole.DEPUTY_MANAGER.spring(),
+            BankRole.BRANCH_MANAGER.spring(),
+            BankRole.HQ_REVIEWER.spring(),
+            BankRole.HQ_RISK.spring(),
+            BankRole.HQ_MARKETING.spring(),
+            BankRole.COMPLIANCE.spring(),
+            BankRole.OPS.spring(),
+            BankRole.ADMIN.spring(),
     };
 
     @Bean
