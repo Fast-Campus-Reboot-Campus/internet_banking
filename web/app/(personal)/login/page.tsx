@@ -199,10 +199,7 @@ function KBCertTab() {
           localStorage.setItem('access_token', data.data.accessToken)
           localStorage.setItem('customerId',   String(data.data.customerId))
           if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
-          try {
-            const me = await api.get('/api/v1/customers/me')
-            localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
-          } catch {}
+          await persistUserProfile(data.data.customerId)
           window.location.href = '/'
         }
       } catch {
@@ -474,6 +471,18 @@ const MOCK_JOINT_CERTS = [
   },
 ]
 
+// 로그인 성공 후 고객 프로필을 받아 user 키에 저장한다.
+// me 호출이 실패하더라도 로그인 자체는 성공한 것이므로, 최소 정보로 user 키를 채워
+// 홈이 "토큰은 있는데 비로그인 화면"으로 조용히 빠지지 않게 한다.
+async function persistUserProfile(customerId: number) {
+  try {
+    const me = await api.get('/api/v1/customers/me')
+    localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
+  } catch {
+    localStorage.setItem('user', JSON.stringify({ name: '고객', email: '', customer_id: customerId }))
+  }
+}
+
 async function handleCertLogin(certSerialNumber: string, certType: string, pin: string) {
   const { data } = await api.post('/api/v1/auth/cert-login', { certSerialNumber, pin, certType })
   localStorage.removeItem('sessionExpiry')
@@ -481,10 +490,7 @@ async function handleCertLogin(certSerialNumber: string, certType: string, pin: 
   localStorage.setItem('access_token', data.data.accessToken)
   localStorage.setItem('customerId', String(data.data.customerId))
   if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
-  try {
-    const me = await api.get('/api/v1/customers/me')
-    localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
-  } catch {}
+  await persistUserProfile(data.data.customerId)
   window.location.href = '/'
 }
 
@@ -785,10 +791,7 @@ function IdLoginTab() {
         localStorage.setItem('refreshToken', data.data.refreshToken)
       }
 
-      try {
-        const me = await api.get('/api/v1/customers/me')
-        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
-      } catch {}
+      await persistUserProfile(data.data.customerId)
 
       window.location.href = '/'
     } catch (err: unknown) {
