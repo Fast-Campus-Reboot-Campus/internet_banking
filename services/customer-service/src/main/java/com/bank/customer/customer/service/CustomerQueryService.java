@@ -1,7 +1,15 @@
 package com.bank.customer.customer.service;
 
+import com.bank.common.web.BusinessException;
+import com.bank.customer.customer.domain.Customer;
+import com.bank.customer.customer.dto.CustomerDetailResponse;
 import com.bank.customer.customer.dto.CustomerSummaryResponse;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.party.domain.Party;
+import com.bank.customer.party.domain.PartyPerson;
+import com.bank.customer.party.repository.PartyPersonRepository;
+import com.bank.customer.party.repository.PartyRepository;
+import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -10,14 +18,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 직원용 고객 조회(목록·검색) 서비스. 상태 전이·이력은 {@link CustomerLifecycleService}가 담당하고,
+ * 직원용 고객 조회(목록·검색·상세) 서비스. 상태 전이·이력은 {@link CustomerLifecycleService}가 담당하고,
  * 본 서비스는 읽기 전용 진입점만 제공한다.
  */
 @Service
 @RequiredArgsConstructor
 public class CustomerQueryService {
 
-    private final CustomerRepository customerRepository;
+    private final CustomerRepository    customerRepository;
+    private final PartyRepository       partyRepository;
+    private final PartyPersonRepository partyPersonRepository;
 
     @Transactional(readOnly = true)
     public Page<CustomerSummaryResponse> searchCustomers(
@@ -26,6 +36,21 @@ public class CustomerQueryService {
         Pageable paging = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         return customerRepository.searchCustomers(
                 normalize(keyword), normalize(status), normalize(grade), paging);
+    }
+
+    /**
+     * 고객(회원) 상세. 한 사람의 정보가 customer·party·party_person 세 테이블에 흩어져 있어 합친다.
+     * party_person은 개인 한정이라 없을 수 있으며(법인 등) 그 경우 인적사항은 null로 채운다.
+     */
+    @Transactional(readOnly = true)
+    public CustomerDetailResponse getCustomerDetail(Long customerId) {
+        Customer customer = customerRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+        Party party = partyRepository.findByPartyIdAndDeletedAtIsNull(customer.getPartyId())
+                .orElse(null);
+        PartyPerson person = partyPersonRepository.findByPartyIdAndDeletedAtIsNull(customer.getPartyId())
+                .orElse(null);
+        return CustomerDetailResponse.of(customer, party, person);
     }
 
     /** 공백·빈 문자열은 "조건 없음"으로 취급해 null로 정규화한다. */

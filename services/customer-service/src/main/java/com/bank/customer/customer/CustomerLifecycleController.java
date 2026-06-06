@@ -4,6 +4,8 @@ import com.bank.common.web.ApiResponse;
 import com.bank.customer.customer.domain.CustomerGradeHistory;
 import com.bank.customer.customer.domain.CustomerStatusHistory;
 import com.bank.customer.customer.dto.ChangeGradeRequest;
+import com.bank.customer.customer.dto.CloseCustomerRequest;
+import com.bank.customer.customer.dto.CustomerDetailResponse;
 import com.bank.customer.customer.dto.CustomerSummaryResponse;
 import com.bank.customer.customer.dto.UpdateCreditRatingRequest;
 import com.bank.customer.customer.service.CustomerLifecycleService;
@@ -63,6 +65,16 @@ public class CustomerLifecycleController {
                 queryService.searchCustomers(keyword, status, grade, pageable)));
     }
 
+    /**
+     * 고객(회원) 상세 — 회원 상세 화면의 데이터원.
+     * customer·party·party_person을 합쳐 반환한다. 주민번호·계좌·동의이력은 제외(별 도메인/별 엔드포인트).
+     */
+    @GetMapping("/internal/customers/{customerId}")
+    public ResponseEntity<ApiResponse<CustomerDetailResponse>> getCustomerDetail(
+            @PathVariable Long customerId) {
+        return ResponseEntity.ok(ApiResponse.ok(queryService.getCustomerDetail(customerId)));
+    }
+
     /** 고객 등급 변경 — 다중 필드 → RequestBody */
     @PatchMapping("/internal/customers/{customerId}/grade")
     public ResponseEntity<ApiResponse<Void>> changeGrade(
@@ -94,7 +106,25 @@ public class CustomerLifecycleController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
-    /** 재활성화 — 단일 선택적 파람 → RequestParam 유지 */
+    /** 정지 — 단일 선택적 파람 → RequestParam 유지 */
+    @PatchMapping("/internal/customers/{customerId}/suspend")
+    public ResponseEntity<ApiResponse<Void>> suspend(
+            @PathVariable Long customerId,
+            @RequestParam(required = false) String reasonDetail) {
+        lifecycleService.suspend(customerId, reasonDetail);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    /** 해지(탈퇴) — 다중 필드 → RequestBody */
+    @PatchMapping("/internal/customers/{customerId}/close")
+    public ResponseEntity<ApiResponse<Void>> close(
+            @PathVariable Long customerId,
+            @Valid @RequestBody CloseCustomerRequest request) {
+        lifecycleService.close(customerId, request.closeReasonCode(), request.reasonDetail());
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    /** 재활성화(휴면·정지 해제) — 단일 선택적 파람 → RequestParam 유지 */
     @PatchMapping("/internal/customers/{customerId}/reactivate")
     public ResponseEntity<ApiResponse<Void>> reactivate(
             @PathVariable Long customerId,

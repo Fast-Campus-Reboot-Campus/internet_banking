@@ -83,17 +83,71 @@ public class CustomerLifecycleService {
                 reasonDetail, now, systemTriggered));
     }
 
-    // ── 재활성화 ──────────────────────────────────────────────────────────────
+    // ── 정지 ─────────────────────────────────────────────────────────────────
+
+    /** 회원 정지(위험·규제 등에 의한 계정 동결). 해제는 {@link #reactivate}로 되돌린다. */
+    @Transactional
+    public void suspend(Long customerId, String reasonDetail) {
+        Customer customer = findCustomer(customerId);
+        // 활성·휴면에서만 정지 가능 (이미 정지·해지 상태면 전이 불가)
+        if (!customer.isActive() && !customer.isDormant()) {
+            throw new BusinessException(CustomerErrorCode.CUST_012);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        String prevStatus  = customer.getCustomerStatusCode();
+        CustomerStatusHistory prev = statusHistoryRepository
+                .findTopByCustomerIdOrderByCustomerStatusHistoryIdDesc(customerId)
+                .orElse(null);
+
+        customer.suspend(now);
+
+        statusHistoryRepository.save(CustomerStatusHistory.ofTransition(
+                customerId,
+                prev != null ? prev.getCustomerStatusHistoryId() : null,
+                prevStatus, Customer.STATUS_SUSPENDED,
+                CustomerStatusHistory.REASON_REGULATORY,
+                reasonDetail, now, false));
+    }
+
+    // ── 해지(탈퇴) ────────────────────────────────────────────────────────────
+
+    /** 회원 해지(탈퇴). 개인정보 보유기간(해지일+5년)은 도메인에서 산정한다. */
+    @Transactional
+    public void close(Long customerId, String closeReasonCode, String reasonDetail) {
+        Customer customer = findCustomer(customerId);
+        if (customer.isClosed()) {
+            throw new BusinessException(CustomerErrorCode.CUST_012);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        String prevStatus  = customer.getCustomerStatusCode();
+        CustomerStatusHistory prev = statusHistoryRepository
+                .findTopByCustomerIdOrderByCustomerStatusHistoryIdDesc(customerId)
+                .orElse(null);
+
+        customer.close(now, closeReasonCode);
+
+        statusHistoryRepository.save(CustomerStatusHistory.ofTransition(
+                customerId,
+                prev != null ? prev.getCustomerStatusHistoryId() : null,
+                prevStatus, Customer.STATUS_CLOSED,
+                CustomerStatusHistory.REASON_CUST_REQ,
+                reasonDetail, now, false));
+    }
+
+    // ── 재활성화(휴면·정지 해제) ──────────────────────────────────────────────
 
     @Transactional
     public void reactivate(Long customerId, String reasonDetail) {
         Customer customer = customerRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
-        if (!customer.isDormant()) {
+        if (!customer.isDormant() && !customer.isSuspended()) {
             throw new BusinessException(CustomerErrorCode.CUST_012);
         }
 
         OffsetDateTime now = OffsetDateTime.now();
+        String prevStatus  = customer.getCustomerStatusCode();
         CustomerStatusHistory prev = statusHistoryRepository
                 .findTopByCustomerIdOrderByCustomerStatusHistoryIdDesc(customerId)
                 .orElse(null);
@@ -103,7 +157,7 @@ public class CustomerLifecycleService {
         statusHistoryRepository.save(CustomerStatusHistory.ofTransition(
                 customerId,
                 prev != null ? prev.getCustomerStatusHistoryId() : null,
-                Customer.STATUS_DORMANT, Customer.STATUS_ACTIVE,
+                prevStatus, Customer.STATUS_ACTIVE,
                 CustomerStatusHistory.REASON_REACTIVATE,
                 reasonDetail, now, false));
     }
