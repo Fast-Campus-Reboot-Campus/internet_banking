@@ -851,17 +851,13 @@ export default function DepositJoinPage() {
                 <p>※ 가입 후에는 &apos;계약서류&apos; 관련 약관을 통해 상품설명문서를 확인할 수 있습니다.</p>
               </div>
 
-              {/* 계좌 비밀번호 확인 */}
+              {/* 예금계좌 비밀번호 설정 */}
               <div className="border border-t-2 border-kb-text pt-0">
-                <p className="text-[14px] font-bold text-kb-primary border-b-2 border-kb-primary inline-block pb-1 mb-3">공규계좌 및 비밀번호 확인</p>
+                <p className="text-[14px] font-bold text-kb-primary border-b-2 border-kb-primary inline-block pb-1 mb-3">예금계좌 비밀번호 설정</p>
                 <table className="w-full border-collapse text-[13px]">
                   <tbody>
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text w-[120px]">계좌번호</td>
-                      <td className="border border-kb-border px-4 py-3 text-kb-text-body">{withdrawAccounts.find(a => a.id === withdrawAccount)?.number ?? '-'}</td>
-                    </tr>
-                    <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text">계좌 비밀번호</td>
+                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text w-[150px] whitespace-nowrap">비밀번호 (4자리)</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex flex-col gap-2">
                           {mouseInput ? (
