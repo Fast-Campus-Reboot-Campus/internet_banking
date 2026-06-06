@@ -41,6 +41,14 @@ spring:
           predicates:
             - Path=/api/v1/customers/**
 
+        # 직원용 내부 API (JWT 필요 — customer-service가 X-User-Role로 역할 게이팅)
+        # customer 소유 하위경로만 한정 라우팅 → 타 서비스가 미래에 /api/v1/internal/* 를 써도 충돌 없음.
+        # (타 서비스의 internal API는 /api/internal/...(v1 없음)·서비스 간 호출이라 본 라우트와 무관)
+        - id: customer-internal
+          uri: http://${CUSTOMER_SERVICE_HOST:localhost}:${CUSTOMER_SERVICE_PORT:8081}
+          predicates:
+            - Path=/api/v1/internal/customers/**,/api/v1/internal/party/**,/api/v1/internal/compliance/**,/api/v1/internal/fds/**
+
         # 예금·수신 도메인 (JWT 필요)
         - id: deposit
           uri: http://${DEPOSIT_SERVICE_HOST:localhost}:${DEPOSIT_SERVICE_PORT:8082}
