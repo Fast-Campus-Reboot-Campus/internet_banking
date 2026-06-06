@@ -25,7 +25,6 @@ from app.metrics import (
     chatbot_session_ended_total,
     chatbot_session_total,
 )
-from app.llm import LlmAdapter, LlmHandoffAdapter
 from app.schemas import (
     AgentConnectRequest,
     AgentQueueResponse,
@@ -45,7 +44,6 @@ from app.schemas import (
     ChatSendMessageRequest,
     ScenarioSeedResponse,
 )
-from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
 from app.services import (
     CODE_SENDER_AGENT,
     CODE_SENDER_USER,
@@ -68,6 +66,7 @@ def _setup_file_logging() -> None:
         handler.setFormatter(logging.Formatter(
             "%(asctime)s [%(threadName)s] %(levelname)-5s %(name)s - %(message)s"
         ))
+        logging.getLogger().setLevel(logging.INFO)
         logging.getLogger().addHandler(handler)
     except Exception as e:
         logging.getLogger(__name__).warning("[logging] 파일 핸들러 설정 실패: %s", e)
@@ -76,88 +75,43 @@ def _setup_file_logging() -> None:
 _setup_file_logging()
 
 
-def _setup_phoenix() -> None:
-    """Phoenix OTel 계측 초기화. PHOENIX_ENABLED=true 일 때만 활성화."""
-    if os.getenv("PHOENIX_ENABLED", "false").lower() != "true":
-        return
-    try:
-        from phoenix.otel import register
-        from openinference.instrumentation.openai import OpenAIInstrumentor
-
-        endpoint = os.getenv("PHOENIX_HTTP_ENDPOINT", "http://localhost:6006/v1/traces")
-        tracer_provider = register(
-            project_name="consultation-service",
-            endpoint=endpoint,
-            set_global_tracer_provider=True,
-        )
-        OpenAIInstrumentor().instrument(tracer_provider=tracer_provider)
-        logger.info("[Phoenix] OTel 계측 활성화 → %s (project: consultation-service)", endpoint)
-    except ImportError:
-        logger.warning("[Phoenix] 패키지 미설치 — pip install arize-phoenix-otel openinference-instrumentation-openai")
-
-
-_setup_phoenix()
-
 # settings, static_dir 은 설정값이므로 모듈 수준에 유지
 settings = get_settings()
 static_dir = Path(__file__).resolve().parents[1] / "static"
 
 
-def _setup_langfuse() -> None:
-    """Langfuse LLM 추적 초기화. CONSULTATION_LANGFUSE_ENABLED=true 일 때만 활성화.
-
-    키는 CONSULTATION_LANGFUSE_* 를 우선 사용하고, 없으면 LANGFUSE_* 를 그대로 사용한다.
-    (Langfuse SDK 자체도 LANGFUSE_* 를 직접 읽으므로 이미 설정된 경우 추가 주입 불필요)
-    """
-    if not settings.langfuse_enabled:
-        return
-    secret = settings.langfuse_secret_key or os.getenv("LANGFUSE_SECRET_KEY", "")
-    public = settings.langfuse_public_key or os.getenv("LANGFUSE_PUBLIC_KEY", "")
-    host   = settings.langfuse_host if settings.langfuse_host != "http://localhost:3001" \
-             else os.getenv("LANGFUSE_HOST", settings.langfuse_host)
-    if not secret or not public:
-        logger.warning("[Langfuse] secret/public 키 미설정 — 추적 비활성화")
-        return
-    os.environ["LANGFUSE_SECRET_KEY"] = secret
-    os.environ["LANGFUSE_PUBLIC_KEY"] = public
-    os.environ["LANGFUSE_HOST"] = host
-    logger.info("[Langfuse] LLM 추적 활성화 → %s", host)
-
-
-_setup_langfuse()
-
-
-async def _handle_contract_created(payload: dict, rag: ProductRagEngine | None) -> None:
-    """deposit-api 에서 ContractCreated 이벤트 수신 시 처리.
-
-    고객이 상품에 가입했음을 기록하고, RAG 인덱스가 살아있으면 재빌드를 예약한다.
-    (같은 DB를 공유하므로 신규 계약 데이터가 즉시 조회 가능)
-    """
-    customer_id  = payload.get("customerId", "")
-    product_id   = payload.get("productId", "")
-    contract_id  = payload.get("contractId", "")
-    join_amount  = payload.get("joinAmount", 0)
-
+async def _handle_contract_created(payload: dict) -> None:
+    """deposit-api 에서 ContractCreated 이벤트 수신 시 처리."""
     logger.info(
         "[Kafka] ContractCreated 처리 — customer=%s product=%s contract=%s amount=%s",
-        customer_id, product_id, contract_id, join_amount,
+        payload.get("customerId", ""),
+        payload.get("productId", ""),
+        payload.get("contractId", ""),
+        payload.get("joinAmount", 0),
     )
 
-    # RAG 인덱스 재빌드: 신규 상품 데이터 반영
-    if rag is not None:
-        await _build_rag_index(rag)
-        logger.info("[Kafka] RAG 인덱스 재빌드 완료 (ContractCreated 트리거)")
+
+async def _handle_chatbot_message_received(payload: dict) -> None:
+    """consultation.chatbot.message 토픽 수신 시 로그만 출력.
+
+    DB 저장은 handle_message()의 _record_message()에서 이미 수행하므로
+    Consumer에서 중복 저장하지 않는다.
+    """
+    logger.info(
+        "[Kafka] ChatbotMessageReceived — chatbot_consultation_id=%s sequence_no=%s message=%s",
+        payload.get("chatbot_consultation_id", ""),
+        payload.get("sequence_no", ""),
+        payload.get("message_content", ""),
+    )
 
 
-async def _kafka_consume_loop(
-    consumer: KafkaEventConsumer,
-    rag: ProductRagEngine | None,
-) -> None:
+async def _kafka_consume_loop(consumer: KafkaEventConsumer) -> None:
     """카프카 이벤트를 수신해 비즈니스 로직을 처리하는 백그라운드 루프.
 
     처리 이벤트:
       - ContractCreated (deposit.contract.events): 고객 계약 완료 → RAG 재빌드
-      - 그 외 consultation 이벤트: 구조화된 로그 출력
+      - ChatbotMessageReceived (consultation.chatbot.message): 수신 로그 출력
+      - 그 외 이벤트: 구조화된 로그 출력
     """
     try:
         async for message in consumer:
@@ -165,7 +119,9 @@ async def _kafka_consume_loop(
             payload    = message.get("payload", {})
 
             if event_type == "ContractCreated":
-                await _handle_contract_created(payload, rag)
+                await _handle_contract_created(payload)
+            elif event_type == "ChatbotMessageReceived":
+                await _handle_chatbot_message_received(payload)
             else:
                 logger.info("[Kafka] event=%s payload=%s", event_type, payload)
 
@@ -175,94 +131,30 @@ async def _kafka_consume_loop(
         logger.exception("[Kafka] consumer loop 오류: %s", exc)
 
 
-async def _build_rag_index(rag: ProductRagEngine) -> None:
-    """DB에서 상품 + 약관 데이터를 읽어 RAG 인덱스를 빌드한다."""
-    from sqlalchemy import text as sa_text
-    from app.database import SessionLocal
-
-    db = SessionLocal()
-    try:
-        products = [
-            dict(row._mapping)
-            for row in db.execute(sa_text(
-                """
-                SELECT banking_product_id,
-                       deposit_product_name,
-                       deposit_product_type,
-                       description,
-                       base_interest_rate,
-                       min_join_amount,
-                       max_join_amount,
-                       min_period_month,
-                       max_period_month,
-                       is_early_termination_allowed,
-                       is_tax_benefit_available,
-                       deposit_product_status
-                  FROM deposit_banking_products
-                 WHERE deposit_product_status = 'SELLING'
-                """
-            ))
-        ]
-        terms = [
-            dict(row._mapping)
-            for row in db.execute(sa_text(
-                """
-                SELECT special_term_id,
-                       special_term_name,
-                       special_term_content,
-                       special_term_summary,
-                       is_required,
-                       status
-                  FROM deposit_special_terms
-                 WHERE status = 'ACTIVE'
-                """
-            ))
-        ]
-        rag.build_from_db(products, terms)
-        logger.info("[RAG] 인덱스 빌드 완료: 상품 %d개, 약관 %d개", len(products), len(terms))
-    except Exception as exc:
-        logger.warning("[RAG] 인덱스 빌드 실패 (DB 미연결 등): %s", exc)
-    finally:
-        db.close()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── 싱글턴 생성 및 app.state 등록 ────────────────────────────────────────
     _events = KafkaEventPublisher(settings)
     _consumer = KafkaEventConsumer(settings)
-    _llm = LlmHandoffAdapter()
-    _llm_adapter = (
-        LlmAdapter(api_key=settings.openai_api_key, model=settings.openai_model)
-        if settings.openai_api_key else None
-    )
-    _rag_engine: ProductRagEngine | None = (
-        ProductRagEngine(OpenAIEmbeddingProvider(settings.openai_api_key))
-        if settings.openai_api_key else None
-    )
 
     app.state.events = _events
     app.state.consumer = _consumer
-    app.state.llm = _llm
-    app.state.llm_adapter = _llm_adapter
-    app.state.rag_engine = _rag_engine
 
     # ── 기동 ─────────────────────────────────────────────────────────────────
     Base.metadata.create_all(bind=engine)
     await _events.start()
     # chatbot_events / chat_events 는 이 서비스가 직접 발행하는 토픽이므로
     # 구독 목록에서 제외 — 자기 발행 메시지를 자신이 소비하는 순환 방지
+    # chatbot_message 는 자기 발행 토픽이나 Consumer가 로그만 출력(재발행 없음) → 루프 없음
     await _consumer.start(
         topics=[
-            settings.kafka_topic_deposit_events,   # deposit-api 계약 이벤트만 수신
+            settings.kafka_topic_deposit_events,    # deposit-api 계약 이벤트
+            settings.kafka_topic_chatbot_message,   # 챗봇 메시지 수신 이벤트
         ],
         group_id="consultation-service",
     )
-    consume_task = asyncio.create_task(_kafka_consume_loop(_consumer, _rag_engine))
-    if _rag_engine is not None:
-        await _build_rag_index(_rag_engine)
-    else:
-        logger.info("[RAG] OpenAI API 키 없음 → RAG 비활성화")
+    consume_task = asyncio.create_task(_kafka_consume_loop(_consumer))
 
     try:
         yield
@@ -301,8 +193,7 @@ def get_chatbot_service(
     request: Request,
     db: Session = Depends(get_db),
 ) -> ChatbotService:
-    state = request.app.state
-    return ChatbotService(db, state.events, state.llm, state.llm_adapter, state.rag_engine)
+    return ChatbotService(db, request.app.state.events)
 
 
 def get_chat_service(

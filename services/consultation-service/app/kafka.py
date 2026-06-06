@@ -37,6 +37,10 @@ class KafkaEventPublisher:
         """상담사 채팅 이벤트 토픽으로 발행."""
         await self._send(self._settings.kafka_topic_chat_events, event_type, payload)
 
+    async def publish_chatbot_message(self, payload: dict[str, Any]) -> None:
+        """챗봇 메시지 수신 토픽으로 발행."""
+        await self._send(self._settings.kafka_topic_chatbot_message, "ChatbotMessageReceived", payload)
+
     async def _send(self, topic: str, event_type: str, payload: dict[str, Any]) -> None:
         if not self._producer:
             return

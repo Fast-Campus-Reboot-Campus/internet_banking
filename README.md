@@ -74,7 +74,7 @@ internet_banking/
 │       │   ├── schemas.py          # Pydantic 스키마
 │       │   ├── database.py         # DB 연결
 │       │   └── kafka.py            # Kafka 이벤트 발행
-│       └── tests/                  # pytest 테스트 (325개)
+│       └── tests/                  # pytest 테스트 (1614개)
 ├── web/                            # Next.js 프런트엔드
 │   ├── app/
 │   │   ├── (personal)/             # 개인뱅킹 라우트 그룹
@@ -163,11 +163,12 @@ internet_banking/
 
 ### 상품 추천 (RecommendAgentService)
 
-고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다. 외부 AI 없이 규칙 기반으로 처리한다.
+고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다. 추천 결과는 외부 AI/LLM 호출 없이
+입출금 내역, 월평균 저축 가능 금액, 가입금액 조건, 판매 상태, 금리 기준을 점수화해 산출한다.
 
 ```
 순현금흐름(netCashFlow) / periodMonth → estimatedSavingsAmount
-→ minJoinAmount 이상 상품 필터 → 판매 중 상품 필터 → bestRate 내림차순 최대 5개 반환
+→ 가입금액 조건 필터 → 판매 중 상품 필터 → bestRate 내림차순 최대 5개 반환
 ```
 
 ```
@@ -245,46 +246,71 @@ X-Customer-Id: {customerId}
 
 ## consultation-service 주요 기능
 
-- 16개 기능 코드 (PRODUCT_ADVICE / USER_FINANCE / STAFF_SUPPORT)
-- 시나리오 기반 챗봇, 키워드 Intent 분류, OpenAI GPT-4o-mini 폴백
-- 상담사 실시간 채팅, Kafka 이벤트 발행
+### 챗봇 상담
+
+- Python · FastAPI 기반 시나리오형 챗봇
+- 시나리오 노드·버튼·플로우 DB 구조 설계, 멀티턴 대화 상태 관리
+- 키워드 기반 Intent 분류 → 16개 기능 코드 실행 라우팅
 - **챗봇 이체 API**: 인증 완료 후 챗봇 경로(`/chatbot/transfer`)로 이체 실행
+
+| 카테고리 | 기능 코드 | 설명 |
+|---|---|---|
+| PRODUCT_ADVICE | PRODUCT_GUIDE | 예금·적금·청약 상품 안내 |
+| | RATE_GUIDE | 금리·우대금리 안내 |
+| | JOIN_CONDITION | 가입 조건 안내 |
+| | PRODUCT_COMPARE | 상품 비교 |
+| | TERMS_RAG | 약관 검색 |
+| | FAQ | 자주 묻는 질문 |
+| USER_FINANCE | MY_ACCOUNTS | 내 계좌 조회 |
+| | MY_PRODUCTS | 가입 상품 조회 |
+| | CONTRACT_STATUS | 계약 상태 조회 |
+| | MATURITY_SCHEDULE | 만기 예정 조회 |
+| | INTEREST_HISTORY | 이자 내역 조회 |
+| | MY_CASH_FLOW | 현금 흐름 조회 |
+| | CASH_FLOW_RECOMMEND | 현금흐름 기반 상품 추천 |
+| | SAVINGS_GOAL | 저축 목표 멀티턴 추천 |
+| STAFF_SUPPORT | STAFF_CUSTOMER | 직원용 고객 정보 조회 |
+| | STAFF_CONTRACT | 직원용 고객 계약 조회 |
+| | STAFF_ACCOUNT | 직원용 고객 계좌 조회 |
+| | STAFF_TRANSFER_FLOW | 직원용 이체 흐름 조회 |
+| | STAFF_CONSULTATION_HISTORY | 상담 이력 조회 |
+| | STAFF_CASH_FLOW | 직원용 현금 흐름 조회 |
+
+### 상담사 실시간 채팅
+
+- 챗봇 → 상담사 핸드오프 흐름 (상담 접수·메시지 이력·채팅 종료)
+- 상담사 대기열 조회 및 연결 수락
+- 만족도 점수 기록
+
+### Kafka 연동
+
+| Topic | 이벤트 | 방향 |
+|---|---|---|
+| `consultation.chatbot.events` | ChatbotConsultationStarted, ChatbotMessageHandled, ChatbotAgentTransferRequested | Producer |
+| `consultation.chatbot.message` | ChatbotMessageReceived | Producer + Consumer |
+| `consultation.chat.events` | AgentConnected, ChatMessageSent, ChatEnded | Producer |
+| `deposit.contract.events` | ContractCreated | Consumer |
+
+- `consultation.chatbot.message` 수신 시 `chat_message_history` 테이블 자동 저장
+- Kafka 활성화: `.env`에서 `CONSULTATION_KAFKA_ENABLED=true` 설정
 
 ### 주요 API
 
 ```
+GET  /health
 GET  /chatbot/features
+GET  /chatbot/features/{feature_code}
 POST /chatbot/features/{feature_code}/execute
 POST /chatbot/consultations/start
 POST /chatbot/consultations/{id}/messages
+POST /chatbot/transfer
+GET  /chat/queue
 POST /chat/consultations/{id}/connect
 POST /chatbot/transfer                         # 챗봇 경로 이체 실행
-```
-
-### 챗봇 이체 (`POST /chatbot/transfer`)
-
-금융인증서 + 보안카드 인증 완료 후 프런트엔드에서 호출하는 이체 실행 엔드포인트.  
-`deposit_accounts` 테이블에 직접 접근해 출금·입금 거래 원장을 생성하고 잔액을 갱신한다.
-
-| 파라미터 | 설명 |
-|---|---|
-| `customer_no` | 출금 고객 ID |
-| `from_account_id` | 출금 계좌 ID |
-| `to_account_number` | 입금 계좌번호 |
-| `amount` | 이체금액 (원) |
-| `memo` | 이체 메모 |
-
-응답: `{ status, message, transaction_id, balance_after }`  
-오류 시 `status: "ERROR"` 와 사유 메시지 반환.
-
-### 독립 실행 (docker compose)
-
-consultation-service는 자체 `docker-compose.yml`로 독립 실행 가능하다.  
-PostgreSQL은 포트 `5439`로 호스트에 노출되어 메인 `docker-compose.yml`의 DB들과 충돌하지 않는다.
-
-```powershell
-cd services/consultation-service
-docker compose up -d
+POST /chat/consultations/{id}/messages
+GET  /chat/consultations/{id}/messages
+POST /chat/consultations/{id}/end
+GET  /metrics
 ```
 
 ---
@@ -384,7 +410,7 @@ npm run dev   # http://localhost:3001
 # loan-service
 .\gradlew :services:loan-service:test
 
-# consultation-service (325개)
+# consultation-service (1614개)
 cd services/consultation-service
 python -m pytest tests/ -q
 ```
