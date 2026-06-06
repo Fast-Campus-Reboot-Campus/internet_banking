@@ -1,5 +1,6 @@
 package com.bank.loan.security;
 
+import com.bank.common.security.BankRole;
 import com.bank.loan.application.domain.LoanApplication;
 import com.bank.loan.review.domain.LoanReview;
 import org.springframework.security.core.Authentication;
@@ -36,7 +37,7 @@ public record LoanActorContext(
         return new LoanActorContext(actorId, branch, roles);
     }
 
-    public boolean hasRole(LoanRole role) {
+    public boolean hasRole(BankRole role) {
         return roles.contains(role.authority());
     }
 
@@ -54,7 +55,7 @@ public record LoanActorContext(
      *  7. 고객 본인 및 그 외 — REDACTED
      */
     public PiiLevel piiLevel(LoanApplication application, LoanReview review) {
-        if (hasRole(LoanRole.OPS) || hasRole(LoanRole.INTERNAL) || hasRole(LoanRole.ADMIN)) {
+        if (hasRole(BankRole.OPS) || hasRole(BankRole.INTERNAL) || hasRole(BankRole.ADMIN)) {
             return PiiLevel.FULL;
         }
 
@@ -68,16 +69,16 @@ public record LoanActorContext(
             return PiiLevel.MASKED;
         }
 
-        if (hasRole(LoanRole.BRANCH_MANAGER)
+        if (hasRole(BankRole.BRANCH_MANAGER)
                 && branch() != null && branch().equals(application.getBranchId())) {
             return PiiLevel.MASKED;
         }
 
-        if (hasRole(LoanRole.HQ_REVIEWER) && review.isEscalated()) {
+        if (hasRole(BankRole.HQ_REVIEWER) && review.isEscalated()) {
             return PiiLevel.MASKED;
         }
 
-        if (hasRole(LoanRole.COMPLIANCE)) {
+        if (hasRole(BankRole.COMPLIANCE)) {
             return PiiLevel.MASKED;
         }
 
