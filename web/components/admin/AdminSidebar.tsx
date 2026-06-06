@@ -11,6 +11,12 @@ import { getAdminRoles, hasAnyRole } from '@/lib/admin-auth'
 type NavItem    = { label: string; href: string; roles?: AdminRole[]; bankRoles?: string[] }
 type NavSection = { section: string; dot: string; roles: AdminRole[]; bankRoles?: string[]; items: NavItem[] }
 
+// CUSTOMER 제외 전 직원(BankRole). break-glass 긴급 접근 등 '전 직원' 범위 게이팅에 사용.
+const EMPLOYEE_ROLES = [
+  'ROLE_TELLER', 'ROLE_DEPUTY_MANAGER', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER',
+  'ROLE_HQ_RISK', 'ROLE_HQ_MARKETING', 'ROLE_COMPLIANCE', 'ROLE_OPS', 'ROLE_INTERNAL', 'ROLE_ADMIN',
+]
+
 const NAV: NavSection[] = [
   {
     section: '고객', dot: 'bg-blue-300',
@@ -88,6 +94,16 @@ const NAV: NavSection[] = [
       { label: '신용정보 보고서',href: '/admin/loan/credit-report' },
       { label: '알림 발송함',    href: '/admin/loan/notification' },
       { label: '본인인증 조회',  href: '/admin/loan/identity' },
+    ],
+  },
+  {
+    section: '대출 운영·감사', dot: 'bg-emerald-400', roles: [],
+    // break-glass 는 고객 제외 전 직원이 사용 → 섹션은 직원 역할 합집합으로 노출, 항목은 개별 게이팅.
+    bankRoles: EMPLOYEE_ROLES,
+    items: [
+      { label: 'EOD 배치',     href: '/admin/loan/eod',         bankRoles: ['ROLE_OPS'] },
+      { label: '감사로그',     href: '/admin/loan/audit',       bankRoles: ['ROLE_COMPLIANCE'] },
+      { label: '긴급 접근',    href: '/admin/loan/break-glass', bankRoles: EMPLOYEE_ROLES },
     ],
   },
   {
