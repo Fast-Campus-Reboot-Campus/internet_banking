@@ -169,7 +169,10 @@ export default function TransferAccountPage() {
       amount: amountNum,
       receiverName,
       fee: 0,
-      transferType: targetAccount ? 'INTERNAL' : 'EXTERNAL',
+      // 라우팅은 받는 은행(toBankCode) 기준으로 판정한다.
+      // 당행(AXful=KB)이면 타인 계좌라도 INTERNAL — 내 계좌목록에 없어도
+      // 백엔드가 toAccountNo로 입금계좌를 조회(findByAccountNumber)하므로 안전.
+      transferType: toBankCode === 'KB' ? 'INTERNAL' : 'EXTERNAL',
     }
     sessionStorage.setItem('pendingTransfer', JSON.stringify(data))
     router.push('/transfer/confirm')
