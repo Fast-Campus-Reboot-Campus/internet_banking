@@ -23,6 +23,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -150,6 +153,14 @@ public class LoanContractService {
         ));
 
         return LoanContractResponse.of(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LoanContractResponse> listForAdmin(
+            String cntrStatusCd, String dateFrom, String dateTo, int page, int size) {
+        return repository
+                .findForAdmin(cntrStatusCd, dateFrom, dateTo, PageRequest.of(page, size))
+                .map(LoanContractResponse::of);
     }
 
     @Transactional(readOnly = true)

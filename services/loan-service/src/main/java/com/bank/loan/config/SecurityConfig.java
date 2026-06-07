@@ -1,12 +1,15 @@
 package com.bank.loan.config;
 
+import com.bank.common.security.jwt.JwtProvider;
 import com.bank.loan.security.GatewayHeaderAuthFilter;
 import com.bank.loan.security.InternalTokenFilter;
+import com.bank.loan.security.JwtFallbackAuthFilter;
 import com.bank.loan.security.LoanRole;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.lang.Nullable;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -14,6 +17,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.List;
 
 /**
  * loan-service Spring Security 설정.
@@ -50,14 +57,23 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           InternalTokenFilter internalTokenFilter) throws Exception {
+                                           InternalTokenFilter internalTokenFilter,
+                                           @Nullable JwtProvider jwtProvider) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .addFilterBefore(gatewayHeaderAuthFilter(), UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(internalTokenFilter, GatewayHeaderAuthFilter.class)
+            .addFilterAfter(internalTokenFilter, GatewayHeaderAuthFilter.class);
+
+        // jwt.secret이 설정된 경우(로컬 개발)에만 JWT 직접 파싱 폴백 필터 등록
+        if (jwtProvider != null) {
+            http.addFilterAfter(new JwtFallbackAuthFilter(jwtProvider), InternalTokenFilter.class);
+        }
+
+        http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                         "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
@@ -65,6 +81,18 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/actuator/health", "/actuator/info", "/actuator/prometheus"
                 ).permitAll()
+
+                // 대출 상품 목록·상세·우대금리 조회 — 비로그인 공개
+                .requestMatchers(HttpMethod.GET,
+                        "/api/loan-products",
+                        "/api/loan-products/*",
+                        "/api/loan-products/*/preferential-rate-policies"
+                ).permitAll()
+
+                // 운영자 계약 모니터링 — ROLE_OPS
+                .requestMatchers(HttpMethod.GET,
+                        "/api/admin/loan-contracts"
+                ).hasRole(LoanRole.OPS.spring())
 
                 // 운영팀 전용 내부 엔드포인트 — ROLE_OPS
                 .requestMatchers(HttpMethod.POST,
@@ -123,5 +151,18 @@ public class SecurityConfig {
             );
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }
