@@ -83,113 +83,6 @@ export function applyMasking(customer: CustomerRecord, role: AdminRole) {
 export function canViewAuditLog(role: AdminRole) { return ['ROLE_HQ_AUDIT','ROLE_HQ_REVIEW','ROLE_PRIMARY_OWNER','ROLE_BRANCH_STAFF'].includes(role) }
 export function requiresReason(role: AdminRole)  { return role === 'ROLE_BRANCH_STAFF' }
 
-// ─── A-C-001 제재대상 스크리닝 ────────────────────────────────────────────────
-
-export type ScreeningStatus = '검토대기' | '검토중' | '승인' | '거절'
-export type HitType = 'OFAC SDN 매칭' | '국내 PEP' | 'UN 제재명단' | 'EU 제재'
-export interface ScreeningRecord {
-  id: string; customerId: string; name: string; birthDate: string
-  nationality: string; hitType: HitType; matchRate: number
-  detectedAt: string; status: ScreeningStatus; reviewer: string | null
-}
-export const MOCK_SCREENINGS: ScreeningRecord[] = [
-  { id:'C0012345', customerId:'C0012345', name:'김**', birthDate:'1985-03-15', nationality:'KR', hitType:'OFAC SDN 매칭', matchRate:92, detectedAt:'2026-05-10 14:23', status:'검토대기', reviewer:null },
-  { id:'C0012346', customerId:'C0012346', name:'박**', birthDate:'1978-11-02', nationality:'KR', hitType:'국내 PEP',      matchRate:87, detectedAt:'2026-05-10 11:08', status:'검토중',   reviewer:'김검원' },
-  { id:'C0012347', customerId:'C0012347', name:'이**', birthDate:'1991-06-22', nationality:'US', hitType:'UN 제재명단',   matchRate:95, detectedAt:'2026-05-09 16:55', status:'검토대기', reviewer:null },
-  { id:'C0012348', customerId:'C0012348', name:'정**', birthDate:'1965-02-08', nationality:'KR', hitType:'국내 PEP',      matchRate:81, detectedAt:'2026-05-09 09:14', status:'승인',     reviewer:'이심사' },
-  { id:'C0012349', customerId:'C0012349', name:'최**', birthDate:'1988-12-30', nationality:'CN', hitType:'EU 제재',       matchRate:89, detectedAt:'2026-05-08 13:42', status:'거절',     reviewer:'김검원' },
-  { id:'C0012350', customerId:'C0012350', name:'장**', birthDate:'1972-07-19', nationality:'KR', hitType:'국내 PEP',      matchRate:84, detectedAt:'2026-05-08 10:20', status:'검토대기', reviewer:null },
-]
-
-// ─── A-C-002 EDD 심사 ─────────────────────────────────────────────────────────
-
-export type EDDType = '고위험 국가' | 'PEP' | '고액거래'
-export type EDDStatus = '심사' | '서류요청'
-export interface EDDRecord {
-  id: string; customerId: string; name: string; eddType: EDDType
-  fundSource: boolean; jobIncome: boolean; transactionPurpose: boolean
-  realOwner: boolean; submittedAt: string; docCount: string; status: EDDStatus
-  detail?: { cddRisk: string; assignedTo: string }
-}
-export const MOCK_EDD: EDDRecord[] = [
-  { id:'EDD-2026-0148', customerId:'C019234', name:'김**', eddType:'고위험 국가', fundSource:true, jobIncome:true, transactionPurpose:true, realOwner:false, submittedAt:'2026-05-10', docCount:'3/3', status:'심사', detail:{ cddRisk:'고위험 (자동 산정)', assignedTo:'컴플라이언스팀 김** (책임자: 박**)' } },
-  { id:'EDD-2026-0147', customerId:'C019233', name:'박**', eddType:'PEP',        fundSource:true, jobIncome:false, transactionPurpose:true, realOwner:false, submittedAt:'2026-05-10', docCount:'2/3', status:'서류요청' },
-  { id:'EDD-2026-0146', customerId:'C019230', name:'(주)**김**', eddType:'고액거래', fundSource:true, jobIncome:true, transactionPurpose:true, realOwner:true, submittedAt:'2026-05-09', docCount:'4/4', status:'심사' },
-  { id:'EDD-2026-0145', customerId:'C019228', name:'이**', eddType:'PEP',        fundSource:true, jobIncome:true, transactionPurpose:true, realOwner:false, submittedAt:'2026-05-08', docCount:'3/3', status:'심사' },
-]
-
-// ─── A-C-003 중복 고객 ───────────────────────────────────────────────────────
-
-export type DupMatchType = '이름+생년월일' | 'CI 충돌'
-export type DupStatus = '검토대기' | '검토중' | '복본'
-export interface DuplicateRecord {
-  id: string; newCustomerId: string; existingCustomerId: string
-  name: string; birthDate: string; matchType: DupMatchType
-  detectedAt: string; status: DupStatus
-}
-export const MOCK_DUPLICATES: DuplicateRecord[] = [
-  { id:'DUP-2026-0093', newCustomerId:'C0019501', existingCustomerId:'C0008273', name:'김민수', birthDate:'1985-03-15', matchType:'이름+생년월일', detectedAt:'2026-05-10', status:'검토대기' },
-  { id:'DUP-2026-0092', newCustomerId:'C0019487', existingCustomerId:'C0005412', name:'이지은', birthDate:'1990-08-22', matchType:'이름+생년월일', detectedAt:'2026-05-10', status:'검토대기' },
-  { id:'DUP-2026-0091', newCustomerId:'C0019472', existingCustomerId:'C0003251', name:'박철수', birthDate:'1978-11-02', matchType:'CI 충돌',     detectedAt:'2026-05-09', status:'복본' },
-]
-
-// ─── A-C-004 실명확인 증표 위변조 ────────────────────────────────────────────
-
-export type DocType = '주민등록증' | '운전면허증' | '여권 (US)'
-export type DocStatus = '검토대기' | '검토중' | '거절'
-export interface IDVerifyRecord {
-  id: string; customerId: string; name: string; docType: DocType
-  maskedDocNumber: string; suspicionType: string; apiResult: string
-  submittedAt: string; status: DocStatus; aiScore?: number
-}
-export const MOCK_ID_VERIFY: IDVerifyRecord[] = [
-  { id:'DOC-2026-0212', customerId:'C019650', name:'김**', docType:'주민등록증', maskedDocNumber:'850315-1******', suspicionType:'정보부 진위확인 실패', apiResult:'NOT_FOUND', submittedAt:'2026-05-10', status:'검토대기', aiScore:0.87 },
-  { id:'DOC-2026-0211', customerId:'C019648', name:'박**', docType:'운전면허증', maskedDocNumber:'11-23-*******', suspicionType:'OCR 불일치',         apiResult:'OK',         submittedAt:'2026-05-10', status:'검토대기' },
-  { id:'DOC-2026-0210', customerId:'C019642', name:'Smith J.', docType:'여권 (US)', maskedDocNumber:'52*****',       suspicionType:'이미지 조작 의심',  apiResult:'OK (API)',   submittedAt:'2026-05-09', status:'검토중' },
-]
-
-// ─── A-C-005 얼굴인증 라우팅 ─────────────────────────────────────────────────
-
-export type FaceRoutingStatus = '대기' | '영업점 배정' | '완료 (대면확인)'
-export interface FaceRoutingRecord {
-  id: string; customerId: string; name: string; failureType: string
-  similarityScore: number; liveness: string; failedAt: string
-  nearestBranch: string; status: FaceRoutingStatus
-}
-export const MOCK_FACE_ROUTING: FaceRoutingRecord[] = [
-  { id:'FACE-2026-0521', customerId:'C019712', name:'김**', failureType:'유사도 미달',    similarityScore:0.62, liveness:'통과', failedAt:'2026-05-11 09:23', nearestBranch:'강남역지점', status:'대기' },
-  { id:'FACE-2026-0520', customerId:'C019710', name:'박**', failureType:'딥페이크 의심',  similarityScore:0.91, liveness:'실패', failedAt:'2026-05-11 08:45', nearestBranch:'여의도본점', status:'영업점 배정' },
-  { id:'FACE-2026-0519', customerId:'C019705', name:'이**', failureType:'유사도 미달',    similarityScore:0.71, liveness:'통과', failedAt:'2026-05-10 17:12', nearestBranch:'판교테크노밸리', status:'완료 (대면확인)' },
-]
-
-// ─── A-C-006 대리인 위임장 ───────────────────────────────────────────────────
-
-export type AgentStatus = '검토대기' | '거절 (인감 위조 의심)' | '승인 (권한 액팅)'
-export interface AgentRecord {
-  id: string; ownerId: string; agentName: string; relationship: string
-  delegationType: string; scope: string; documents: string
-  submittedAt: string; status: AgentStatus
-}
-export const MOCK_AGENTS: AgentRecord[] = [
-  { id:'AGT-2026-0042', ownerId:'C019801', agentName:'김**', relationship:'배우자', delegationType:'임의대리', scope:'조회+이체', documents:'위임장/민감/가족관계증명서', submittedAt:'2026-05-10', status:'검토대기' },
-  { id:'AGT-2026-0041', ownerId:'C019795', agentName:'박**', relationship:'자녀',   delegationType:'법정대리', scope:'전체',     documents:'신분증/가족관계증명서',       submittedAt:'2026-05-09', status:'검토대기' },
-  { id:'AGT-2026-0040', ownerId:'C019789', agentName:'이**', relationship:'지인',   delegationType:'임의대리', scope:'조회',     documents:'위임장/민감',               submittedAt:'2026-05-08', status:'거절 (인감 위조 의심)' },
-]
-
-// ─── A-C-007 미성년자 ────────────────────────────────────────────────────────
-
-export type MinorStatus = '검토대기' | '거절'
-export interface MinorRecord {
-  id: string; minorName: string; age: number; guardianName: string
-  relationship: string; relationshipCheck: string
-  guardianVerified: boolean; submittedAt: string; status: MinorStatus
-}
-export const MOCK_MINORS: MinorRecord[] = [
-  { id:'MIN-2026-0078', minorName:'김**', age:12, guardianName:'김** (부)', relationship:'부', relationshipCheck:'일치 (가족관계증명)', guardianVerified:true,  submittedAt:'2026-05-10', status:'검토대기' },
-  { id:'MIN-2026-0077', minorName:'박**', age:8,  guardianName:'박** (모)', relationship:'모', relationshipCheck:'일치',               guardianVerified:true,  submittedAt:'2026-05-10', status:'검토대기' },
-  { id:'MIN-2026-0076', minorName:'이**', age:10, guardianName:'이** (조부)', relationship:'조부', relationshipCheck:'관계 불일치',    guardianVerified:true,  submittedAt:'2026-05-09', status:'거절' },
-]
-
 // ─── A-C-101 회원 목록 ───────────────────────────────────────────────────────
 
 export type MemberStatus = '활성' | '휴면' | '정지' | '탈퇴'
@@ -223,22 +116,6 @@ export const MOCK_STATUS_CHANGES: StatusChangeRecord[] = [
   { changedAt:'2026-05-09 14:30', customerId:'C0019650', name:'정**', fromStatus:'활성', toStatus:'탈퇴', reason:'고객 요청', processor:'자동', note:'온라인 탈퇴 신청' },
 ]
 
-// ─── A-C-104 약관 관리 ───────────────────────────────────────────────────────
-
-export type TermStatus = '적용중' | '예고 발송'
-export interface TermRecord {
-  id: string; name: string; type: '필수' | '선택'; scope: string
-  version: string; effectiveDate: string; status: TermStatus; consentCount: number
-}
-export const MOCK_TERMS: TermRecord[] = [
-  { id:'TC-001', name:'전자금융거래기본약관',        type:'필수', scope:'가입',     version:'v4.2', effectiveDate:'2024-09-01', status:'적용중',   consentCount:2189402 },
-  { id:'TC-002', name:'전자금융서비스이용약관',       type:'필수', scope:'가입',     version:'v3.8', effectiveDate:'2024-09-01', status:'적용중',   consentCount:2189402 },
-  { id:'TC-003', name:'개인(신용)정보 수집·이용 동의서', type:'필수', scope:'가입',  version:'v5.1', effectiveDate:'2025-01-15', status:'적용중',   consentCount:2165022 },
-  { id:'TC-101', name:'[은행] 마케팅 활용 및 광고성 수신 동의', type:'선택', scope:'마케팅', version:'v2.3', effectiveDate:'2025-03-01', status:'적용중', consentCount:1432887 },
-  { id:'TC-102', name:'[계열사] 마케팅 활용 및 광고성 수신 동의', type:'선택', scope:'마케팅', version:'v2.1', effectiveDate:'2025-03-01', status:'적용중', consentCount:987432 },
-  { id:'TC-005', name:'전자금융거래기본약관 (v4.3 개정안)', type:'필수', scope:'가입', version:'v4.3 (예정)', effectiveDate:'2026-06-01', status:'예고 발송', consentCount:0 },
-]
-
 // ─── A-C-105 동의이력 ────────────────────────────────────────────────────────
 
 export interface ConsentLog {
@@ -252,21 +129,6 @@ export const MOCK_CONSENT_LOGS: ConsentLog[] = [
   { id:'LOG-26050923845', date:'2026-05-09 14:23:08', customerId:'C0019812', termId:'TC-003', termVersion:'v5.1', termName:'개인(신용)정보 수집·이용 동의서', consentType:'동의', ip:'192.168.*.*', device:'iOS 17.4 / Safari', hash:'c1d9...e823' },
   { id:'LOG-26050923844', date:'2026-05-09 14:22:51', customerId:'C0019812', termId:'TC-101', termVersion:'v2.3', termName:'[은행] 마케팅 동의', consentType:'미동의', ip:'192.168.*.*', device:'iOS 17.4 / Safari', hash:'d3a2...f917' },
   { id:'LOG-26050823811', date:'2026-05-08 11:14:22', customerId:'C0019789', termId:'TC-101', termVersion:'v2.3', termName:'[은행] 마케팅 동의', consentType:'철회',   ip:'10.0.*.*',    device:'Windows / Chrome', hash:'e4b3...g021' },
-]
-
-// ─── A-C-106 FATCA/CRS ───────────────────────────────────────────────────────
-
-export type FATCAType = 'FATCA' | 'CRS' | '비합조'
-export interface FATCARecord {
-  customerId: string; name: string; nationality: string; taxCountry: string
-  tin: string; type: FATCAType; w9Status: string
-  isSubmitted: boolean; submittedAt: string; reportDeadline: string
-}
-export const MOCK_FATCA: FATCARecord[] = [
-  { customerId:'C0019812', name:'김**', nationality:'KR', taxCountry:'US', tin:'SSN ***-**-1234', type:'FATCA',  w9Status:'W-9',  isSubmitted:true,  submittedAt:'2026-04-12', reportDeadline:'2026-09-30' },
-  { customerId:'C0019799', name:'Smith J.', nationality:'US', taxCountry:'US', tin:'SSN ***-**-5678', type:'FATCA', w9Status:'W-9', isSubmitted:true, submittedAt:'2026-04-10', reportDeadline:'2026-09-30' },
-  { customerId:'C0019712', name:'Tanaka Y.', nationality:'JP', taxCountry:'JP', tin:'TIN *********9012', type:'CRS', w9Status:'자가증명서', isSubmitted:true, submittedAt:'2026-04-08', reportDeadline:'2026-09-30' },
-  { customerId:'C0019650', name:'Wang L.', nationality:'CN', taxCountry:'CN', tin:'-', type:'비합조', w9Status:'미제출', isSubmitted:false, submittedAt:'-', reportDeadline:'자동 보고대상 분류' },
 ]
 
 // ─── A-C-107 가입 현황 대시보드 ───────────────────────────────────────────────

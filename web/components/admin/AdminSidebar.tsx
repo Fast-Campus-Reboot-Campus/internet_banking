@@ -19,19 +19,6 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    section: '심사', dot: 'bg-orange-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
-    items: [
-      { label: '제재대상 Hit 검토', href: '/admin/screening' },
-      { label: 'EDD 심사·승인',    href: '/admin/edd' },
-      { label: '중복고객 검토',     href: '/admin/duplicates' },
-      { label: '증표 위변조 검토',  href: '/admin/id-verify' },
-      { label: '얼굴인증 라우팅',   href: '/admin/face-routing' },
-      { label: '대리인 검토',       href: '/admin/agent' },
-      { label: '미성년 검토',       href: '/admin/minor' },
-    ],
-  },
-  {
     section: '회원관리', dot: 'bg-sky-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
     items: [
@@ -43,9 +30,7 @@ const NAV: NavSection[] = [
     section: '정책', dot: 'bg-purple-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
     items: [
-      { label: '약관 관리',     href: '/admin/terms' },
       { label: '동의이력 조회', href: '/admin/consent-log' },
-      { label: 'FATCA/CRS',    href: '/admin/fatca' },
     ],
   },
   {
