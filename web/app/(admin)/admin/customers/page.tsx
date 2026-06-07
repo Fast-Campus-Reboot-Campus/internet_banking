@@ -9,7 +9,6 @@ const ROLE_BADGE_COLOR: Record<AdminRole, string> = {
   ROLE_HQ_AUDIT: 'bg-red-100 text-red-700',
   ROLE_HQ_REVIEW: 'bg-orange-100 text-orange-700',
   ROLE_HQ_RISK: 'bg-yellow-100 text-yellow-700',
-  ROLE_HQ_MARKETING: 'bg-purple-100 text-purple-700',
   ROLE_PRIMARY_OWNER: 'bg-blue-100 text-blue-700',
   ROLE_BRANCH_STAFF: 'bg-green-100 text-green-700',
   ROLE_OTHER_BRANCH: 'bg-gray-100 text-gray-500',
@@ -49,7 +48,7 @@ export default function CustomersPage() {
 
   const role = adminUser.role
   const isOtherBranch = role === 'ROLE_OTHER_BRANCH'
-  const isMaskingRole = role === 'ROLE_HQ_RISK' || role === 'ROLE_HQ_MARKETING'
+  const isMaskingRole = role === 'ROLE_HQ_RISK'
   const needsReason = requiresReason(role)
 
   function unlock() {

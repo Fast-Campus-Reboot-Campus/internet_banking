@@ -71,7 +71,7 @@ export default function AdminDashboardPage() {
   const role = adminUser.role
   const isHQ = role.startsWith('ROLE_HQ')
   const isOtherBranch = role === 'ROLE_OTHER_BRANCH'
-  const isMaskingRole = role === 'ROLE_HQ_RISK' || role === 'ROLE_HQ_MARKETING'
+  const isMaskingRole = role === 'ROLE_HQ_RISK'
   const maskName = (n: string | null) =>
     n ? (isMaskingRole ? n[0] + '*'.repeat(Math.max(0, n.length - 1)) : n) : '-'
 

@@ -4,7 +4,6 @@ export type AdminRole =
   | 'ROLE_HQ_AUDIT'
   | 'ROLE_HQ_REVIEW'
   | 'ROLE_HQ_RISK'
-  | 'ROLE_HQ_MARKETING'
   | 'ROLE_PRIMARY_OWNER'
   | 'ROLE_BRANCH_STAFF'
   | 'ROLE_OTHER_BRANCH'
@@ -26,7 +25,6 @@ export const ROLE_LABELS: Record<AdminRole, string> = {
   ROLE_HQ_AUDIT:      '감사부 (본사)',
   ROLE_HQ_REVIEW:     '심사부 (본사)',
   ROLE_HQ_RISK:       '리스크관리부 (본사)',
-  ROLE_HQ_MARKETING:  '마케팅/기획부 (본사)',
   ROLE_PRIMARY_OWNER: '담당 직원 (지점)',
   ROLE_BRANCH_STAFF:  '지점 직원 (동일지점)',
   ROLE_OTHER_BRANCH:  '타 지점 직원',
@@ -70,7 +68,6 @@ export function applyMasking(customer: CustomerRecord, role: AdminRole) {
     case 'ROLE_HQ_AUDIT': case 'ROLE_PRIMARY_OWNER': return { ...customer }
     case 'ROLE_HQ_REVIEW':    return { ...customer, ssn: customer.ssn.slice(0,7)+'-*******', phone: customer.phone.slice(0,9)+'****' }
     case 'ROLE_HQ_RISK':      return { ...customer, name: customer.name[0]+'*'.repeat(customer.name.length-1), ssn:'******-*******', phone:customer.phone.slice(0,4)+'-****-****', accountNumber:customer.accountNumber.slice(0,4)+'-***-******' }
-    case 'ROLE_HQ_MARKETING': return { ...customer, name: customer.name[0]+'*'.repeat(customer.name.length-1), ssn:'******-*******', phone:'010-****-****', accountNumber:'***-***-******' }
     case 'ROLE_BRANCH_STAFF': return { ...customer, ssn:'******-*******' }
     case 'ROLE_OTHER_BRANCH': return null
   }

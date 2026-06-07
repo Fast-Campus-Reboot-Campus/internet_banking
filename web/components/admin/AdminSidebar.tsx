@@ -14,7 +14,7 @@ type NavSection = { section: string; dot: string; roles: AdminRole[]; bankRoles?
 // CUSTOMER 제외 전 직원(BankRole). break-glass 긴급 접근 등 '전 직원' 범위 게이팅에 사용.
 const EMPLOYEE_ROLES = [
   'ROLE_TELLER', 'ROLE_DEPUTY_MANAGER', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER',
-  'ROLE_HQ_RISK', 'ROLE_HQ_MARKETING', 'ROLE_COMPLIANCE', 'ROLE_OPS', 'ROLE_INTERNAL', 'ROLE_ADMIN',
+  'ROLE_HQ_RISK', 'ROLE_COMPLIANCE', 'ROLE_OPS', 'ROLE_INTERNAL', 'ROLE_ADMIN',
 ]
 
 const NAV: NavSection[] = [
@@ -22,10 +22,10 @@ const NAV: NavSection[] = [
     // 고객 운영 전반 — 조회·회원 라이프사이클·접근 감사·가입 통계 (구 고객+회원관리+모니터링 병합).
     // 섹션 roles 는 항목 effective 의 합집합이고, 항목별 가시성은 item.roles 로 기존과 동일하게 보존.
     section: '고객', dot: 'bg-blue-300',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_HQ_MARKETING', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
+    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
     items: [
       { label: '고객 조회', href: '/admin/customers',
-        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_HQ_MARKETING', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
+        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
       { label: '회원 목록', href: '/admin/members',
         roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
       { label: '회원 상태 관리', href: '/admin/member-status',
@@ -97,7 +97,6 @@ const ROLE_BADGE: Record<AdminRole, string> = {
   ROLE_HQ_AUDIT:      'bg-red-500/20 text-red-300 border-red-400/40',
   ROLE_HQ_REVIEW:     'bg-orange-500/20 text-orange-300 border-orange-400/40',
   ROLE_HQ_RISK:       'bg-yellow-500/20 text-yellow-300 border-yellow-400/40',
-  ROLE_HQ_MARKETING:  'bg-purple-500/20 text-purple-300 border-purple-400/40',
   ROLE_PRIMARY_OWNER: 'bg-blue-500/20 text-blue-300 border-blue-400/40',
   ROLE_BRANCH_STAFF:  'bg-kb-yellow/20 text-kb-yellow border-kb-yellow/40',
   ROLE_OTHER_BRANCH:  'bg-white/10 text-white/50 border-white/20',
