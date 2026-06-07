@@ -19,9 +19,9 @@ public interface CustomerAccessLogRepository extends JpaRepository<CustomerAcces
     @Query("""
             SELECT al FROM CustomerAccessLog al
             WHERE (:keyword IS NULL
-                   OR al.accessorName       LIKE CONCAT('%', :keyword, '%')
-                   OR al.targetCustomerName  LIKE CONCAT('%', :keyword, '%')
-                   OR al.accessActionCode    LIKE CONCAT('%', :keyword, '%'))
+                   OR al.accessorName        LIKE %:keyword%
+                   OR al.targetCustomerName  LIKE %:keyword%
+                   OR al.accessActionCode    LIKE %:keyword%)
               AND (:branchCode IS NULL OR al.accessorBranchCode = :branchCode)
             ORDER BY al.accessedAt DESC
             """)
