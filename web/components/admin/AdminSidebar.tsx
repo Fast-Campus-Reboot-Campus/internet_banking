@@ -19,33 +19,34 @@ const EMPLOYEE_ROLES = [
 
 const NAV: NavSection[] = [
   {
+    // 고객 운영 전반 — 조회·회원 라이프사이클·접근 감사·가입 통계 (구 고객+회원관리+모니터링 병합).
+    // 섹션 roles 는 항목 effective 의 합집합이고, 항목별 가시성은 item.roles 로 기존과 동일하게 보존.
     section: '고객', dot: 'bg-blue-300',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_HQ_MARKETING', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
     items: [
-      { label: '고객 조회', href: '/admin/customers' },
+      { label: '고객 조회', href: '/admin/customers',
+        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_HQ_MARKETING', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
+      { label: '회원 목록', href: '/admin/members',
+        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
+      { label: '회원 상태 관리', href: '/admin/member-status',
+        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
       { label: '감사 로그', href: '/admin/audit-log',
         roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
+      { label: '가입 대시보드', href: '/admin/join-stats',
+        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_RISK'] },
     ],
   },
   {
-    section: '심사', dot: 'bg-orange-400',
+    // KYC·AML·제재·세무 심사 (구 심사+정책 병합).
+    section: '심사·컴플라이언스', dot: 'bg-orange-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
     items: [
       { label: '제재대상 Hit 검토', href: '/admin/screening' },
       { label: 'EDD 심사·승인',    href: '/admin/edd' },
       { label: '중복고객 검토',     href: '/admin/duplicates' },
-      { label: '증표 위변조 검토',  href: '/admin/id-verify' },
-      { label: '얼굴인증 라우팅',   href: '/admin/face-routing' },
       { label: '대리인 검토',       href: '/admin/agent' },
       { label: '미성년 검토',       href: '/admin/minor' },
-    ],
-  },
-  {
-    section: '회원관리', dot: 'bg-sky-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
-    items: [
-      { label: '회원 목록',      href: '/admin/members' },
-      { label: '회원 상태 관리', href: '/admin/member-status' },
+      { label: 'FATCA/CRS',        href: '/admin/fatca' },
     ],
   },
   {
@@ -56,27 +57,11 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    section: '정책', dot: 'bg-purple-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
-    items: [
-      { label: '약관 관리',     href: '/admin/terms' },
-      { label: '동의이력 조회', href: '/admin/consent-log' },
-      { label: 'FATCA/CRS',    href: '/admin/fatca' },
-    ],
-  },
-  {
     section: 'AI 감사', dot: 'bg-red-400',
     roles: ['ROLE_HQ_AUDIT'],
     items: [
       { label: '감사 대시보드', href: '/admin/audit' },
       { label: '격리 관리',     href: '/admin/audit/quarantine' },
-    ],
-  },
-  {
-    section: '모니터링', dot: 'bg-kb-yellow',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_RISK'],
-    items: [
-      { label: '가입 대시보드', href: '/admin/join-stats' },
     ],
   },
   {
@@ -104,19 +89,6 @@ const NAV: NavSection[] = [
       { label: 'EOD 배치',     href: '/admin/loan/eod',         bankRoles: ['ROLE_OPS'] },
       { label: '감사로그',     href: '/admin/loan/audit',       bankRoles: ['ROLE_COMPLIANCE'] },
       { label: '긴급 접근',    href: '/admin/loan/break-glass', bankRoles: EMPLOYEE_ROLES },
-    ],
-  },
-  {
-    section: '마케팅', dot: 'bg-pink-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_MARKETING'],
-    items: [
-      { label: '이벤트 목록', href: '/admin/events' },
-      { label: '이벤트 등록', href: '/admin/events/new' },
-      { label: '응모자 관리', href: '/admin/applicants' },
-      { label: '당첨자 관리', href: '/admin/winners' },
-      { label: '배너 관리',   href: '/admin/banners' },
-      { label: '발송 관리',   href: '/admin/campaigns' },
-      { label: '마케팅 통계', href: '/admin/marketing-stats' },
     ],
   },
 ]
