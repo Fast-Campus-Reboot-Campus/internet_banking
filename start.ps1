@@ -55,7 +55,8 @@ $infra = @(
     "doc-agent-db","minio","vault",
     "kafka","schema-registry","redis",
     "prometheus","grafana",
-    "loki","promtail","langfuse-db","langfuse","phoenix"
+    "loki","promtail","langfuse-db","langfuse","phoenix",
+    "elasticsearch"
 )
 docker compose up -d @infra
 if ($LASTEXITCODE -ne 0) {
