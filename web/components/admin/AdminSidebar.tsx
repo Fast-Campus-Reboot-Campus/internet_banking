@@ -64,6 +64,16 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    section: 'AI 심사지원', dot: 'bg-violet-400',
+    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
+    items: [
+      { label: 'RAG 문서관리',  href: '/admin/ai/rag-documents' },
+      { label: '자문 규칙',     href: '/admin/ai/advisory-rules' },
+      { label: '감사·리스크',   href: '/admin/ai/audit-risk' },
+      { label: '서류 검토 큐',  href: '/admin/ai/doc-review' },
+    ],
+  },
+  {
     section: '마케팅', dot: 'bg-pink-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_MARKETING'],
     items: [
