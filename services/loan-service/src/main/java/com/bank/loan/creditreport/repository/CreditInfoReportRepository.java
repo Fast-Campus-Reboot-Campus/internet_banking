@@ -1,6 +1,8 @@
 package com.bank.loan.creditreport.repository;
 
 import com.bank.loan.creditreport.domain.CreditInfoReport;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -11,6 +13,11 @@ public interface CreditInfoReportRepository extends JpaRepository<CreditInfoRepo
     Optional<CreditInfoReport> findByCrptIdAndDeletedAtIsNull(Long crptId);
 
     List<CreditInfoReport> findByCntrIdAndDeletedAtIsNullOrderByCreatedAtAsc(Long cntrId);
+
+    Page<CreditInfoReport> findAllByDeletedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<CreditInfoReport> findAllByCrptStatusCdAndDeletedAtIsNullOrderByCreatedAtDesc(
+            String crptStatusCd, Pageable pageable);
 
     /**
      * 자동 발화 멱등 키 조회 — (cntrId, dlqId, crptTypeCd, reportReasonCd) 가 동일한 신고가

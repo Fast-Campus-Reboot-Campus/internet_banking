@@ -472,14 +472,14 @@ export const businessCalendarApi = {
 // ─── 신용정보 보고서 ──────────────────────────────────────────
 
 export const creditInfoReportApi = {
-  list: (params?: { page?: number; size?: number }) =>
+  list: (params?: { statusCd?: string; page?: number; size?: number }) =>
     api.get<any>("/api/credit-info-reports", { params }),
 
-  retry: (reportId: number) =>
-    api.post<any>(`/api/credit-info-reports/${reportId}/retry`, {}),
+  retry: (crptId: number) =>
+    api.post<any>(`/api/credit-info-reports/${crptId}/retry`, {}),
 
-  ack: (reportId: number, body?: object) =>
-    api.post<any>(`/api/credit-info-reports/${reportId}/ack`, body ?? {}),
+  ack: (crptId: number, body?: object) =>
+    api.post<any>(`/api/credit-info-reports/${crptId}/ack`, body ?? {}),
 };
 
 // ─── 알림 발송함 ──────────────────────────────────────────────
