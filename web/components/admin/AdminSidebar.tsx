@@ -52,7 +52,8 @@ const NAV: NavSection[] = [
     section: '대출', dot: 'bg-green-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
     items: [
-      { label: '본심사 목록',    href: '/admin/loan/review' },
+      { label: '본심사 목록',        href: '/admin/loan/review' },
+      { label: '자동심사 시뮬레이터', href: '/admin/loan/auto-review-sim' },
       { label: '담보 관리',      href: '/admin/loan/collateral' },
       { label: '서류 관리',      href: '/admin/loan/documents' },
       { label: '우대금리 정책',  href: '/admin/loan/rate-policy' },
