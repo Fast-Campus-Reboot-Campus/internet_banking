@@ -218,6 +218,53 @@ Response: { data: { birthDate: "19900101", ... } }
 
 ---
 
+## DB 스키마 관리
+
+### 소유 테이블
+
+consultation-service는 SQLAlchemy `Base.metadata.create_all()`로 기동 시 아래 테이블을 자동 생성합니다.
+
+| 테이블 | 설명 |
+|--------|------|
+| `consultation` | 상담 이력 |
+| `chatbot_scenario` | 챗봇 시나리오 |
+| `chatbot_intent` | 챗봇 의도 분류 |
+| `chatbot_node` | 챗봇 노드 |
+| `chatbot_node_button` | 챗봇 노드 버튼 |
+| `chatbot_node_flow` | 챗봇 노드 흐름 |
+| `chatbot_consultation` | 챗봇 상담 세션 |
+| `chat_consultation` | 상담사 채팅 상담 |
+| `chat_message_history` | 채팅 메시지 이력 |
+
+### deposit-db 공유 구조
+
+consultation-service는 deposit-db를 사용합니다. 고객 계좌·상품·거래 데이터를 직접 SQL로 조회하기 때문입니다.
+
+| deposit-db 테이블 | 용도 |
+|------------------|------|
+| `deposit_banking_products` | 상품 목록·안내·비교 |
+| `deposit_accounts` | 고객 계좌 조회 |
+| `deposit_transactions` | 거래내역 조회 |
+| `deposit_special_terms` | 우대금리 조건 |
+| `deposit_interest_history` | 이자내역 조회 |
+| `banking_deposit_product_interest_rates` | 금리 정보 |
+
+> **주의**: consultation-service 전용 DB로 분리하면 위 deposit 테이블을 읽지 못해 챗봇 기능이 작동하지 않습니다.
+
+### 기동 순서
+
+deposit-service → consultation-service 순으로 기동해야 합니다. deposit-service Flyway V12가 먼저 실행돼 구 스키마 chatbot·consultation 테이블을 정리한 뒤, consultation-service가 `create_all()`로 올바른 스키마를 생성합니다.
+
+```
+deposit-service 기동 (Flyway V12: 구 chatbot·consultation 테이블 DROP)
+  ↓
+consultation-service 기동 (SQLAlchemy create_all: 테이블 재생성)
+```
+
+docker-compose는 `depends_on: deposit-db`로 순서를 보장합니다.
+
+---
+
 ## 로컬 실행
 
 ### 가상환경 설정
