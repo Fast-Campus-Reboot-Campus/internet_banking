@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const advisoryApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_ADVISORY_API_URL || 'http://localhost:8084',
+  baseURL: process.env.NEXT_PUBLIC_ADVISORY_API_URL || 'http://localhost:8083',
   headers: { 'Content-Type': 'application/json' },
 })
 

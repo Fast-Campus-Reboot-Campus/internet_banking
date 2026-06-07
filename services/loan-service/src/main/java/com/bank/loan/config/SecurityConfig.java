@@ -147,6 +147,12 @@ public class SecurityConfig {
                 // 감사로그 조회 — COMPLIANCE 전용
                 .requestMatchers("/api/audit/**").hasRole(LoanRole.COMPLIANCE.spring())
 
+                // advisory 자문규칙·감사·통계·리포트 — HQ 계열 역할
+                .requestMatchers("/api/advisory/**").hasAnyRole(
+                        LoanRole.HQ_REVIEWER.spring(), LoanRole.COMPLIANCE.spring(),
+                        LoanRole.OPS.spring(), LoanRole.ADMIN.spring()
+                )
+
                 .anyRequest().authenticated()
             );
 
