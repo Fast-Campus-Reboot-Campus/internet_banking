@@ -180,9 +180,29 @@ class MockLLMClient(LLMClient):
                 "(여기 도달하면) 수취 네트워크 확인",
             ),
         ],
+        "ALT-DECEASED": [
+            (
+                "get_party",
+                "권리자 적격성(사망·후견)은 결정적 — 먼저 확인해 맞으면 즉시 fail-closed",
+            ),
+        ],
     }
 
     def select_next_tool(self, state: AgentState, matrix: dict) -> dict:
+        # 반응형 분기: 직전 증거가 device_fingerprint 면 결과(평소/낯선)에 따라 다음 도구를
+        # 바꾼다. "결과가 다음 행동을 바꾼다" — 같은 구조라도 데이터가 경로를 가른다.
+        if state.evidence and state.evidence[-1].tool == "get_device_fingerprint":
+            used = {e.tool for e in state.tool_log}
+            known = bool(state.evidence[-1].raw.get("known_device", True))
+            nxt = "get_related_accounts" if known else "get_auth_events"
+            if nxt not in used:
+                reason = (
+                    "device=평소기기 → H2 약화, 수취 네트워크로 H1(보이스피싱) 확인"
+                    if known
+                    else "device=낯선기기 → H2 강화, 인증 이력으로 H2(계정탈취) 확인"
+                )
+                return {"tool": nxt, "reason": reason}
+
         script = self.SCRIPTS.get(state.alert.id, [])
         idx = len(state.tool_log)
         if idx < len(script):
