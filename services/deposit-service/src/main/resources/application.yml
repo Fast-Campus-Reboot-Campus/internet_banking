@@ -67,6 +67,8 @@ springdoc:
   default-produces-media-type: application/json
 
 logging:
+  file:
+    name: ${LOG_DIR:/logs}/deposit-service.log
   level:
     root: INFO
     org.springframework.web: INFO

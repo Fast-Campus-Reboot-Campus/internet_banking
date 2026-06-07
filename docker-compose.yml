@@ -212,6 +212,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
       CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       LOG_DIR: /logs
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       customer-db:
         condition: service_healthy
@@ -242,6 +244,8 @@ services:
       CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       SPRING_PROFILES_ACTIVE: docker
       LOG_DIR: /logs
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       deposit-db:
         condition: service_healthy
@@ -278,6 +282,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       LOG_DIR: /logs
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       loan-db:
         condition: service_healthy
@@ -315,6 +321,8 @@ services:
       LOG_DIR: /logs
       DEPOSIT_ACCOUNT_URL: http://deposit-service:${DEPOSIT_APP_PORT:-8082}
       DEPOSIT_BALANCE_URL: http://deposit-service:${DEPOSIT_APP_PORT:-8082}
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       payment-db:
         condition: service_healthy
@@ -345,6 +353,8 @@ services:
       REDIS_PORT: 6379
       CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       LOG_DIR: /logs
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       master-db:
         condition: service_healthy
@@ -382,6 +392,8 @@ services:
       AI_LLM_MODEL: ${AI_LLM_MODEL:-stub-v1}
       AI_LLM_BASE_URL: ${AI_LLM_BASE_URL:-}
       AI_LLM_API_KEY: ${AI_LLM_API_KEY:-}
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       ai-db:
         condition: service_healthy
@@ -408,6 +420,8 @@ services:
       CONSULTATION_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       LOG_DIR: /logs
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       deposit-db:
         condition: service_healthy
@@ -585,6 +599,7 @@ services:
       - "${GATEWAY_APP_PORT:-8080}:8080"
     environment:
       GATEWAY_APP_PORT: 8080
+      LOG_DIR: /logs
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-internet-banking-jwt-secret-key-must-be-at-least-32-chars!!}
@@ -600,6 +615,8 @@ services:
       MASTER_SERVICE_PORT: ${MASTER_APP_PORT:-8085}
       AI_SERVICE_HOST: auto-loan-review
       AI_SERVICE_PORT: ${AI_APP_PORT:-8086}
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       customer-service:
         condition: service_healthy
@@ -828,6 +845,8 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
       CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-4-7}
+    volumes:
+      - C:/logs/internet-banking:/logs
     depends_on:
       kafka:
         condition: service_healthy

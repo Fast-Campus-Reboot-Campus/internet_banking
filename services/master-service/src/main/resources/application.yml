@@ -53,3 +53,9 @@ springdoc:
     try-it-out-enabled: true
   packages-to-scan: com.bank.master
   default-produces-media-type: application/json
+
+logging:
+  file:
+    name: ${LOG_DIR:/logs}/master-service.log
+  level:
+    root: INFO

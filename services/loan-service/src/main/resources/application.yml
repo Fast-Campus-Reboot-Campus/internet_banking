@@ -164,3 +164,9 @@ advisory:
 
 ai-service:
   base-url: ${AI_SERVICE_BASE_URL:http://localhost:8086}
+
+logging:
+  file:
+    name: ${LOG_DIR:/logs}/loan-service.log
+  level:
+    root: INFO

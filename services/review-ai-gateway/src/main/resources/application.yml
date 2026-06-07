@@ -77,3 +77,9 @@ llm:
     connect-timeout-ms: ${CLAUDE_CONNECT_TIMEOUT_MS:3000}
     max-attempts: ${CLAUDE_MAX_ATTEMPTS:3}
     retry-backoff-ms: ${CLAUDE_RETRY_BACKOFF_MS:500}
+
+logging:
+  file:
+    name: ${LOG_DIR:/logs}/review-ai-gateway.log
+  level:
+    root: INFO

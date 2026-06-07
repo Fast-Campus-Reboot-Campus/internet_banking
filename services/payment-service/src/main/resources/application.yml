@@ -77,3 +77,8 @@ payment:
     internal:
       bootstrap-servers: ${INTERNAL_KAFKA_BOOTSTRAP:localhost:9094}
       consumer-group: ${INTERNAL_CONSUMER_GROUP:payment-internal}
+logging:
+  file:
+    name: ${LOG_DIR:/logs}/payment-service.log
+  level:
+    root: INFO

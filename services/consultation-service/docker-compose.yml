@@ -92,6 +92,8 @@ services:
       CONSULTATION_LANGFUSE_SECRET_KEY:            ${LANGFUSE_SECRET_KEY:-}
       CONSULTATION_LANGFUSE_PUBLIC_KEY:            ${LANGFUSE_PUBLIC_KEY:-}
       CONSULTATION_LANGFUSE_HOST:                  ${LANGFUSE_HOST:-http://localhost:3001}
+    volumes:
+      - C:/logs/internet-banking:/logs
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8087/health')\""]
       interval: 10s
