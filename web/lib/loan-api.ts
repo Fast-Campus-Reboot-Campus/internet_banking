@@ -245,6 +245,12 @@ export const loanContractApi = {
   list: (params: { customerId: number; page?: number; size?: number }) =>
     api.get<any>("/api/loan-contracts", { params }),
 
+  adminList: (params: {
+    cntrStatusCd?: string; dateFrom?: string; dateTo?: string;
+    page?: number; size?: number;
+  }) =>
+    api.get<any>("/api/admin/loan-contracts", { params }),
+
   get: (cntrId: number) =>
     api.get<any>(`/api/loan-contracts/${cntrId}`),
 
