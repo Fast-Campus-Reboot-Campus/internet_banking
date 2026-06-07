@@ -138,7 +138,7 @@ export default function LoanReviewDetailPage() {
                         {prescreening.prescResultCd}
                       </span>
                     } />
-                    <KV k="예상 한도" v={prescreening.estimatedLimit != null ? `${(prescreening.estimatedLimit / 10000).toLocaleString('ko-KR')}만원` : '-'} />
+                    <KV k="예상 한도" v={prescreening.estimatedLimitAmt != null ? `${(prescreening.estimatedLimitAmt / 10000).toLocaleString('ko-KR')}만원` : '-'} />
                     <KV k="예상 금리" v={prescreening.estimatedRateBps != null ? `${(prescreening.estimatedRateBps / 100).toFixed(2)}%` : '-'} />
                     <KV k="거절 사유" v={prescreening.rejectReasonCd ?? '-'} />
                   </div>
@@ -163,9 +163,9 @@ export default function LoanReviewDetailPage() {
                         {creditEval.cevalDecisionCd}
                       </span>
                     } />
-                    <KV k="신용점수" v={creditEval.creditScore != null ? `${creditEval.creditScore}점` : '-'} />
-                    <KV k="신용등급" v={creditEval.creditGrade ?? '-'} />
-                    <KV k="PD" v={creditEval.pdValue != null ? `${(creditEval.pdValue * 100).toFixed(2)}%` : '-'} />
+                    <KV k="신용점수" v={creditEval.cevalScore != null ? `${creditEval.cevalScore}점` : '-'} />
+                    <KV k="신용등급" v={creditEval.cevalGrade ?? '-'} />
+                    <KV k="PD" v={creditEval.pdBps != null ? `${(creditEval.pdBps / 100).toFixed(2)}%` : '-'} />
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">신용평가 미실행</p>
@@ -208,8 +208,8 @@ export default function LoanReviewDetailPage() {
                         {dsr.dsrStatusCd}
                       </span>
                     } />
-                    <KV k="DSR 비율" v={dsr.ratioBps != null ? `${(dsr.ratioBps / 100).toFixed(1)}%` : '-'} />
-                    <KV k="한도 비율" v={dsr.limitBps != null ? `${(dsr.limitBps / 100).toFixed(1)}%` : '-'} />
+                    <KV k="DSR 비율" v={dsr.dsrRatioBps != null ? `${(dsr.dsrRatioBps / 100).toFixed(1)}%` : '-'} />
+                    <KV k="한도 비율" v={dsr.dsrLimitBps != null ? `${(dsr.dsrLimitBps / 100).toFixed(1)}%` : '-'} />
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">DSR 미산정</p>
