@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ROLE_LABELS, AdminRole, AdminUser } from '@/lib/admin-mock-data'
+import { AdminUser } from '@/lib/admin-mock-data'
+import { branchLabel } from '@/lib/admin-auth'
+import type { DemoAccount } from '@/lib/admin-demo-accounts'
 import { api } from '@/lib/api'
 
 // 데모 모드: 로컬/개발 빌드에선 기본 노출, 운영 빌드에선 NEXT_PUBLIC_DEMO_MODE=true 일 때만.
@@ -11,50 +13,22 @@ const DEMO_MODE =
   process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.NODE_ENV !== 'production'
 const DEMO_PASSWORD = 'Employee1234!'
 
-/**
- * JWT grade(BankRole) → 화면 표시용 AdminRole. 미상 직급은 지점 직원으로 표시.
- *
- * ⚠️ 한계: AdminRole 에는 '지점장' 전용 값이 없고, PRIMARY_OWNER/OTHER_BRANCH 는
- * 정적 직급이 아니라 동적 관계(담당 고객 보유·지점 일치)다. 따라서 비데모(JWT 파생) 경로의
- * BRANCH_MANAGER→PRIMARY_OWNER 등은 정확값이 아닌 근사 표시이며, 데모 계정은
- * admin-demo-accounts 의 큐레이션 메타데이터로 정확히 덮어쓴다. (정밀화는 AdminRole 모델 재설계 과제)
- */
-const GRADE_TO_ADMIN_ROLE: Record<string, AdminRole> = {
-  COMPLIANCE:     'ROLE_HQ_AUDIT',
-  HQ_REVIEWER:    'ROLE_HQ_REVIEW',
-  HQ_RISK:        'ROLE_HQ_RISK',
-  BRANCH_MANAGER: 'ROLE_PRIMARY_OWNER',
-  DEPUTY_MANAGER: 'ROLE_HQ_REVIEW',
-  TELLER:         'ROLE_BRANCH_STAFF',
-  OPS:            'ROLE_HQ_REVIEW',
-}
-
-/** branch_code → 지점명 (표시용). 미상 코드는 코드 그대로. */
-const BRANCH_NAME: Record<string, string> = {
-  '0000': '본사',
-  '0001': '강남지점',
-  '0002': '종로지점',
-}
-
-/** accessToken(JWT) payload 에서 roles(BankRole)·grade·branch 추출. ASCII 라 atob 로 충분. */
-function decodePayload(token: string): { roles: string[]; grade?: string; branch?: string } {
+/** accessToken(JWT) payload 에서 roles(BankRole)·branch 추출. ASCII 라 atob 로 충분. */
+function decodePayload(token: string): { roles: string[]; branch?: string } {
   try {
     const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return { roles: Array.isArray(p.roles) ? p.roles : [], grade: p.grade, branch: p.branch }
+    return { roles: Array.isArray(p.roles) ? p.roles : [], branch: p.branch }
   } catch {
     return { roles: [] }
   }
 }
 
 /**
- * 로그인 후 화면용 AdminUser 구성. 직원 명단을 화면에 깔지 않고 JWT claim 에서 신원을 만든다.
- * 데모 계정이면 큐레이션된 표시 메타데이터(known)를 쓰고, 아니면 JWT 에서 파생한다.
+ * 로그인 후 화면용 AdminUser 구성. 역할은 admin_roles(BankRole[])로 따로 저장하므로
+ * 여기선 표시용 신원(이름·지점)만 담는다. 이름은 데모 계정이면 큐레이션, 아니면 loginId.
  */
-function buildAdminUser(loginId: string, grade?: string, branch?: string, known?: AdminUser): AdminUser {
-  if (known) return known
-  const role = (grade && GRADE_TO_ADMIN_ROLE[grade]) || 'ROLE_BRANCH_STAFF'
-  const branchName = (branch && BRANCH_NAME[branch]) || (branch ? `지점 ${branch}` : '-')
-  return { id: loginId, name: loginId, role, branchId: branch ?? '-', branchName, loginId }
+function buildAdminUser(loginId: string, branch?: string, name?: string): AdminUser {
+  return { loginId, name: name ?? loginId, branchCode: branch ?? '-', branchName: branchLabel(branch) }
 }
 
 export default function AdminLoginPage() {
@@ -63,7 +37,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [demoAccounts, setDemoAccounts] = useState<AdminUser[]>([])
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([])
 
   // 데모 계정 목록은 DEMO_MODE 일 때만 별도 청크로 동적 로드한다(운영 번들 제외).
   useEffect(() => {
@@ -86,7 +60,7 @@ export default function AdminLoginPage() {
       if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
       if (data.data.customerId != null) localStorage.setItem('customerId', String(data.data.customerId))
 
-      const { roles, grade, branch } = decodePayload(token)
+      const { roles, branch } = decodePayload(token)
       // 직원 역할이 없는 고객 토큰은 관리자 콘솔 접근 차단
       if (!roles.some((r) => r !== 'ROLE_CUSTOMER')) {
         setError('관리자 콘솔 접근 권한이 없는 계정입니다.')
@@ -94,17 +68,15 @@ export default function AdminLoginPage() {
         return
       }
 
-      // 데모 계정이면 큐레이션된 표시 메타데이터를 쓴다. 칩 로드 전 직접 타이핑 케이스를 위해 보강 로드.
-      let known: AdminUser | undefined
+      // 데모 계정이면 표시 이름을 큐레이션에서 가져온다. 칩 로드 전 직접 타이핑 케이스 대비 보강 로드.
+      let name: string | undefined
       if (DEMO_MODE) {
         const accounts = demoAccounts.length ? demoAccounts : (await import('@/lib/admin-demo-accounts')).DEMO_ACCOUNTS
-        known = accounts.find((a) => a.loginId === id)
+        name = accounts.find((a) => a.loginId === id)?.name
       }
 
-      const adminUser = buildAdminUser(id, grade, branch, known)
       localStorage.setItem('admin_roles', JSON.stringify(roles))
-      localStorage.setItem('admin_role',  adminUser.role)
-      localStorage.setItem('admin_user',  JSON.stringify(adminUser))
+      localStorage.setItem('admin_user',  JSON.stringify(buildAdminUser(id, branch, name)))
       router.push('/admin/dashboard')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
@@ -113,7 +85,7 @@ export default function AdminLoginPage() {
     }
   }
 
-  function fillDemo(account: AdminUser) {
+  function fillDemo(account: DemoAccount) {
     setLoginId(account.loginId)
     setPassword(DEMO_PASSWORD)
     setError('')
@@ -178,10 +150,10 @@ export default function AdminLoginPage() {
               <div className="flex flex-wrap gap-1.5">
                 {demoAccounts.map((account) => (
                   <button
-                    key={account.id}
+                    key={account.loginId}
                     type="button"
                     onClick={() => fillDemo(account)}
-                    title={`${ROLE_LABELS[account.role]} · ${account.loginId}`}
+                    title={`${account.desc} · ${account.loginId}`}
                     className="text-xs px-2 py-1 border border-gray-200 rounded text-gray-600 hover:border-blue-400 hover:bg-blue-50 transition-colors"
                   >
                     {account.name}

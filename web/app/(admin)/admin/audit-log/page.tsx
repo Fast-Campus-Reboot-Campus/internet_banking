@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AdminUser, ROLE_LABELS, canViewAuditLog } from '@/lib/admin-mock-data'
+import { AdminUser } from '@/lib/admin-mock-data'
 import AdminSidebar from '@/components/admin/AdminSidebar'
+import { useAdminRoles } from '@/components/admin/RoleGate'
+import { canViewAuditLog, primaryRoleLabel } from '@/lib/admin-auth'
 import { getAccessLogs, AccessLog, fmtDateTime, errMsg } from '@/lib/admin-customer-api'
 
 // 백엔드 accessorRole 은 BankRole grade_code 스냅샷이다(프론트 AdminRole 과 어휘가 다름).
@@ -17,6 +19,7 @@ const roleLabel = (r: string | null) => (r ? BANK_ROLE_LABEL[r] ?? r : '-')
 const actionLabel = (a: string) => ACTION_LABEL[a] ?? a
 
 export default function AuditLogPage() {
+  const roles = useAdminRoles()
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null)
   const [rows, setRows] = useState<AccessLog[]>([])
   const [search, setSearch] = useState('')
@@ -39,12 +42,11 @@ export default function AuditLogPage() {
       .finally(() => setLoading(false))
   }, [search])
 
-  const role = adminUser?.role
-  const allowed = role ? canViewAuditLog(role) : false
+  const allowed = canViewAuditLog(roles)
 
   useEffect(() => { if (allowed) load() }, [allowed]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!adminUser || !role) return null
+  if (!adminUser) return null
 
   if (!allowed) {
     return (
@@ -54,7 +56,7 @@ export default function AuditLogPage() {
           <div className="text-center">
             <p className="text-3xl mb-3">🚫</p>
             <p className="text-base font-bold text-gray-700">감사 로그 조회 권한이 없습니다</p>
-            <p className="text-sm text-gray-400 mt-1">{ROLE_LABELS[role]} 역할은 감사 로그에 접근할 수 없습니다.</p>
+            <p className="text-sm text-gray-400 mt-1">{primaryRoleLabel(roles)} 역할은 감사 로그에 접근할 수 없습니다.</p>
           </div>
         </main>
       </div>

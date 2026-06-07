@@ -1,26 +1,30 @@
-// 데모 전용 직원 계정 목록.
+// 데모 전용 직원 계정 목록 (로그인 빠른 입력용).
 //
 // 운영 빌드 번들에 인증 전 직원 명단이 포함되지 않도록 admin-mock-data 에서 분리했다.
 // login 화면이 DEMO_MODE 일 때만 동적 import() 로 로드하므로, 플래그 없는 운영 빌드에서는
 // 이 모듈이 별도 청크로도 emit 되지 않는다(dead-code elimination).
 //
-// loginId 는 customer-service V11/V12 마이그레이션이 시드한 직원 계정과 1:1 매칭된다.
-// 비밀번호는 데모 공통 'Employee1234!'.
+// 역할은 로그인 후 JWT(BankRole)에서 결정되므로 여기엔 표시용 메타데이터(이름·설명)만 둔다.
+// loginId 는 customer-service 시드(V3/V11/V12) 직원 계정과 1:1. 비밀번호는 데모 공통 'Employee1234!'.
 
-import type { AdminUser } from './admin-mock-data'
+export type DemoAccount = {
+  /** 백엔드 직원 계정 loginId */
+  loginId: string
+  /** 칩 표시 이름 */
+  name: string
+  /** 칩 tooltip 설명(역할 힌트) */
+  desc: string
+}
 
-export const DEMO_ACCOUNTS: AdminUser[] = [
-  { id: 'A001', name: '김감사',   role: 'ROLE_HQ_AUDIT',      branchId: 'HQ',   branchName: '본사 감사부',          loginId: 'audit01'  },
-  { id: 'A002', name: '이심사',   role: 'ROLE_HQ_REVIEW',     branchId: 'HQ',   branchName: '본사 심사부',          loginId: 'review01' },
-  { id: 'A003', name: '박리스크', role: 'ROLE_HQ_RISK',       branchId: 'HQ',   branchName: '본사 리스크관리부',    loginId: 'risk01'   },
-  // 지점장(BankRole BRANCH_MANAGER) — 대출 최종결재·본사 상신 데모 담당. (V3 시드 employee01, V21 실명화)
-  { id: 'A010', name: '박상우',   role: 'ROLE_PRIMARY_OWNER', branchId: 'B001', branchName: '강남지점 (지점장)',    loginId: 'employee01' },
-  // 담당 직원(PRIMARY_OWNER 데모) — 직급은 TELLER(V21), '담당'은 동적 관계 표시용 근사 role.
-  { id: 'A005', name: '정담당',   role: 'ROLE_PRIMARY_OWNER', branchId: 'B001', branchName: '강남지점',            loginId: 'owner01'  },
-  { id: 'A006', name: '한직원',   role: 'ROLE_BRANCH_STAFF',  branchId: 'B001', branchName: '강남지점',            loginId: 'staff01'  },
-  { id: 'A007', name: '오타지점', role: 'ROLE_OTHER_BRANCH',  branchId: 'B002', branchName: '종로지점',            loginId: 'other01'  },
-  // V12 시드 — 대출 본심사 매트릭스(수동/자동 심사) 시연용. 실제 대출 게이팅은 JWT 의
-  // BankRole grade(DEPUTY_MANAGER/OPS)로 동작하며, 아래 role 은 레거시 콘솔 표시용 근사값이다.
-  { id: 'A008', name: '심사대리', role: 'ROLE_HQ_REVIEW',     branchId: 'HQ',   branchName: '본사 심사부',          loginId: 'deputy01' },
-  { id: 'A009', name: '운영담당', role: 'ROLE_HQ_REVIEW',     branchId: 'HQ',   branchName: '본사 운영팀',          loginId: 'ops01'    },
+export const DEMO_ACCOUNTS: DemoAccount[] = [
+  { loginId: 'audit01',    name: '김감사',   desc: '컴플라이언스/감사 (본사)' },
+  { loginId: 'review01',   name: '이심사',   desc: '본사 심사' },
+  { loginId: 'risk01',     name: '박리스크', desc: '리스크관리 (PII 마스킹)' },
+  { loginId: 'employee01', name: '박상우',   desc: '지점장 — 대출 최종결재·상신' },
+  { loginId: 'owner01',    name: '정담당',   desc: '창구직원 (담당)' },
+  { loginId: 'staff01',    name: '한직원',   desc: '창구직원' },
+  { loginId: 'other01',    name: '오타지점', desc: '타 지점 창구직원' },
+  // 대출 본심사 매트릭스(수동/자동 심사) 시연용.
+  { loginId: 'deputy01',   name: '심사대리', desc: '부지점장 — 수동 심사' },
+  { loginId: 'ops01',      name: '운영담당', desc: '운영 — 자동 심사·EOD' },
 ]

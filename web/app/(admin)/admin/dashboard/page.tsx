@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { AdminUser, canViewAuditLog } from '@/lib/admin-mock-data'
+import { AdminUser } from '@/lib/admin-mock-data'
 import AdminSidebar from '@/components/admin/AdminSidebar'
+import { useAdminRoles } from '@/components/admin/RoleGate'
+import { getAdminRoles, canViewAuditLog, isMaskingRole, isHeadOffice } from '@/lib/admin-auth'
 import {
   searchCustomers, getAccessLogs,
   CustomerSummary, AccessLog, STATUS_LABEL, fmtDateTime, errMsg,
@@ -16,6 +18,7 @@ const ACTION_LABEL: Record<string, string> = {
 }
 
 export default function AdminDashboardPage() {
+  const roles = useAdminRoles()
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null)
   const [customers, setCustomers] = useState<CustomerSummary[]>([])
   const [customerTotal, setCustomerTotal] = useState(0)
@@ -35,18 +38,14 @@ export default function AdminDashboardPage() {
   const load = useCallback(async (user: AdminUser) => {
     setLoading(true)
     setError(null)
-    const isOtherBranch = user.role === 'ROLE_OTHER_BRANCH'
+    const roles = getAdminRoles()
     try {
-      // 접근 가능 고객 — 역할/지점 스코프는 백엔드 internal API 가 적용. 타지점 계정은 호출 생략.
-      if (!isOtherBranch) {
-        const c = await searchCustomers({ size: 4 })
-        setCustomers(c.content)
-        setCustomerTotal(c.totalElements)
-      } else {
-        setCustomers([]); setCustomerTotal(0)
-      }
+      // 접근 가능 고객 — 역할/지점 스코프는 백엔드 internal API 가 적용한다.
+      const c = await searchCustomers({ size: 4 })
+      setCustomers(c.content)
+      setCustomerTotal(c.totalElements)
       // 감사 로그 — 조회 권한 있는 역할만. '내 접근 이력'은 직원ID 필터가 없어 이름 키워드로 근사.
-      if (canViewAuditLog(user.role)) {
+      if (canViewAuditLog(roles)) {
         const [recent, mine] = await Promise.all([
           getAccessLogs({ size: 4 }),
           getAccessLogs({ keyword: user.name, size: 1 }),
@@ -68,12 +67,11 @@ export default function AdminDashboardPage() {
 
   if (!adminUser) return null
 
-  const role = adminUser.role
-  const isHQ = role.startsWith('ROLE_HQ')
-  const isOtherBranch = role === 'ROLE_OTHER_BRANCH'
-  const isMaskingRole = role === 'ROLE_HQ_RISK'
+  const isHQ = isHeadOffice(roles)
+  const masking = isMaskingRole(roles)
+  const canAudit = canViewAuditLog(roles)
   const maskName = (n: string | null) =>
-    n ? (isMaskingRole ? n[0] + '*'.repeat(Math.max(0, n.length - 1)) : n) : '-'
+    n ? (masking ? n[0] + '*'.repeat(Math.max(0, n.length - 1)) : n) : '-'
 
   return (
     <div className="flex min-h-screen bg-kb-beige-light">
@@ -91,20 +89,7 @@ export default function AdminDashboardPage() {
 
         <div className="px-8 py-6 space-y-6">
           {/* 권한 안내 배너 */}
-          {isOtherBranch && (
-            <div className="bg-red-50 border border-red-200 rounded px-4 py-3 flex items-start gap-3">
-              <span className="text-red-500 text-lg">🚫</span>
-              <div>
-                <p className="text-sm font-semibold text-red-700">접근 제한 계정</p>
-                <p className="text-sm text-red-600 mt-0.5">
-                  타 지점 직원은 원칙적으로 고객 데이터에 접근할 수 없습니다.
-                  접근이 필요한 경우 고객 스마트폰 인증 또는 신분증 확인 후 임시 권한을 요청하세요.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {isMaskingRole && (
+          {masking && (
             <div className="bg-yellow-50 border border-yellow-200 rounded px-4 py-3 flex items-start gap-3">
               <span className="text-yellow-600 text-lg">🔒</span>
               <div>
@@ -124,27 +109,26 @@ export default function AdminDashboardPage() {
           <div className="grid grid-cols-3 gap-4">
             <StatCard
               label="접근 가능 고객 수"
-              value={loading ? '…' : (isOtherBranch ? '0' : customerTotal.toLocaleString())}
+              value={loading ? '…' : customerTotal.toLocaleString()}
               sub={isHQ ? '전 지점' : adminUser.branchName}
               color="blue"
             />
             <StatCard
               label="감사 로그"
-              value={loading ? '…' : (canViewAuditLog(role) ? logTotal.toLocaleString() : '-')}
-              sub={canViewAuditLog(role) ? '전체 건' : '조회 권한 없음'}
+              value={loading ? '…' : (canAudit ? logTotal.toLocaleString() : '-')}
+              sub={canAudit ? '전체 건' : '조회 권한 없음'}
               color="green"
             />
             <StatCard
               label="내 접근 이력"
-              value={loading ? '…' : (canViewAuditLog(role) ? myLogTotal.toLocaleString() : '-')}
+              value={loading ? '…' : (canAudit ? myLogTotal.toLocaleString() : '-')}
               sub="건"
               color="gray"
             />
           </div>
 
           {/* 접근 가능 고객 목록 (미리보기) */}
-          {!isOtherBranch && (
-            <section className="bg-white border border-kb-border rounded-lg shadow-sm">
+          <section className="bg-white border border-kb-border rounded-lg shadow-sm">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-gray-700">접근 가능 고객</h2>
                 <Link href="/admin/customers" className="text-xs text-blue-600 hover:underline">
@@ -175,10 +159,9 @@ export default function AdminDashboardPage() {
                 </tbody>
               </table>
             </section>
-          )}
 
           {/* 최근 감사 로그 */}
-          {canViewAuditLog(role) && (
+          {canAudit && (
             <section className="bg-white border border-kb-border rounded-lg shadow-sm">
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-gray-700">최근 감사 로그</h2>

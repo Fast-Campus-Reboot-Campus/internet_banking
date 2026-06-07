@@ -43,3 +43,73 @@ export function hasAnyRole(roles: string[], ...required: string[]): boolean {
 export function isEmployee(roles: string[]): boolean {
   return roles.some((r) => r !== BankRole.CUSTOMER)
 }
+
+// ─── 표시용 라벨 (BankRole 단일 어휘) ─────────────────────────────────────────
+// AdminRole 모델 재설계: 역할 어휘를 BankRole(JWT)로 단일화하고, '담당/타지점' 같은
+// 동적 관계는 역할이 아니라 지점 비교 등으로 계산한다. 화면은 이 헬퍼들을 통해 게이팅한다.
+
+/** BankRole authority → 한글 라벨 */
+export const BANK_ROLE_LABEL: Record<string, string> = {
+  ROLE_BRANCH_MANAGER: '지점장',
+  ROLE_DEPUTY_MANAGER: '부지점장',
+  ROLE_TELLER:         '창구직원',
+  ROLE_HQ_REVIEWER:    '본사 심사',
+  ROLE_HQ_RISK:        '리스크관리',
+  ROLE_HQ_MARKETING:   '마케팅/기획',
+  ROLE_COMPLIANCE:     '컴플라이언스/감사',
+  ROLE_OPS:            '운영',
+  ROLE_ADMIN:          '시스템관리자',
+  ROLE_CUSTOMER:       '고객',
+}
+
+/** 배지 표시용 대표 역할 라벨 — 권한이 큰 역할 우선. */
+const ROLE_PRIORITY = [
+  BankRole.ADMIN, BankRole.COMPLIANCE, BankRole.HQ_REVIEWER, BankRole.HQ_RISK,
+  BankRole.HQ_MARKETING, BankRole.BRANCH_MANAGER, BankRole.DEPUTY_MANAGER,
+  BankRole.OPS, BankRole.TELLER, BankRole.CUSTOMER,
+]
+export function primaryRoleLabel(roles: string[]): string {
+  const top = ROLE_PRIORITY.find((r) => roles.includes(r))
+  return top ? BANK_ROLE_LABEL[top] : '직원'
+}
+
+/** branch_code → 지점명 (미상 코드는 '지점 {code}'). */
+export const BRANCH_NAME: Record<string, string> = {
+  '0000': '본사',
+  '0001': '강남지점',
+  '0002': '종로지점',
+}
+export const branchLabel = (code?: string | null): string =>
+  code ? (BRANCH_NAME[code] ?? `지점 ${code}`) : '-'
+
+// ─── 접근 정책 (BankRole 기준, 레거시 AdminRole 정책 대체) ────────────────────
+
+/** 본사 직군 — 전 지점 데이터 열람 (지점 스코프 없음). */
+export function isHeadOffice(roles: string[]): boolean {
+  return hasAnyRole(roles, BankRole.COMPLIANCE, BankRole.HQ_REVIEWER, BankRole.HQ_RISK, BankRole.HQ_MARKETING)
+}
+
+/** PII 마스킹 대상 직군 (리스크관리). */
+export function isMaskingRole(roles: string[]): boolean {
+  return hasAnyRole(roles, BankRole.HQ_RISK)
+}
+
+/** 감사로그 조회 가능 — 감사/심사/지점장/창구. */
+export function canViewAuditLog(roles: string[]): boolean {
+  return hasAnyRole(roles, BankRole.COMPLIANCE, BankRole.HQ_REVIEWER, BankRole.BRANCH_MANAGER, BankRole.TELLER)
+}
+
+/** 연락처 등 민감정보 열람 시 조회 사유 필요 — 창구직원. */
+export function requiresReason(roles: string[]): boolean {
+  return hasAnyRole(roles, BankRole.TELLER) && !isHeadOffice(roles)
+}
+
+/**
+ * '타 지점' 여부 — 동적 관계(역할 아님). 본사 직군이 아니고 직원 지점 ≠ 대상 고객 지점이면 true.
+ * (담당(PRIMARY_OWNER)은 party_relation 연동 전까지 별도 판정 없이 지점 스코프로 근사한다)
+ */
+export function isOtherBranch(roles: string[], employeeBranch?: string | null, targetBranch?: string | null): boolean {
+  if (isHeadOffice(roles)) return false
+  if (!employeeBranch || !targetBranch) return false
+  return employeeBranch !== targetBranch
+}

@@ -3,43 +3,41 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { AdminUser, AdminRole, ROLE_LABELS } from '@/lib/admin-mock-data'
-import { getAdminRoles, hasAnyRole } from '@/lib/admin-auth'
+import { AdminUser } from '@/lib/admin-mock-data'
+import { getAdminRoles, hasAnyRole, primaryRoleLabel } from '@/lib/admin-auth'
 
-// roles: 기존 AdminRole(7) 기준. bankRoles: BankRole(JWT) 기준 — 있으면 우선 적용한다.
-// 대출 섹션은 양혜민 매트릭스에 맞춰 bankRoles 로 게이팅한다.
-type NavItem    = { label: string; href: string; roles?: AdminRole[]; bankRoles?: string[] }
-type NavSection = { section: string; dot: string; roles: AdminRole[]; bankRoles?: string[]; items: NavItem[] }
+// 게이팅은 BankRole(JWT, admin_roles) 단일 어휘로 한다. 섹션/항목에 bankRoles 를 지정하고
+// 항목에 없으면 섹션 값을 상속한다. (ROLE_ADMIN 은 hasAnyRole 에서 항상 통과)
+type NavItem    = { label: string; href: string; bankRoles?: string[] }
+type NavSection = { section: string; dot: string; bankRoles: string[]; items: NavItem[] }
 
 // CUSTOMER 제외 전 직원(BankRole). break-glass 긴급 접근 등 '전 직원' 범위 게이팅에 사용.
 const EMPLOYEE_ROLES = [
   'ROLE_TELLER', 'ROLE_DEPUTY_MANAGER', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER',
   'ROLE_HQ_RISK', 'ROLE_COMPLIANCE', 'ROLE_OPS', 'ROLE_INTERNAL', 'ROLE_ADMIN',
 ]
+// 고객 데이터 열람 직군 (본사 + 지점). 가입통계·감사로그는 항목별로 더 좁게 게이팅한다.
+const CUSTOMER_VIEW = ['ROLE_COMPLIANCE', 'ROLE_HQ_REVIEWER', 'ROLE_HQ_RISK', 'ROLE_BRANCH_MANAGER', 'ROLE_DEPUTY_MANAGER', 'ROLE_TELLER']
+const AUDIT_VIEW    = ['ROLE_COMPLIANCE', 'ROLE_HQ_REVIEWER', 'ROLE_BRANCH_MANAGER', 'ROLE_TELLER']
+const HQ_DESK       = ['ROLE_COMPLIANCE', 'ROLE_HQ_REVIEWER', 'ROLE_HQ_RISK']
 
 const NAV: NavSection[] = [
   {
-    // 고객 운영 전반 — 조회·회원 라이프사이클·접근 감사·가입 통계 (구 고객+회원관리+모니터링 병합).
-    // 섹션 roles 는 항목 effective 의 합집합이고, 항목별 가시성은 item.roles 로 기존과 동일하게 보존.
+    // 고객 운영 전반 — 조회·회원 라이프사이클·접근 감사·가입 통계.
     section: '고객', dot: 'bg-blue-300',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
+    bankRoles: CUSTOMER_VIEW,
     items: [
-      { label: '고객 조회', href: '/admin/customers',
-        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
-      { label: '회원 목록', href: '/admin/members',
-        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
-      { label: '회원 상태 관리', href: '/admin/member-status',
-        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
-      { label: '감사 로그', href: '/admin/audit-log',
-        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'] },
-      { label: '가입 대시보드', href: '/admin/join-stats',
-        roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_RISK'] },
+      { label: '고객 조회',      href: '/admin/customers' },
+      { label: '회원 목록',      href: '/admin/members' },
+      { label: '회원 상태 관리', href: '/admin/member-status' },
+      { label: '감사 로그',      href: '/admin/audit-log',  bankRoles: AUDIT_VIEW },
+      { label: '가입 대시보드',  href: '/admin/join-stats', bankRoles: ['ROLE_COMPLIANCE', 'ROLE_HQ_RISK'] },
     ],
   },
   {
-    // KYC·AML·제재·세무 심사 (구 심사+정책 병합).
+    // KYC·AML·제재·세무 심사.
     section: '심사·컴플라이언스', dot: 'bg-orange-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
+    bankRoles: HQ_DESK,
     items: [
       { label: '제재대상 Hit 검토', href: '/admin/screening' },
       { label: 'EDD 심사·승인',    href: '/admin/edd' },
@@ -51,14 +49,14 @@ const NAV: NavSection[] = [
   },
   {
     section: '상담', dot: 'bg-teal-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
+    bankRoles: AUDIT_VIEW,
     items: [
       { label: '고객 조회', href: '/admin/consultation/customer' },
     ],
   },
   {
     section: 'AI 감사', dot: 'bg-red-400',
-    roles: ['ROLE_HQ_AUDIT'],
+    bankRoles: ['ROLE_COMPLIANCE'],
     items: [
       { label: '감사 대시보드', href: '/admin/audit' },
       { label: '격리 관리',     href: '/admin/audit/quarantine' },
@@ -66,8 +64,7 @@ const NAV: NavSection[] = [
   },
   {
     section: '대출', dot: 'bg-green-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
-    // 대출 어드민은 심사·운영·결재 직군이 사용한다 (ROLE_ADMIN 은 hasAnyRole 에서 항상 통과).
+    // 대출 어드민은 심사·운영·결재 직군이 사용한다.
     bankRoles: ['ROLE_DEPUTY_MANAGER', 'ROLE_OPS', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER'],
     items: [
       { label: '본심사 목록',    href: '/admin/loan/review' },
@@ -82,8 +79,8 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    section: '대출 운영·감사', dot: 'bg-emerald-400', roles: [],
-    // break-glass 는 고객 제외 전 직원이 사용 → 섹션은 직원 역할 합집합으로 노출, 항목은 개별 게이팅.
+    section: '대출 운영·감사', dot: 'bg-emerald-400',
+    // break-glass 는 고객 제외 전 직원이 사용 → 섹션은 직원 역할 합집합, 항목은 개별 게이팅.
     bankRoles: EMPLOYEE_ROLES,
     items: [
       { label: 'EOD 배치',     href: '/admin/loan/eod',         bankRoles: ['ROLE_OPS'] },
@@ -92,15 +89,6 @@ const NAV: NavSection[] = [
     ],
   },
 ]
-
-const ROLE_BADGE: Record<AdminRole, string> = {
-  ROLE_HQ_AUDIT:      'bg-red-500/20 text-red-300 border-red-400/40',
-  ROLE_HQ_REVIEW:     'bg-orange-500/20 text-orange-300 border-orange-400/40',
-  ROLE_HQ_RISK:       'bg-yellow-500/20 text-yellow-300 border-yellow-400/40',
-  ROLE_PRIMARY_OWNER: 'bg-blue-500/20 text-blue-300 border-blue-400/40',
-  ROLE_BRANCH_STAFF:  'bg-kb-yellow/20 text-kb-yellow border-kb-yellow/40',
-  ROLE_OTHER_BRANCH:  'bg-white/10 text-white/50 border-white/20',
-}
 
 export default function AdminSidebar() {
   const pathname = usePathname()
@@ -122,15 +110,12 @@ export default function AdminSidebar() {
     router.push('/admin/login')
   }
 
-  const role = user?.role
-  // bankRoles 가 지정된 섹션/아이템은 JWT 역할(BankRole)로, 아니면 기존 AdminRole(7)로 판정한다.
+  // BankRole(JWT) 단일 게이팅 — 섹션 표시 후, 항목은 자체 bankRoles 가 있으면 그걸로, 없으면 섹션 상속.
   const visibleNav = NAV
-    .filter((g) => g.bankRoles ? hasAnyRole(adminRoles, ...g.bankRoles) : (!!role && g.roles.includes(role)))
+    .filter((g) => hasAnyRole(adminRoles, ...g.bankRoles))
     .map((g) => ({
       ...g,
-      items: g.items.filter((item) =>
-        item.bankRoles ? hasAnyRole(adminRoles, ...item.bankRoles)
-                       : (!item.roles || (!!role && item.roles.includes(role)))),
+      items: g.items.filter((item) => !item.bankRoles || hasAnyRole(adminRoles, ...item.bankRoles)),
     }))
     .filter((g) => g.items.length > 0)
 
@@ -154,8 +139,8 @@ export default function AdminSidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[12px] font-semibold text-white truncate">{user.name}</p>
-            <span className={`text-[10px] border px-1.5 py-px font-medium rounded-sm inline-block mt-0.5 ${ROLE_BADGE[user.role]}`}>
-              {ROLE_LABELS[user.role].split(' ')[0]}
+            <span className="text-[10px] border px-1.5 py-px font-medium rounded-sm inline-block mt-0.5 bg-white/10 text-white/80 border-white/20">
+              {primaryRoleLabel(adminRoles)}
             </span>
           </div>
           <button
@@ -216,7 +201,7 @@ export default function AdminSidebar() {
           </div>
         ))}
 
-        {role === 'ROLE_OTHER_BRANCH' && (
+        {visibleNav.length === 0 && (
           <div className="mx-3 mt-4 px-3 py-3 rounded text-[11px] leading-relaxed" style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.3)' }}>
             접근 가능한 메뉴가 없습니다.<br />
             임시 권한이 필요한 경우<br />

@@ -1,23 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AdminUser, AdminRole, ROLE_LABELS, requiresReason } from '@/lib/admin-mock-data'
+import { AdminUser } from '@/lib/admin-mock-data'
 import AdminSidebar from '@/components/admin/AdminSidebar'
+import { useAdminRoles } from '@/components/admin/RoleGate'
+import { isMaskingRole, requiresReason, primaryRoleLabel } from '@/lib/admin-auth'
 import { searchCustomers, recordAccess, CustomerSummary, STATUS_LABEL, errMsg } from '@/lib/admin-customer-api'
-
-const ROLE_BADGE_COLOR: Record<AdminRole, string> = {
-  ROLE_HQ_AUDIT: 'bg-red-100 text-red-700',
-  ROLE_HQ_REVIEW: 'bg-orange-100 text-orange-700',
-  ROLE_HQ_RISK: 'bg-yellow-100 text-yellow-700',
-  ROLE_PRIMARY_OWNER: 'bg-blue-100 text-blue-700',
-  ROLE_BRANCH_STAFF: 'bg-green-100 text-green-700',
-  ROLE_OTHER_BRANCH: 'bg-gray-100 text-gray-500',
-}
 
 const maskPhone = (p: string | null) => (p ? p.replace(/(\d{3})\d+(\d{4})$/, '$1****$2') : '-')
 const maskEmail = (e: string | null) => (e ? e.replace(/^(.).*(@.*)$/, '$1****$2') : '-')
 
 export default function CustomersPage() {
+  const roles = useAdminRoles()
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null)
   const [rows, setRows] = useState<CustomerSummary[]>([])
   const [search, setSearch] = useState('')
@@ -46,10 +40,8 @@ export default function CustomersPage() {
 
   if (!adminUser) return null
 
-  const role = adminUser.role
-  const isOtherBranch = role === 'ROLE_OTHER_BRANCH'
-  const isMaskingRole = role === 'ROLE_HQ_RISK'
-  const needsReason = requiresReason(role)
+  const masking = isMaskingRole(roles)
+  const needsReason = requiresReason(roles)
 
   function unlock() {
     if (!reasonInput.trim() || !reasonModal) return
@@ -68,19 +60,12 @@ export default function CustomersPage() {
       <main className="flex-1 overflow-auto">
         <div className="bg-white border-b border-kb-border px-8 py-4 flex items-center justify-between">
           <h1 className="text-lg font-bold text-gray-800">고객 조회</h1>
-          <span className={`text-xs px-2 py-1 rounded-full font-medium ${ROLE_BADGE_COLOR[role]}`}>{ROLE_LABELS[role]}</span>
+          <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-100 text-blue-700">{primaryRoleLabel(roles)}</span>
         </div>
 
         <div className="px-8 py-6">
-          {isOtherBranch ? (
-            <div className="bg-red-50 border border-red-200 rounded px-6 py-8 text-center">
-              <p className="text-3xl mb-3">🚫</p>
-              <p className="text-base font-bold text-red-700">접근 권한이 없습니다</p>
-              <p className="text-sm text-red-500 mt-2">타 지점 직원은 고객 데이터에 직접 접근할 수 없습니다.</p>
-            </div>
-          ) : (
-            <>
-              {isMaskingRole && (
+          <>
+              {masking && (
                 <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded px-4 py-3 text-sm text-yellow-700 flex items-center gap-2">
                   <span>🔒</span><span>개인식별정보(PII)가 마스킹 처리되어 표시됩니다.</span>
                 </div>
@@ -109,8 +94,8 @@ export default function CustomersPage() {
                   <tbody className="divide-y divide-gray-100">
                     {rows.map(c => {
                       const locked = needsReason && !unlockedIds.has(c.customerId)
-                      const phone = isMaskingRole || locked ? maskPhone(c.phone) : (c.phone ?? '-')
-                      const email = isMaskingRole || locked ? maskEmail(c.email) : (c.email ?? '-')
+                      const phone = masking || locked ? maskPhone(c.phone) : (c.phone ?? '-')
+                      const email = masking || locked ? maskEmail(c.email) : (c.email ?? '-')
                       const label = STATUS_LABEL[c.customerStatusCode] ?? c.customerStatusCode
                       return (
                         <tr key={c.customerId}
@@ -134,8 +119,7 @@ export default function CustomersPage() {
                 </table>
               </div>
               <p className="mt-2 text-xs text-gray-400">총 {rows.length}건 · 주민번호·계좌·잔액은 별 도메인(deposit)으로 본 화면 미표시</p>
-            </>
-          )}
+          </>
         </div>
       </main>
 
