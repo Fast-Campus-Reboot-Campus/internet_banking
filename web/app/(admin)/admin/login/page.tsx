@@ -2,80 +2,107 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ADMIN_ACCOUNTS, ROLE_LABELS, AdminRole } from '@/lib/admin-mock-data'
+import { ADMIN_ACCOUNTS, ROLE_LABELS, AdminRole, AdminUser } from '@/lib/admin-mock-data'
 import { api } from '@/lib/api'
 
-const ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
-  ROLE_HQ_AUDIT:      '전 지점 모든 데이터 Full Access',
-  ROLE_HQ_REVIEW:     '전 지점 대출 신청 고객 데이터 조회',
-  ROLE_HQ_RISK:       '전 지점 자산/연체 데이터 가공본 (PII 마스킹)',
-  ROLE_HQ_MARKETING:  '전 지점 고객 통계 데이터 (PII 마스킹)',
-  ROLE_PRIMARY_OWNER: '담당 고객 상세 데이터 Full Access',
-  ROLE_BRANCH_STAFF:  '소속 지점 고객 공통 테이블, 조회 사유 필수',
-  ROLE_OTHER_BRANCH:  '원칙적 접근 차단 (임시 권한 위임 방식)',
+// 데모 모드: 로컬/개발 빌드에선 기본 노출, 운영 빌드에선 NEXT_PUBLIC_DEMO_MODE=true 일 때만.
+// (운영에 직원 명단을 인증 전 화면에 깔지 않기 위함)
+const DEMO_MODE =
+  process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.NODE_ENV !== 'production'
+const DEMO_PASSWORD = 'Employee1234!'
+
+/** JWT grade(BankRole) → 화면 표시용 AdminRole. 미상 직급은 지점 직원으로 표시. */
+const GRADE_TO_ADMIN_ROLE: Record<string, AdminRole> = {
+  COMPLIANCE:     'ROLE_HQ_AUDIT',
+  HQ_REVIEWER:    'ROLE_HQ_REVIEW',
+  HQ_RISK:        'ROLE_HQ_RISK',
+  HQ_MARKETING:   'ROLE_HQ_MARKETING',
+  BRANCH_MANAGER: 'ROLE_PRIMARY_OWNER',
+  DEPUTY_MANAGER: 'ROLE_HQ_REVIEW',
+  TELLER:         'ROLE_BRANCH_STAFF',
+  OPS:            'ROLE_HQ_REVIEW',
 }
 
-const ROLE_BADGE_COLOR: Record<AdminRole, string> = {
-  ROLE_HQ_AUDIT:      'bg-red-100 text-red-700',
-  ROLE_HQ_REVIEW:     'bg-orange-100 text-orange-700',
-  ROLE_HQ_RISK:       'bg-yellow-100 text-yellow-700',
-  ROLE_HQ_MARKETING:  'bg-purple-100 text-purple-700',
-  ROLE_PRIMARY_OWNER: 'bg-blue-100 text-blue-700',
-  ROLE_BRANCH_STAFF:  'bg-green-100 text-green-700',
-  ROLE_OTHER_BRANCH:  'bg-gray-100 text-gray-500',
+/** branch_code → 지점명 (표시용). 미상 코드는 코드 그대로. */
+const BRANCH_NAME: Record<string, string> = {
+  '0000': '본사',
+  '0001': '강남지점',
+  '0002': '종로지점',
 }
 
-/** accessToken(JWT) payload 의 roles(BankRole) 배열을 추출한다. roles 는 ASCII 라 atob 로 충분. */
-function decodeRoles(token: string): string[] {
+/** accessToken(JWT) payload 에서 roles(BankRole)·grade·branch 추출. ASCII 라 atob 로 충분. */
+function decodePayload(token: string): { roles: string[]; grade?: string; branch?: string } {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-    return Array.isArray(payload.roles) ? payload.roles : []
+    const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return { roles: Array.isArray(p.roles) ? p.roles : [], grade: p.grade, branch: p.branch }
   } catch {
-    return []
+    return { roles: [] }
   }
+}
+
+/**
+ * 로그인 후 화면용 AdminUser 구성. 직원 명단을 화면에 깔지 않고 JWT claim 에서 신원을 만든다.
+ * 데모 계정(ADMIN_ACCOUNTS)이면 큐레이션된 표시 메타데이터를 쓰고, 아니면 JWT 에서 파생한다.
+ */
+function buildAdminUser(loginId: string, grade?: string, branch?: string): AdminUser {
+  const known = ADMIN_ACCOUNTS.find((a) => a.loginId === loginId)
+  if (known) return known
+  const role = (grade && GRADE_TO_ADMIN_ROLE[grade]) || 'ROLE_BRANCH_STAFF'
+  const branchName = (branch && BRANCH_NAME[branch]) || (branch ? `지점 ${branch}` : '-')
+  return { id: loginId, name: loginId, role, branchId: branch ?? '-', branchName, loginId }
 }
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleLogin() {
-    if (!selectedId) { setError('계정을 선택해주세요.'); return }
-    if (!password)   { setError('비밀번호를 입력해주세요.'); return }
+    const id = loginId.trim()
+    if (!id)       { setError('아이디를 입력해주세요.'); return }
+    if (!password) { setError('비밀번호를 입력해주세요.'); return }
 
-    const account = ADMIN_ACCOUNTS.find((a) => a.id === selectedId)!
-
-    // 선택한 직원 계정으로 실제 백엔드 로그인 → 표시 신원과 인증 신원을 일치시킨다.
-    // (V11 시드: account.loginId, 데모 비밀번호 'Employee1234!')
-    let roles: string[] = []
+    setLoading(true)
+    setError('')
     try {
-      const { data } = await api.post('/api/v1/auth/login', {
-        loginId: account.loginId,
-        password,
-      })
-      localStorage.setItem('accessToken',  data.data.accessToken)
-      localStorage.setItem('access_token', data.data.accessToken)
+      const { data } = await api.post('/api/v1/auth/login', { loginId: id, password })
+      const token = data.data.accessToken
+      localStorage.setItem('accessToken',  token)
+      localStorage.setItem('access_token', token)
       if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
       if (data.data.customerId != null) localStorage.setItem('customerId', String(data.data.customerId))
-      roles = decodeRoles(data.data.accessToken)
+
+      const { roles, grade, branch } = decodePayload(token)
+      // 직원 역할이 없는 고객 토큰은 관리자 콘솔 접근 차단
+      if (!roles.some((r) => r !== 'ROLE_CUSTOMER')) {
+        setError('관리자 콘솔 접근 권한이 없는 계정입니다.')
+        setLoading(false)
+        return
+      }
+
+      const adminUser = buildAdminUser(id, grade, branch)
+      localStorage.setItem('admin_roles', JSON.stringify(roles))
+      localStorage.setItem('admin_role',  adminUser.role)
+      localStorage.setItem('admin_user',  JSON.stringify(adminUser))
+      router.push('/admin/dashboard')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
-      setError(e.response?.data?.message ?? '로그인에 실패했습니다. 비밀번호를 확인하세요.')
-      return
+      setError(e.response?.data?.message ?? '로그인에 실패했습니다. 아이디·비밀번호를 확인하세요.')
+      setLoading(false)
     }
+  }
 
-    // JWT 의 실제 역할(BankRole) 배열 — 역할별 메뉴/버튼 게이팅(후속)에 사용한다.
-    localStorage.setItem('admin_roles', JSON.stringify(roles))
-    localStorage.setItem('admin_role', account.role)
-    localStorage.setItem('admin_user', JSON.stringify(account))
-    router.push('/admin/dashboard')
+  function fillDemo(account: AdminUser) {
+    setLoginId(account.loginId)
+    setPassword(DEMO_PASSWORD)
+    setError('')
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="w-full max-w-2xl bg-white shadow-lg">
+      <div className="w-full max-w-md bg-white shadow-lg">
         {/* 헤더 */}
         <div className="px-8 py-6 border-b border-gray-200" style={{ backgroundColor: '#1a3a5c' }}>
           <p className="text-xs text-blue-300 mb-1">AXful Bank</p>
@@ -84,39 +111,18 @@ export default function AdminLoginPage() {
         </div>
 
         <div className="px-8 py-6">
-          {/* 계정 선택 */}
-          <p className="text-sm font-semibold text-gray-700 mb-3">계정 선택</p>
-          <div className="space-y-2 mb-6 max-h-72 overflow-y-auto pr-1">
-            {ADMIN_ACCOUNTS.map((account) => (
-              <button
-                key={account.id}
-                onClick={() => { setSelectedId(account.id); setError('') }}
-                className={`w-full text-left px-4 py-3 border rounded transition-colors
-                  ${selectedId === account.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                      ${selectedId === account.id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                      {account.name[0]}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">{account.name}</p>
-                      <p className="text-xs text-gray-500">{account.branchName}</p>
-                    </div>
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE_COLOR[account.role]}`}>
-                    {ROLE_LABELS[account.role]}
-                  </span>
-                </div>
-                {selectedId === account.id && (
-                  <p className="text-xs text-blue-600 mt-2 pl-11">{ROLE_DESCRIPTIONS[account.role]}</p>
-                )}
-              </button>
-            ))}
+          {/* 아이디 */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">아이디</label>
+            <input
+              type="text"
+              value={loginId}
+              onChange={(e) => { setLoginId(e.target.value); setError('') }}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+              placeholder="직원 아이디"
+              autoComplete="username"
+              className="w-full border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-400 rounded"
+            />
           </div>
 
           {/* 비밀번호 */}
@@ -128,22 +134,44 @@ export default function AdminLoginPage() {
               onChange={(e) => { setPassword(e.target.value); setError('') }}
               onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
               placeholder="비밀번호를 입력하세요"
+              autoComplete="current-password"
               className="w-full border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-400 rounded"
             />
-            <p className="text-xs text-gray-400 mt-1.5">데모 비밀번호: Employee1234!</p>
           </div>
 
           {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
 
           <button
             onClick={handleLogin}
-            className="w-full py-3 text-sm font-bold text-white rounded transition-colors"
+            disabled={loading}
+            className="w-full py-3 text-sm font-bold text-white rounded transition-colors disabled:opacity-50"
             style={{ backgroundColor: '#1a3a5c' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#122a44')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1a3a5c')}
+            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#122a44' }}
+            onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = '#1a3a5c' }}
           >
-            로그인
+            {loading ? '로그인 중…' : '로그인'}
           </button>
+
+          {/* 데모 계정 빠른 입력 — 운영 빌드에선 숨김 */}
+          {DEMO_MODE && (
+            <div className="mt-6 border-t border-gray-100 pt-4">
+              <p className="text-xs font-semibold text-gray-500 mb-2">데모 계정 빠른 입력</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ADMIN_ACCOUNTS.map((account) => (
+                  <button
+                    key={account.id}
+                    type="button"
+                    onClick={() => fillDemo(account)}
+                    title={`${ROLE_LABELS[account.role]} · ${account.loginId}`}
+                    className="text-xs px-2 py-1 border border-gray-200 rounded text-gray-600 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                  >
+                    {account.name}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">클릭하면 아이디·비밀번호가 자동 입력됩니다 (데모 비밀번호: {DEMO_PASSWORD})</p>
+            </div>
+          )}
 
           <p className="text-center text-xs text-gray-400 mt-4">
             본 시스템의 모든 접근 이력은 감사 로그에 기록됩니다
