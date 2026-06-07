@@ -15,7 +15,7 @@ services:
       POSTGRES_USER:     deposit
       POSTGRES_PASSWORD: deposit
     ports:
-      - "5439:5432"
+      - "5440:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/ddl.sql:/docker-entrypoint-initdb.d/01_ddl.sql
@@ -47,7 +47,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      - "9093:9092"
     environment:
       KAFKA_BROKER_ID:                        1
       KAFKA_ZOOKEEPER_CONNECT:                zookeeper:2181
