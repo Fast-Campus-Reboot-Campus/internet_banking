@@ -70,50 +70,88 @@ export type AdvisoryRule = {
 }
 
 export async function getAdvisoryRules() {
-  const { data } = await advisoryApi.get('/api/advisory/rules')
-  return (data?.data ?? data) as AdvisoryRule[]
+  const { data } = await advisoryApi.get('/api/advisory/rules', {
+    headers: { 'X-Actor-Role': 'AUDITOR' },
+  })
+  return (data?.data?.items ?? data?.data ?? []) as AdvisoryRuleResponse[]
 }
 
-export async function updateAdvisoryRule(ruleId: number, payload: Partial<AdvisoryRule>) {
-  const { data } = await advisoryApi.put(`/api/advisory/rules/${ruleId}`, payload)
+export type AdvisoryRuleResponse = {
+  ruleId: number
+  ruleCd: string
+  ruleName: string
+  advisoryTypeCd: string
+  ruleCategoryCd: string
+  severityCd: string
+  ruleParams?: string
+  ruleVersion?: string
+  activeYn: string
+  effectiveStartDate?: string
+  effectiveEndDate?: string
+  ruleDesc?: string
+}
+
+export type UpdateAdvisoryRuleBody = {
+  activeYn?: string
+  ruleParams?: string
+  ruleVersion?: string
+  effectiveStartDate?: string
+  effectiveEndDate?: string
+  ruleDesc?: string
+  changeReasonCd?: string
+  changeRemark?: string
+}
+
+export async function updateAdvisoryRule(ruleId: number, payload: UpdateAdvisoryRuleBody) {
+  const { data } = await advisoryApi.put(`/api/advisory/rules/${ruleId}`, payload, {
+    headers: { 'X-Actor-Role': 'ADMIN' },
+  })
   return data?.data ?? data
 }
 
 // ── 감사 의견 ─────────────────────────────────────────────────────────────
 
+const AUDITOR_HDR = { headers: { 'X-Actor-Role': 'AUDITOR' } }
+
 export async function getAuditOpinionsByReport(advrId: number) {
-  const { data } = await advisoryApi.get(`/api/advisory/audit/opinions/by-report/${advrId}`)
-  return data?.data ?? data
+  const { data } = await advisoryApi.get(`/api/advisory/audit/opinions/by-report/${advrId}`, AUDITOR_HDR)
+  return (data?.data ?? []) as any[]
 }
 
 export async function getAuditOpinionsByReviewer(reviewerId: number) {
-  const { data } = await advisoryApi.get(`/api/advisory/audit/opinions/by-reviewer/${reviewerId}`)
-  return data?.data ?? data
+  const { data } = await advisoryApi.get(`/api/advisory/audit/opinions/by-reviewer/${reviewerId}`, AUDITOR_HDR)
+  return (data?.data ?? []) as any[]
 }
 
 export async function getReviewerRiskScore(reviewerId: number) {
-  const { data } = await advisoryApi.get(`/api/advisory/audit/risk-scores/${reviewerId}`)
+  const { data } = await advisoryApi.get(`/api/advisory/audit/risk-scores/${reviewerId}`, AUDITOR_HDR)
   return data?.data ?? data
 }
 
-export async function getRecentAuditOpinions() {
-  const { data } = await advisoryApi.get('/api/advisory/audit/opinions/recent')
-  return data?.data ?? data
+export async function getRecentAuditOpinions(limit = 20) {
+  const { data } = await advisoryApi.get('/api/advisory/audit/opinions/recent', {
+    ...AUDITOR_HDR, params: { limit },
+  })
+  return (data?.data ?? []) as any[]
 }
 
-export async function getTopBiasRiskScores() {
-  const { data } = await advisoryApi.get('/api/advisory/audit/risk-scores/top/bias')
-  return data?.data ?? data
+export async function getTopBiasRiskScores(limit = 20) {
+  const { data } = await advisoryApi.get('/api/advisory/audit/risk-scores/top/bias', {
+    ...AUDITOR_HDR, params: { limit },
+  })
+  return (data?.data ?? []) as any[]
 }
 
-export async function getTopComplianceRiskScores() {
-  const { data } = await advisoryApi.get('/api/advisory/audit/risk-scores/top/compliance')
-  return data?.data ?? data
+export async function getTopComplianceRiskScores(limit = 20) {
+  const { data } = await advisoryApi.get('/api/advisory/audit/risk-scores/top/compliance', {
+    ...AUDITOR_HDR, params: { limit },
+  })
+  return (data?.data ?? []) as any[]
 }
 
 export async function getQuarantineList() {
-  const { data } = await advisoryApi.get('/api/advisory/audit/quarantine')
-  return data?.data ?? data
+  const { data } = await advisoryApi.get('/api/advisory/audit/quarantine', AUDITOR_HDR)
+  return (data?.data ?? []) as any[]
 }
 
 // ── 통계 ──────────────────────────────────────────────────────────────────
