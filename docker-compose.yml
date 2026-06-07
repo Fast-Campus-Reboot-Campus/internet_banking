@@ -810,6 +810,38 @@ services:
       timeout: 5s
       retries: 5
 
+  review-ai-gateway:
+    build:
+      context: .
+      dockerfile: services/review-ai-gateway/Dockerfile
+    container_name: ib-review-ai-gateway
+    ports:
+      - "${AIGATEWAY_APP_PORT:-8088}:8088"
+    environment:
+      AIGATEWAY_APP_PORT: 8088
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_PROFILES_ACTIVE: docker
+      LOG_DIR: /logs
+      LOAN_SERVICE_URL: http://loan-service:8083
+      AI_SERVICE_BASE_URL: http://auto-loan-review:8086
+      ADVISORY_BASE_URL: http://advisory-service:8080
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-4-7}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      loan-service:
+        condition: service_healthy
+      auto-loan-review:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8088/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
   kafka-exporter-kftc:
     image: danielqsj/kafka-exporter:latest
     container_name: ib-kafka-exporter-kftc
