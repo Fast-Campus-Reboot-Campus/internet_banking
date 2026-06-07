@@ -34,7 +34,7 @@ export default function AdminCollateralPage() {
     setLoading(true); setErr('')
     try {
       const { data: res } = await collateralApi.list(parseInt(applId))
-      setCols(res.data ?? [])
+      setCols(res.data?.items ?? [])
     } catch { fail('담보 목록을 불러오지 못했습니다.') }
     finally { setLoading(false) }
   }
