@@ -2,10 +2,23 @@
 
 > 대상 대시보드: **ML 대출 심사 모니터링**
 > 대상 독자: 개발팀 전원
-> 환경: 로컬 직접 설치 기준 (`ai-service` + Prometheus + Grafana)
+> 환경: 메인 `docker-compose.yml` 기준 (`auto-loan-review` + Prometheus + Grafana)
 
-> **⚠️ 포트 충돌 주의**: `ai-service`는 기본 포트 8086을 사용하는데, 메인 `docker-compose.yml`의 `auto-loan-review`도 동일한 8086 포트를 점유합니다. 두 서비스를 동시에 실행하면 충돌합니다. `ai-service`를 로컬로 실행할 때는 `docker compose stop auto-loan-review` 후 진행하거나, `AI_APP_PORT`를 다른 번호로 변경하세요.
-> **참고**: `ai-service`(`services/ai-service/`)는 현재 docker-compose에 미통합 상태입니다. 로컬 Gradle 실행(`./gradlew :services:ai-service:bootRun`)으로만 기동 가능합니다.
+> **⚠️ 현재 대시보드 상태 (2026-06-08 기준)**
+>
+> 이 대시보드의 대부분 패널이 **No data** 상태입니다. 이유는 다음과 같습니다.
+>
+> **왜 데이터가 없나요?**
+> 대출 자동 심사는 두 단계로 이루어집니다.
+> 1. `auto-loan-review` 서비스가 심사 요청을 받아 전처리
+> 2. `inference-server`(ML 모델 서버)에 예측을 요청하고 APPROVE/REJECT/CONDITIONAL 결과를 받음
+>
+> 현재 `inference-server`가 실행되지 않고 있기 때문에, 심사 자체가 이루어지지 않아 대부분의 지표가 기록되지 않습니다.
+>
+> **왜 inference-server가 실행되지 않나요?**
+> ML 모델은 2026년 5월에 학습된 것으로 문서에 기록되어 있지만(`docs/ai/MODEL_CARDS.md`), 학습된 모델 파일이 GitHub 저장소에 올라와 있지 않아 서버를 띄울 수 없는 상태입니다. ML 담당 팀원에게 모델 파일 공유를 요청해야 합니다.
+>
+> **지금 수집되는 지표**: 추론 오류 건수(`review_inference_error_total`)만 수집 중입니다. 나머지 지표는 inference-server가 연결되면 자동으로 수집되기 시작합니다.
 
 ---
 
@@ -52,11 +65,12 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 |------|-----|------|
 | Grafana (대시보드) | `http://localhost:3000` | admin / admin |
 | Prometheus (알림 확인) | `http://localhost:9090/alerts` | 없음 |
-| ai-service 메트릭 원본 | `http://localhost:8086/actuator/prometheus` | 없음 |
+| auto-loan-review 메트릭 원본 | `http://localhost:8086/actuator/prometheus` | 없음 |
 
 대시보드 경로: Grafana 접속 → 왼쪽 메뉴 **Dashboards** → **ML 대출 심사 모니터링**
 
-> ai-service, inference-server, Prometheus가 모두 실행 중이어야 데이터가 표시됩니다.
+> `auto-loan-review`, `inference-server`, Prometheus가 모두 실행 중이어야 전체 데이터가 표시됩니다.
+> 현재는 inference-server가 없어서 추론 오류 건수를 제외한 대부분의 패널이 No data 상태입니다. 상단 주의사항을 참고하세요.
 
 ---
 
@@ -366,11 +380,12 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/ai/auto-review" `
 | 파일 | 역할 |
 |------|------|
 | `infra/prometheus/alerts.yml` | 알림 규칙 정의 (ml-loan-review 그룹) |
-| `infra/prometheus/prometheus.yml` | 데이터 수집 대상 설정 (ai-service 포함) |
+| `infra/prometheus/prometheus.yml` | 데이터 수집 대상 설정 (auto-loan-review 포함) |
 | `infra/grafana/provisioning/dashboards/ml-loan-review.json` | 대시보드 정의 파일 |
-| `services/ai-service/src/main/java/com/bank/ai/review/observability/ReviewMetrics.java` | 메트릭 수집 코드 |
-| `services/ai-service/src/main/java/com/bank/ai/review/service/AutoReviewService.java` | 심사 서비스 (메트릭 연동) |
-| `services/ai-service/src/main/resources/application-local.yml` | 로컬 개발 설정 (Security 제외) |
+| `services/auto-loan-review/src/main/java/com/bank/ai/metrics/ReviewMetrics.java` | 어떤 지표를 어떻게 기록할지 정의한 파일 |
+| `services/auto-loan-review/src/main/java/com/bank/ai/rule/service/RuleEngineService.java` | 심사가 완료되는 시점에 위 메트릭을 실제로 기록하는 파일 |
+| `docs/ai/MODEL_CARDS.md` | 사용 중인 ML 모델 명세 — 모델 이름, 학습 데이터, 성능 지표 기록 |
+| `docs/plan/phase-c-ml-pipeline.md` | 모델 학습 방법 및 파이프라인 구현 계획 |
 
 ---
 
