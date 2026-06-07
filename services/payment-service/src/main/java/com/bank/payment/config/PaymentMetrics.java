@@ -81,6 +81,11 @@ public class PaymentMetrics {
         registry.counter("payment.instruction.failed").increment();
     }
 
+    // KFTC 마감배치 정산 실패 (건별 격리 후 계속된 진짜 실패)
+    public void kftcSettlementFailed() {
+        registry.counter("payment.kftc.settlement.failed").increment();
+    }
+
     // 지표 12: 중복 거래 감지 (멱등키 충돌)
     public void idempotencyDuplicate() {
         registry.counter("payment.idempotency.duplicate").increment();

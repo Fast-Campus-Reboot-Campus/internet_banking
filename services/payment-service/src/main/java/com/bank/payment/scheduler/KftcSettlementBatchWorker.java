@@ -1,14 +1,17 @@
 package com.bank.payment.scheduler;
 
+import com.bank.payment.config.PaymentMetrics;
 import com.bank.payment.domain.KftcClearingTransaction;
 import com.bank.payment.domain.mapper.KftcClearingTransactionMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -27,10 +30,11 @@ public class KftcSettlementBatchWorker {
 
     private final KftcClearingTransactionMapper ctMapper;
     private final KftcSettlementHelper settlementHelper;
+    private final PaymentMetrics metrics;
 
     @Scheduled(cron = "${payment.settlement.kftc-cutoff-cron:0 0 11 * * *}")
     public void runDailySettlement() {
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);  // yyyyMMdd
+        String today = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.BASIC_ISO_DATE);  // yyyyMMdd (KST 고정)
         List<KftcClearingTransaction> dueList = ctMapper.selectDueForSettlement(today);
 
         if (dueList.isEmpty()) {
@@ -45,18 +49,31 @@ public class KftcSettlementBatchWorker {
 
         int successCount = 0;
         int failCount = 0;
+        int skipCount = 0;
         for (KftcClearingTransaction ct : dueList) {
             try {
                 settlementHelper.settleKftc(ct);
                 log.info("[KFTC마감] 정산완료. piId={} clearingNo={} amount={}",
                         ct.getOurPaymentInstructionId(), ct.getClearingNo(), ct.getClearingAmount());
                 successCount++;
+            } catch (OptimisticLockingFailureException e) {
+                // 다중 인스턴스 경합 패배 — 다른 인스턴스가 이미 정산함. 실패 아님.
+                log.info("[KFTC마감] 정산 경합 skip(다른 인스턴스 처리). piId={} clearingNo={}",
+                        ct.getOurPaymentInstructionId(), ct.getClearingNo());
+                skipCount++;
             } catch (Exception e) {
                 log.error("[KFTC마감] 정산실패 — 건 격리 후 계속. piId={} clearingNo={}",
                         ct.getOurPaymentInstructionId(), ct.getClearingNo(), e);
                 failCount++;
+                metrics.kftcSettlementFailed();
             }
         }
-        log.info("[KFTC마감] 정산 완료. settlementDate={} 성공={} 실패={}", today, successCount, failCount);
+        if (failCount > 0) {
+            log.error("[KFTC마감] 정산 종료 — 실패 건 존재. settlementDate={} 성공={} skip={} 실패={} "
+                    + "(실패 건은 익일 이후 배치에서 재시도됨)", today, successCount, skipCount, failCount);
+        } else {
+            log.info("[KFTC마감] 정산 종료. settlementDate={} 성공={} skip={} 실패={}",
+                    today, successCount, skipCount, failCount);
+        }
     }
 }
