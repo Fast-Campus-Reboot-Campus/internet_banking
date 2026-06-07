@@ -22,7 +22,7 @@
 
 ## 1. 대시보드 구성
 
-대시보드는 5개 섹션으로 구성된다.
+대시보드는 6개 섹션으로 구성된다.
 
 | 섹션 | 패널 | 설명 |
 |------|------|------|
@@ -31,20 +31,24 @@
 | 시스템 / DB | CPU, 커넥션 풀, 쿼리 지연 | 인프라 수준 상태 |
 | 인증 / 보안 | 로그인 성공/실패, JWT 실패, 회원가입 | 보안 이벤트 추적 |
 | 서버 자원 | Disk 사용량, Network I/O | 호스트 OS 수준 자원 (windows_exporter) |
+| 로그 | 애플리케이션 로그, ERROR 로그 | Loki에서 수집한 실시간 로그 스트림 |
 
 상단 **서비스** 드롭다운으로 서비스를 전환한다.
 > 인증/보안 · 서버 자원 섹션은 `customer-service` 선택 시에만 의미 있는 데이터가 표시된다.
+> 로그 섹션은 HTTP 에러율과 별개다. 내부 예외가 `try-catch`로 처리되면 HTTP 에러율은 0이어도 ERROR 로그가 남을 수 있다.
 
 ### 모니터링 대상 서비스
 
 | 서비스 | 포트 | 역할 |
 |--------|------|------|
+| api-gateway | 8080 | API 게이트웨이 (라우팅, JWT 검증) |
 | customer-service | 8081 | 고객 인증 및 계좌 관리 |
 | deposit-service | 8082 | 예금 상품 관리 |
 | loan-service | 8083 | 대출 심사 및 관리 |
 | payment-service | 8084 | 이체 및 결제 처리 |
 | master-service | 8085 | 공통 마스터 데이터 |
-| ai-service | 8086 | 자동 심사 AI 모듈 |
+| auto-loan-review | 8086 | 자동 심사 AI 에이전트 |
+| review-ai-gateway | 8088 | 감사 분석 AI 게이트웨이 |
 
 드롭다운에 서비스 이름이 보이지 않으면 해당 서비스가 실행되지 않은 것이다.
 
@@ -289,8 +293,13 @@
 ### 3단계: Grafana datasource 확인
 `http://localhost:3000/connections/datasources` → Prometheus datasource → **Save & test**
 - "Successfully queried the Prometheus API" 메시지가 나와야 정상
-- 실패하면 URL이 `http://localhost:9090` 으로 설정되어 있는지 확인
+- 실패하면 URL이 `http://prometheus:9090` 으로 설정되어 있는지 확인
 
+**로그 패널만 No data인 경우** → Loki datasource 확인
+- `http://localhost:3000/connections/datasources` → Loki datasource → **Save & test**
+- Loki datasource의 uid가 `loki`인지 확인 (`datasource.yml`에 명시됨)
+- Promtail이 해당 서비스의 로그 파일을 수집 중인지 확인: `http://localhost:3100/loki/api/v1/label/application/values`
+- 로그 수집 대상 서비스: api-gateway, customer-service, deposit-service, loan-service, payment-service, master-service, auto-loan-review, review-ai-gateway
 
 ---
 
@@ -300,6 +309,8 @@
 2. **Dashboards → New → Import → Upload JSON file**
 3. `infra/grafana/provisioning/dashboards/internet-banking.json` 업로드
 4. Import 화면에서 Prometheus datasource 선택 후 Import
+
+> **주의**: Grafana v10 이상은 unified storage(SQLite `resource` 테이블)를 사용한다. 프로비저닝 JSON 파일을 수정해도 Grafana DB 캐시가 남아있으면 반영되지 않을 수 있다. 이 경우 대시보드를 삭제 후 Grafana를 재시작하면 JSON 파일에서 재프로비저닝된다.
 
 ---
 
