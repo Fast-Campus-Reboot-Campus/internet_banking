@@ -38,7 +38,7 @@ export default function AdminCalendarPage() {
       const from = `${year}0101`
       const to   = `${year}1231`
       const { data: res } = await businessCalendarApi.list({ from, to })
-      setRows(res.data ?? res ?? [])
+      setRows(res.data?.items ?? [])
     } catch { fail('영업일 목록을 불러오지 못했습니다.') }
     finally { setLoading(false) }
   }, [year])

@@ -486,13 +486,13 @@ export const creditInfoReportApi = {
 
 export const notificationOutboxApi = {
   get: (outboxId: number) =>
-    api.get<any>(`/api/notification-outbox/${outboxId}`),
+    api.get<any>(`/api/notifications/${outboxId}`),
 
   list: (params?: { page?: number; size?: number }) =>
-    api.get<any>("/api/notification-outbox", { params }),
+    api.get<any>("/api/notifications", { params }),
 
   retry: (outboxId: number) =>
-    api.post<any>(`/api/notification-outbox/${outboxId}/retry`, {}),
+    api.post<any>(`/api/notifications/${outboxId}/retry`, {}),
 };
 
 // ─── 본인인증 ─────────────────────────────────────────────────
