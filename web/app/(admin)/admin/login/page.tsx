@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ADMIN_ACCOUNTS, ROLE_LABELS, AdminRole, AdminUser } from '@/lib/admin-mock-data'
+import { ROLE_LABELS, AdminRole, AdminUser } from '@/lib/admin-mock-data'
 import { api } from '@/lib/api'
 
 // 데모 모드: 로컬/개발 빌드에선 기본 노출, 운영 빌드에선 NEXT_PUBLIC_DEMO_MODE=true 일 때만.
@@ -42,10 +42,9 @@ function decodePayload(token: string): { roles: string[]; grade?: string; branch
 
 /**
  * 로그인 후 화면용 AdminUser 구성. 직원 명단을 화면에 깔지 않고 JWT claim 에서 신원을 만든다.
- * 데모 계정(ADMIN_ACCOUNTS)이면 큐레이션된 표시 메타데이터를 쓰고, 아니면 JWT 에서 파생한다.
+ * 데모 계정이면 큐레이션된 표시 메타데이터(known)를 쓰고, 아니면 JWT 에서 파생한다.
  */
-function buildAdminUser(loginId: string, grade?: string, branch?: string): AdminUser {
-  const known = ADMIN_ACCOUNTS.find((a) => a.loginId === loginId)
+function buildAdminUser(loginId: string, grade?: string, branch?: string, known?: AdminUser): AdminUser {
   if (known) return known
   const role = (grade && GRADE_TO_ADMIN_ROLE[grade]) || 'ROLE_BRANCH_STAFF'
   const branchName = (branch && BRANCH_NAME[branch]) || (branch ? `지점 ${branch}` : '-')
@@ -58,6 +57,13 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [demoAccounts, setDemoAccounts] = useState<AdminUser[]>([])
+
+  // 데모 계정 목록은 DEMO_MODE 일 때만 별도 청크로 동적 로드한다(운영 번들 제외).
+  useEffect(() => {
+    if (!DEMO_MODE) return
+    import('@/lib/admin-demo-accounts').then((m) => setDemoAccounts(m.DEMO_ACCOUNTS)).catch(() => { /* noop */ })
+  }, [])
 
   async function handleLogin() {
     const id = loginId.trim()
@@ -82,7 +88,14 @@ export default function AdminLoginPage() {
         return
       }
 
-      const adminUser = buildAdminUser(id, grade, branch)
+      // 데모 계정이면 큐레이션된 표시 메타데이터를 쓴다. 칩 로드 전 직접 타이핑 케이스를 위해 보강 로드.
+      let known: AdminUser | undefined
+      if (DEMO_MODE) {
+        const accounts = demoAccounts.length ? demoAccounts : (await import('@/lib/admin-demo-accounts')).DEMO_ACCOUNTS
+        known = accounts.find((a) => a.loginId === id)
+      }
+
+      const adminUser = buildAdminUser(id, grade, branch, known)
       localStorage.setItem('admin_roles', JSON.stringify(roles))
       localStorage.setItem('admin_role',  adminUser.role)
       localStorage.setItem('admin_user',  JSON.stringify(adminUser))
@@ -153,11 +166,11 @@ export default function AdminLoginPage() {
           </button>
 
           {/* 데모 계정 빠른 입력 — 운영 빌드에선 숨김 */}
-          {DEMO_MODE && (
+          {DEMO_MODE && demoAccounts.length > 0 && (
             <div className="mt-6 border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-500 mb-2">데모 계정 빠른 입력</p>
               <div className="flex flex-wrap gap-1.5">
-                {ADMIN_ACCOUNTS.map((account) => (
+                {demoAccounts.map((account) => (
                   <button
                     key={account.id}
                     type="button"
