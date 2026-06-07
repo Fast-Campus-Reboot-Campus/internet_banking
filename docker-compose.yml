@@ -362,14 +362,18 @@ services:
       context: .
       dockerfile: services/auto-loan-review/Dockerfile
     container_name: ib-auto-loan-review
+    ports:
+      - "${AI_APP_PORT:-8086}:8086"
     environment:
       AI_APP_PORT: 8086
+      AUTO_LOAN_REVIEW_APP_PORT: 8086
       AI_DB_HOST: ai-db
       AI_DB_PORT: 5432
       AI_DB_NAME: ${AI_DB_NAME:-ai_db}
       AI_DB_USER: ${AI_DB_USER:-ai}
       AI_DB_PASSWORD: ${AI_DB_PASSWORD:-ai}
       AI_DB_URL: jdbc:postgresql://ai-db:5432/${AI_DB_NAME:-ai_db}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SPRING_PROFILES_ACTIVE: docker
@@ -805,6 +809,42 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  kafka-exporter-kftc:
+    image: danielqsj/kafka-exporter:latest
+    container_name: ib-kafka-exporter-kftc
+    command:
+      - "--kafka.server=kafka:29092"
+    ports:
+      - "${KAFKA_EXPORTER_KFTC_PORT:-9308}:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  kafka-exporter-bok:
+    image: danielqsj/kafka-exporter:latest
+    container_name: ib-kafka-exporter-bok
+    command:
+      - "--kafka.server=kafka:29092"
+    ports:
+      - "${KAFKA_EXPORTER_BOK_PORT:-9309}:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  kafka-exporter-internal:
+    image: danielqsj/kafka-exporter:latest
+    container_name: ib-kafka-exporter-internal
+    command:
+      - "--kafka.server=kafka:29092"
+    ports:
+      - "${KAFKA_EXPORTER_INTERNAL_PORT:-9310}:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
 
 volumes:
   customer-db-data:
