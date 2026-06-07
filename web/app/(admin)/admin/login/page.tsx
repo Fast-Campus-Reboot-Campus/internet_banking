@@ -11,7 +11,14 @@ const DEMO_MODE =
   process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.NODE_ENV !== 'production'
 const DEMO_PASSWORD = 'Employee1234!'
 
-/** JWT grade(BankRole) → 화면 표시용 AdminRole. 미상 직급은 지점 직원으로 표시. */
+/**
+ * JWT grade(BankRole) → 화면 표시용 AdminRole. 미상 직급은 지점 직원으로 표시.
+ *
+ * ⚠️ 한계: AdminRole 에는 '지점장' 전용 값이 없고, PRIMARY_OWNER/OTHER_BRANCH 는
+ * 정적 직급이 아니라 동적 관계(담당 고객 보유·지점 일치)다. 따라서 비데모(JWT 파생) 경로의
+ * BRANCH_MANAGER→PRIMARY_OWNER 등은 정확값이 아닌 근사 표시이며, 데모 계정은
+ * admin-demo-accounts 의 큐레이션 메타데이터로 정확히 덮어쓴다. (정밀화는 AdminRole 모델 재설계 과제)
+ */
 const GRADE_TO_ADMIN_ROLE: Record<string, AdminRole> = {
   COMPLIANCE:     'ROLE_HQ_AUDIT',
   HQ_REVIEWER:    'ROLE_HQ_REVIEW',

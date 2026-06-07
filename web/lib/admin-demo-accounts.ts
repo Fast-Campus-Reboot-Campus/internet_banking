@@ -13,6 +13,9 @@ export const DEMO_ACCOUNTS: AdminUser[] = [
   { id: 'A001', name: '김감사',   role: 'ROLE_HQ_AUDIT',      branchId: 'HQ',   branchName: '본사 감사부',          loginId: 'audit01'  },
   { id: 'A002', name: '이심사',   role: 'ROLE_HQ_REVIEW',     branchId: 'HQ',   branchName: '본사 심사부',          loginId: 'review01' },
   { id: 'A003', name: '박리스크', role: 'ROLE_HQ_RISK',       branchId: 'HQ',   branchName: '본사 리스크관리부',    loginId: 'risk01'   },
+  // 지점장(BankRole BRANCH_MANAGER) — 대출 최종결재·본사 상신 데모 담당. (V3 시드 employee01, V21 실명화)
+  { id: 'A010', name: '박상우',   role: 'ROLE_PRIMARY_OWNER', branchId: 'B001', branchName: '강남지점 (지점장)',    loginId: 'employee01' },
+  // 담당 직원(PRIMARY_OWNER 데모) — 직급은 TELLER(V21), '담당'은 동적 관계 표시용 근사 role.
   { id: 'A005', name: '정담당',   role: 'ROLE_PRIMARY_OWNER', branchId: 'B001', branchName: '강남지점',            loginId: 'owner01'  },
   { id: 'A006', name: '한직원',   role: 'ROLE_BRANCH_STAFF',  branchId: 'B001', branchName: '강남지점',            loginId: 'staff01'  },
   { id: 'A007', name: '오타지점', role: 'ROLE_OTHER_BRANCH',  branchId: 'B002', branchName: '종로지점',            loginId: 'other01'  },
