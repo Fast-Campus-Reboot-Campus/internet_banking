@@ -572,3 +572,52 @@ get_party:               decisive   사망·후견 → 즉시 fail-closed
 ### 16-7. 가드레일
 
 조사 예산 상한(무한 루프 방지) · 결정적 사실은 코드가 가로챔(에이전트 무관) · 동작은 HITL+RBAC(에이전트는 *권고*만) · fail-soft(타임아웃→부분결과 인계). 책임 등급표(§12)=권고 우선순위, AXful 자산=조사 도구, §15 안전모드=루프 가드레일.
+
+### 16-8. 구현 매핑 (PoC — 설계 → 코드)
+
+> 위 설계가 `fraud-investigation-agent/` 아래 실제 코드로 어디에 박혔는지. 설계문서를 구현문서로 고정한다.
+
+**모듈 지도** (`src/agent/`)
+
+| 모듈 | 역할 | 대응 설계 |
+|---|---|---|
+| `models.py` | `AgentState`(LangGraph state)·`Recommendation`·`Case` 등 | §16-2 2축 가설·§16-5 종료 유형 |
+| `tool_matrix.py` | `TOOL_MATRIX` 분별력 사전 + `render_matrix()` | §16-4 |
+| `tools.py` | 8개 조회 도구 + `TOOLS` 레지스트리·`load_case()` | §16-3 |
+| `hypotheses.py` | `init_scenarios()`·`observe()` | §16-1 H/O, §16-2 |
+| `llm.py` | `LLMClient`·`MockLLMClient`·`OpenAIClient`·`AnthropicClient`·`get_llm_client()` | §16-4 Planner, §13 2티어 |
+| `planner.py` | `plan_next_tool()` — 선택 이유 `tool_log` 기록 | §16-1 P, §16-4 |
+| `graph.py` | `build_graph()`·`run_investigation()`·`investigate()`·`approve_and_execute()` | §16-1 루프, §16-5 게이트, HITL |
+| `recommend.py` | `build_recommendation()` — 등급·근거사슬·동작 제안 | §16-1 R, §12 |
+| `tracing.py` | `trace_node()` — Langfuse 훅(선택, 기본 no-op) | §13 모니터링 |
+
+**루프 7노드 → graph.py 함수** (`build_graph` 내 노드)
+
+`hypothesize` → `plan` → `act` → `observe` → `gate`(조건부 엣지) → `plan`(루프백) / `recommend` → *interrupt(HITL)* → `execute_action`.
+- `gate`: §16-5 우선순위(decisive→max≥0.75→budget==0→else plan).
+- HITL: `interrupt_before=["execute_action"]` + `MemorySaver`. `execute_action` 은 `hitl_approved` + RBAC(`FRAUD_OFFICER`) 통과 시에만 동작(목) 실행.
+
+**도구 → 함수 / 실서비스 엔드포인트** (`tools.py`, 전부 조회 전용·PoC 목)
+
+| Tool 함수 | AXful 자산 | 실서비스 엔드포인트(주석 자리) |
+|---|---|---|
+| `get_party` | party 도메인 | `GET /internal/party/{customer_id}` (사망·후견→fail-closed) |
+| `get_customer` | customer | `GET /internal/customer/{customer_id}` |
+| `get_auth_events` | 인증보안계 | `GET /internal/auth/{customer_id}/events` |
+| `get_device_fingerprint` | FDS·세션 | `GET /internal/fds/device?account={account}` |
+| `get_fds_history` | fds_detection·incident | `GET /internal/fds/{customer_id}/history` |
+| `get_str_history` | STR | `GET /internal/str/{customer_id}` |
+| `get_related_accounts` | 거래·수취 네트워크 | `GET /internal/network/related?account={account}` |
+| `get_aml_history` | AML | `GET /internal/aml/{customer_id}/history` |
+
+**LLM (§16-4, §13 2티어)** — `llm.py`
+- provider: `TRIAGE_LLM_PROVIDER` = `openai` | `anthropic` | `mock`(기본).
+- 2티어: 도구 선택(판단)=heavy 모델, 권고 서술=light 모델. `TRIAGE_LLM_MODEL_LIGHT/HEAVY` 로 덮어씀.
+  기본값 — openai: `gpt-4o-mini`/`gpt-4o`, anthropic: `claude-haiku-4-5`/`claude-sonnet-4-6`.
+- 벤더 SDK 는 지연 import, **API 키는 env 만**(`OPENAI_API_KEY`/`ANTHROPIC_API_KEY`). `.env.example` 참조.
+- 실제 LLM 에서도 **도구 선택 이유는 `tool_log` 에 필수 기록**(설명가능성).
+
+**실행·검증**
+- 러너: `scripts/run_investigation.py --case <name> [--step] [--compare]`.
+- 케이스: `data/cases/{case_h1,case_h2,case_h5,case_death}.json`.
+- 테스트: `pytest` (구조·도구·LLM·그래프·게이트·통합 스냅샷).

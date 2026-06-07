@@ -104,7 +104,32 @@ flowchart TB
 
 **① 트리아지 입력 필터** — `triage_demo.html` (작동): 10개 이벤트를 시간차로 주입하면 책임 등급으로 큐가 실시간 재정렬. 사망계좌 30만(이상도 15)이 거액 송금(이상도 75)을 제치고 최상단 → "점수가 아니라 책임" 시연. 이 큐 최상단이 ② 에이전트의 입력.
 
-**② Investigation Agent 조사 루프** — 한 사건이 가설→도구→재계획→권고를 도는 과정(§16-4 H1 추적 예시). CLI 러너로 빌드 예정(아래 현재 상태).
+**② Investigation Agent 조사 루프** — 한 사건이 가설→도구→재계획→권고를 도는 과정(§16-4 H1 추적 예시). 아래 CLI 러너로 동작한다(Python+LangGraph PoC).
+
+## PoC 실행 (Python + LangGraph)
+
+```bash
+pip install -r requirements.txt           # langgraph · pydantic · rich · pytest
+
+# 한 사건 조사 — 루프마다 분포 막대 → 도구+이유 → 결과 → 갱신 분포 → 게이트
+python scripts/run_investigation.py --case case_h1
+python scripts/run_investigation.py --case case_h2 --step   # 한 루프씩
+
+# 핵심 시연: 같은 알림 구조, 다른 경로 (결과가 다음 행동을 바꾼다)
+python scripts/run_investigation.py --compare
+
+pytest                                     # 전체 테스트
+```
+
+기본은 **mock LLM**이라 키 없이 동작한다. 실제 LLM은 `.env`(→ `.env.example` 복사)에서
+`TRIAGE_LLM_PROVIDER=openai|anthropic` + 해당 API 키를 설정하면 켜진다(2티어 모델·키는 env만).
+`--compare` 출력은 §16-4 추적 예시 그대로다 — 두 사건 모두 1단계는 `get_device_fingerprint`,
+2단계에서 **case_h1**은 평소기기라 `get_related_accounts`(→H1 보이스피싱 L3),
+**case_h2**는 낯선기기라 `get_auth_events`(→H2 계정탈취 L2)로 갈린다.
+종료 후 권고는 **분석가 승인(HITL)** 을 기다리며, 동작은 승인+RBAC 통과 시에만 실행된다.
+
+사용 가능한 케이스: `case_h1`(보이스피싱 조직) · `case_h2`(계정탈취) · `case_h5`(정상)
+· `case_death`(사망계좌 → 조사 중 fail-closed 즉시 종료).
 
 ## 기술 스택
 
