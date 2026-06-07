@@ -2,7 +2,7 @@
 
 > 대상 대시보드: **Kafka Payment - 계좌이체 중간망**
 > 대상 독자: 개발팀 전원
-> 환경: Docker Compose 기준 (`services/payment-service/docker-compose-kafka.yml`)
+> 환경: Docker Compose 기준 (`docker-compose.yml` — 메인 통합 환경)
 
 ---
 
@@ -326,15 +326,30 @@ Kafka 서버 자체의 상태를 보여줍니다.
 알림이 실제로 잘 동작하는지 확인하고 싶을 때 사용합니다.
 
 ```bash
-# 1. Mock Responder를 전부 실패로 설정
-SUCCESS_RATE=0 docker compose -f services/payment-service/docker-compose-mock.yml up -d
+# 1. Mock Responder를 전부 실패로 설정 (기존 컨테이너 제거 후 재기동)
+docker rm -f payment-mock-responder
+docker run -d --name payment-mock-responder \
+  --network internet-banking_default \
+  -e KFTC_BOOTSTRAP=kafka:29092 -e BOK_BOOTSTRAP=kafka:29092 \
+  -e SUCCESS_RATE=0.0 -e DELAY_MS=300 \
+  -v "<프로젝트경로>/services/payment-service/mock:/app:ro" \
+  python:3.12-alpine \
+  sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
 
-# 2. 이체 요청 6건 이상 전송 (Swagger: http://localhost:8080/swagger-ui.html)
+# 2. 이체 요청 6건 이상 전송 (Swagger: http://localhost:8084/swagger-ui.html)
+# X-Auth-Token-Id는 20자 이내로 설정해야 함 (VARCHAR(20) 제약)
 
 # 3. http://localhost:9090/alerts 에서 CompensationRateHigh FIRING 확인
 
 # 4. 테스트 완료 후 정상으로 복구
-SUCCESS_RATE=1.0 docker compose -f services/payment-service/docker-compose-mock.yml up -d
+docker rm -f payment-mock-responder
+docker run -d --name payment-mock-responder \
+  --network internet-banking_default \
+  -e KFTC_BOOTSTRAP=kafka:29092 -e BOK_BOOTSTRAP=kafka:29092 \
+  -e SUCCESS_RATE=1.0 -e DELAY_MS=300 \
+  -v "<프로젝트경로>/services/payment-service/mock:/app:ro" \
+  python:3.12-alpine \
+  sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
 ```
 
 ---
@@ -350,32 +365,43 @@ docker ps | grep kafka-exporter
 
 ### payment-service 지표 패널에 No data
 1. `http://localhost:9090/targets` 에서 payment-service 가 UP인지 확인
-2. `http://localhost:8080/actuator/prometheus` 에서 해당 지표 이름으로 직접 검색
+2. `http://localhost:8084/actuator/prometheus` 에서 해당 지표 이름으로 직접 검색
 3. 지표는 있는데 Grafana에 표시되지 않으면 → datasource 연결 문제 → 대시보드 재임포트 필요
 
 ### 처리시간 패널 (p50/p95/p99)에 No data
 ```bash
 # bucket 지표가 있는지 확인
-curl http://localhost:8080/actuator/prometheus | grep duration_seconds_bucket
+curl http://localhost:8084/actuator/prometheus | grep duration_seconds_bucket
 ```
 - 결과가 없으면 서비스 재기동 필요
+
+### Consumer Lag이 음수로 표시된다 (-6, -12 등)
+- 실제 문제가 아닙니다. kafka-exporter가 `committed offset - latest offset` 계산 시 consumer가 `auto.offset.reset=latest`로 시작하면 음수가 나올 수 있습니다.
+- 대시보드 쿼리에 `clamp_min(..., 0)`이 적용되어 있으므로 정상적으로 0으로 표시됩니다.
+- Prometheus에서 `kafka_consumergroup_lag` 원본값이 0이면 실제 backlog 없음으로 정상입니다.
 
 ---
 
 ## 14. 로컬 실행 방법
 
+메인 `docker-compose.yml`에 payment-service, Kafka, Prometheus, Grafana가 모두 통합되어 있습니다.
+
 ```bash
-# 1. Kafka 클러스터 3개 + kafka-exporter 3개 기동
-docker compose -f services/payment-service/docker-compose-kafka.yml up -d
+# 1. 전체 스택 기동 (프로젝트 루트에서)
+docker compose up -d
 
-# 2. payment-service 기동
-PAYMENT_DB_A_PORT=5439 docker compose -f services/payment-service/docker-compose-kafka.yml --profile app up -d payment-service-a
-
-# 3. Mock Responder 기동 (이체 테스트 시 필요)
-SUCCESS_RATE=1.0 docker compose -f services/payment-service/docker-compose-mock.yml up -d
-
-# 4. Prometheus, Grafana는 별도로 실행 (기존 방법과 동일)
+# 2. Mock Responder 기동 (이체 테스트 시 별도 실행 필요 — docker-compose 미통합)
+docker run -d --name payment-mock-responder \
+  --network internet-banking_default \
+  -e KFTC_BOOTSTRAP=kafka:29092 -e BOK_BOOTSTRAP=kafka:29092 \
+  -e SUCCESS_RATE=1.0 -e DELAY_MS=300 \
+  -v "<프로젝트경로>/services/payment-service/mock:/app:ro" \
+  python:3.12-alpine \
+  sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
 ```
+
+> **주의**: payment-service는 내부적으로 8084 포트를 사용합니다 (Swagger: `http://localhost:8084/swagger-ui.html`).
+> 이체 요청 시 `X-Auth-Token-Id` 헤더는 **20자 이내**로 설정해야 합니다 (VARCHAR(20) 제약).
 
 ### Mock Responder SUCCESS_RATE 옵션
 
@@ -383,7 +409,20 @@ SUCCESS_RATE=1.0 docker compose -f services/payment-service/docker-compose-mock.
 |----|------|
 | `1.0` | 전부 성공 — 정상 흐름 확인 |
 | `0.3` | 30% 성공 — 보상 트랜잭션 발생 확인 |
-| `0` | 전부 실패 — 알림 발동 테스트 |
+| `0.0` | 전부 실패 — 알림 발동 테스트 |
+
+### DLQ 토픽 생성 확인
+
+payment-service 기동 전 DLQ 토픽이 있어야 합니다. 없으면 아래 명령으로 생성합니다.
+
+```bash
+docker exec ib-kafka bash -c "
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 \
+    --create --topic kftc.network.response.dlq --partitions 3 --replication-factor 1
+  /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 \
+    --create --topic bok.network.response.dlq --partitions 3 --replication-factor 1
+"
+```
 
 ---
 
@@ -394,6 +433,23 @@ SUCCESS_RATE=1.0 docker compose -f services/payment-service/docker-compose-mock.
 | `infra/prometheus/alerts.yml` | 알림 규칙 정의 |
 | `infra/prometheus/prometheus.yml` | 데이터 수집 대상 설정 |
 | `infra/grafana/provisioning/dashboards/kafka-payment.json` | 대시보드 정의 파일 |
-| `services/payment-service/config/PaymentMetrics.java` | 결제 관련 지표 수집 코드 |
-| `services/payment-service/docker-compose-kafka.yml` | Kafka 클러스터 + kafka-exporter |
-| `services/payment-service/docker-compose-mock.yml` | Mock Responder (테스트 전용) |
+| `services/payment-service/src/main/java/com/bank/payment/config/PaymentMetrics.java` | 결제 관련 지표 수집 코드 |
+| `services/payment-service/src/main/java/com/bank/payment/config/KftcKafkaConfig.java` | KFTC Kafka Consumer/DLQ 설정 |
+| `services/payment-service/src/main/java/com/bank/payment/config/BokKafkaConfig.java` | BOK Kafka Consumer/DLQ 설정 |
+| `services/payment-service/mock/responder.py` | Mock Responder 코드 (테스트 전용) |
+| `docker-compose.yml` | 전체 스택 통합 실행 설정 |
+
+### 지표별 코드 연결 위치 요약
+
+| 지표 | 메서드 | 호출 위치 |
+|------|--------|----------|
+| `payment_instruction_completed_total` | `paymentCompleted()` | `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer` |
+| `payment_instruction_failed_total` | `paymentFailed()` | `PaymentOrchestratorImpl` (7개 경로), `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer` |
+| `payment_instruction_duration_seconds` | `durationTimer.record()` | `paymentCompleted()` 내부 |
+| `payment_instruction_incomplete` | DB Gauge | `PaymentMetrics` 생성자 (스크레이프 시 DB 조회) |
+| `payment_outbox_pending` | DB Gauge | `PaymentMetrics` 생성자 (스크레이프 시 DB 조회) |
+| `payment_outbox_publish_total` | `outboxPublished()`, `outboxFailed()` | `OutboxPublisher` |
+| `payment_kafka_consume_total` | `consumed(topic)` | `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer`, `KftcNetworkRequestConsumer` |
+| `payment_kafka_dlq_total` | `dlq(cluster)` | `KftcKafkaConfig` recoverer, `BokKafkaConfig` recoverer |
+| `payment_compensation_total` | `compensation(type)` | `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer`, `OutboxPublisher` |
+| `payment_idempotency_duplicate_total` | `idempotencyDuplicate()` | `PaymentOrchestratorImpl` |
