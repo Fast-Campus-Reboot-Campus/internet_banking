@@ -45,11 +45,6 @@ scrape_configs:
     static_configs:
       - targets: ['host.docker.internal:8085']
 
-  - job_name: 'ai-service'
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ['host.docker.internal:8086']
-
   - job_name: 'windows-exporter'
     static_configs:
       - targets: ['host.docker.internal:9182']
