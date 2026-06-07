@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 import { executeDepositTransfer, getCurrentDepositCustomerId } from '@/lib/deposit-api'
-import { createInstantTransfer, newIdempotencyKey, newAuthToken, PAYMENT_BANK_CODE_MAP } from '@/lib/payment-api'
 
 type PendingTransfer = {
   fromAccountId?: number
@@ -33,9 +32,18 @@ export default function TransferConfirmPage() {
   const router = useRouter()
   const [data, setData] = useState<PendingTransfer | null>(null)
   const [showCertModal, setShowCertModal] = useState(false)
-  const [certStep, setCertStep] = useState<'info' | 'pin'>('info')
+  const [certStep, setCertStep] = useState<'info' | 'security' | 'pin'>('info')
   const [pin, setPin] = useState<number[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [secPos] = useState<[number, number]>(() => {
+    const a = Math.floor(Math.random() * 30) + 1
+    let b = Math.floor(Math.random() * 30) + 1
+    while (b === a) b = Math.floor(Math.random() * 30) + 1
+    return [a, b]
+  })
+  const [sec1, setSec1] = useState('')
+  const [sec2, setSec2] = useState('')
+  const [secError, setSecError] = useState('')
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
@@ -57,49 +65,26 @@ export default function TransferConfirmPage() {
           setShowCertModal(false)
           try {
             if (!data.fromAccountId) throw new Error('출금계좌 정보가 없습니다.')
-            if (data.transferType === 'EXTERNAL') {
-              const authTokenNo = newAuthToken()
-              const userId = getCurrentDepositCustomerId()
-              const res = await createInstantTransfer(
-                {
-                  senderAccountId:      String(data.fromAccountId),
-                  receiverBankCode:     PAYMENT_BANK_CODE_MAP[data.toBankCode] ?? data.toBankCode,
-                  receiverAccountNo:    data.toAccount,
-                  transferAmount:       data.amount,
-                  expectedReceiverName: data.receiverName,
-                  authTokenNo,
-                  channel:              'MOBILE',
-                },
-                {
-                  userId,
-                  authTokenId:    authTokenNo,
-                  idempotencyKey: newIdempotencyKey(),
-                  channel:        'MOBILE',
-                  requestId:      crypto.randomUUID(),
-                }
-              )
-              sessionStorage.setItem('paymentResult', JSON.stringify({ status: 'COMPLETED', txNo: res.transactionNo }))
-            } else {
-              const res = await executeDepositTransfer(getCurrentDepositCustomerId(), {
-                fromAccountId: data.fromAccountId,
-                toAccountId: data.toAccountId,
-                toAccountNo: data.toAccount,
-                amount: data.amount,
-                transferType: data.transferType,
-                counterpartyBankCode: data.toBankCode,
-                counterpartyBankName: data.toBank,
-                counterpartyName: data.receiverName,
-              })
-              sessionStorage.setItem('paymentResult', JSON.stringify({
-                status: 'COMPLETED',
-                txNo: String(res.transactionId),
-              }))
-            }
+            const result = await executeDepositTransfer(getCurrentDepositCustomerId(), {
+              fromAccountId: data.fromAccountId,
+              toAccountId: data.toAccountId,
+              toAccountNo: data.toAccount,
+              amount: data.amount,
+              transferType: data.transferType ?? (data.toAccountId ? 'INTERNAL' : 'EXTERNAL'),
+              counterpartyBankCode: data.toBankCode,
+              counterpartyBankName: data.toBank,
+              counterpartyName: data.receiverName,
+              transactionMemo: '인터넷 이체',
+            })
+            sessionStorage.setItem('paymentResult', JSON.stringify({
+              status: 'COMPLETED',
+              txNo: String(result.transactionId ?? Date.now()),
+            }))
           } catch (e: unknown) {
-            const err = e as { response?: { data?: { error?: string } }; message?: string }
+            const err = e as { response?: { data?: { error?: string; message?: string } }; message?: string }
             sessionStorage.setItem('paymentResult', JSON.stringify({
               status: 'ERROR',
-              message: err.response?.data?.error ?? err.message ?? '네트워크 오류가 발생했습니다.',
+              message: err.response?.data?.message ?? err.response?.data?.error ?? err.message ?? '네트워크 오류가 발생했습니다.',
             }))
           } finally {
             setIsSubmitting(false)
@@ -192,7 +177,7 @@ export default function TransferConfirmPage() {
           {/* 확인/취소 버튼 */}
           <div className="flex justify-center gap-3">
             <button
-              onClick={() => { setShowCertModal(true); setCertStep('info'); setPin([]) }}
+              onClick={() => { setShowCertModal(true); setCertStep('info'); setPin([]); setSec1(''); setSec2(''); setSecError('') }}
               className="px-16 py-3 text-[15px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
               style={{ backgroundColor: KB_PRIMARY }}>
               확인
@@ -258,7 +243,59 @@ export default function TransferConfirmPage() {
                       </div>
                     </div>
                     <div className="flex justify-center">
-                      <button onClick={() => setCertStep('pin')}
+                      <button onClick={() => setCertStep('security')}
+                        className="px-16 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
+                        style={{ backgroundColor: KB_PRIMARY }}>
+                        확인
+                      </button>
+                    </div>
+                  </div>
+                ) : certStep === 'security' ? (
+                  <div>
+                    <p className="text-[14px] font-bold text-kb-text mb-1">보안카드 번호 입력</p>
+                    <p className="text-[12px] text-kb-text-muted mb-4">보안카드의 해당 위치 번호 앞 2자리를 입력하세요.</p>
+                    <div className="space-y-3 mb-5">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[13px] font-semibold w-16 text-right" style={{ color: KB_PRIMARY }}>
+                          {String(secPos[0]).padStart(2, '0')}번
+                        </span>
+                        <input
+                          type="password"
+                          maxLength={2}
+                          value={sec1}
+                          onChange={e => setSec1(e.target.value.replace(/\D/g, ''))}
+                          placeholder="앞 2자리"
+                          className="border-2 rounded-lg px-3 py-2 text-[14px] w-24 outline-none text-center tracking-widest"
+                          style={{ borderColor: sec1.length === 2 ? KB_PRIMARY : '#D1D5DB' }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-[13px] font-semibold w-16 text-right" style={{ color: KB_PRIMARY }}>
+                          {String(secPos[1]).padStart(2, '0')}번
+                        </span>
+                        <input
+                          type="password"
+                          maxLength={2}
+                          value={sec2}
+                          onChange={e => setSec2(e.target.value.replace(/\D/g, ''))}
+                          placeholder="앞 2자리"
+                          className="border-2 rounded-lg px-3 py-2 text-[14px] w-24 outline-none text-center tracking-widest"
+                          style={{ borderColor: sec2.length === 2 ? KB_PRIMARY : '#D1D5DB' }}
+                        />
+                      </div>
+                    </div>
+                    {secError && <p className="text-[12px] text-red-500 mb-3 text-center">{secError}</p>}
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => {
+                          if (sec1.length !== 2 || sec2.length !== 2) {
+                            setSecError('보안카드 번호를 모두 입력해주세요.')
+                            return
+                          }
+                          setSecError('')
+                          setCertStep('pin')
+                          setPin([])
+                        }}
                         className="px-16 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
                         style={{ backgroundColor: KB_PRIMARY }}>
                         확인

@@ -7,8 +7,8 @@ import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Profile;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 
 @Component
 @Profile("local")
-@ConditionalOnBean(EntityManagerFactory.class)
 @RequiredArgsConstructor
 public class LocalDataSeeder implements ApplicationRunner {
 
@@ -29,11 +28,13 @@ public class LocalDataSeeder implements ApplicationRunner {
     private final SavingsProductRepository savingsProductRepository;
     private final SubscriptionProductRepository subscriptionProductRepository;
     private final TargetGroupRepository targetGroupRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
         if (productRepository.count() > 0) {
+            seedDemoCustomerAccounts();
             return;
         }
 
@@ -523,6 +524,56 @@ public class LocalDataSeeder implements ApplicationRunner {
         productTargetGroupRepository.save(ProductTargetGroup.builder().id(new ProductTargetGroupId(freeAccount.getProductId(), personal.getTargetGroupId())).build());
         productTargetGroupRepository.save(ProductTargetGroup.builder().id(new ProductTargetGroupId(youthAccount.getProductId(), personal.getTargetGroupId())).build());
         productTargetGroupRepository.save(ProductTargetGroup.builder().id(new ProductTargetGroupId(youthAccount.getProductId(), youth.getTargetGroupId())).build());
+
+        seedDemoCustomerAccounts();
+    }
+
+    private void seedDemoCustomerAccounts() {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from deposit_accounts where customer_id = ?",
+                Integer.class,
+                "1");
+        if (count != null && count > 0) {
+            return;
+        }
+
+        jdbcTemplate.update("""
+                insert into deposit_contracts (
+                    contract_id, contract_number, customer_id, banking_product_id,
+                    is_monthly_payment, payment_count_total, join_amount,
+                    contract_interest_rate, total_preferential_rate, final_interest_rate,
+                    tax_benefit_type, applied_tax_rate, expected_interest_amount,
+                    contract_period_month, started_at, maturity_at,
+                    is_auto_renewal, auto_transfer_enabled, contract_status, join_channel,
+                    is_proxy_joined, is_power_of_attorney_verified, created_at, consecutive_miss_count
+                ) values
+                (1001, 'DEMO-CUST1-DEP-001', '1', 1, false, null, 5000000,
+                 2.15, 0, 2.15, 'GENERAL', 15.40, 107500,
+                 12, current_date, current_date + interval '12 months',
+                 false, false, 'ACTIVE', 'WEB', false, false, now(), 0),
+                (1002, 'DEMO-CUST1-SAV-001', '1', 5, true, 12, 100000,
+                 2.95, 0, 2.95, 'GENERAL', 15.40, 35400,
+                 12, current_date, current_date + interval '12 months',
+                 false, true, 'ACTIVE', 'WEB', false, false, now(), 0)
+                on conflict (contract_id) do nothing
+                """);
+
+        jdbcTemplate.update("""
+                insert into deposit_accounts (
+                    account_number, customer_id, contract_id, account_type, saving_type,
+                    bank_code, balance, total_paid_amount, total_interest_amount,
+                    currency, account_password,
+                    is_withdrawable, is_online_banking_enabled, is_mobile_banking_enabled, is_phone_banking_enabled,
+                    account_status, opened_at, maturity_at, created_at, version
+                ) values
+                ('001-123-000001', '1', 1001, 'DEPOSIT', null,
+                 '001', 5000000, 0, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
+                 true, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0),
+                ('001-123-000002', '1', 1002, 'SAVINGS', 'REGULAR',
+                 '001', 1200000, 1200000, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
+                 false, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0)
+                on conflict (account_number) do nothing
+                """);
     }
 
     private BigDecimal bd(String value) {

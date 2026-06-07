@@ -107,7 +107,9 @@ public class TransactionService {
                                 String counterpartyName, TransactionChannel channelType, String transactionMemo) {
         TransferType resolvedType = transferType != null ? transferType : TransferType.INTERNAL;
         if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
-            throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND);
+            toAccountId = accountRepository.findByAccountNumber(toAccountNo)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND))
+                    .getAccountId();
         }
 
         Account source;

@@ -113,6 +113,33 @@ const PRODUCTS: Record<string, ProductInfo> = {
     rateDate: '2026.05.25',
   },
   // ── 입출금자유 ────────────────────────────────────────────────────────────
+  'axful-free-account': {
+    name: 'AXful 자유입출금통장',
+    label: '언제든 자유롭게 입출금 가능한 기본 통장 / 인터넷뱅킹',
+    channel: '인터넷뱅킹',
+    period: '기간 제한 없음',
+    minAmount: '제한 없음',
+    rate: '연 0.1%',
+    rateDate: '2026.05.25',
+  },
+  'axful-sok': {
+    name: 'AXful 쏙머니통장',
+    label: '쇼핑용 아껴 쏙머니가 쏙~ / 영업점',
+    channel: '영업점',
+    period: '기간 제한 없음',
+    minAmount: '제한 없음',
+    rate: '연 1.5%',
+    rateDate: '2026.05.25',
+  },
+  'monimo-daily': {
+    name: '모니모 AXful 매일이자 통장',
+    label: '하루만 넣어도 이자가 쌓이는 / 영업점',
+    channel: '영업점',
+    period: '기간 제한 없음',
+    minAmount: '제한 없음',
+    rate: '연 2.5% (일 복리)',
+    rateDate: '2026.05.25',
+  },
   'axful-youth-account': {
     name: 'AXful 청년우대통장',
     label: '만 19~34세 청년을 위한 우대금리 제공 / 인터넷뱅킹',

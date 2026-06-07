@@ -93,6 +93,7 @@ class ContractCreateRequest(BaseModel):
     banking_product_id: int
     join_amount: float
     period_months: int
+    from_account_id: int  # 출금 계좌 ID (필수)
 
 
 class ContractResponse(BaseModel):
@@ -513,10 +514,12 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 @app.post("/contracts", response_model=ContractResponse, status_code=201)
 async def create_contract(req: ContractCreateRequest, db: Session = Depends(get_db)):
+    # ── 상품 검증 ──────────────────────────────────────────────────────────────
     product = _one(
         db,
         """
-        SELECT banking_product_id, base_interest_rate, deposit_product_status
+        SELECT banking_product_id, base_interest_rate, deposit_product_status,
+               min_join_amount, max_join_amount, min_period_month, max_period_month
           FROM deposit_banking_products
          WHERE banking_product_id = :pid
         """,
@@ -527,11 +530,71 @@ async def create_contract(req: ContractCreateRequest, db: Session = Depends(get_
     if product["deposit_product_status"] not in ("SELLING", None):
         raise HTTPException(status_code=422, detail="판매 중인 상품만 가입 가능합니다.")
 
+    # ── 출금 계좌 검증 ─────────────────────────────────────────────────────────
+    account = _one(
+        db,
+        """
+        SELECT account_id, account_number, customer_id,
+               balance, account_status, is_withdrawable
+          FROM deposit_accounts
+         WHERE account_id = :aid
+        """,
+        {"aid": req.from_account_id},
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="출금 계좌를 찾을 수 없습니다.")
+    if account["customer_id"] != req.customer_id:
+        raise HTTPException(status_code=403, detail="본인 계좌만 출금 계좌로 선택할 수 있습니다.")
+    if account["account_status"] != "ACTIVE":
+        raise HTTPException(status_code=422, detail="활성화된 계좌만 출금 계좌로 선택할 수 있습니다.")
+    if not account["is_withdrawable"]:
+        raise HTTPException(status_code=422, detail="출금이 불가능한 계좌입니다.")
+    balance = float(account["balance"] or 0)
+    if balance < req.join_amount:
+        raise HTTPException(
+            status_code=422,
+            detail=f"잔액이 부족합니다. (현재 잔액: {int(balance):,}원, 필요 금액: {int(req.join_amount):,}원)",
+        )
+
     started = date.today()
     maturity = started + timedelta(days=req.period_months * 30)
     contract_number = f"CTR-{uuid4().hex[:8].upper()}"
+    tx_number = f"TXN-{uuid4().hex[:8].upper()}"
     rate = float(product["base_interest_rate"] or 0)
+    balance_after = balance - req.join_amount
 
+    # ── 출금 트랜잭션 생성 + 잔액 차감 ────────────────────────────────────────
+    db.execute(
+        text("""
+            INSERT INTO deposit_transactions
+                (transaction_number, account_id, transaction_type, direction_type,
+                 amount, balance_before, balance_after, available_balance_after,
+                 fee_amount, currency, status, channel_type,
+                 transaction_memo, transaction_summary, transaction_at,
+                 created_at, updated_at)
+            VALUES
+                (:tx_no, :aid, 'WITHDRAWAL', 'OUT',
+                 :amt, :bal_before, :bal_after, :bal_after,
+                 0, 'W', 'SUCCESS', 'APP',
+                 :memo, :summary, CURRENT_TIMESTAMP,
+                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """),
+        {
+            "tx_no": tx_number,
+            "aid": req.from_account_id,
+            "amt": req.join_amount,
+            "bal_before": balance,
+            "bal_after": balance_after,
+            "memo": f"상품 가입 ({contract_number})",
+            "summary": f"상품 가입 출금",
+        },
+    )
+    db.execute(
+        text("UPDATE deposit_accounts SET balance = :bal WHERE account_id = :aid"),
+        {"bal": balance_after, "aid": req.from_account_id},
+    )
+
+    # ── 계약 생성 ──────────────────────────────────────────────────────────────
     db.execute(
         text("""
             INSERT INTO deposit_contracts
@@ -567,7 +630,7 @@ async def create_contract(req: ContractCreateRequest, db: Session = Depends(get_
         {"cno": contract_number},
     )
 
-    # Kafka 이벤트 발행 — consultation-service 등 다른 서비스에 계약 완료 알림
+    # ── Kafka 이벤트 발행 ──────────────────────────────────────────────────────
     await _kafka.publish_contract_created(
         contract_id=created["contract_id"],
         contract_number=created["contract_number"],
@@ -699,6 +762,100 @@ def cash_flow(
         "transaction_count": len(rows),
         "transactions": rows,
     }
+
+
+# ── 이체 ──────────────────────────────────────────────────────────────────────
+
+class TransferRequest(BaseModel):
+    fromAccountId: int
+    toAccountId: int | None = None
+    toAccountNo: str
+    amount: float
+    transferType: str = "INTERNAL"
+    counterpartyBankCode: str | None = None
+    counterpartyBankName: str | None = None
+    counterpartyName: str | None = None
+    channelType: str = "INTERNET"
+    transactionMemo: str = "인터넷이체"
+
+
+@app.post("/transactions/transfer", status_code=201)
+def transfer(req: TransferRequest, db: Session = Depends(get_db)):
+    from datetime import datetime, timezone
+
+    # ── 출금 계좌 검증 ────────────────────────────────────────────────────────
+    src = _one(db, "SELECT account_id, account_number, balance, is_withdrawable, account_status FROM deposit_accounts WHERE account_id = :aid", {"aid": req.fromAccountId})
+    if not src:
+        raise HTTPException(status_code=404, detail="출금 계좌를 찾을 수 없습니다.")
+    if not src["is_withdrawable"]:
+        raise HTTPException(status_code=422, detail="출금이 불가능한 계좌입니다.")
+    if float(src["balance"] or 0) < req.amount:
+        raise HTTPException(status_code=422, detail=f"잔액이 부족합니다. (현재 잔액: {int(float(src['balance'] or 0)):,}원)")
+
+    balance_before = float(src["balance"] or 0)
+    balance_after  = balance_before - req.amount
+    now = datetime.now(timezone.utc)
+    tx_no_out = f"TXN{now.strftime('%Y%m%d%H%M%S')}{req.fromAccountId}OUT"
+
+    # ── 출금 트랜잭션 ─────────────────────────────────────────────────────────
+    result = db.execute(text("""
+        INSERT INTO deposit_transactions
+            (transaction_number, account_id, transaction_type, direction_type,
+             amount, balance_before, balance_after, available_balance_after,
+             fee_amount, currency, status, channel_type,
+             transaction_memo, transaction_summary, transaction_at,
+             counterparty_account_no, counterparty_customer_id,
+             created_at, updated_at)
+        VALUES
+            (:tx_no, :aid, 'TRANSFER', 'OUT',
+             :amt, :bal_before, :bal_after, :bal_after,
+             0, 'W', 'SUCCESS', :channel,
+             :memo, :summary, :now,
+             :to_acc_no, :to_name,
+             :now, :now)
+        RETURNING transaction_id
+    """), {
+        "tx_no": tx_no_out, "aid": req.fromAccountId,
+        "amt": req.amount, "bal_before": balance_before, "bal_after": balance_after,
+        "channel": req.channelType, "memo": req.transactionMemo,
+        "summary": f"{req.toAccountNo}으로 이체",
+        "to_acc_no": req.toAccountNo, "to_name": req.counterpartyName or "",
+        "now": now,
+    })
+    transaction_id = result.scalar()
+    db.execute(text("UPDATE deposit_accounts SET balance = :bal WHERE account_id = :aid"), {"bal": balance_after, "aid": req.fromAccountId})
+
+    # ── 당행 입금 처리 ────────────────────────────────────────────────────────
+    if req.toAccountId:
+        dst = _one(db, "SELECT account_id, balance FROM deposit_accounts WHERE account_id = :aid", {"aid": req.toAccountId})
+        if dst:
+            dst_before = float(dst["balance"] or 0)
+            dst_after  = dst_before + req.amount
+            tx_no_in = f"TXN{now.strftime('%Y%m%d%H%M%S')}{req.toAccountId}IN"
+            db.execute(text("""
+                INSERT INTO deposit_transactions
+                    (transaction_number, account_id, transaction_type, direction_type,
+                     amount, balance_before, balance_after, available_balance_after,
+                     fee_amount, currency, status, channel_type,
+                     transaction_memo, transaction_summary, transaction_at,
+                     counterparty_account_no, created_at, updated_at)
+                VALUES
+                    (:tx_no, :aid, 'TRANSFER', 'IN',
+                     :amt, :bal_before, :bal_after, :bal_after,
+                     0, 'W', 'SUCCESS', :channel,
+                     :memo, :summary, :now,
+                     :from_acc_no, :now, :now)
+            """), {
+                "tx_no": tx_no_in, "aid": req.toAccountId,
+                "amt": req.amount, "bal_before": dst_before, "bal_after": dst_after,
+                "channel": req.channelType, "memo": req.transactionMemo,
+                "summary": f"{src['account_number']}에서 이체",
+                "from_acc_no": src["account_number"], "now": now,
+            })
+            db.execute(text("UPDATE deposit_accounts SET balance = :bal WHERE account_id = :aid"), {"bal": dst_after, "aid": req.toAccountId})
+
+    db.commit()
+    return {"transaction_id": transaction_id, "transaction_number": tx_no_out, "status": "SUCCESS", "amount": req.amount}
 
 
 # ── 특약 ──────────────────────────────────────────────────────────────────────

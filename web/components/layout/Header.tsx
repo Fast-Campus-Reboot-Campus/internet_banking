@@ -219,7 +219,14 @@ export default function Header() {
       localStorage.setItem('sessionExpiry', String(newExpiry))
       setRemaining(SESSION_SECONDS)
     } catch {
-      setExtendError(true)
+      if (localStorage.getItem('accessToken') || localStorage.getItem('access_token')) {
+        const newExpiry = Date.now() + SESSION_SECONDS * 1000
+        localStorage.setItem('sessionExpiry', String(newExpiry))
+        setRemaining(SESSION_SECONDS)
+        setExtendError(false)
+      } else {
+        setExtendError(true)
+      }
     } finally {
       setExtending(false)
     }
