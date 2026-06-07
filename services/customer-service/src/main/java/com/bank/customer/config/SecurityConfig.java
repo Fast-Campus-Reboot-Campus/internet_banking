@@ -24,18 +24,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
-    /** 직원 역할(고객 제외) — /internal 관리 API 접근 허용 대상 */
-    private static final String[] EMPLOYEE_ROLES = {
-            BankRole.TELLER.spring(),
-            BankRole.DEPUTY_MANAGER.spring(),
-            BankRole.BRANCH_MANAGER.spring(),
-            BankRole.HQ_REVIEWER.spring(),
-            BankRole.HQ_RISK.spring(),
-            BankRole.HQ_MARKETING.spring(),
-            BankRole.COMPLIANCE.spring(),
-            BankRole.OPS.spring(),
-            BankRole.ADMIN.spring(),
-    };
+    /** 직원 역할(고객 제외) — /internal 관리 API 접근 허용 대상 (단일 소스: {@link BankRole#EMPLOYEE_ROLES}) */
+    private static final String[] EMPLOYEE_ROLES = BankRole.employeeRolesForHasRole();
 
     @Bean
     public GatewayHeaderAuthFilter gatewayHeaderAuthFilter() {

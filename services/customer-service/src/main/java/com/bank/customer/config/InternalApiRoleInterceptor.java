@@ -1,5 +1,6 @@
 package com.bank.customer.config;
 
+import com.bank.common.security.BankRole;
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,9 +25,8 @@ public class InternalApiRoleInterceptor implements HandlerInterceptor {
 
     private static final String ROLE_HEADER = "X-User-Role";
 
-    /** 직원 역할 화이트리스트 — 신규 직급 추가 시 갱신 */
-    private static final Set<String> EMPLOYEE_ROLES = Set.of(
-            "ROLE_BRANCH_MANAGER", "ROLE_DEPUTY_MANAGER", "ROLE_TELLER");
+    /** 직원 역할 화이트리스트 — SecurityConfig 와 동일한 단일 소스({@link BankRole#EMPLOYEE_ROLES}) */
+    private static final Set<String> EMPLOYEE_ROLES = BankRole.employeeAuthorities();
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {

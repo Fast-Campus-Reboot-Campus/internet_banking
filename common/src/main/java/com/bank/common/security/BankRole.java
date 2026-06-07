@@ -1,5 +1,8 @@
 package com.bank.common.security;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * 전 서비스 공통 역할 상수 (single source of truth).
  *
@@ -42,5 +45,26 @@ public enum BankRole {
     /** SecurityConfig hasRole() 인자 (ROLE_ 접두어 제거) */
     public String spring() {
         return authority.substring("ROLE_".length());
+    }
+
+    /**
+     * 직원 직급(고객 제외) — {@code /api/v1/internal/**} 관리 API 접근 허용 대상의 단일 소스.
+     *
+     * <p>SecurityConfig(hasAnyRole)와 InternalApiRoleInterceptor(헤더 매칭)가 각각
+     * 별도 목록을 두면 서로 어긋나 본사 직급이 통째로 차단되는 사고가 났다(인터셉터가 더 좁아
+     * 후순위로 이김). 두 곳 모두 이 집합을 참조해 화이트리스트를 일치시킨다.
+     */
+    public static final Set<BankRole> EMPLOYEE_ROLES = Set.of(
+            TELLER, DEPUTY_MANAGER, BRANCH_MANAGER,
+            HQ_REVIEWER, HQ_RISK, HQ_MARKETING, COMPLIANCE, OPS, ADMIN);
+
+    /** Spring Security {@code hasAnyRole(...)} 인자용 — ROLE_ 접두어 제거 직급명 배열 */
+    public static String[] employeeRolesForHasRole() {
+        return EMPLOYEE_ROLES.stream().map(BankRole::spring).toArray(String[]::new);
+    }
+
+    /** {@code X-User-Role} 헤더 매칭용 — ROLE_ 접두어 포함 authority 집합 */
+    public static Set<String> employeeAuthorities() {
+        return EMPLOYEE_ROLES.stream().map(BankRole::authority).collect(Collectors.toUnmodifiableSet());
     }
 }
