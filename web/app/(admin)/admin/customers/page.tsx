@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AdminUser, AdminRole, ROLE_LABELS, requiresReason } from '@/lib/admin-mock-data'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { searchCustomers, CustomerSummary, STATUS_LABEL, errMsg } from '@/lib/admin-customer-api'
+import { searchCustomers, recordAccess, CustomerSummary, STATUS_LABEL, errMsg } from '@/lib/admin-customer-api'
 
 const ROLE_BADGE_COLOR: Record<AdminRole, string> = {
   ROLE_HQ_AUDIT: 'bg-red-100 text-red-700',
@@ -54,8 +54,13 @@ export default function CustomersPage() {
 
   function unlock() {
     if (!reasonInput.trim() || !reasonModal) return
-    setUnlockedIds(prev => new Set([...Array.from(prev), reasonModal.customerId]))
+    const cid = reasonModal.customerId
+    const reason = reasonInput.trim()
+    setUnlockedIds(prev => new Set([...Array.from(prev), cid]))
     setReasonModal(null); setReasonInput('')
+    // 연락처 열람을 사유와 함께 접근 감사로그에 기록(행위 직원은 토큰에서 식별).
+    // 감사 기록 실패가 조회 자체를 막지 않도록 best-effort 로 처리한다.
+    recordAccess(cid, { actionCode: 'CONTACT_VIEW', reason }).catch(() => { /* noop */ })
   }
 
   return (

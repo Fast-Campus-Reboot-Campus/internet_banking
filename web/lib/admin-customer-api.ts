@@ -129,6 +129,36 @@ export async function reactivateCustomer(customerId: number, reasonDetail?: stri
   await api.patch(`/api/v1/internal/customers/${customerId}/reactivate`, null, { params: { reasonDetail } })
 }
 
+// ── 조회 접근 감사로그 (access-log) ───────────────────────────────────────────
+// 행위 직원은 게이트웨이가 JWT 에서 주입한 X-Employee-Id 로 식별된다(클라이언트가 직원 ID를 보내지 않음).
+
+export type AccessLog = {
+  customerAccessLogId: number
+  accessorEmployeeId: number
+  accessorName: string | null
+  accessorRole: string | null       // BankRole grade_code 스냅샷 (예: BRANCH_MANAGER)
+  accessorBranchCode: string | null
+  targetCustomerId: number
+  targetCustomerName: string | null
+  accessActionCode: string          // CUSTOMER_DETAIL / CONTACT_VIEW
+  accessReason: string | null
+  accessedAt: string
+}
+
+/** 명시적 접근 기록(연락처 등 민감정보 열람). 고객 상세 조회는 백엔드가 자동 기록한다. */
+export async function recordAccess(customerId: number, body: {
+  actionCode: string; reason?: string
+}): Promise<void> {
+  await api.post(`/api/v1/internal/customers/${customerId}/access-log`, body)
+}
+
+/** 감사로그 조회 — 직원명·고객명·행위 부분일치(keyword), 지점 한정(branch) 선택. 최신순. */
+export async function getAccessLogs(params: {
+  keyword?: string; branch?: string; page?: number; size?: number
+}): Promise<Page<AccessLog>> {
+  return unwrap(await api.get('/api/v1/internal/customers/access-logs', { params }))
+}
+
 // ── 컴플라이언스 목록 (party) ─────────────────────────────────────────────────
 
 export type EddPending = {

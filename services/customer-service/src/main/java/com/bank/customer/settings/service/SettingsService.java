@@ -120,7 +120,7 @@ public class SettingsService {
                         Customer.STATUS_ACTIVE, Customer.STATUS_CLOSED,
                         CustomerStatusHistory.REASON_CUST_REQ,
                         "고객 자발적 해지",
-                        now, false));
+                        now, false, null));  // 고객 본인 해지 — 직원 행위자 없음
     }
 
     private Customer findActiveCustomer(Long customerId) {

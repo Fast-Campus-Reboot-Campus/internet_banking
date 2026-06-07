@@ -67,6 +67,12 @@ public enum CustomerErrorCode implements ErrorCode {
     CUST_092(HttpStatus.BAD_REQUEST,"인증 코드가 올바르지 않습니다."),
     CUST_093(HttpStatus.CONFLICT,   "이미 검증된 인증 요청입니다."),
 
+    // 본인확인 (094-097)
+    CUST_094(HttpStatus.NOT_FOUND,  "본인확인 정보를 찾을 수 없습니다."),
+    CUST_095(HttpStatus.GONE,       "본인확인이 만료되었습니다. 다시 인증해주세요."),
+    CUST_096(HttpStatus.CONFLICT,   "이미 사용된 본인확인입니다."),
+    CUST_097(HttpStatus.BAD_REQUEST,"주민등록번호 형식이 올바르지 않습니다."),
+
     // 세션 (100-109)
     CUST_100(HttpStatus.NOT_FOUND,  "세션을 찾을 수 없습니다."),
 

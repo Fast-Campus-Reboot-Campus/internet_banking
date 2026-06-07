@@ -69,6 +69,10 @@ public class CustomerStatusHistory extends CreatedOnlyBaseEntity {
     @Column(name = "system_auto_triggered_yn", nullable = false, columnDefinition = "CHAR(1)")
     private String systemAutoTriggeredYn;
 
+    /** 변경을 수행한 직원 employee_id. 시스템 자동 전환·가입 시 null. */
+    @Column(name = "changed_by_employee_id")
+    private Long changedByEmployeeId;
+
     // -------------------------------------------------------------------------
     // 팩토리 메서드
     // -------------------------------------------------------------------------
@@ -84,7 +88,7 @@ public class CustomerStatusHistory extends CreatedOnlyBaseEntity {
                 .build();
     }
 
-    /** 상태 전이 이력 생성. */
+    /** 상태 전이 이력 생성. changedByEmployeeId 는 직원 처리 시 X-Employee-Id, 시스템 자동 전환 시 null. */
     public static CustomerStatusHistory ofTransition(
             Long customerId,
             Long previousHistoryId,
@@ -93,7 +97,8 @@ public class CustomerStatusHistory extends CreatedOnlyBaseEntity {
             String changeReasonCode,
             String changeReasonDetail,
             OffsetDateTime effectiveStartAt,
-            boolean systemTriggered) {
+            boolean systemTriggered,
+            Long changedByEmployeeId) {
         return CustomerStatusHistory.builder()
                 .customerId(customerId)
                 .previousCustomerStatusHistoryId(previousHistoryId)
@@ -103,6 +108,7 @@ public class CustomerStatusHistory extends CreatedOnlyBaseEntity {
                 .customerStatusChangeReasonDetail(changeReasonDetail)
                 .customerStatusEffectiveStartAt(effectiveStartAt)
                 .systemAutoTriggeredYn(systemTriggered ? "T" : "F")
+                .changedByEmployeeId(changedByEmployeeId)
                 .build();
     }
 }

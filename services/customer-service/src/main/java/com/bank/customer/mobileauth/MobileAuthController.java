@@ -3,6 +3,7 @@ package com.bank.customer.mobileauth;
 import com.bank.common.web.ApiResponse;
 import com.bank.customer.mobileauth.dto.SendMobileAuthRequest;
 import com.bank.customer.mobileauth.dto.VerifyMobileAuthRequest;
+import com.bank.customer.mobileauth.dto.VerifyMobileAuthResponse;
 import com.bank.customer.mobileauth.service.MobileAuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -31,13 +32,12 @@ public class MobileAuthController {
         return ResponseEntity.ok(ApiResponse.ok(authId));
     }
 
-    /** 인증 코드 검증 */
+    /** 인증 코드 검증 — 신원확인 목적이면 응답에 verificationId 포함 */
     @PostMapping("/verify")
-    public ResponseEntity<ApiResponse<Void>> verify(
+    public ResponseEntity<ApiResponse<VerifyMobileAuthResponse>> verify(
             @Valid @RequestBody VerifyMobileAuthRequest request,
             @RequestHeader(value = "X-Customer-Id", required = false) Long customerId) {
-        mobileAuthService.verify(request, customerId);
-        return ResponseEntity.ok(ApiResponse.ok(null));
+        return ResponseEntity.ok(ApiResponse.ok(mobileAuthService.verify(request, customerId)));
     }
 
     private String extractIp(HttpServletRequest request) {

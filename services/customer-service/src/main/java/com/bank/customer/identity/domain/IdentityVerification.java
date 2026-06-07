@@ -77,4 +77,28 @@ public class IdentityVerification {
 
     @Column(name = "identity_verified_at", nullable = false)
     private OffsetDateTime identityVerifiedAt;
+
+    /** 주민등록번호 AES-256 암호문 — 가입 시 party_person.rrn_encrypted 로 이전. 평문 미보관. */
+    @Column(name = "rrn_encrypted", length = 255)
+    private String rrnEncrypted;
+
+    /** 가입에 1회 소비됐는지 — 검증 1건은 가입 1건에만 쓰인다. */
+    @Column(name = "consumed_yn", nullable = false, length = 1)
+    @Builder.Default
+    private String consumedYn = "F";
+
+    @Column(name = "consumed_customer_id")
+    private Long consumedCustomerId;
+
+    @Column(name = "consumed_at")
+    private OffsetDateTime consumedAt;
+
+    public boolean isConsumed() { return "T".equals(consumedYn); }
+
+    /** 가입 완료 시 소비 처리 — 생성된 고객과 연결한다. */
+    public void consume(Long customerId) {
+        this.consumedYn          = "T";
+        this.consumedCustomerId  = customerId;
+        this.consumedAt          = OffsetDateTime.now();
+    }
 }

@@ -9,6 +9,8 @@ import com.bank.customer.customer.dto.CustomerDetailResponse;
 import com.bank.customer.customer.dto.CustomerSummaryResponse;
 import com.bank.customer.customer.dto.JoinStatsResponse;
 import com.bank.customer.customer.dto.UpdateCreditRatingRequest;
+import com.bank.customer.customer.domain.CustomerAccessLog;
+import com.bank.customer.customer.service.CustomerAccessLogService;
 import com.bank.customer.customer.service.CustomerLifecycleService;
 import com.bank.customer.customer.service.CustomerQueryService;
 import jakarta.validation.Valid;
@@ -35,6 +37,7 @@ public class CustomerLifecycleController {
 
     private final CustomerLifecycleService lifecycleService;
     private final CustomerQueryService     queryService;
+    private final CustomerAccessLogService accessLogService;
 
     // ── 고객용 이력 조회 ──────────────────────────────────────────────────────
 
@@ -78,18 +81,26 @@ public class CustomerLifecycleController {
      */
     @GetMapping("/internal/customers/{customerId}")
     public ResponseEntity<ApiResponse<CustomerDetailResponse>> getCustomerDetail(
-            @PathVariable Long customerId) {
-        return ResponseEntity.ok(ApiResponse.ok(queryService.getCustomerDetail(customerId)));
+            @PathVariable Long customerId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
+            @RequestHeader(value = "X-Access-Reason", required = false) String reason) {
+        CustomerDetailResponse detail = queryService.getCustomerDetail(customerId);
+        // 상세 조회는 접근 감사로그에 자동 기록한다(행위 직원 = X-Employee-Id).
+        accessLogService.record(parseEmployeeId(employeeIdHeader), customerId,
+                CustomerAccessLog.ACTION_CUSTOMER_DETAIL, reason);
+        return ResponseEntity.ok(ApiResponse.ok(detail));
     }
 
     /** 고객 등급 변경 — 다중 필드 → RequestBody */
     @PatchMapping("/internal/customers/{customerId}/grade")
     public ResponseEntity<ApiResponse<Void>> changeGrade(
             @PathVariable Long customerId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @Valid @RequestBody ChangeGradeRequest request) {
         lifecycleService.changeGrade(customerId,
                 request.newGradeCode(), request.reasonCode(),
-                request.reasonDetail(), request.systemTriggered());
+                request.reasonDetail(), request.systemTriggered(),
+                parseEmployeeId(employeeIdHeader));
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -107,9 +118,11 @@ public class CustomerLifecycleController {
     @PatchMapping("/internal/customers/{customerId}/dormant")
     public ResponseEntity<ApiResponse<Void>> makeDormant(
             @PathVariable Long customerId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam(required = false) String reasonDetail,
             @RequestParam(defaultValue = "false") boolean systemTriggered) {
-        lifecycleService.makeDormant(customerId, reasonDetail, systemTriggered);
+        lifecycleService.makeDormant(customerId, reasonDetail, systemTriggered,
+                parseEmployeeId(employeeIdHeader));
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -117,8 +130,9 @@ public class CustomerLifecycleController {
     @PatchMapping("/internal/customers/{customerId}/suspend")
     public ResponseEntity<ApiResponse<Void>> suspend(
             @PathVariable Long customerId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam(required = false) String reasonDetail) {
-        lifecycleService.suspend(customerId, reasonDetail);
+        lifecycleService.suspend(customerId, reasonDetail, parseEmployeeId(employeeIdHeader));
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -126,8 +140,10 @@ public class CustomerLifecycleController {
     @PatchMapping("/internal/customers/{customerId}/close")
     public ResponseEntity<ApiResponse<Void>> close(
             @PathVariable Long customerId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @Valid @RequestBody CloseCustomerRequest request) {
-        lifecycleService.close(customerId, request.closeReasonCode(), request.reasonDetail());
+        lifecycleService.close(customerId, request.closeReasonCode(), request.reasonDetail(),
+                parseEmployeeId(employeeIdHeader));
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -135,8 +151,22 @@ public class CustomerLifecycleController {
     @PatchMapping("/internal/customers/{customerId}/reactivate")
     public ResponseEntity<ApiResponse<Void>> reactivate(
             @PathVariable Long customerId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam(required = false) String reasonDetail) {
-        lifecycleService.reactivate(customerId, reasonDetail);
+        lifecycleService.reactivate(customerId, reasonDetail, parseEmployeeId(employeeIdHeader));
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    /**
+     * 게이트웨이가 주입한 X-Employee-Id 헤더를 직원 employee_id 로 파싱한다.
+     * 직원이 아니면 게이트웨이가 빈 문자열을 넣으므로(또는 헤더 부재) null 로 정규화한다.
+     */
+    private static Long parseEmployeeId(String header) {
+        if (header == null || header.isBlank()) return null;
+        try {
+            return Long.parseLong(header.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

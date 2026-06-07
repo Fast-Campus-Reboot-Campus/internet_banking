@@ -75,7 +75,7 @@ class CustomerLifecycleServiceTest {
     void suspend_active() {
         Customer c = activeCustomer();
 
-        service.suspend(c.getCustomerId(), "FDS Alert #2024 이상거래");
+        service.suspend(c.getCustomerId(), "FDS Alert #2024 이상거래", 9001L);
         em.flush();
         em.clear();
 
@@ -88,16 +88,17 @@ class CustomerLifecycleServiceTest {
         assertThat(h.getCustomerStatusCode()).isEqualTo(Customer.STATUS_SUSPENDED);
         assertThat(h.getCustomerStatusChangeReasonCode()).isEqualTo(CustomerStatusHistory.REASON_REGULATORY);
         assertThat(h.getCustomerStatusChangeReasonDetail()).isEqualTo("FDS Alert #2024 이상거래");
+        assertThat(h.getChangedByEmployeeId()).isEqualTo(9001L);
     }
 
     @Test
     @DisplayName("정지 해제(reactivate)는 SUSPENDED→ACTIVE로 되돌리고 suspended_at을 비운다")
     void reactivate_fromSuspended() {
         Customer c = activeCustomer();
-        service.suspend(c.getCustomerId(), "동결");
+        service.suspend(c.getCustomerId(), "동결", 9001L);
         em.flush();
 
-        service.reactivate(c.getCustomerId(), "소명 완료");
+        service.reactivate(c.getCustomerId(), "소명 완료", 9001L);
         em.flush();
         em.clear();
 
@@ -115,10 +116,10 @@ class CustomerLifecycleServiceTest {
     @DisplayName("이미 해지된 고객은 정지할 수 없다")
     void suspend_closed_throws() {
         Customer c = activeCustomer();
-        service.close(c.getCustomerId(), "CUST_REQ", null);
+        service.close(c.getCustomerId(), "CUST_REQ", null, 9001L);
         em.flush();
 
-        assertThatThrownBy(() -> service.suspend(c.getCustomerId(), "동결"))
+        assertThatThrownBy(() -> service.suspend(c.getCustomerId(), "동결", 9001L))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -129,7 +130,7 @@ class CustomerLifecycleServiceTest {
     void close_active() {
         Customer c = activeCustomer();
 
-        service.close(c.getCustomerId(), "CUST_REQ", "고객 탈퇴 요청");
+        service.close(c.getCustomerId(), "CUST_REQ", "고객 탈퇴 요청", 9001L);
         em.flush();
         em.clear();
 
@@ -148,10 +149,10 @@ class CustomerLifecycleServiceTest {
     @DisplayName("이미 해지된 고객을 다시 해지하면 예외가 발생한다")
     void close_alreadyClosed_throws() {
         Customer c = activeCustomer();
-        service.close(c.getCustomerId(), "CUST_REQ", null);
+        service.close(c.getCustomerId(), "CUST_REQ", null, 9001L);
         em.flush();
 
-        assertThatThrownBy(() -> service.close(c.getCustomerId(), "CUST_REQ", null))
+        assertThatThrownBy(() -> service.close(c.getCustomerId(), "CUST_REQ", null, 9001L))
                 .isInstanceOf(BusinessException.class);
     }
 }

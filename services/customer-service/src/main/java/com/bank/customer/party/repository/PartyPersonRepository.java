@@ -17,6 +17,9 @@ public interface PartyPersonRepository extends JpaRepository<PartyPerson, Long> 
     /** 본인확인 CI값으로 기존 등록 여부 조회 (중복 가입 방지). */
     boolean existsByCiValueAndDeletedAtIsNull(String ciValue);
 
+    /** 본인확인 CI값으로 기존 개인 party 조회 — 동일인 재가입 시 party 재사용(역할 추가)용. */
+    Optional<PartyPerson> findByCiValueAndDeletedAtIsNull(String ciValue);
+
     /**
      * 미성년(만 19세 미만) 목록 — 생년월일(YYYYMMDD)이 기준일보다 큰(=더 최근) 개인.
      * 기준일은 서비스에서 (오늘 - 19년)으로 계산한다. birth_date는 CHAR(8)이라 문자열 비교가 곧 날짜 비교.

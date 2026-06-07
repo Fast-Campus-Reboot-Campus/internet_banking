@@ -23,13 +23,14 @@ public class EmployeeDirectoryService {
     private final EmployeeRepository employeeRepository;
 
     /** 직원 디렉토리 조회 결과 — 직원이 아니면 비어 있다. */
-    public record EmployeeInfo(String branch, String grade, List<String> roles) {}
+    public record EmployeeInfo(Long employeeId, String branch, String grade, List<String> roles) {}
 
     @Transactional(readOnly = true)
     public Optional<EmployeeInfo> findByPartyId(Long partyId) {
         if (partyId == null) return Optional.empty();
         return employeeRepository.findActiveByPartyId(partyId)
                 .map(e -> new EmployeeInfo(
+                        e.getEmployeeId(),
                         e.getBranchCode(),
                         e.getGradeCode(),
                         rolesForGrade(e.getGradeCode())));

@@ -149,13 +149,14 @@ export default function OnlineJoinPage() {
   const allTermChecked = termChecked.every(Boolean)
   const [termIndex, setTermIndex] = useState<number | null>(null)  // 모달 인덱스
 
-  // Step 1 — 본인확인
-  const [birth,         setBirth]         = useState('')
-  const [phoneVerified, setPhoneVerified] = useState(false)
+  // Step 1 — 본인확인 (성명·주민번호·휴대폰)
+  const [name,           setName]           = useState('')
+  const [rrnFront,       setRrnFront]       = useState('')
+  const [rrnBack,        setRrnBack]        = useState('')
+  const [phoneVerified,  setPhoneVerified]  = useState(false)
+  const [verificationId, setVerificationId] = useState<number | null>(null)
 
-  // Step 2 — 정보입력 (성명·생년월일은 본인확인에서 가져옴)
-  const [name,       setName]      = useState('')
-  const [genderCode, setGenderCode] = useState<'M' | 'F' | 'U'>('M')
+  // Step 2 — 정보입력 (성명·생년월일·성별은 본인확인에서 가져옴)
   const [email,      setEmail]     = useState('')
   const [phone,      setPhone]     = useState('')
   const [userId,    setUserId]    = useState('')
@@ -192,8 +193,9 @@ export default function OnlineJoinPage() {
   }
 
   function handleStep1() {
-    if (!birth) { alert('생년월일을 입력해주세요.'); return }
-    if (!phoneVerified) { alert('휴대폰 본인인증을 완료해주세요.'); return }
+    if (!name.trim()) { alert('성명을 입력해주세요.'); return }
+    if (!/^\d{13}$/.test(rrnFront + rrnBack)) { alert('주민등록번호 13자리를 정확히 입력해주세요.'); return }
+    if (!phoneVerified || verificationId == null) { alert('휴대폰 본인인증을 완료해주세요.'); return }
     setStep(2)
   }
 
@@ -208,17 +210,12 @@ export default function OnlineJoinPage() {
     if (pw.length < 8)    { alert('사용자암호는 8자리 이상 입력해주세요.'); return }
     if (pw !== pwConfirm) { alert('사용자암호가 일치하지 않습니다.'); return }
 
-    // YYMMDD → YYYYMMDD 변환 (26 이하면 2000년대, 초과면 1900년대)
-    const yy = parseInt(birth.slice(0, 2))
-    const birthDate = (yy <= 26 ? '20' : '19') + birth
-
     try {
+      // 이름·생년월일·성별·CI 는 본인확인(verificationId)이 권위 소스 — 여기선 보내지 않는다.
       await api.post('/api/v1/auth/register', {
         loginId: userId,
         password: pw,
-        name,
-        birthDate,
-        genderCode,
+        verificationId,
         ...(email && { email }),
         ...(phone && { phone }),
       })
@@ -340,14 +337,32 @@ export default function OnlineJoinPage() {
                 <table className="w-full text-[13px] border-collapse mb-6">
                   <tbody>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">
-                        생년월일
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">성명</td>
+                      <td className="border border-kb-border px-4 py-3">
+                        <input type="text" value={name} onChange={e => setName(e.target.value)}
+                          disabled={phoneVerified}
+                          placeholder="주민등록상 실명"
+                          className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] disabled:bg-kb-primary-bg" />
+                      </td>
+                    </tr>
+                    <tr className="border-b border-kb-border">
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">
+                        주민등록번호
                         <button className="ml-1 text-kb-text-muted border border-kb-border rounded-full w-4 h-4 text-[10px] inline-flex items-center justify-center">ⓘ</button>
                       </td>
                       <td className="border border-kb-border px-4 py-3">
-                        <input type="text" value={birth} onChange={e => setBirth(e.target.value)}
-                          placeholder="예: 1981년 2월 1일인 경우 : 810201" maxLength={6}
-                          className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px]" />
+                        <div className="flex items-center gap-2">
+                          <input type="text" inputMode="numeric" value={rrnFront}
+                            onChange={e => setRrnFront(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            disabled={phoneVerified} maxLength={6} placeholder="앞 6자리"
+                            className="border border-kb-border px-3 py-1.5 w-28 outline-none text-[13px] disabled:bg-kb-primary-bg" />
+                          <span className="text-kb-text-muted">-</span>
+                          <input type="password" inputMode="numeric" value={rrnBack}
+                            onChange={e => setRrnBack(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                            disabled={phoneVerified} maxLength={7} placeholder="뒤 7자리"
+                            className="border border-kb-border px-3 py-1.5 w-28 outline-none text-[13px] disabled:bg-kb-primary-bg" />
+                        </div>
+                        <p className="text-[11px] text-kb-text-muted mt-1">생년월일·성별은 주민등록번호로 자동 확인됩니다.</p>
                       </td>
                     </tr>
                     <tr>
@@ -358,7 +373,8 @@ export default function OnlineJoinPage() {
                       <td className="border border-kb-border px-4 py-3">
                         <MobileAuthField
                           purpose="SIGNUP"
-                          onVerified={(p) => { setPhone(p); setPhoneVerified(true) }}
+                          identity={{ name, rrn: rrnFront + rrnBack }}
+                          onVerified={(p, vid) => { setPhone(p); setPhoneVerified(true); setVerificationId(vid ?? null) }}
                         />
                       </td>
                     </tr>
@@ -391,30 +407,14 @@ export default function OnlineJoinPage() {
                   <tbody>
                     <tr className="border-b border-kb-border">
                       <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text w-36 whitespace-nowrap">성명(고객명)</td>
-                      <td className="border border-kb-border px-4 py-3">
-                        <input type="text" value={name} onChange={e => setName(e.target.value)}
-                          placeholder="실명 입력"
-                          className="border border-kb-border px-3 py-1.5 w-52 outline-none text-[13px]" />
+                      <td className="border border-kb-border px-4 py-3 text-kb-text">
+                        {name}
+                        <span className="ml-2 text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 본인인증 완료</span>
                       </td>
                     </tr>
                     <tr className="border-b border-kb-border">
-                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">생년월일</td>
-                      <td className="border border-kb-border px-4 py-3 text-kb-text">{birth || '810201'}</td>
-                    </tr>
-                    <tr className="border-b border-kb-border">
-                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">성별</td>
-                      <td className="border border-kb-border px-4 py-3">
-                        <div className="flex items-center gap-4 text-[13px]">
-                          {(['M', 'F', 'U'] as const).map(g => (
-                            <label key={g} className="flex items-center gap-1.5 cursor-pointer">
-                              <input type="radio" name="genderCode" value={g}
-                                checked={genderCode === g}
-                                onChange={() => setGenderCode(g)} />
-                              {g === 'M' ? '남성' : g === 'F' ? '여성' : '미확인'}
-                            </label>
-                          ))}
-                        </div>
-                      </td>
+                      <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">생년월일·성별</td>
+                      <td className="border border-kb-border px-4 py-3 text-kb-text-body text-[13px]">주민등록번호 본인확인으로 자동 등록됩니다.</td>
                     </tr>
                     <tr className="border-b border-kb-border">
                       <td className="bg-kb-primary-bg border border-kb-border px-4 py-3 font-semibold text-kb-text whitespace-nowrap">

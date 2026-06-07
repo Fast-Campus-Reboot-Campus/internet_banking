@@ -30,7 +30,8 @@ public class CustomerLifecycleService {
 
     @Transactional
     public void changeGrade(Long customerId, String newGradeCode,
-                            String reasonCode, String reasonDetail, boolean systemTriggered) {
+                            String reasonCode, String reasonDetail, boolean systemTriggered,
+                            Long actorEmployeeId) {
         Customer customer = findCustomer(customerId);
         String prevGrade  = customer.getCustomerGradeCode();
         OffsetDateTime now = OffsetDateTime.now();
@@ -47,7 +48,7 @@ public class CustomerLifecycleService {
                 prev != null ? prev.getCustomerGradeHistoryId() : null,
                 prevGrade, newGradeCode,
                 reasonCode, reasonDetail,
-                today, now, systemTriggered));
+                today, now, systemTriggered, actorEmployeeId));
     }
 
     // ── 신용등급 업데이트 ──────────────────────────────────────────────────────
@@ -62,7 +63,8 @@ public class CustomerLifecycleService {
     // ── 휴면 전환 ─────────────────────────────────────────────────────────────
 
     @Transactional
-    public void makeDormant(Long customerId, String reasonDetail, boolean systemTriggered) {
+    public void makeDormant(Long customerId, String reasonDetail, boolean systemTriggered,
+                            Long actorEmployeeId) {
         Customer customer = findCustomer(customerId);
         if (!customer.isActive()) {
             throw new BusinessException(CustomerErrorCode.CUST_012);
@@ -80,14 +82,14 @@ public class CustomerLifecycleService {
                 prev != null ? prev.getCustomerStatusHistoryId() : null,
                 Customer.STATUS_ACTIVE, Customer.STATUS_DORMANT,
                 CustomerStatusHistory.REASON_INACTIVITY,
-                reasonDetail, now, systemTriggered));
+                reasonDetail, now, systemTriggered, actorEmployeeId));
     }
 
     // ── 정지 ─────────────────────────────────────────────────────────────────
 
     /** 회원 정지(위험·규제 등에 의한 계정 동결). 해제는 {@link #reactivate}로 되돌린다. */
     @Transactional
-    public void suspend(Long customerId, String reasonDetail) {
+    public void suspend(Long customerId, String reasonDetail, Long actorEmployeeId) {
         Customer customer = findCustomer(customerId);
         // 활성·휴면에서만 정지 가능 (이미 정지·해지 상태면 전이 불가)
         if (!customer.isActive() && !customer.isDormant()) {
@@ -107,14 +109,15 @@ public class CustomerLifecycleService {
                 prev != null ? prev.getCustomerStatusHistoryId() : null,
                 prevStatus, Customer.STATUS_SUSPENDED,
                 CustomerStatusHistory.REASON_REGULATORY,
-                reasonDetail, now, false));
+                reasonDetail, now, false, actorEmployeeId));
     }
 
     // ── 해지(탈퇴) ────────────────────────────────────────────────────────────
 
     /** 회원 해지(탈퇴). 개인정보 보유기간(해지일+5년)은 도메인에서 산정한다. */
     @Transactional
-    public void close(Long customerId, String closeReasonCode, String reasonDetail) {
+    public void close(Long customerId, String closeReasonCode, String reasonDetail,
+                      Long actorEmployeeId) {
         Customer customer = findCustomer(customerId);
         if (customer.isClosed()) {
             throw new BusinessException(CustomerErrorCode.CUST_012);
@@ -133,13 +136,13 @@ public class CustomerLifecycleService {
                 prev != null ? prev.getCustomerStatusHistoryId() : null,
                 prevStatus, Customer.STATUS_CLOSED,
                 CustomerStatusHistory.REASON_CUST_REQ,
-                reasonDetail, now, false));
+                reasonDetail, now, false, actorEmployeeId));
     }
 
     // ── 재활성화(휴면·정지 해제) ──────────────────────────────────────────────
 
     @Transactional
-    public void reactivate(Long customerId, String reasonDetail) {
+    public void reactivate(Long customerId, String reasonDetail, Long actorEmployeeId) {
         Customer customer = customerRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
         if (!customer.isDormant() && !customer.isSuspended()) {
@@ -159,7 +162,7 @@ public class CustomerLifecycleService {
                 prev != null ? prev.getCustomerStatusHistoryId() : null,
                 prevStatus, Customer.STATUS_ACTIVE,
                 CustomerStatusHistory.REASON_REACTIVATE,
-                reasonDetail, now, false));
+                reasonDetail, now, false, actorEmployeeId));
     }
 
     // ── 이력 조회 ─────────────────────────────────────────────────────────────
