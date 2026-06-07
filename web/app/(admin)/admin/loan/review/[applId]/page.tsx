@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import { adminReviewApi, loanApplicationApi } from '@/lib/loan-api'
+import { viewAdvisoryReport, ackAdvisoryReport, AckResponseCd } from '@/lib/advisory-api'
 
 const REV_STATUS: Record<string, { text: string; cls: string }> = {
   PENDING_APPROVAL:  { text: '확정 대기',   cls: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
@@ -457,28 +458,7 @@ export default function LoanReviewDetailPage() {
 
               {/* Review Advisory 리포트 (advisory-service) */}
               {advisoryReports.length > 0 && (
-                <Section title={`Review Advisory 리포트 (${advisoryReports.length}건)`}>
-                  <div className="space-y-2">
-                    {advisoryReports.map((r: any, i: number) => (
-                      <div key={i} className={`text-[12px] border rounded px-3 py-2 ${
-                        r.severityCd === 'CRITICAL' ? 'bg-red-50 border-red-300' :
-                        r.severityCd === 'HIGH'     ? 'bg-orange-50 border-orange-300' :
-                        r.severityCd === 'MEDIUM'   ? 'bg-yellow-50 border-yellow-200' :
-                        'bg-gray-50 border-gray-200'}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                            r.severityCd === 'CRITICAL' ? 'bg-red-200 text-red-800' :
-                            r.severityCd === 'HIGH'     ? 'bg-orange-200 text-orange-800' :
-                            r.severityCd === 'MEDIUM'   ? 'bg-yellow-200 text-yellow-800' :
-                            'bg-gray-200 text-gray-700'}`}>{r.severityCd}</span>
-                          <span className="font-semibold text-gray-800">{r.advrTitle}</span>
-                          <span className="ml-auto text-[10px] text-gray-400">{r.advrStatusCd}</span>
-                        </div>
-                        {r.advrSummary && <p className="text-gray-600">{r.advrSummary}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </Section>
+                <AdvisorySection reports={advisoryReports} onRefresh={load} busy={busy} />
               )}
 
               {/* 체크 로그 */}
@@ -562,6 +542,116 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
       <p className="text-[11px] text-gray-400 mb-0.5">{k}</p>
       <p className="text-[13px] font-medium text-gray-800">{v}</p>
     </div>
+  )
+}
+
+const ACK_CODES: { value: AckResponseCd; label: string }[] = [
+  { value: 'MAINTAIN',        label: '결정 유지' },
+  { value: 'OVERTURN',        label: '결정 번복' },
+  { value: 'ESCALATE',        label: '상위 심사 상신' },
+  { value: 'NEEDS_MORE_INFO', label: '추가 정보 필요' },
+]
+
+function AdvisorySection({ reports, onRefresh, busy }: {
+  reports: any[]; onRefresh: () => Promise<void>; busy: boolean
+}) {
+  const [ackTarget, setAckTarget]   = useState<number | null>(null)
+  const [ackCode, setAckCode]       = useState<AckResponseCd>('MAINTAIN')
+  const [ackRemark, setAckRemark]   = useState('')
+  const [acting, setActing]         = useState(false)
+  const [msg, setMsg]               = useState('')
+  const [err, setErr]               = useState('')
+
+  function notify(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
+  function fail(m: string)   { setErr(m); setTimeout(() => setErr(''), 4000) }
+
+  async function handleView(advrId: number) {
+    setActing(true)
+    try {
+      await viewAdvisoryReport(advrId)
+      notify(`리포트 #${advrId} 조회 마킹 완료`)
+      await onRefresh()
+    } catch { fail('조회 마킹 실패') }
+    finally { setActing(false) }
+  }
+
+  async function handleAck(advrId: number) {
+    setActing(true)
+    try {
+      await ackAdvisoryReport(advrId, { ackResponseCd: ackCode, ackRemark: ackRemark || undefined })
+      notify(`리포트 #${advrId} ack 완료`)
+      setAckTarget(null); setAckRemark('')
+      await onRefresh()
+    } catch (e: any) { fail(e?.response?.data?.message ?? 'ack 실패') }
+    finally { setActing(false) }
+  }
+
+  return (
+    <Section title={`Review Advisory 리포트 (${reports.length}건)`}>
+      {msg && <div className="mb-3 px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 text-[12px] rounded">{msg}</div>}
+      {err && <div className="mb-3 px-3 py-1.5 bg-red-50 border border-red-300 text-red-700 text-[12px] rounded">{err}</div>}
+      <div className="space-y-2">
+        {reports.map((r: any) => (
+          <div key={r.advrId ?? r.advrTitle} className={`text-[12px] border rounded px-3 py-2 ${
+            r.severityCd === 'CRITICAL' ? 'bg-red-50 border-red-300' :
+            r.severityCd === 'HIGH'     ? 'bg-orange-50 border-orange-300' :
+            r.severityCd === 'MEDIUM'   ? 'bg-yellow-50 border-yellow-200' :
+            'bg-gray-50 border-gray-200'}`}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                r.severityCd === 'CRITICAL' ? 'bg-red-200 text-red-800' :
+                r.severityCd === 'HIGH'     ? 'bg-orange-200 text-orange-800' :
+                r.severityCd === 'MEDIUM'   ? 'bg-yellow-200 text-yellow-800' :
+                'bg-gray-200 text-gray-700'}`}>{r.severityCd}</span>
+              <span className="font-semibold text-gray-800 flex-1">{r.advrTitle}</span>
+              <span className="text-[10px] text-gray-400">{r.advrStatusCd}</span>
+              {r.advrId && (
+                <>
+                  {r.advrStatusCd === 'OPEN' && (
+                    <button onClick={() => handleView(r.advrId)} disabled={acting || busy}
+                      className="text-[10px] px-2 py-0.5 border border-blue-300 text-blue-600 rounded hover:bg-blue-50 disabled:opacity-50">
+                      조회 마킹
+                    </button>
+                  )}
+                  {(r.advrStatusCd === 'VIEWED' || r.advrStatusCd === 'OPEN') && ackTarget !== r.advrId && (
+                    <button onClick={() => setAckTarget(r.advrId)} disabled={acting || busy}
+                      className="text-[10px] px-2 py-0.5 border border-green-300 text-green-700 rounded hover:bg-green-50 disabled:opacity-50">
+                      ACK
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            {r.advrSummary && <p className="mt-1 text-gray-600">{r.advrSummary}</p>}
+            {ackTarget === r.advrId && (
+              <div className="mt-2 pt-2 border-t border-gray-200 flex flex-wrap gap-2 items-end">
+                <label className="text-[11px] text-gray-600">
+                  응답
+                  <select value={ackCode} onChange={e => setAckCode(e.target.value as AckResponseCd)}
+                    className="ml-1.5 border border-gray-300 rounded px-2 py-0.5 text-[11px]">
+                    {ACK_CODES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </label>
+                <label className="text-[11px] text-gray-600 flex-1">
+                  비고
+                  <input type="text" value={ackRemark} onChange={e => setAckRemark(e.target.value)}
+                    placeholder="(선택)"
+                    className="ml-1.5 border border-gray-300 rounded px-2 py-0.5 text-[11px] w-full max-w-xs" />
+                </label>
+                <button onClick={() => handleAck(r.advrId)} disabled={acting}
+                  className="text-[11px] px-3 py-0.5 bg-green-600 text-white rounded hover:opacity-90 disabled:opacity-50">
+                  확인
+                </button>
+                <button onClick={() => setAckTarget(null)}
+                  className="text-[11px] px-3 py-0.5 border border-gray-300 rounded hover:bg-gray-50">
+                  취소
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Section>
   )
 }
 
