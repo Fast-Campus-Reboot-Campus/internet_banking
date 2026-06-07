@@ -20,7 +20,9 @@ import java.util.Base64;
  * <p>저장 포맷: Base64( IV(12B) || ciphertext+GCM tag ). 키는 설정값 패스프레이즈를
  * SHA-256 으로 32바이트로 정규화해 사용한다(키 길이 실수 방지). 운영 키는 env 로 주입한다.
  */
-@Component
+// 빈 이름을 명시해 common 모듈의 cryptoService(@Bean, 별도 키 파생)와 이름 충돌을 피한다.
+// 주입은 타입 기준이며, 본 구현은 customer.crypto.rrn-key(SHA-256 정규화)로 기존 RRN 암복호화를 유지한다.
+@Component("customerCryptoService")
 public class CryptoService {
 
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
