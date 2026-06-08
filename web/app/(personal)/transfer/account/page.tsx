@@ -116,14 +116,23 @@ export default function TransferAccountPage() {
       setValidationMessage('이체금액이 출금가능금액을 초과했습니다.')
       return
     }
-    // 라우팅은 받는 은행(toBankCode) 기준 — 당행(AXful=KB)이면 타인 계좌라도 INTERNAL
-    // (백엔드가 toAccountNo로 입금계좌를 조회하므로 내 계좌목록에 없어도 안전)
+    // 라우팅은 받는 은행 방향으로 판정한다 — 당행(AXful)이면 타인 계좌라도 INTERNAL,
+    // 그 외 매핑된 은행은 EXTERNAL. (백엔드가 toAccountNo로 입금계좌를 조회하므로 내 계좌목록에 없어도 안전)
+    // 매핑 안 된 은행명(최근이체 등 외부 출처)은 INTERNAL 로 폴백하지 않고 명시 차단 —
+    // 외부 이체가 내부로 오분류돼 타행 자금이 잘못 라우팅되는 것을 방지한다.
     const targetAccount = accounts.find(acc => acc.number === toAccount)
-    const toBankCode = MOCK_BANKS.find(b => b.name === toBank)?.code ?? 'KB'
+    const isOwnBank = toBank === 'AXful'
+    const matchedBank = MOCK_BANKS.find(b => b.name === toBank)
+    if (!isOwnBank && !matchedBank) {
+      setValidationMessage('지원하지 않는 은행입니다. 기관을 다시 선택해 주세요.')
+      return
+    }
+    const toBankCode = isOwnBank ? 'KB' : matchedBank!.code
+    const transferType: 'INTERNAL' | 'EXTERNAL' = isOwnBank ? 'INTERNAL' : 'EXTERNAL'
     sessionStorage.setItem('pendingTransfer', JSON.stringify({
       fromAccountId: fromAcc?.apiAccountId,
       toAccountId: targetAccount?.apiAccountId,
-      transferType: toBankCode === 'KB' ? 'INTERNAL' : 'EXTERNAL',
+      transferType,
       fromNumber: fromAcc?.number ?? '',
       fromName: fromAcc?.name ?? '',
       toBank,
