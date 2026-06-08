@@ -63,6 +63,14 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    // 이상거래 조사 에이전트(Python/LangGraph 사이드카) — 경쟁 가설 조사 + HITL 권고.
+    section: '이상거래 조사', dot: 'bg-purple-400',
+    bankRoles: HQ_DESK,
+    items: [
+      { label: '조사 에이전트', href: '/admin/fraud' },
+    ],
+  },
+  {
     section: '대출', dot: 'bg-green-400',
     // 대출 어드민은 심사·운영·결재 직군이 사용한다.
     bankRoles: ['ROLE_DEPUTY_MANAGER', 'ROLE_OPS', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER'],
