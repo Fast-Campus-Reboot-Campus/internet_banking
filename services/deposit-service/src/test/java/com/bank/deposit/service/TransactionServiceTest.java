@@ -129,7 +129,7 @@ class TransactionServiceTest {
 
             Transaction result = transactionService.transfer(1L, null, "001-1234-5678",
                     BigDecimal.valueOf(300_000), TransferType.EXTERNAL,
-                    "001", "국민은행", "홍길동", TransactionChannel.INTERNET, "이체");
+                    "001", "국민은행", "홍길동", TransactionChannel.INTERNET, "이체", null);
 
             assertThat(result.getTransactionType()).isEqualTo(TransactionType.TRANSFER);
             assertThat(result.getDirectionType()).isEqualTo(DirectionType.OUT);
@@ -164,7 +164,7 @@ class TransactionServiceTest {
 
             Transaction result = transactionService.transfer(1L, 2L, "ACC-002",
                     BigDecimal.valueOf(300_000), TransferType.INTERNAL,
-                    "001", "우리은행", "김수신", TransactionChannel.MOBILE, "내부 이체");
+                    "001", "우리은행", "김수신", TransactionChannel.MOBILE, "내부 이체", null);
 
             ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
             then(transactionRepository).should(org.mockito.Mockito.times(2)).save(captor.capture());
@@ -188,7 +188,7 @@ class TransactionServiceTest {
             given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
 
             assertThatThrownBy(() -> transactionService.transfer(1L, 2L, null,
-                    BigDecimal.valueOf(1_000_000), null, null, null, null, null, null))
+                    BigDecimal.valueOf(1_000_000), null, null, null, null, null, null, null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -197,7 +197,7 @@ class TransactionServiceTest {
         void internalTransferWithNullToAccountId() {
             assertThatThrownBy(() -> transactionService.transfer(1L, null, null,
                     BigDecimal.valueOf(100_000), TransferType.INTERNAL,
-                    null, null, null, null, null))
+                    null, null, null, null, null, null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -208,7 +208,7 @@ class TransactionServiceTest {
 
             assertThatThrownBy(() -> transactionService.transfer(99L, null, "001-0000-0001",
                     BigDecimal.valueOf(100_000), TransferType.EXTERNAL,
-                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체"))
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체", null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -219,7 +219,7 @@ class TransactionServiceTest {
 
             assertThatThrownBy(() -> transactionService.transfer(1L, null, "001-0000-0001",
                     BigDecimal.valueOf(100_000), TransferType.EXTERNAL,
-                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체"))
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체", null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -241,7 +241,7 @@ class TransactionServiceTest {
 
             assertThatThrownBy(() -> transactionService.transfer(1L, 2L, "ACC-WRONG",
                     BigDecimal.valueOf(100_000), TransferType.INTERNAL,
-                    null, null, null, TransactionChannel.INTERNET, "이체"))
+                    null, null, null, TransactionChannel.INTERNET, "이체", null))
                     .isInstanceOf(BusinessException.class);
         }
 
@@ -254,7 +254,7 @@ class TransactionServiceTest {
 
             transactionService.transfer(1L, null, "302-1234-5678",
                     BigDecimal.valueOf(150_000), TransferType.EXTERNAL,
-                    "SHB", "신한은행", "이수신", TransactionChannel.INTERNET, "타행 이체");
+                    "SHB", "신한은행", "이수신", TransactionChannel.INTERNET, "타행 이체", null);
 
             assertThat(source.getBalance()).isEqualByComparingTo("350000");
         }
@@ -349,7 +349,7 @@ class TransactionServiceTest {
 
             transactionService.transfer(1L, null, "ACC-002",
                     BigDecimal.valueOf(300_000), TransferType.EXTERNAL,
-                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "전액 이체");
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "전액 이체", null);
 
             assertThat(source.getBalance()).isEqualByComparingTo("0");
         }
@@ -363,10 +363,10 @@ class TransactionServiceTest {
 
             transactionService.transfer(1L, null, "ACC-A",
                     BigDecimal.valueOf(300_000), TransferType.EXTERNAL,
-                    "001", "국민은행", "수취인A", TransactionChannel.INTERNET, "이체1");
+                    "001", "국민은행", "수취인A", TransactionChannel.INTERNET, "이체1", null);
             transactionService.transfer(1L, null, "ACC-B",
                     BigDecimal.valueOf(200_000), TransferType.EXTERNAL,
-                    "002", "신한은행", "수취인B", TransactionChannel.INTERNET, "이체2");
+                    "002", "신한은행", "수취인B", TransactionChannel.INTERNET, "이체2", null);
 
             assertThat(source.getBalance()).isEqualByComparingTo("500000");
         }
