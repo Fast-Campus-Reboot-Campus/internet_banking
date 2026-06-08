@@ -306,7 +306,17 @@ curl http://localhost:8087/health
 ### Docker Compose
 
 ```bash
-docker-compose up consultation-service
+cd services/consultation-service
+docker compose up -d
 ```
 
 서비스 포트: **8087**
+
+> **주의 — 메인 docker-compose와 동시 실행 시 포트 충돌**
+>
+> 메인 `docker-compose.yml`과 함께 실행하면 아래 두 포트가 충돌합니다. 이미 반영되어 있으나 메인 compose 변경 시 재확인 필요합니다.
+>
+> | 컨테이너 | 기본 포트 | 변경 포트 | 충돌 대상 |
+> |----------|----------|----------|----------|
+> | `consultation-postgres` | 5439 | **5440** | `ib-common-db` |
+> | `consultation-kafka` | 9092 | **9093** | `ib-kafka` |

@@ -2,6 +2,7 @@ package com.bank.aigateway.prompt.bias;
 
 import com.bank.aigateway.audit.dto.AuditAnalysisRequest;
 import com.bank.aigateway.prompt.PromptRenderer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ public class BiasDetectionPromptBuilder {
     private final String system;
     private final String userTemplate;
 
+    @Autowired
     public BiasDetectionPromptBuilder(
             @Value("${prompt.bias.system-resource:classpath:prompts/bias/system.txt}") Resource systemResource,
             @Value("${prompt.bias.user-resource:classpath:prompts/bias/user.txt}") Resource userResource) {

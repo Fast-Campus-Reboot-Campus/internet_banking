@@ -72,3 +72,17 @@ management:
   endpoint:
     health:
       show-details: never
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  file:
+    name: ${LOG_DIR:/logs}/api-gateway.log
+  level:
+    root: INFO

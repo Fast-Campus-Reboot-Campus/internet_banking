@@ -64,3 +64,87 @@ scrape_configs:
           expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
       - labels:
           level:
+
+  - job_name: api-gateway
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: api-gateway
+          application: api-gateway
+          __path__: /logs/api-gateway.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
+
+  - job_name: deposit-service
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: deposit-service
+          application: deposit-service
+          __path__: /logs/deposit-service.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
+
+  - job_name: loan-service
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: loan-service
+          application: loan-service
+          __path__: /logs/loan-service.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
+
+  - job_name: payment-service
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: payment-service
+          application: payment-service
+          __path__: /logs/payment-service.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
+
+  - job_name: master-service
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: master-service
+          application: master-service
+          __path__: /logs/master-service.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
+
+  - job_name: review-ai-gateway
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: review-ai-gateway
+          application: review-ai-gateway
+          __path__: /logs/review-ai-gateway.log
+    pipeline_stages:
+      - regex:
+          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
+      - labels:
+          level:
