@@ -16,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.ArgumentCaptor;
 
+import static org.mockito.ArgumentMatchers.isNull;
+
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -45,6 +47,7 @@ class TransactionServiceTest {
     @Mock private TransactionRepository transactionRepository;
     @Mock private AccountRepository accountRepository;
     @Mock private Clock clock;
+    @Mock private IdempotentTransactionSaver idempotentTransactionSaver;
 
     @BeforeEach
     void setUpClock() {
@@ -125,7 +128,7 @@ class TransactionServiceTest {
         void transfer() {
             Account source = activeAccount(BigDecimal.valueOf(1_000_000));
             given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
-            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(idempotentTransactionSaver.saveOrFetch(any(), isNull(), any())).willAnswer(inv -> inv.getArgument(0));
 
             Transaction result = transactionService.transfer(1L, null, "001-1234-5678",
                     BigDecimal.valueOf(300_000), TransferType.EXTERNAL,
@@ -161,24 +164,28 @@ class TransactionServiceTest {
             given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
             given(accountRepository.findByIdForUpdate(2L)).willReturn(Optional.of(target));
             given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(idempotentTransactionSaver.saveOrFetch(any(), isNull(), any())).willAnswer(inv -> inv.getArgument(0));
 
             Transaction result = transactionService.transfer(1L, 2L, "ACC-002",
                     BigDecimal.valueOf(300_000), TransferType.INTERNAL,
                     "001", "우리은행", "김수신", TransactionChannel.MOBILE, "내부 이체", null);
 
-            ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
-            then(transactionRepository).should(org.mockito.Mockito.times(2)).save(captor.capture());
-            List<Transaction> saved = captor.getAllValues();
+            // OUT 거래는 saveOrFetch, IN 거래는 transactionRepository.save
+            ArgumentCaptor<Transaction> outCaptor = ArgumentCaptor.forClass(Transaction.class);
+            then(idempotentTransactionSaver).should(org.mockito.Mockito.times(1)).saveOrFetch(outCaptor.capture(), isNull(), any());
+            ArgumentCaptor<Transaction> inCaptor = ArgumentCaptor.forClass(Transaction.class);
+            then(transactionRepository).should(org.mockito.Mockito.times(1)).save(inCaptor.capture());
+            Transaction outTx = outCaptor.getValue();
+            Transaction inTx = inCaptor.getValue();
 
             assertThat(result.getDirectionType()).isEqualTo(DirectionType.OUT);
             assertThat(source.getBalance()).isEqualByComparingTo("700000");
             assertThat(target.getBalance()).isEqualByComparingTo("500000");
-            assertThat(saved)
-                    .extracting(Transaction::getDirectionType)
-                    .containsExactly(DirectionType.OUT, DirectionType.IN);
-            assertThat(saved.get(1).getTransferType()).isEqualTo(TransferType.INTERNAL);
-            assertThat(saved.get(1).getChannelType()).isEqualTo(TransactionChannel.SYSTEM);
-            assertThat(saved.get(1).getTransactionSummary()).isEqualTo("이체 수신");
+            assertThat(outTx.getDirectionType()).isEqualTo(DirectionType.OUT);
+            assertThat(inTx.getDirectionType()).isEqualTo(DirectionType.IN);
+            assertThat(inTx.getTransferType()).isEqualTo(TransferType.INTERNAL);
+            assertThat(inTx.getChannelType()).isEqualTo(TransactionChannel.SYSTEM);
+            assertThat(inTx.getTransactionSummary()).isEqualTo("이체 수신");
         }
 
         @Test
@@ -250,7 +257,7 @@ class TransactionServiceTest {
         void externalTransferDeductsCorrectly() {
             Account source = activeAccount(BigDecimal.valueOf(500_000));
             given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
-            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(idempotentTransactionSaver.saveOrFetch(any(), isNull(), any())).willAnswer(inv -> inv.getArgument(0));
 
             transactionService.transfer(1L, null, "302-1234-5678",
                     BigDecimal.valueOf(150_000), TransferType.EXTERNAL,
@@ -345,7 +352,7 @@ class TransactionServiceTest {
         void transferExactBalance() {
             Account source = activeAccount(BigDecimal.valueOf(300_000));
             given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
-            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(idempotentTransactionSaver.saveOrFetch(any(), isNull(), any())).willAnswer(inv -> inv.getArgument(0));
 
             transactionService.transfer(1L, null, "ACC-002",
                     BigDecimal.valueOf(300_000), TransferType.EXTERNAL,
@@ -359,7 +366,7 @@ class TransactionServiceTest {
         void sequentialTransferBalance() {
             Account source = activeAccount(BigDecimal.valueOf(1_000_000));
             given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
-            given(transactionRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+            given(idempotentTransactionSaver.saveOrFetch(any(), isNull(), any())).willAnswer(inv -> inv.getArgument(0));
 
             transactionService.transfer(1L, null, "ACC-A",
                     BigDecimal.valueOf(300_000), TransferType.EXTERNAL,

@@ -13,8 +13,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import org.springframework.dao.DataIntegrityViolationException;
-
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -33,6 +31,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
     private final Clock clock;
+    private final IdempotentTransactionSaver idempotentTransactionSaver;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -150,40 +149,31 @@ public class TransactionService {
         source.withdraw(amount, clock);
         OffsetDateTime now = OffsetDateTime.now(clock);
 
-        Transaction outTx;
-        try {
-            outTx = transactionRepository.save(Transaction.builder()
-                    .transactionNumber(generateTxnNumber("TRF"))
-                    .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
-                    .accountId(fromAccountId)
-                    .transactionType(TransactionType.TRANSFER)
-                    .directionType(DirectionType.OUT)
-                    .amount(amount)
-                    .balanceBefore(before)
-                    .balanceAfter(source.getBalance())
-                    .availableBalanceAfter(source.getBalance())
-                    .transferType(resolvedType)
-                    .counterpartyAccountId(toAccountId)
-                    .counterpartyAccountNo(toAccountNo)
-                    .counterpartyBankCode(counterpartyBankCode)
-                    .counterpartyBankName(counterpartyBankName)
-                    .counterpartyName(counterpartyName)
-                    .channelType(channelType != null ? channelType : TransactionChannel.INTERNET)
-                    .transactionAt(now)
-                    .postedAt(now)
-                    .transferRequestedAt(now)
-                    .transferCompletedAt(now)
-                    .transactionMemo(transactionMemo)
-                    .build());
-        } catch (DataIntegrityViolationException e) {
-            // 동시 요청으로 idempotency_key 유니크 제약 위반 시 기존 거래 반환
-            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-                return transactionRepository
-                        .findByIdempotencyKeyAndAccountId(idempotencyKey, fromAccountId)
-                        .orElseThrow(() -> e);
-            }
-            throw e;
-        }
+        Transaction built = Transaction.builder()
+                .transactionNumber(generateTxnNumber("TRF"))
+                .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
+                .accountId(fromAccountId)
+                .transactionType(TransactionType.TRANSFER)
+                .directionType(DirectionType.OUT)
+                .amount(amount)
+                .balanceBefore(before)
+                .balanceAfter(source.getBalance())
+                .availableBalanceAfter(source.getBalance())
+                .transferType(resolvedType)
+                .counterpartyAccountId(toAccountId)
+                .counterpartyAccountNo(toAccountNo)
+                .counterpartyBankCode(counterpartyBankCode)
+                .counterpartyBankName(counterpartyBankName)
+                .counterpartyName(counterpartyName)
+                .channelType(channelType != null ? channelType : TransactionChannel.INTERNET)
+                .transactionAt(now)
+                .postedAt(now)
+                .transferRequestedAt(now)
+                .transferCompletedAt(now)
+                .transactionMemo(transactionMemo)
+                .build();
+
+        Transaction outTx = idempotentTransactionSaver.saveOrFetch(built, idempotencyKey, fromAccountId);
 
         if (resolvedType == TransferType.INTERNAL) {
             BigDecimal targetBefore = target.getBalance();
