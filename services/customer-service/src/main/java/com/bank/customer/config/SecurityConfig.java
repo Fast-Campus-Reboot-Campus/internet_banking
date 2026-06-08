@@ -1,10 +1,13 @@
 package com.bank.customer.config;
 
+import com.bank.common.security.jwt.JwtProvider;
 import com.bank.customer.security.CustomerRole;
 import com.bank.customer.security.GatewayHeaderAuthFilter;
+import com.bank.customer.security.JwtGatewayHeaderFallbackFilter;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.Nullable;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -48,14 +51,23 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           @Nullable JwtProvider jwtProvider) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
-            .addFilterBefore(gatewayHeaderAuthFilter(), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(gatewayHeaderAuthFilter(), UsernamePasswordAuthenticationFilter.class);
+
+        // jwt.secret 이 설정된 경우(로컬, 게이트웨이 미경유)에만 JWT 폴백 필터 등록
+        if (jwtProvider != null) {
+            http.addFilterAfter(new JwtGatewayHeaderFallbackFilter(jwtProvider),
+                    GatewayHeaderAuthFilter.class);
+        }
+
+        http
             .authorizeHttpRequests(auth -> auth
                     // 직원 전용 관리 API — 등급/신용/FDS 룰 등 고영향. 직원 역할 필요
                     .requestMatchers("/api/v1/internal/**").hasAnyRole(EMPLOYEE_ROLES)
