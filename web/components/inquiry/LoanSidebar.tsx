@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
@@ -54,29 +55,7 @@ const NAV: SidebarItem[] = [
       { label: '보증보험 발급/조회',                                   href: '/products/loan/manage/guarantee-insurance' },
     ],
   },
-  {
-    label: '대출 가이드',
-    expandable: true,
-    children: [
-      { label: '가계대출금리',                          href: '/products/loan/guide/rate' },
-      { label: '대출관련 수수료',                       href: '/products/loan/guide/fee' },
-      { label: '금리인하요구권',                        href: '/products/loan/guide/rate-cut' },
-      { label: '대출연체시 지연배상금액 예시',           href: '/products/loan/guide/late-fee' },
-      { label: '채무조정 지원제도 안내',                 href: '/products/loan/guide/debt-adjustment' },
-      { label: '부가서비스',                            href: '/products/loan/guide/benefits' },
-      { label: '내용증명 우편미수신 주요정보 안내',      href: '/products/loan/guide/notice' },
-      { label: '추심관련 권리의무 및 권리구제방법 안내', href: '/products/loan/guide/rights' },
-    ],
-  },
-  {
-    label: '신용평가 및 여신심사 자료제출',
-    expandable: true,
-    children: [
-      { label: '「업체현황 및 사업계획서」조회 및 작성',   href: '/products/loan/credit-eval/biz-plan' },
-      { label: '「FATI (재무 및 세무자료)」제출',         href: '/products/loan/credit-eval/fati-submit' },
-      { label: '「FATI (재무 및 세무자료)」제출내역조회', href: '/products/loan/credit-eval/fati-history' },
-    ],
-  },
+  { label: '🔒 인증센터', href: '/cert' },
 ]
 
 function getDefaultOpen(pathname: string): string[] {
@@ -123,7 +102,7 @@ export default function LoanSidebar() {
 
   return (
     <aside className="w-[200px] flex-shrink-0 border-r border-kb-border min-h-[700px] pt-6 pr-2">
-      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: '#0D5C47' }}>대출</h2>
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-border flex items-center gap-2" style={{ color: KB_PRIMARY }}>대출</h2>
       <nav>
         {NAV.map((item) => (
           <div key={item.label}>
@@ -131,7 +110,7 @@ export default function LoanSidebar() {
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] transition-colors"
+                  className="w-full flex items-center justify-between px-2 py-2 text-[13px] text-kb-text-body hover:text-kb-text hover:bg-kb-primary-bg transition-colors"
                 >
                   <span className="text-left leading-tight">{item.label}</span>
                   <span className="text-[11px] text-kb-text-muted ml-1 flex-shrink-0 font-bold">
@@ -151,8 +130,8 @@ export default function LoanSidebar() {
                             href={child.href}
                             className={`block pl-5 pr-2 py-1.5 text-[12px] leading-snug transition-colors ${
                               isActive(child.href)
-                                ? 'pl-[17px] pr-2 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
-                                : 'pl-5 pr-2 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
+                                ? 'pl-[17px] pr-2 border-l-[3px] border-kb-mint bg-kb-primary-bg font-semibold text-kb-primary'
+                                : 'pl-5 pr-2 text-kb-text-muted hover:text-kb-text hover:bg-kb-primary-bg'
                             }`}
                           >
                             {child.label}

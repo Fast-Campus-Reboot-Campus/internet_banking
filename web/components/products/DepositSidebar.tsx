@@ -38,16 +38,16 @@ export default function DepositSidebar() {
   }
 
   return (
-    <aside className="w-[200px] flex-shrink-0 border-r border-[#E2F5EF] min-h-[700px] pt-6 pr-2 bg-white">
-      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-[#E2F5EF] flex items-center gap-2" style={{ color: "#0D5C47" }}>예금</h2>
+    <aside className="w-[200px] flex-shrink-0 border-r border-kb-primary-border min-h-[700px] pt-6 pr-2 bg-white">
+      <h2 className="text-[13px] font-bold mb-4 px-2 pb-2 border-b border-kb-primary-border flex items-center gap-2" style={{ color: "#0D5C47" }}>예금</h2>
       <nav>
         {NAV.map((item) => (
-          <div key={item.label} className="border-b border-[#E2F5EF] last:border-b-0">
+          <div key={item.label} className="border-b border-kb-primary-border last:border-b-0">
             {item.expandable ? (
               <>
                 <button
                   onClick={() => toggle(item.label)}
-                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-[#F0FAF7] rounded-sm transition-colors duration-150"
+                  className="w-full flex items-center justify-between px-2 py-2.5 text-[13px] font-medium text-kb-text-body hover:text-kb-text hover:bg-kb-primary-bg rounded-sm transition-colors duration-150"
                 >
                   <span className="text-left leading-tight">{item.label}</span>
                   <span className="text-[10px] text-kb-text-muted ml-1 flex-shrink-0">
@@ -64,8 +64,8 @@ export default function DepositSidebar() {
                             href={child.href}
                             className={`block py-1.5 text-[12px] leading-snug transition-colors duration-150 ${
                               active
-                                ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
-                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
+                                ? 'pl-[9px] pr-3 border-l-[3px] border-kb-mint bg-kb-primary-bg font-semibold text-kb-primary'
+                                : 'px-3 text-kb-text-muted hover:text-kb-text hover:bg-kb-primary-bg'
                             }`}
                           >
                             {child.label}
@@ -81,8 +81,8 @@ export default function DepositSidebar() {
                 href={item.href ?? '#'}
                 className={`block py-2.5 text-[13px] transition-colors duration-150 ${
                   item.href && pathname.startsWith(item.href)
-                    ? 'pl-[9px] pr-3 border-l-[3px] border-[#5BC9A8] bg-[#F0FAF7] font-semibold text-[#0D5C47]'
-                    : 'px-2 text-kb-text-muted hover:text-kb-text hover:bg-[#F0FAF7]'
+                    ? 'pl-[9px] pr-3 border-l-[3px] border-kb-mint bg-kb-primary-bg font-semibold text-kb-primary'
+                    : 'px-2 text-kb-text-muted hover:text-kb-text hover:bg-kb-primary-bg'
                 }`}
               >
                 {item.label}

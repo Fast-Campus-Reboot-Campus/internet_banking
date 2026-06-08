@@ -1,3 +1,4 @@
+import { KB_PRIMARY } from '@/lib/theme'
 ﻿import Link from 'next/link'
 
 export default function NotFound() {
@@ -8,7 +9,7 @@ export default function NotFound() {
         {/* 로고 */}
         <div className="flex justify-center mb-6">
           <div className="inline-flex items-center gap-2">
-            <div className="w-9 h-9 rounded-sm flex items-center justify-center" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="w-9 h-9 rounded-sm flex items-center justify-center" style={{ backgroundColor: KB_PRIMARY }}>
               <span className="text-[16px] font-black text-white">AX</span>
             </div>
             <span className="text-[18px] font-bold text-kb-text">AXful Bank</span>
@@ -20,7 +21,7 @@ export default function NotFound() {
 
           {/* 배경 장식 숫자 */}
           <span className="absolute inset-0 flex items-center justify-center text-[160px] font-black select-none pointer-events-none"
-            style={{ color: '#0D5C47', opacity: 0.04, lineHeight: 1 }}>
+            style={{ color: KB_PRIMARY, opacity: 0.04, lineHeight: 1 }}>
             404
           </span>
 
@@ -37,7 +38,7 @@ export default function NotFound() {
           </div>
 
           {/* 404 숫자 */}
-          <p className="text-[56px] font-black leading-none mb-2" style={{ color: '#0D5C47' }}>404</p>
+          <p className="text-[56px] font-black leading-none mb-2" style={{ color: KB_PRIMARY }}>404</p>
           <h1 className="text-[18px] font-bold text-kb-text mb-2">페이지를 찾을 수 없습니다.</h1>
           <p className="text-[13px] text-kb-text-muted leading-relaxed mb-7">
             요청하신 페이지가 존재하지 않거나 이동되었을 수 있습니다.<br />
@@ -47,14 +48,14 @@ export default function NotFound() {
           <div className="flex justify-center gap-2.5">
             <Link
               href="/"
-              className="px-7 py-2.5 text-[13px] font-bold text-white rounded-sm transition-opacity hover:opacity-85"
-              style={{ backgroundColor: '#0D5C47' }}
+              className="px-7 py-2.5 text-[13px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
+              style={{ backgroundColor: KB_PRIMARY }}
             >
               홈으로 이동
             </Link>
             <Link
               href="/inquiry/accounts"
-              className="px-7 py-2.5 border border-kb-border text-[13px] text-kb-text rounded-sm hover:bg-kb-beige-light transition-colors"
+              className="px-7 py-2.5 border border-kb-border text-[13px] text-kb-text rounded-lg hover:bg-kb-beige-light transition-colors"
             >
               계좌조회
             </Link>
@@ -64,7 +65,7 @@ export default function NotFound() {
         {/* 고객센터 */}
         <div className="mt-5 text-center">
           <p className="text-[12px] text-kb-text-muted mb-1">도움이 필요하시면 고객센터로 연락해 주세요.</p>
-          <p className="text-[17px] font-bold" style={{ color: '#0D5C47' }}>1588-0000</p>
+          <p className="text-[17px] font-bold" style={{ color: KB_PRIMARY }}>1588-0000</p>
           <p className="text-[11px] text-kb-text-muted mt-0.5">평일 09:00 ~ 18:00 (은행 휴무일 제외)</p>
         </div>
 

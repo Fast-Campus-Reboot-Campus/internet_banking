@@ -10,6 +10,7 @@ import com.bank.aigateway.llm.agentic.ToolDefinition;
 import com.bank.aigateway.observability.GatewayMetrics;
 import com.bank.aigateway.parser.AuditResponseParser;
 import com.bank.aigateway.tool.AdvisoryHttpClient;
+import com.bank.aigateway.tool.AiServiceHttpClient;
 import com.bank.aigateway.tool.ToolRegistry;
 import com.bank.aigateway.tool.executor.CohortStatsToolExecutor;
 import com.bank.aigateway.tool.executor.PolicyCitationToolExecutor;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -45,23 +47,24 @@ import static org.mockito.Mockito.*;
  */
 class AgenticRagFlowTest {
 
-    ObjectMapper       objectMapper = new ObjectMapper();
-    ToolAwareLlmClient llmClient    = mock(ToolAwareLlmClient.class);
-    AdvisoryHttpClient httpClient   = mock(AdvisoryHttpClient.class);
-    GatewayMetrics     metrics      = mock(GatewayMetrics.class);
+    ObjectMapper        objectMapper    = new ObjectMapper();
+    ToolAwareLlmClient  llmClient       = mock(ToolAwareLlmClient.class);
+    AiServiceHttpClient aiServiceClient = mock(AiServiceHttpClient.class);
+    AdvisoryHttpClient  advisoryClient  = mock(AdvisoryHttpClient.class);
+    GatewayMetrics      metrics         = mock(GatewayMetrics.class);
 
     AgenticAuditAnalysisService service;
 
     @BeforeEach
     void setUp() {
-        PolicyCitationToolExecutor  policyExec  = new PolicyCitationToolExecutor(httpClient, objectMapper);
-        SimilarCasesToolExecutor    similarExec = new SimilarCasesToolExecutor(httpClient, objectMapper);
-        ReviewerHistoryToolExecutor historyExec = new ReviewerHistoryToolExecutor(httpClient, objectMapper);
-        CohortStatsToolExecutor     cohortExec  = new CohortStatsToolExecutor(httpClient, objectMapper);
+        PolicyCitationToolExecutor  policyExec  = new PolicyCitationToolExecutor(aiServiceClient, objectMapper);
+        SimilarCasesToolExecutor    similarExec = new SimilarCasesToolExecutor(advisoryClient, objectMapper);
+        ReviewerHistoryToolExecutor historyExec = new ReviewerHistoryToolExecutor(advisoryClient, objectMapper);
+        CohortStatsToolExecutor     cohortExec  = new CohortStatsToolExecutor(advisoryClient, objectMapper);
 
         ToolRegistry toolRegistry = new ToolRegistry(
                 List.of(policyExec, similarExec, historyExec, cohortExec));
-        AgenticLoop   agenticLoop = new AgenticLoop(llmClient, objectMapper);
+        AgenticLoop   agenticLoop = new AgenticLoop(llmClient, objectMapper, new com.bank.aigateway.agent.AgenticLoopProperties(5));
         AuditResponseParser parser = new AuditResponseParser(objectMapper);
 
         service = new AgenticAuditAnalysisService(agenticLoop, toolRegistry, parser, metrics);
@@ -78,8 +81,8 @@ class AgenticRagFlowTest {
                 .thenReturn(toolUseResponse(policyCall, 120, 60))
                 .thenReturn(endTurnWithCitations(200, 90));
 
-        // executor → advisory-service mock 응답
-        when(httpClient.get(contains("/api/internal/advisory/policy-citations")))
+        // executor → ai-service mock 응답 (PolicyCitation은 AiServiceHttpClient.post)
+        when(aiServiceClient.post(eq("/rag/search"), any()))
                 .thenReturn(Optional.of("""
                         {"totalCount":2,"citations":[
                           {"chunkId":77,"docCd":"FAIR_LENDING_001","score":0.91,"chunkText":"DSR 기준"},
@@ -96,7 +99,7 @@ class AgenticRagFlowTest {
         assertThat(resp.citedChunkIds()).containsExactlyInAnyOrder(77L, 88L);
         assertThat(resp.inputTokens()).isEqualTo(320);
         assertThat(resp.outputTokens()).isEqualTo(150);
-        verify(httpClient).get(contains("/api/internal/advisory/policy-citations?query="));
+        verify(aiServiceClient).post(eq("/rag/search"), any());
     }
 
     @Test
@@ -108,7 +111,7 @@ class AgenticRagFlowTest {
                 .thenReturn(toolUseResponse(similarCall, 100, 50))
                 .thenReturn(endTurnNoCitations(180, 80));
 
-        when(httpClient.get(contains("/api/internal/advisory/similar-cases")))
+        when(advisoryClient.get(contains("/api/internal/advisory/similar-cases")))
                 .thenReturn(Optional.of("""
                         {"totalCount":1,"cases":[
                           {"caseIdxId":55,"revId":4001,"decisionCd":"REJECTED","score":0.79}
@@ -121,7 +124,7 @@ class AgenticRagFlowTest {
 
         assertThat(resp.conclusion()).isEqualTo("BIAS_SUSPECTED");
         assertThat(resp.citedChunkIds()).isEmpty();
-        verify(httpClient).get(contains("/api/internal/advisory/similar-cases?revId=5002"));
+        verify(advisoryClient).get(contains("/api/internal/advisory/similar-cases?revId=5002"));
     }
 
     @Test
@@ -133,8 +136,8 @@ class AgenticRagFlowTest {
                 .thenReturn(toolUseResponse(call, 80, 40))
                 .thenReturn(endTurnNoCitations(100, 50));
 
-        // advisory-service 호출 실패 → executor 빈 문자열 반환
-        when(httpClient.get(any())).thenReturn(Optional.empty());
+        // ai-service 호출 실패 → executor 빈 문자열 반환
+        when(aiServiceClient.post(any(), any())).thenReturn(Optional.empty());
 
         AuditAnalysisResponse resp = service.analyze(
                 new AuditAnalysisRequest("BIAS_DETECTION", 5003L, 303L, null, List.of(), List.of()));

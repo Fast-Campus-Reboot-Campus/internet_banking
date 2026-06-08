@@ -1,7 +1,7 @@
 # Deposit Service
 
 작성자: 정혜영  
-수정일: 2026-06-04
+수정일: 2026-06-07
 
 Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, 계약, 거래 내역을 담당하는 백엔드 서비스입니다. 프론트엔드의 예금 상품 조회, 상품 상세, 계좌이체, 이체 결과 조회, 거래내역 조회 화면과 연동됩니다.
 
@@ -24,6 +24,10 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 테스트 | 상품 목록/상세 응답의 `bestRate` 계산과 컨트롤러 응답 검증을 추가했습니다. |
 | 테스트 보정 | 최신 계약/거래 서비스 시그니처와 계좌 조회 방식에 맞춰 기존 테스트 fixture를 보정했습니다. |
 | 이체 시나리오 테스트 | INTERNAL 토AccountId null, 존재하지 않는 계좌, CLOSED 계좌, 계좌번호 불일치, 타행이체 잔액 차감 검증 추가. |
+| 챗봇 상품 추천 우대금리 표시 | 상품 추천 카드에 우대금리 수치(+X%)와 조건을 함께 표시합니다. `banking_deposit_product_interest_rates` 테이블의 PREFERENTIAL 금리 합산값과 조건을 카드에 노출합니다. |
+| 이체 API 중복 함수 제거 | `web/lib/deposit-api.ts`의 `executeDepositTransfer` 중복 정의를 제거했습니다. |
+| 당행이체 계좌번호 조회 자동화 | `TransactionService.transfer()`에서 INTERNAL 이체 시 `toAccountId`가 null이면 throw 대신 `accountRepository.findByAccountNumber(toAccountNo)`로 계좌를 조회해 ID를 자동 매핑합니다. 타인 당행 계좌 이체 시 프론트가 내부 ID를 알 수 없는 구조적 한계를 백엔드에서 해소합니다. |
+| **챗봇·상담 테이블 소유권 이관 (V5 → V12)** | V5 마이그레이션에 포함됐던 `chatbot_*` · `consultation` 테이블 6개를 deposit-service 관할에서 제거합니다. 해당 테이블의 실제 소유자는 consultation-service이며, 서비스 기동 시 SQLAlchemy `create_all()`로 올바른 스키마로 자동 생성됩니다. V12 마이그레이션에서 기존 deposit-db의 불일치 테이블을 DROP해 충돌을 해소합니다. |
 
 ## 백엔드 변경 상세
 
@@ -101,6 +105,42 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 4. 실패하면 실패 메시지를 결과 영역에 표시합니다.
 5. 처리 후 `pendingTransfer`를 제거해 중복 실행을 막습니다.
 
+#### 당행이체 라우팅 개선 — `toAccountId` 자동 조회
+
+**배경**
+
+프론트엔드는 본인 계좌 목록만 보유하므로(`fetchDepositAccountViewModels(customerId)`), 타인 당행 계좌의 내부 ID(`toAccountId`)를 알 수 없습니다. 기존 코드는 `toAccountId`가 null이면 즉시 `ACCOUNT_NOT_FOUND`를 throw해 타인 당행 계좌 이체가 항상 실패했습니다.
+
+**변경 내용**
+
+`TransactionService.transfer()`에서 INTERNAL 이체 시 `toAccountId`가 null이면 throw 대신 `toAccountNo`로 계좌를 조회해 ID를 자동으로 채웁니다.
+
+```java
+// 변경 전
+if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
+    throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND);
+}
+
+// 변경 후
+if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
+    toAccountId = accountRepository.findByAccountNumber(toAccountNo)
+            .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND))
+            .getAccountId();
+}
+```
+
+**효과**
+
+- 프론트는 계좌번호와 은행코드만 전달하면 됩니다. INTERNAL/EXTERNAL 라우팅을 추측할 필요가 없어집니다.
+- 계좌번호가 실제로 존재하지 않으면 기존과 동일하게 `ACCOUNT_NOT_FOUND`를 반환합니다. 안전장치는 유지됩니다.
+- 관련 이슈 #87·#89·#90의 타인 당행 계좌 이체 실패 버그가 한 곳 수정으로 해소됩니다.
+
+관련 파일:
+
+| 파일 | 내용 |
+| --- | --- |
+| `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java` | INTERNAL `toAccountId` null 시 `findByAccountNumber` 조회로 변경 |
+
 관련 파일:
 
 | 파일 | 내용 |
@@ -123,39 +163,138 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 
 ## 테스트
 
-추가/수정된 테스트:
+추가/수정된 테스트 (전체 261개 PASS, BUILD SUCCESSFUL):
+
+### 거래 서비스 (`TransactionServiceTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 타행이체 출금 거래 생성 | OUT 방향, TRF- 번호, 잔액 차감 검증 |
+| 당행이체 양방향 거래 생성 | OUT+IN 각각 생성, 채널 SYSTEM, "이체 수신" 메모 |
+| 잔액 부족 이체 예외 | `BusinessException` 발생 |
+| INTERNAL toAccountId null → 계좌번호 조회 성공 | `findByAccountNumber`로 ID 매핑 후 이체 정상 처리 |
+| INTERNAL toAccountId null + 존재하지 않는 계좌번호 | `BusinessException(ACCOUNT_NOT_FOUND)` 발생 |
+| 존재하지 않는 출금 계좌 예외 | `BusinessException` 발생 |
+| CLOSED 계좌 이체 예외 | `BusinessException` 발생 |
+| 당행이체 계좌번호 불일치 예외 | `BusinessException` 발생 |
+| 타행이체 잔액 정확히 차감 | 잔액 = 이전잔액 - 이체금액 |
+| 전액 이체 후 잔액 0 | 잔액 0 검증 |
+| 순차 이체 두 번 후 잔액 | 누적 차감 정확성 |
+| 음수 잔액 방지 | 실패 시 잔액 불변 |
+| 멀티스레드 순차 호출 잔액 | 잔액 ≥ 0 보장 |
+| DEPOSIT 타입 거래 취소 불가 | `BusinessException` 발생 |
+| 이미 취소된 거래 재취소 불가 | `BusinessException` 발생 |
+| 취소 거래 생성 | REVERSAL 타입, REV- 번호 |
+
+### 거래 컨트롤러 (`TransactionControllerTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 이체 정상 | 201 Created, `TRANSFER` 타입 반환 |
+| fromAccountId 누락 | 400 Bad Request |
+| 금액 0원 | 400 Bad Request |
+| 금액 음수 | 400 Bad Request |
+| 서비스 예외 (잔액 부족) | 4xx 반환 |
+| 없는 거래 취소 | 404 Not Found |
+| 입금/출금/적금납입/취소 | 201/200 정상 반환 |
+| 없는 거래 조회 | 404 Not Found |
+
+### 계좌 서비스 (`AccountServiceTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| 계좌번호로 정상 조회 | accountNumber, customerId 일치 |
+| 없는 계좌번호 조회 예외 | `BusinessException` 발생 |
+| 고객 계좌 없을 때 빈 리스트 | 빈 리스트 반환 |
+
+### 계좌 컨트롤러 (`AccountControllerTest`)
+
+| 케이스 | 검증 내용 |
+| --- | --- |
+| `GET /accounts/by-number/{accountNo}` 정상 | 200, accountNumber/customerId 반환 |
+| `GET /accounts/by-number/없는번호` | 404 Not Found |
+| 인증 헤더 없이 계좌 생성 | 403 Forbidden |
+
+### 기존 테스트 (보정 포함)
 
 | 파일 | 검증 내용 |
 | --- | --- |
-| `src/test/java/com/bank/deposit/controller/ProductControllerTest.java` | 상품 목록/상세 응답에 `bestRate`가 포함되는지 검증 |
-| `src/test/java/com/bank/deposit/service/ProductServiceTest.java` | 활성 금리 row를 기준으로 `bestRate`가 계산되는지 검증 |
-| `src/test/java/com/bank/deposit/controller/ContractControllerTest.java` | 계약 해지 API mock 인자를 현재 컨트롤러 호출 방식에 맞게 보정 |
-| `src/test/java/com/bank/deposit/service/ContractServiceTest.java` | 계약 생성 테스트를 현재 서비스 시그니처와 고정 Clock 기준에 맞게 보정 |
-| `src/test/java/com/bank/deposit/service/TransactionServiceTest.java` | 거래 서비스 테스트 보정 + 이체 추가 시나리오 5개: INTERNAL toAccountId null, 존재하지 않는 계좌, CLOSED 계좌, 계좌번호 불일치, 타행이체 잔액 차감 검증 |
+| `ProductControllerTest` | 상품 목록/상세 응답에 `bestRate` 포함 검증 |
+| `ProductServiceTest` | 활성 금리 row 기준 `bestRate` 계산 검증 |
+| `ContractControllerTest` | 해지 API mock 인자 보정 |
+| `ContractServiceTest` | 계약 생성 시그니처·Clock 기준 보정 |
 
 테스트 실행:
 
 ```bash
 ./gradlew :services:deposit-service:test
+./gradlew :services:deposit-service:build
 ```
+
+## 챗봇 상품 추천 우대금리 표시
+
+챗봇 상품 추천 카드에 우대금리 수치와 조건을 함께 표시합니다.
+
+### 데이터 출처
+
+`banking_deposit_product_interest_rates` 테이블(deposit DB)에서 `rate_type = 'PREFERENTIAL'`인 행을 상품별로 집계합니다.
+
+- 우대금리 수치: `SUM(interest_rate)` → 카드에 `+X%` 형식으로 표시
+- 우대금리 조건: `STRING_AGG(condition_description)` → 카드에 조건 텍스트로 표시
+
+### 표시 예시
+
+```
+🎁 우대금리 +0.6% 조건: 자동이체 설정 우대
+```
+
+DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback 조건을 사용합니다.
+
+| 키워드 | fallback 조건 |
+| --- | --- |
+| 내맘대로 | 자동이체 설정 |
+| 자유적금 | 자동이체 설정 |
+| 맑은하늘 | 맑은하늘 앱 설치 후 인증코드 등록 |
+| 직장인우대 | 급여이체 실적 등록 |
+| 달러 | 달러 환전 실적 보유 |
+| 청년도약 | 소득 요건 충족 확인 |
+| 수퍼정기 | 비대면 가입 |
+| 정기예금 | 비대면(인터넷·스타뱅킹) 가입 |
+| 꿈적금 | 만기 유지 |
+| 함께적금 | 2인 이상 공동 가입 |
+
+### 관련 파일
+
+| 파일 | 내용 |
+| --- | --- |
+| `web/components/chatbot/ChatbotWidget.tsx` | 추천 카드에 `pref_rate`, `pref_condition` 표시 추가 |
+
+---
 
 ## 변경 파일 목록
 
 백엔드:
 
+- `services/deposit-service/src/main/resources/db/migration/V5__full_erd_schema.sql` (chatbot·consultation 테이블 제거)
+- `services/deposit-service/src/main/resources/db/migration/V12__drop_chatbot_consultation_tables.sql` (신규)
+- `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/controller/ProductController.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/domain/enums/TransactionChannel.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/dto/response/ProductResponse.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/service/ProductService.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/controller/AccountControllerTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/controller/ProductControllerTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/controller/ContractControllerTest.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/controller/TransactionControllerTest.java`
+- `services/deposit-service/src/test/java/com/bank/deposit/service/AccountServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/ContractServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/ProductServiceTest.java`
 - `services/deposit-service/src/test/java/com/bank/deposit/service/TransactionServiceTest.java`
 
 프론트엔드 deposit 연동:
 
-- `web/lib/deposit-api.ts`
+- `web/lib/deposit-api.ts` (중복 함수 제거)
+- `web/components/chatbot/ChatbotWidget.tsx` (우대금리 수치 표시 추가)
 - `web/components/home/ProductShowcase.tsx`
 - `web/app/(personal)/products/deposit/[id]/page.tsx`
 - `web/app/(personal)/transfer/account/page.tsx`
@@ -163,6 +302,57 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 - `web/app/(personal)/transfer/inquiry/page.tsx`
 - `web/app/(personal)/inquiry/transactions/page.tsx`
 
+## DB 마이그레이션 구조
+
+### 챗봇·상담 테이블 소유권 정리 (V5 → V12)
+
+**배경**
+
+V5(`V5__full_erd_schema.sql`)는 전체 ERD를 일괄 생성하는 마이그레이션으로, 챗봇·상담 관련 테이블도 포함돼 있었습니다.
+그러나 이 테이블들의 실제 소유자는 **consultation-service**이며, deposit-service Java 코드는 해당 테이블을 직접 참조하지 않습니다.
+V5의 테이블 스키마(컬럼명 `id`)와 consultation-service SQLAlchemy 모델(컬럼명 `node_id` 등)이 달라 consultation-service가 기동 실패하는 문제가 있었습니다.
+
+**해결**
+
+| 마이그레이션 | 처리 내용 |
+|---|---|
+| `V5__full_erd_schema.sql` | `chatbot_scenario`, `chatbot_intent`, `chatbot_node`, `consultation`, `chatbot_consultation`, `chatbot_conversation_history` 6개 테이블 정의 제거 |
+| `V12__drop_chatbot_consultation_tables.sql` | 이미 실행된 deposit-db의 해당 테이블을 FK 순서대로 DROP (IF EXISTS CASCADE) |
+
+**기동 흐름**
+
+```
+deposit-service 기동
+  → Flyway V12 실행: 불일치 chatbot·consultation 테이블 DROP
+  → consultation-service 기동
+  → SQLAlchemy create_all(): 올바른 컬럼명으로 chatbot·consultation 테이블 재생성
+```
+
+**영향 없음 확인**
+
+- deposit-service Java 코드에서 chatbot·consultation 테이블 참조 없음
+- V6~V11 마이그레이션에서 해당 테이블 참조 없음
+- consultation-service는 deposit-db의 `deposit_*` 테이블(상품·계좌·거래)을 직접 조회하므로 DB 분리 불가 — 동일 deposit-db 유지
+
+### 현재 마이그레이션 목록
+
+| 버전 | 내용 |
+|---|---|
+| V1 | 전체 스키마 초기화 |
+| V2 | Postman 시드 데이터 |
+| V3 | 상품 인덱스 추가 |
+| V4 | 상품 금리 제약 추가 |
+| V5 | 전체 ERD 스키마 (chatbot·consultation 제외) |
+| V6 | 약관 신청 관리 테이블 |
+| V7 | 정기적금 시드 데이터 |
+| V8 | 고객 프론트 상품 시드 데이터 |
+| V9 | 계좌 version 컬럼 추가 |
+| V10 | 계좌 날짜·번호 시퀀스 |
+| V11 | 예약이체 스케줄 테이블 |
+| **V12** | **chatbot·consultation 테이블 DROP (consultation-service 소유권 이관)** |
+
+---
+
 ## 담당 범위 확인
 
-이번 커밋에는 customer-service 변경을 포함하지 않습니다. 인증, 고객, 상담 서비스 담당 영역의 파일은 제외하고 deposit-service와 deposit 프론트 연동 파일만 포함합니다.
+이번 커밋에는 customer-service 변경을 포함하지 않습니다. 인증, 고객 서비스 담당 영역의 파일은 제외하고 deposit-service와 deposit 프론트 연동 파일만 포함합니다.

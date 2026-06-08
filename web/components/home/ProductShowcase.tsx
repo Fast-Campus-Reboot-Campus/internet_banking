@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT } from '@/lib/theme'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -150,7 +151,7 @@ export default function ProductShowcase() {
 
         {/* 헤더 */}
         <div className="mb-3">
-          <p className="text-[11px] font-semibold tracking-widest uppercase mb-0.5" style={{ color: '#5BC9A8' }}>Featured Products</p>
+          <p className="text-[11px] font-semibold tracking-widest uppercase mb-0.5" style={{ color: KB_MINT }}>Featured Products</p>
           <h2 className="text-[22px] font-bold text-kb-text">AXful Bank 대표상품</h2>
         </div>
 

@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -31,19 +32,19 @@ export default function FloatingSidebar() {
 
   if (pathname === '/login' || pathname.startsWith('/biz')) return null
 
-  const itemCls = "w-full flex flex-col items-center py-3 border-b border-[#E2F5EF] hover:bg-kb-beige transition-colors duration-150 gap-1 text-kb-text-muted hover:text-kb-text"
+  const itemCls = "w-full flex flex-col items-center py-3 border-b border-kb-primary-border hover:bg-kb-beige transition-colors duration-150 gap-1 text-kb-text-muted hover:text-kb-text"
   const labelCls = "text-[12px] leading-tight text-center"
 
   return (
     <>
     {showConsult && <ConsultModal onClose={() => setShowConsult(false)} />}
-    <div className="fixed right-0 top-[8%] z-50 flex flex-col items-center w-[80px] shadow-xl rounded-l-2xl overflow-hidden bg-white border border-[#E2F5EF] border-r-0">
+    <div className="fixed right-0 top-[8%] z-50 flex flex-col items-center w-[80px] shadow-xl rounded-l-2xl overflow-hidden bg-white border border-kb-primary-border border-r-0">
 
       {/* 홈 */}
       <Link
         href="/"
-        className="w-full flex flex-col items-center py-3.5 border-b border-[#E2F5EF] transition-opacity gap-1 text-white hover:opacity-80"
-        style={{ backgroundColor: '#0D5C47' }}
+        className="w-full flex flex-col items-center py-3.5 border-b border-kb-primary-border transition-opacity gap-1 text-white hover:opacity-80"
+        style={{ backgroundColor: KB_PRIMARY }}
       >
         <IconHome />
         <span className="text-[10px] font-semibold tracking-wide">HOME</span>
@@ -106,12 +107,12 @@ export default function FloatingSidebar() {
       </Link>
 
       {/* 글자 크기 */}
-      <div className="w-full flex items-center justify-center gap-3 py-3 border-b border-[#E2F5EF] bg-[#F0FAF7]">
+      <div className="w-full flex items-center justify-center gap-3 py-3 border-b border-kb-primary-border bg-kb-primary-bg">
         <button
           onClick={() => { setFontSize('normal'); document.documentElement.style.fontSize = '14px' }}
           className={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold transition-all duration-150 ${
             fontSize === 'normal'
-              ? 'bg-[#0D5C47] text-white shadow-sm'
+              ? 'bg-kb-primary text-white shadow-sm'
               : 'text-kb-text-muted hover:text-kb-text'
           }`}
         >가</button>
@@ -119,7 +120,7 @@ export default function FloatingSidebar() {
           onClick={() => { setFontSize('large'); document.documentElement.style.fontSize = '16px' }}
           className={`w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold transition-all duration-150 ${
             fontSize === 'large'
-              ? 'bg-[#0D5C47] text-white shadow-sm'
+              ? 'bg-kb-primary text-white shadow-sm'
               : 'text-kb-text-muted hover:text-kb-text'
           }`}
         >가</button>
@@ -129,7 +130,7 @@ export default function FloatingSidebar() {
       <button
         onClick={scrollToTop}
         className="w-full flex flex-col items-center py-3 transition-opacity gap-0.5 text-white hover:opacity-80"
-        style={{ backgroundColor: '#0D5C47' }}
+        style={{ backgroundColor: KB_PRIMARY }}
       >
         <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="18 15 12 9 6 15" />

@@ -1,9 +1,11 @@
 'use client'
+import { KB_MINT } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DepositSidebar from '@/components/products/DepositSidebar'
+import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { createDepositContract, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
@@ -24,6 +26,7 @@ const PRODUCT_NAMES: Record<string, string> = {
   'axful-dream': 'AXful 꿈적금',
   'axful-together': 'AXful 함께적금',
   // 입출금자유
+  'axful-free-account': 'AXful 자유입출금통장',
   'axful-youth-account': 'AXful 청년우대통장',
   'axful-sok': 'AXful 쏙머니통장',
   'monimo-daily': '모니모 AXful 매일이자 통장',
@@ -51,7 +54,7 @@ const HOUSING_IDS = new Set([
 ])
 
 const CHECKING_IDS = new Set([
-  'axful-youth-account', 'axful-sok', 'monimo-daily',
+  'axful-free-account', 'axful-youth-account', 'axful-sok', 'monimo-daily',
 ])
 
 // 적금별 가입기간 범위
@@ -86,12 +89,30 @@ const PRODUCT_RATES: Record<string, string> = {
   'youth-housing':       '연 3.1% + 우대 최대 1.4%',
 }
 
-const TERMS = [
-  '예금거래기본약관',
-  '거치식예금약관',
-  'AXful Star 정기예금 특약',
-  'AXful Star 정기예금 상품설명서',
-]
+const TERMS_BY_TYPE: Record<string, string[]> = {
+  deposit: [
+    '예금거래기본약관',
+    '거치식예금약관',
+    'AXful Star 정기예금 특약',
+    'AXful Star 정기예금 상품설명서',
+  ],
+  savings: [
+    '예금거래기본약관',
+    '적립식예금약관',
+    'AXful 적금 특약',
+    'AXful 적금 상품설명서',
+  ],
+  checking: [
+    '예금거래기본약관',
+    '보통예금약관',
+    'AXful 입출금통장 상품설명서',
+  ],
+  housing: [
+    '예금거래기본약관',
+    '주택청약종합저축약관',
+    '주택청약종합저축 상품설명서',
+  ],
+}
 
 const MATURITY_OPTIONS = [
   '자동재예치(원금+이자)',
@@ -113,7 +134,7 @@ function AccItem({ title, required, checked, onCheck, children, defaultOpen = fa
             type="checkbox"
             checked={!!checked}
             onChange={e => onCheck(e.target.checked)}
-            className="w-4 h-4 flex-shrink-0 accent-[#5BC9A8] cursor-pointer"
+            className="w-4 h-4 flex-shrink-0 accent-kb-mint cursor-pointer"
           />
         )}
         <button
@@ -124,7 +145,7 @@ function AccItem({ title, required, checked, onCheck, children, defaultOpen = fa
               <circle cx="10" cy="10" r="9" stroke="#5BC9A8" strokeWidth="1.5"/>
               <polyline points="6,10 9,13 14,7" stroke="#5BC9A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            {required && <span className="text-[11px] font-bold text-[#5BC9A8] border border-[#5BC9A8] px-1.5 py-0.5 rounded-sm">필수</span>}
+            {required && <span className="text-[11px] font-bold text-kb-mint border border-kb-mint px-1.5 py-0.5 rounded-sm">필수</span>}
             <span className="font-semibold text-kb-text">{title}</span>
           </span>
           <span className="text-kb-text-muted text-xs ml-2">{open ? '∧' : '›'}</span>
@@ -166,6 +187,10 @@ export default function DepositJoinPage() {
   const isSavings = SAVINGS_IDS.has(id)
   const isHousing = HOUSING_IDS.has(id)
   const isChecking = CHECKING_IDS.has(id)
+  const terms = isChecking ? TERMS_BY_TYPE.checking
+    : isHousing ? TERMS_BY_TYPE.housing
+    : isSavings ? TERMS_BY_TYPE.savings
+    : TERMS_BY_TYPE.deposit
   const isFreeStyleSavings = FREE_SAVINGS_IDS.has(id)   // 자유적금: 납입 자유
   const isRegularSavings   = REGULAR_SAVINGS_IDS.has(id) // 정기적금: 월 고정 납입
   const periodRange = isSavings ? (SAVINGS_PERIOD_RANGE[id] ?? { min: 1, max: 36, label: '1~36개월, 월단위' }) : { min: 1, max: 36, label: '1~36개월, 월단위' }
@@ -212,6 +237,7 @@ export default function DepositJoinPage() {
   const [maturity, setMaturity] = useState('자동재예치(원금+이자)')
   const [lms, setLms] = useState<'yes' | 'no' | null>(null)
   const [docMethod, setDocMethod] = useState<'email' | 'lms' | null>(null)
+
 
   /* ─── Step 3 state ─── */
   const [confirmPw, setConfirmPw] = useState('')
@@ -266,26 +292,6 @@ export default function DepositJoinPage() {
     setStep(3)
   }
 
-  function saveFallbackAccount() {
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`
-    const rand6 = String(Math.floor(100000 + Math.random() * 900000))
-    const newAcc = {
-      id: String(now.getTime()),
-      number: `531089-04-${rand6}`,
-      type: isHousing ? '청약' : isSavings ? '적금' : isChecking ? '입출금' : '예금',
-      name: productName,
-      balance: parseInt(amount.replace(/,/g, '')) || 0,
-      availableBalance: 0,
-      createdAt: dateStr,
-      maturityDate: maturityDate !== '-' ? maturityDate : undefined,
-      monthlyAmount: isRegularSavings ? (parseInt(amount.replace(/,/g, '')) || 0) : undefined,
-    }
-    const prev = JSON.parse(localStorage.getItem('joinedAccounts') || '[]')
-    prev.unshift(newAcc)
-    localStorage.setItem('joinedAccounts', JSON.stringify(prev))
-  }
-
   async function handleFinalConfirm() {
     if (submitting) return
     const pw = mouseInput ? mouseConfirmPw : confirmPw
@@ -324,14 +330,11 @@ export default function DepositJoinPage() {
 
   return (
     <div className="max-w-kb-container mx-auto px-6 py-6">
-      <div className="flex justify-end mb-3 text-[12px] text-kb-text-muted gap-1 items-center">
-        <span>개인뱅킹</span><span>›</span>
-        <span>금융상품</span><span>›</span>
-        <span>예금</span><span>›</span>
-        <Link href="/products/deposit" className="hover:underline">예금 상품/가입</Link>
-        <span>›</span>
-        <Link href="#" className="text-kb-blue hover:underline">도움말</Link>
-      </div>
+      <AutoBreadcrumb
+        as="/products/deposit/list"
+        className="flex justify-end items-center mb-3 text-[12px] text-kb-text-muted gap-1"
+        trailing={<Link href="#" className="text-kb-blue hover:underline">도움말</Link>}
+      />
 
       <div className="flex gap-6">
         <DepositSidebar />
@@ -348,7 +351,7 @@ export default function DepositJoinPage() {
                       ? 'font-bold text-white'
                       : 'text-kb-text-body border border-kb-border bg-white'
                   }`}
-                  style={i + 1 === step ? { backgroundColor: '#5BC9A8' } : {}}>
+                  style={i + 1 === step ? { backgroundColor: KB_MINT } : {}}>
                   {i + 1}. {s}
                 </button>
               ))}
@@ -360,13 +363,13 @@ export default function DepositJoinPage() {
             <div className="space-y-0">
 
               {/* 전체 동의 */}
-              <div className="border border-kb-border bg-[#F0FAF7] px-5 py-4 mb-4 flex items-center gap-3">
+              <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-4 flex items-center gap-3">
                 <input
                   type="checkbox"
                   id="agreeAll"
                   checked={allRequiredChecked}
                   onChange={e => checkAll(e.target.checked)}
-                  className="w-5 h-5 accent-[#5BC9A8] cursor-pointer flex-shrink-0"
+                  className="w-5 h-5 accent-kb-mint cursor-pointer flex-shrink-0"
                 />
                 <label htmlFor="agreeAll" className="text-[14px] font-bold text-kb-text cursor-pointer">
                   아래 약관 및 필수 항목에 전체 동의합니다.
@@ -378,7 +381,7 @@ export default function DepositJoinPage() {
                 <SectionHeader title="약관 및 상품설명서" />
                 <div>
                   <AccItem title="약관 열람">
-                    {TERMS.map(t => (
+                    {terms.map(t => (
                       <button key={t}
                         className="flex items-center justify-between w-full py-2 border-b border-kb-border last:border-0 hover:text-kb-blue transition-colors">
                         <span>{t}</span>
@@ -434,7 +437,7 @@ export default function DepositJoinPage() {
               <div className="border border-kb-border p-4 mb-6">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input type="checkbox" checked={termChecks.final} onChange={e => checkTerm('final', e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-[#5BC9A8]" />
+                    className="mt-0.5 w-4 h-4 accent-kb-mint" />
                   <div>
                     <p className="text-[13px] font-semibold text-kb-text">본인은 위 예금상품의 약관과 상품설명서에 대해 중요사항을 충분히 이해하고 본 상품에 가입함을 확인합니다. <span className="text-[#E05555]">(필수)</span></p>
                     <p className="text-[12px] text-[#E05555] mt-1">※ 설명내용을 제대로 이해하지 못하였음에도 이해했다는 확인을 하는 경우, 추후 권리구제가 어려울 수 있습니다.</p>
@@ -462,13 +465,13 @@ export default function DepositJoinPage() {
           {/* ══════════ STEP 2: 정보입력 ══════════ */}
           {step === 2 && (
             <div>
-              <p className="text-[14px] font-bold text-[#5BC9A8] border-b-2 border-[#5BC9A8] inline-block pb-1 mb-4">정보입력</p>
+              <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-4">정보입력</p>
 
               <div className="border border-kb-border px-5 py-2 mb-6 space-y-0">
                 {/* 군인 인증 - 장병내일준비적금 전용 */}
                 {id === 'axful-soldier' && (
                   <>
-                    <div className="bg-[#F0FAF7] border border-[#5BC9A8] px-4 py-3 mb-3 text-[12px] text-kb-text-body rounded">
+                    <div className="bg-kb-primary-bg border border-kb-mint px-4 py-3 mb-3 text-[12px] text-kb-text-body rounded">
                       <p className="font-semibold text-[#2D6A4F] mb-1">현역 복무 중인 장병만 가입 가능합니다.</p>
                       <p>· 군번 및 복무 정보는 병무청 데이터와 대조하여 확인됩니다.</p>
                       <p>· 허위 정보 입력 시 가입이 취소될 수 있습니다.</p>
@@ -478,7 +481,7 @@ export default function DepositJoinPage() {
                         {['육군', '해군', '공군', '해병대', '해양경찰'].map(branch => (
                           <label key={branch} className="flex items-center gap-2 text-[13px] cursor-pointer">
                             <input type="radio" name="militaryBranch" checked={militaryBranch === branch}
-                              onChange={() => setMilitaryBranch(branch)} className="accent-[#5BC9A8]" />
+                              onChange={() => setMilitaryBranch(branch)} className="accent-kb-mint" />
                             {branch}
                           </label>
                         ))}
@@ -531,7 +534,7 @@ export default function DepositJoinPage() {
                             onClick={() => { setPeriod(String(m)); setPeriodPreset(String(m)) }}
                             className={`px-4 py-1.5 text-[12px] border transition-colors ${
                               periodPreset === String(m)
-                                ? 'border-[#5BC9A8] text-[#5BC9A8] font-bold bg-white'
+                                ? 'border-kb-mint text-kb-mint font-bold bg-white'
                                 : 'border-kb-border text-kb-text-body hover:bg-kb-beige-light'
                             }`}>
                             {m}개월
@@ -550,13 +553,13 @@ export default function DepositJoinPage() {
                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="autoTransfer" value="yes"
                           checked={autoTransfer === 'yes'}
-                          onChange={() => setAutoTransfer('yes')} className="accent-[#5BC9A8]" />
+                          onChange={() => setAutoTransfer('yes')} className="accent-kb-mint" />
                         신청
                       </label>
                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="autoTransfer" value="no"
                           checked={autoTransfer === 'no'}
-                          onChange={() => setAutoTransfer('no')} className="accent-[#5BC9A8]" />
+                          onChange={() => setAutoTransfer('no')} className="accent-kb-mint" />
                         미신청
                       </label>
                     </div>
@@ -654,7 +657,7 @@ export default function DepositJoinPage() {
                     {([['coupon', 'AXful금융쿠폰(0)'], ['point', '포인트리'], ['none', '사용안함']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="coupon" checked={couponType === val}
-                          onChange={() => setCouponType(val)} className="accent-[#5BC9A8]" />
+                          onChange={() => setCouponType(val)} className="accent-kb-mint" />
                         {label}
                       </label>
                     ))}
@@ -666,7 +669,7 @@ export default function DepositJoinPage() {
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                       <input type="checkbox" checked={taxExempt} onChange={e => setTaxExempt(e.target.checked)}
-                        className="w-4 h-4 accent-[#5BC9A8]" />
+                        className="w-4 h-4 accent-kb-mint" />
                       비과세종합저축 적용
                     </label>
                     <button className="text-[12px] text-kb-blue hover:underline">자세히보기 ›</button>
@@ -692,7 +695,7 @@ export default function DepositJoinPage() {
                     {([['same', '출금계좌와 동일하게 설정'], ['new', '신규 설정']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="pw" checked={passwordType === val}
-                          onChange={() => setPasswordType(val)} className="accent-[#5BC9A8]" />
+                          onChange={() => setPasswordType(val)} className="accent-kb-mint" />
                         {label}
                       </label>
                     ))}
@@ -717,7 +720,7 @@ export default function DepositJoinPage() {
                       {([['yes', '예'], ['no', '아니오']] as const).map(([val, label]) => (
                         <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                           <input type="radio" name="lms" checked={lms === val}
-                            onChange={() => setLms(val)} className="accent-[#5BC9A8]" />
+                            onChange={() => setLms(val)} className="accent-kb-mint" />
                           {label}
                         </label>
                       ))}
@@ -739,7 +742,7 @@ export default function DepositJoinPage() {
                     {([['email', '이메일주소로 받기'], ['lms', '문자메시지(LMS) 받기']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="doc" checked={docMethod === val}
-                          onChange={() => setDocMethod(val)} className="accent-[#5BC9A8]" />
+                          onChange={() => setDocMethod(val)} className="accent-kb-mint" />
                         {label}
                       </label>
                     ))}
@@ -779,7 +782,7 @@ export default function DepositJoinPage() {
           {/* ══════════ STEP 3: 정보확인 ══════════ */}
           {step === 3 && (
             <div>
-              <p className="text-[14px] font-bold text-[#5BC9A8] border-b-2 border-[#5BC9A8] inline-block pb-1 mb-4">정보 확인</p>
+              <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-4">정보 확인</p>
 
               <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text mb-3">
                 <tbody>
@@ -801,11 +804,11 @@ export default function DepositJoinPage() {
                     ] : []),
                     { label: isFreeStyleSavings ? '납입방식' : isRegularSavings ? '월 이체금액' : isChecking ? '초기 입금금액' : '가입금액',
                       value: isFreeStyleSavings ? '자유 납입 (1회 최소 1만원)' : `${amount}원` },
-                    { label: '이자지급방법', value: isSavings ? '만기일시지급식' : '공기일시지급 근식' },
-                    { label: '적용금리', value: PRODUCT_RATES[id] ?? '연 2.4%' },
+                    ...(!isChecking ? [{ label: '이자지급방법', value: isSavings ? '만기일시지급식' : '만기일시지급식' }] : []),
+                    { label: '적용금리', value: PRODUCT_RATES[id] ?? (isChecking ? '연 0.1%' : '연 2.4%') },
                     { label: '적용과세', value: taxExempt ? '비과세' : '일반' },
                     { label: '출금계좌', value: 'AX풀뱅크 531089-04-274618' },
-                    { label: '상품만기알림(LMS) 서비스 신청', value: lms === 'yes' ? '신청' : '미신청' },
+                    ...(!isChecking ? [{ label: '상품만기알림(LMS) 서비스 신청', value: lms === 'yes' ? '신청' : '미신청' }] : []),
                     { label: '연계·제류서비스', value: '해당사항 없음' },
                   ].map(row => (
                     <tr key={row.label}>
@@ -825,7 +828,7 @@ export default function DepositJoinPage() {
 
               {/* 계좌 비밀번호 확인 */}
               <div className="border border-t-2 border-kb-text pt-0">
-                <p className="text-[14px] font-bold text-[#5BC9A8] border-b-2 border-[#5BC9A8] inline-block pb-1 mb-3">공규계좌 및 비밀번호 확인</p>
+                <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-3">공규계좌 및 비밀번호 확인</p>
                 <table className="w-full border-collapse text-[13px]">
                   <tbody>
                     <tr>

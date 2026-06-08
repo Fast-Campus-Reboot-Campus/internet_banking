@@ -70,6 +70,22 @@
         WHERE clearing_no = #{clearingNo}
     </select>
 
+    <!-- 마감배치: ct.clearing_status=SETTLED + pi.status=CLEARING 조합 전체 조회.
+         direction=OUT 한정 — IN(수신) CT는 txInboundDeposit에서 PI COMPLETED로 이미 완결.
+         ORDER BY clearing_requested_at ASC — 요청순 처리로 결제계 내부 로그 일관성 유지.
+         settlement_date <= today: 당일 실패로 잔류한 과거 미처리 건도 익일 이후 배치에서 재조회됨. -->
+    <select id="selectDueForSettlement" resultType="com.bank.payment.domain.KftcClearingTransaction">
+        SELECT ct.*
+        FROM kftc_clearing_transaction ct
+        JOIN payment_instruction pi
+          ON ct.our_payment_instruction_id = pi.payment_instruction_id
+        WHERE ct.clearing_status = 'SETTLED'
+          AND ct.settlement_date &lt;= #{settlementDate}
+          AND ct.direction = 'OUT'
+          AND pi.status = 'CLEARING'
+        ORDER BY ct.clearing_requested_at ASC
+    </select>
+
     <update id="updateSettled">
         UPDATE kftc_clearing_transaction
         SET clearing_status         = 'SETTLED',

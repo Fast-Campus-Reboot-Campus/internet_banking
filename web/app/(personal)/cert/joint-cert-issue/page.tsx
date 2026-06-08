@@ -1,4 +1,5 @@
 ﻿'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -87,7 +88,7 @@ export default function JointCertIssuePage() {
         </div>
 
         {/* 페이지 제목 */}
-        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-[#0D5C47] pb-3">
+        <h2 className="text-[22px] font-bold text-kb-text border-b-2 border-kb-primary pb-3">
           개인용 인증서 발급
         </h2>
 
@@ -96,8 +97,8 @@ export default function JointCertIssuePage() {
           {STEPS.map((label, i) => (
             <div key={i} className="flex items-center">
               <div className={`flex items-center justify-center rounded-full text-[11px] font-bold border-2 px-3 h-7
-                ${i === 0 && !issuedCert ? 'bg-[#0D5C47] border-[#0D5C47] text-white'
-                : i === 1 && issuedCert ? 'bg-[#0D5C47] border-[#0D5C47] text-white'
+                ${i === 0 && !issuedCert ? 'bg-kb-primary border-kb-primary text-white'
+                : i === 1 && issuedCert ? 'bg-kb-primary border-kb-primary text-white'
                 : 'border-gray-300 text-gray-400'}`}
               >
                 {label}
@@ -113,16 +114,16 @@ export default function JointCertIssuePage() {
 
           <div className="border border-kb-border">
             {/* 전체약관보기 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-[#F0FAF7]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-kb-primary-bg">
               <button className="flex items-center gap-3 flex-1 text-left" onClick={toggleAll}>
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                  style={allChecked ? { backgroundColor: '#0D5C47' } : {}}>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-kb-primary' : 'border-kb-border'}`}
+                  style={allChecked ? { backgroundColor: KB_PRIMARY } : {}}>
                   {allChecked && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
                 <span className="text-[14px] font-bold text-kb-text">전체약관보기</span>
               </button>
               <button onClick={() => setTermModalIndex(0)}
-                className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0">
+                className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-kb-primary-bg flex-shrink-0">
                 약관보기 ›
               </button>
             </div>
@@ -132,17 +133,17 @@ export default function JointCertIssuePage() {
               <div key={i} className="flex items-center justify-between px-5 py-4 border-b border-kb-border last:border-b-0">
                 <div className="flex items-center gap-3 min-w-0">
                   <button onClick={() => toggleOne(i)}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                    style={checked[i] ? { backgroundColor: '#0D5C47' } : {}}>
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-kb-primary' : 'border-kb-border'}`}
+                    style={checked[i] ? { backgroundColor: KB_PRIMARY } : {}}>
                     {checked[i] && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </button>
                   <span className="text-[13px] text-kb-text-muted whitespace-pre-line">
-                    <span className="font-semibold mr-1" style={{ color: '#0D5C47' }}>[필수]</span>
+                    <span className="font-semibold mr-1" style={{ color: KB_PRIMARY }}>[필수]</span>
                     {term.label}
                   </span>
                 </div>
                 <button onClick={() => setTermModalIndex(i)}
-                  className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0 ml-3">
+                  className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-kb-primary-bg flex-shrink-0 ml-3">
                   약관보기 ›
                 </button>
               </div>
@@ -173,7 +174,7 @@ export default function JointCertIssuePage() {
               onChange={(e) => setUserId(e.target.value)}
               className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-blue-400"
             />
-            <Link href="/support/customer-info/id-password" className="text-[12px] text-[#0D5C47] hover:underline">
+            <Link href="/support/customer-info/id-password" className="text-[12px] text-kb-primary hover:underline">
               ID를 모르시는 경우↗
             </Link>
           </div>
@@ -215,7 +216,7 @@ export default function JointCertIssuePage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="로그인 비밀번호"
-              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-[#0D5C47]"
+              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-kb-primary"
             />
           </div>
 
@@ -227,7 +228,7 @@ export default function JointCertIssuePage() {
               value={certPin}
               onChange={(e) => setCertPin(e.target.value)}
               placeholder="8자 이상"
-              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-[#0D5C47]"
+              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-kb-primary"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -237,7 +238,7 @@ export default function JointCertIssuePage() {
               value={certPinConfirm}
               onChange={(e) => setCertPinConfirm(e.target.value)}
               placeholder="인증서 암호 재입력"
-              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-[#0D5C47]"
+              className="border border-kb-border px-2 py-1.5 text-[13px] w-40 outline-none focus:border-kb-primary"
             />
           </div>
           <p className="text-[11px] text-kb-text-muted pl-[108px]">
@@ -248,12 +249,12 @@ export default function JointCertIssuePage() {
 
           {/* 발급 완료 화면 */}
           {issuedCert && (
-            <div className="border-2 border-[#0D5C47] bg-[#F0FAF7] p-5 space-y-3">
+            <div className="border-2 border-kb-primary bg-kb-primary-bg p-5 space-y-3">
               <div className="flex items-center gap-2">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0D5C47" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/>
                 </svg>
-                <p className="text-[14px] font-bold text-[#0D5C47]">공동인증서 발급이 완료되었습니다</p>
+                <p className="text-[14px] font-bold text-kb-primary">공동인증서 발급이 완료되었습니다</p>
               </div>
               <div className="bg-white border border-[#C8E8DF] p-4 space-y-1.5 text-[12px]">
                 <div className="flex gap-3">
@@ -284,7 +285,7 @@ export default function JointCertIssuePage() {
                 <Link
                   href="/login"
                   className="px-8 py-2.5 text-[13px] font-bold text-white hover:opacity-90"
-                  style={{ backgroundColor: '#0D5C47' }}
+                  style={{ backgroundColor: KB_PRIMARY }}
                 >
                   로그인 화면으로
                 </Link>
@@ -301,7 +302,7 @@ export default function JointCertIssuePage() {
                   onClick={handleIssue}
                   disabled={loading}
                   className="px-8 py-2.5 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: '#0D5C47' }}
+                  style={{ backgroundColor: KB_PRIMARY }}
                 >
                   {loading ? '발급 중...' : '약관 동의/본인확인'}
                 </button>

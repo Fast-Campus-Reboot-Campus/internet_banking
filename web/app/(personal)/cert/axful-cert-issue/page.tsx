@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
@@ -9,7 +10,7 @@ import { api } from '@/lib/api'
 
 function NoticeBox({ items }: { items: string[] }) {
   return (
-    <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-2">
+    <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-2">
       {items.map((n, i) => (
         <div key={i} className="flex items-start gap-2 text-[13px] text-kb-text-body">
           <span className="flex-shrink-0 mt-0.5">·</span>
@@ -24,7 +25,7 @@ function TableRow({ label, children }: { label: string; children: React.ReactNod
   return (
     <tr className="border-b border-kb-border last:border-b-0">
       <td className="px-5 py-3.5 font-semibold text-[13px] text-kb-text w-44 whitespace-nowrap align-middle"
-        style={{ backgroundColor: '#F0FAF7' }}>
+        style={{ backgroundColor: KB_PRIMARY_BG }}>
         {label}
       </td>
       <td className="border-l border-kb-border px-5 py-3 align-middle">{children}</td>
@@ -201,7 +202,7 @@ export default function AxfulCertIssuePage() {
                   ? 'w-7 h-7 text-white'
                   : 'w-7 h-7 border-gray-300 text-gray-400'
               }`}
-              style={step >= i + 1 ? { backgroundColor: '#0D5C47', borderColor: '#0D5C47' } : {}}>
+              style={step >= i + 1 ? { backgroundColor: KB_PRIMARY, borderColor: KB_PRIMARY } : {}}>
               {step === i + 1 ? label : i + 1}
             </div>
             {i < 1 && <div className="w-8 h-px bg-gray-300 mx-1" />}
@@ -219,11 +220,11 @@ export default function AxfulCertIssuePage() {
             <h2 className="text-[15px] font-bold text-kb-text">약관 동의</h2>
             <div className="border border-kb-border rounded-xl overflow-hidden">
               {/* 전체약관 */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-[#F0FAF7]">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-kb-border bg-kb-primary-bg">
                 <button className="flex items-center gap-3 flex-1 text-left"
                   onClick={() => setChecked(CERT_TERMS.map(() => !allChecked))}>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                    style={allChecked ? { backgroundColor: '#0D5C47' } : {}}>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${allChecked ? 'border-kb-primary' : 'border-kb-border'}`}
+                    style={allChecked ? { backgroundColor: KB_PRIMARY } : {}}>
                     {allChecked && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
                   <span className="text-[14px] font-bold text-kb-text">전체약관보기</span>
@@ -238,17 +239,17 @@ export default function AxfulCertIssuePage() {
                 <div key={i} className="flex items-center justify-between px-5 py-4 border-b border-kb-border last:border-b-0">
                   <div className="flex items-center gap-3 min-w-0">
                     <button onClick={() => { const n = [...checked]; n[i] = !n[i]; setChecked(n) }}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-[#0D5C47]' : 'border-kb-border'}`}
-                      style={checked[i] ? { backgroundColor: '#0D5C47' } : {}}>
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked[i] ? 'border-kb-primary' : 'border-kb-border'}`}
+                      style={checked[i] ? { backgroundColor: KB_PRIMARY } : {}}>
                       {checked[i] && <svg viewBox="0 0 12 10" fill="none" className="w-3 h-2.5"><polyline points="1,5 4.5,8.5 11,1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </button>
                     <span className="text-[13px] text-kb-text-muted whitespace-pre-line">
-                      <span className="font-semibold mr-1" style={{ color: '#0D5C47' }}>[필수]</span>
+                      <span className="font-semibold mr-1" style={{ color: KB_PRIMARY }}>[필수]</span>
                       {term.label}
                     </span>
                   </div>
                   <button onClick={() => setTermModalIndex(i)}
-                    className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-[#F0FAF7] flex-shrink-0 ml-3">
+                    className="border border-kb-border px-3 py-1 text-[13px] font-semibold text-kb-text-body hover:bg-kb-primary-bg flex-shrink-0 ml-3">
                     약관보기 ›
                   </button>
                 </div>
@@ -266,9 +267,9 @@ export default function AxfulCertIssuePage() {
                     <div className="flex items-center gap-4">
                       <input type="text" value={userId} onChange={e => setUserId(e.target.value)}
                         placeholder="아이디 입력"
-                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-[#0D5C47]" />
+                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
                       <Link href="/support/customer-info/id-password"
-                        className="text-[13px] text-[#0D5C47] hover:underline whitespace-nowrap">
+                        className="text-[13px] text-kb-primary hover:underline whitespace-nowrap">
                         ID를 모르시는 경우↗
                       </Link>
                     </div>
@@ -281,12 +282,12 @@ export default function AxfulCertIssuePage() {
 
           <div className="flex justify-center gap-3 pt-2">
             <Link href="/cert"
-              className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+              className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
               취소
             </Link>
             <button onClick={goToStep2}
               className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               다음
             </button>
           </div>
@@ -299,7 +300,7 @@ export default function AxfulCertIssuePage() {
 
           {/* QR 카드 */}
           <div className="border border-kb-border rounded-xl overflow-hidden">
-            <div className="px-6 py-4 font-semibold text-[14px] text-white" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="px-6 py-4 font-semibold text-[14px] text-white" style={{ backgroundColor: KB_PRIMARY }}>
               AXful Bank 앱으로 QR코드를 스캔하세요
             </div>
             <div className="p-8 flex flex-col items-center gap-6">
@@ -312,13 +313,13 @@ export default function AxfulCertIssuePage() {
                 {(qrStatus === 'pending' || qrStatus === 'scanned' || qrStatus === 'approved') && <QRCode seed={qrSeed} />}
                 {qrStatus === 'generating' && (
                   <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: '#5BC9A8', borderTopColor: 'transparent' }} />
+                    <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: KB_MINT, borderTopColor: 'transparent' }} />
                   </div>
                 )}
                 {qrStatus === 'scanned' && (
                   <div className="absolute inset-0 bg-white/75 flex flex-col items-center justify-center gap-1">
-                    <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: '#5BC9A8', borderTopColor: 'transparent' }} />
-                    <span className="text-[11px] font-bold" style={{ color: '#0D5C47' }}>앱 확인 중</span>
+                    <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: KB_MINT, borderTopColor: 'transparent' }} />
+                    <span className="text-[11px] font-bold" style={{ color: KB_PRIMARY }}>앱 확인 중</span>
                   </div>
                 )}
                 {qrStatus === 'approved' && (
@@ -326,7 +327,7 @@ export default function AxfulCertIssuePage() {
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#5BC9A8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/>
                     </svg>
-                    <span className="text-[11px] font-bold" style={{ color: '#0D5C47' }}>발급 완료</span>
+                    <span className="text-[11px] font-bold" style={{ color: KB_PRIMARY }}>발급 완료</span>
                   </div>
                 )}
                 {qrStatus === 'expired' && (
@@ -344,10 +345,10 @@ export default function AxfulCertIssuePage() {
                 <div className="text-center space-y-2">
                   <p className="text-[12px] text-kb-text-muted">앱에서 아래 확인코드를 입력해 주세요</p>
                   <div className="flex items-center justify-center gap-4">
-                    <span className="text-[24px] font-bold tracking-[0.35em] text-kb-text px-5 py-2 border border-kb-border rounded-lg bg-[#F0FAF7]">
+                    <span className="text-[24px] font-bold tracking-[0.35em] text-kb-text px-5 py-2 border border-kb-border rounded-lg bg-kb-primary-bg">
                       {confirmCode}
                     </span>
-                    <span className={`text-[16px] font-bold tabular-nums ${timeLeft <= 30 ? 'text-red-500' : 'text-[#0D5C47]'}`}>
+                    <span className={`text-[16px] font-bold tabular-nums ${timeLeft <= 30 ? 'text-red-500' : 'text-kb-primary'}`}>
                       {mm}:{ss}
                     </span>
                   </div>
@@ -364,7 +365,7 @@ export default function AxfulCertIssuePage() {
                     href={`/cert/axful-cert-approve?token=${tokenHashRef.current}`}
                     target="_blank"
                     className="text-[13px] font-semibold hover:underline"
-                    style={{ color: '#0D5C47' }}
+                    style={{ color: KB_PRIMARY }}
                   >
                     AXful Bank 앱 시뮬레이터 열기 →
                   </Link>
@@ -375,15 +376,15 @@ export default function AxfulCertIssuePage() {
 
           {/* 발급 완료 */}
           {qrStatus === 'approved' && issuedCert && (
-            <div className="border border-kb-border bg-[#F0FAF7] px-6 py-8 rounded-xl flex items-center gap-6">
+            <div className="border border-kb-border bg-kb-primary-bg px-6 py-8 rounded-xl flex items-center gap-6">
               <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20,6 9,17 4,12"/>
                 </svg>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[16px] font-bold" style={{ color: '#0D5C47' }}>AXful인증서 발급이 완료되었습니다.</p>
+                <p className="text-[16px] font-bold" style={{ color: KB_PRIMARY }}>AXful인증서 발급이 완료되었습니다.</p>
                 <p className="text-[13px] text-kb-text-muted">일련번호: <span className="font-medium text-kb-text">{issuedCert.serialNumber}</span></p>
                 <p className="text-[13px] text-kb-text-muted">
                   유효기간: {issuedCert.expiryDate.slice(0,4)}.{issuedCert.expiryDate.slice(4,6)}.{issuedCert.expiryDate.slice(6,8)} 까지 (3년)
@@ -399,23 +400,23 @@ export default function AxfulCertIssuePage() {
               <>
                 <Link href="/login"
                   className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   로그인 화면으로
                 </Link>
                 <Link href="/cert"
-                  className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                  className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                   인증서 안내로
                 </Link>
               </>
             ) : qrStatus === 'expired' || qrStatus === 'error' ? (
               <button onClick={handleGenerate}
                 className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-                style={{ backgroundColor: '#0D5C47' }}>
+                style={{ backgroundColor: KB_PRIMARY }}>
                 QR코드 재생성
               </button>
             ) : (
               <button onClick={() => setStep(1)}
-                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                 이전
               </button>
             )}

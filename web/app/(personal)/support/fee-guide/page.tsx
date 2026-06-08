@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 
@@ -61,12 +62,12 @@ export default function FeeGuidePage() {
       <div className="space-y-6">
         {FEE_TABLES.map(table => (
           <div key={table.title} className="rounded-xl overflow-hidden border border-kb-border">
-            <div className="px-6 py-3 font-semibold text-[15px] text-white" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="px-6 py-3 font-semibold text-[15px] text-white" style={{ backgroundColor: KB_PRIMARY }}>
               {table.title}
             </div>
             <table className="w-full text-[14px]">
               <thead>
-                <tr style={{ backgroundColor: '#F0FAF7' }}>
+                <tr style={{ backgroundColor: KB_PRIMARY_BG }}>
                   {table.headers.map(h => (
                     <th key={h} className="px-6 py-3 text-left font-semibold text-kb-text border-b border-kb-border">{h}</th>
                   ))}
@@ -74,10 +75,10 @@ export default function FeeGuidePage() {
               </thead>
               <tbody>
                 {table.rows.map((row, i) => (
-                  <tr key={i} className="border-b border-kb-border last:border-b-0 hover:bg-[#F8FFFE] transition-colors">
+                  <tr key={i} className="border-b border-kb-border last:border-b-0 hover:bg-kb-primary-surface transition-colors">
                     {row.map((cell, j) => (
                       <td key={j} className={`px-6 py-3.5 text-kb-text-body ${cell === '무료' ? 'font-semibold' : ''}`}
-                        style={cell === '무료' ? { color: '#0D5C47' } : {}}>
+                        style={cell === '무료' ? { color: KB_PRIMARY } : {}}>
                         {cell}
                       </td>
                     ))}
@@ -90,13 +91,13 @@ export default function FeeGuidePage() {
 
         {/* 유의사항 */}
         <div className="rounded-xl border border-kb-border overflow-hidden">
-          <div className="px-6 py-3 font-semibold text-[15px] text-white" style={{ backgroundColor: '#0D5C47' }}>
+          <div className="px-6 py-3 font-semibold text-[15px] text-white" style={{ backgroundColor: KB_PRIMARY }}>
             유의사항
           </div>
           <ul className="px-6 py-4 space-y-2">
             {NOTES.map((note, i) => (
               <li key={i} className="flex items-start gap-2 text-[14px] text-kb-text-body">
-                <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#5BC9A8' }} />
+                <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: KB_MINT }} />
                 {note}
               </li>
             ))}
@@ -107,18 +108,18 @@ export default function FeeGuidePage() {
       {/* 하단 바로가기 */}
       <div className="mt-8 flex gap-3">
         <Link href="/transfer/account"
-          className="px-5 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-          style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+          className="px-5 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+          style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
           계좌이체 바로가기
         </Link>
         <Link href="/support/internet-banking-guide"
-          className="px-5 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-          style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+          className="px-5 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+          style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
           인터넷뱅킹 이용안내
         </Link>
         <Link href="tel:15880000"
           className="px-5 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-          style={{ backgroundColor: '#0D5C47' }}>
+          style={{ backgroundColor: KB_PRIMARY }}>
           고객센터 1588-0000
         </Link>
       </div>

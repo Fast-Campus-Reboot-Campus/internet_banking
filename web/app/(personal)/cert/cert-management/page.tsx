@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
@@ -43,7 +44,7 @@ function custHeaders() {
 }
 
 function statusColor(status: string) {
-  if (status === 'ACTIVE')   return 'text-[#0D5C47] bg-[#E8F5F0]'
+  if (status === 'ACTIVE')   return 'text-kb-primary bg-[#E8F5F0]'
   if (status === 'REVOKED')  return 'text-red-600 bg-red-50'
   if (status === 'EXPIRED')  return 'text-gray-500 bg-gray-100'
   return 'text-yellow-600 bg-yellow-50'
@@ -58,7 +59,7 @@ function Modal({ title, onClose, children }: {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-kb-border"
-          style={{ backgroundColor: '#0D5C47' }}>
+          style={{ backgroundColor: KB_PRIMARY }}>
           <span className="text-[15px] font-bold text-white">{title}</span>
           <button onClick={onClose} className="text-white/70 hover:text-white text-xl leading-none">✕</button>
         </div>
@@ -76,7 +77,7 @@ function PwInput({ value, onChange, placeholder }: {
     <div className="relative">
       <input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-kb-border px-3 py-2 pr-9 text-[13px] outline-none focus:border-[#0D5C47] rounded" />
+        className="w-full border border-kb-border px-3 py-2 pr-9 text-[13px] outline-none focus:border-kb-primary rounded" />
       <button type="button" onClick={() => setShow(v => !v)}
         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-kb-text-muted hover:text-kb-text" tabIndex={-1}>
         {show
@@ -196,16 +197,16 @@ export default function CertManagementPage() {
     )
     return (
       <div className="border border-kb-border rounded-xl overflow-hidden">
-        <div className="px-5 py-3 bg-[#F0FAF7] border-b border-kb-border">
+        <div className="px-5 py-3 bg-kb-primary-bg border-b border-kb-border">
           <span className="text-[13px] font-bold text-kb-text">등록된 인증서 ({certs.length}개)</span>
         </div>
         {certs.map(cert => (
           <button key={cert.serialNumber}
             onClick={() => setSelected(cert.serialNumber)}
             className={`w-full flex items-center justify-between px-5 py-3.5 text-left border-b border-kb-border last:border-b-0 transition-colors
-              ${selected === cert.serialNumber ? 'bg-[#F0FAF7]' : 'hover:bg-kb-beige-light'}`}>
+              ${selected === cert.serialNumber ? 'bg-kb-primary-bg' : 'hover:bg-kb-beige-light'}`}>
             <div className="flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${selected === cert.serialNumber ? 'bg-[#0D5C47]' : 'bg-gray-300'}`} />
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${selected === cert.serialNumber ? 'bg-kb-primary' : 'bg-gray-300'}`} />
               <div>
                 <span className="text-[13px] font-semibold text-kb-text">{cert.certTypeName}</span>
                 <span className="text-[12px] text-kb-text-muted ml-2">{cert.serialNumber}</span>
@@ -339,7 +340,7 @@ export default function CertManagementPage() {
         <CertSelector />
 
         {/* 안내 */}
-        <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-1.5">
+        <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-1.5">
           <div className="flex items-start gap-2 text-[13px] text-kb-text-body">
             <span className="flex-shrink-0 mt-0.5">·</span>
             인증서 관리 메뉴에서 인증서 보기, 검증, 암호변경, 폐기 등을 할 수 있습니다.
@@ -360,14 +361,14 @@ export default function CertManagementPage() {
                 <h3 className="text-[14px] font-bold text-kb-text">{card.title}</h3>
                 <p className="text-[12px] text-kb-text-muted leading-relaxed">{card.desc}</p>
                 <div className="flex gap-2 pt-1">
-                  <button className="flex-1 py-2 border border-kb-border text-[12px] text-kb-text hover:bg-[#F0FAF7] transition-colors rounded">
+                  <button className="flex-1 py-2 border border-kb-border text-[12px] text-kb-text hover:bg-kb-primary-bg transition-colors rounded">
                     이용 안내
                   </button>
                   <button
                     onClick={() => !disabled && openModal(card.id)}
                     disabled={disabled}
                     className="flex-1 py-2 text-[12px] font-bold text-white hover:opacity-85 disabled:opacity-40 transition-opacity rounded"
-                    style={{ backgroundColor: '#0D5C47' }}
+                    style={{ backgroundColor: KB_PRIMARY }}
                   >
                     {card.actionLabel}
                   </button>
@@ -383,7 +384,7 @@ export default function CertManagementPage() {
         <Modal title="인증서 보기/검증" onClose={() => setModal(null)}>
           {detailLoading ? (
             <div className="flex justify-center py-8">
-              <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: '#5BC9A8', borderTopColor: 'transparent' }} />
+              <div className="w-8 h-8 rounded-full border-[3px] border-t-transparent animate-spin" style={{ borderColor: KB_MINT, borderTopColor: 'transparent' }} />
             </div>
           ) : detail ? (
             <div className="space-y-4">
@@ -402,14 +403,14 @@ export default function CertManagementPage() {
                       ['발급자 DN', detail.issuerDn],
                     ].map(([label, value]) => (
                       <tr key={label} className="border-b border-kb-border last:border-b-0">
-                        <td className="px-4 py-2.5 font-semibold text-[12px] w-28 whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>{label}</td>
+                        <td className="px-4 py-2.5 font-semibold text-[12px] w-28 whitespace-nowrap" style={{ backgroundColor: KB_PRIMARY_BG }}>{label}</td>
                         <td className="border-l border-kb-border px-4 py-2.5 text-[12px] text-kb-text-body break-all">{value}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-[12px] font-semibold ${detail.status === 'ACTIVE' ? 'bg-[#E8F5F0] text-[#0D5C47]' : 'bg-red-50 text-red-600'}`}>
+              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-[12px] font-semibold ${detail.status === 'ACTIVE' ? 'bg-[#E8F5F0] text-kb-primary' : 'bg-red-50 text-red-600'}`}>
                 <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   {detail.status === 'ACTIVE'
                     ? <><circle cx="8" cy="8" r="7"/><path d="M5 8l2 2 4-4"/></>
@@ -421,7 +422,7 @@ export default function CertManagementPage() {
               <div className="flex justify-end">
                 <button onClick={() => setModal(null)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   확인
                 </button>
               </div>
@@ -437,21 +438,21 @@ export default function CertManagementPage() {
         <Modal title="인증서 삭제" onClose={() => setModal(null)}>
           {revokeDone ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+              <div className="flex items-center gap-3 bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                   <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold" style={{ color: '#0D5C47' }}>인증서가 폐기되었습니다.</p>
+                  <p className="text-[14px] font-bold" style={{ color: KB_PRIMARY }}>인증서가 폐기되었습니다.</p>
                   <p className="text-[12px] text-kb-text-muted">해당 인증서는 더 이상 사용할 수 없습니다.</p>
                 </div>
               </div>
               <div className="flex justify-end">
                 <button onClick={() => setModal(null)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   확인
                 </button>
               </div>
@@ -468,11 +469,11 @@ export default function CertManagementPage() {
                   <table className="w-full text-[13px]">
                     <tbody>
                       <tr className="border-b border-kb-border">
-                        <td className="px-4 py-2.5 font-semibold text-[12px] w-24 whitespace-nowrap" style={{ backgroundColor: '#F0FAF7' }}>인증서 유형</td>
+                        <td className="px-4 py-2.5 font-semibold text-[12px] w-24 whitespace-nowrap" style={{ backgroundColor: KB_PRIMARY_BG }}>인증서 유형</td>
                         <td className="border-l border-kb-border px-4 py-2.5 text-[12px]">{selectedCert.certTypeName}</td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-2.5 font-semibold text-[12px]" style={{ backgroundColor: '#F0FAF7' }}>일련번호</td>
+                        <td className="px-4 py-2.5 font-semibold text-[12px]" style={{ backgroundColor: KB_PRIMARY_BG }}>일련번호</td>
                         <td className="border-l border-kb-border px-4 py-2.5 text-[12px] break-all">{selectedCert.serialNumber}</td>
                       </tr>
                     </tbody>
@@ -482,7 +483,7 @@ export default function CertManagementPage() {
               {revokeError && <p className="text-[12px] text-red-500">{revokeError}</p>}
               <div className="flex justify-end gap-3">
                 <button onClick={() => setModal(null)}
-                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                   취소
                 </button>
                 <button onClick={handleRevoke} disabled={revokeLoading}
@@ -500,21 +501,21 @@ export default function CertManagementPage() {
         <Modal title="인증서 암호변경" onClose={() => setModal(null)}>
           {pinDone ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+              <div className="flex items-center gap-3 bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                   <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold" style={{ color: '#0D5C47' }}>인증서 암호가 변경되었습니다.</p>
+                  <p className="text-[14px] font-bold" style={{ color: KB_PRIMARY }}>인증서 암호가 변경되었습니다.</p>
                   <p className="text-[12px] text-kb-text-muted">다음 로그인부터 새 암호를 사용하세요.</p>
                 </div>
               </div>
               <div className="flex justify-end">
                 <button onClick={() => setModal(null)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   확인
                 </button>
               </div>
@@ -543,19 +544,19 @@ export default function CertManagementPage() {
                     <p className="text-[11px] text-red-500">암호가 일치하지 않습니다.</p>
                   )}
                   {newPinConfirm && newPin === newPinConfirm && newPin.length >= 8 && (
-                    <p className="text-[11px] font-semibold" style={{ color: '#0D5C47' }}>✓ 일치합니다.</p>
+                    <p className="text-[11px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 일치합니다.</p>
                   )}
                 </div>
               </div>
               {pinError && <p className="text-[12px] text-red-500">{pinError}</p>}
               <div className="flex justify-end gap-3 pt-1">
                 <button onClick={() => setModal(null)}
-                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">
+                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
                   취소
                 </button>
                 <button onClick={handlePinChange} disabled={pinLoading}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   {pinLoading ? '변경 중...' : '암호 변경'}
                 </button>
               </div>
@@ -569,26 +570,26 @@ export default function CertManagementPage() {
         <Modal title="인증서 가져오기" onClose={() => setModal(null)}>
           {mockDone ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+              <div className="flex items-center gap-3 bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                   <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold" style={{ color: '#0D5C47' }}>인증서를 가져왔습니다.</p>
+                  <p className="text-[14px] font-bold" style={{ color: KB_PRIMARY }}>인증서를 가져왔습니다.</p>
                   <p className="text-[12px] text-kb-text-muted">인증서가 정상적으로 복원되었습니다.</p>
                 </div>
               </div>
               <div className="flex justify-end">
                 <button onClick={() => setModal(null)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>확인</button>
+                  style={{ backgroundColor: KB_PRIMARY }}>확인</button>
               </div>
             </div>
           ) : (
             <div className="space-y-5">
-              <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-1.5 text-[12px] text-kb-text-body">
+              <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-1.5 text-[12px] text-kb-text-body">
                 <p>· 암호화된 인증서 파일(.pfx)을 선택하여 가져올 수 있습니다.</p>
                 <p>· 인증서 파일과 파일 암호가 필요합니다.</p>
               </div>
@@ -597,7 +598,7 @@ export default function CertManagementPage() {
                   <label className="text-[13px] font-semibold text-kb-text">인증서 파일 선택</label>
                   <input type="file" accept=".pfx,.p12,.cer"
                     className="w-full border border-kb-border px-3 py-2 text-[12px] rounded file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-[12px] file:font-semibold file:text-white"
-                    style={{ '--tw-file-selector-button-bg': '#0D5C47' } as React.CSSProperties} />
+                    style={{ '--tw-file-selector-button-bg': KB_PRIMARY } as React.CSSProperties} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[13px] font-semibold text-kb-text">파일 암호</label>
@@ -606,10 +607,10 @@ export default function CertManagementPage() {
               </div>
               <div className="flex justify-end gap-3">
                 <button onClick={() => setModal(null)}
-                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">취소</button>
+                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">취소</button>
                 <button onClick={() => setMockDone(true)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>가져오기</button>
+                  style={{ backgroundColor: KB_PRIMARY }}>가져오기</button>
               </div>
             </div>
           )}
@@ -621,26 +622,26 @@ export default function CertManagementPage() {
         <Modal title="인증서 내보내기" onClose={() => setModal(null)}>
           {mockDone ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+              <div className="flex items-center gap-3 bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                   <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold" style={{ color: '#0D5C47' }}>인증서를 내보냈습니다.</p>
+                  <p className="text-[14px] font-bold" style={{ color: KB_PRIMARY }}>인증서를 내보냈습니다.</p>
                   <p className="text-[12px] text-kb-text-muted">파일명: cert_export_{new Date().toISOString().slice(0, 10)}.pfx</p>
                 </div>
               </div>
               <div className="flex justify-end">
                 <button onClick={() => setModal(null)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>확인</button>
+                  style={{ backgroundColor: KB_PRIMARY }}>확인</button>
               </div>
             </div>
           ) : (
             <div className="space-y-5">
-              <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-1.5 text-[12px] text-kb-text-body">
+              <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-1.5 text-[12px] text-kb-text-body">
                 <p>· 인증서를 암호화된 파일(.pfx)로 저장합니다.</p>
                 <p>· 저장할 파일 암호를 설정해 주세요.</p>
               </div>
@@ -656,10 +657,10 @@ export default function CertManagementPage() {
               </div>
               <div className="flex justify-end gap-3">
                 <button onClick={() => setModal(null)}
-                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">취소</button>
+                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">취소</button>
                 <button onClick={() => setMockDone(true)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>내보내기</button>
+                  style={{ backgroundColor: KB_PRIMARY }}>내보내기</button>
               </div>
             </div>
           )}
@@ -671,26 +672,26 @@ export default function CertManagementPage() {
         <Modal title="인증서 복사" onClose={() => setModal(null)}>
           {mockDone ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0D5C47' }}>
+              <div className="flex items-center gap-3 bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: KB_PRIMARY }}>
                   <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20,6 9,17 4,12"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[14px] font-bold" style={{ color: '#0D5C47' }}>인증서가 복사되었습니다.</p>
+                  <p className="text-[14px] font-bold" style={{ color: KB_PRIMARY }}>인증서가 복사되었습니다.</p>
                   <p className="text-[12px] text-kb-text-muted">선택한 저장 장치에 인증서가 복사되었습니다.</p>
                 </div>
               </div>
               <div className="flex justify-end">
                 <button onClick={() => setModal(null)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>확인</button>
+                  style={{ backgroundColor: KB_PRIMARY }}>확인</button>
               </div>
             </div>
           ) : (
             <div className="space-y-5">
-              <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-5 py-4 space-y-1.5 text-[12px] text-kb-text-body">
+              <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-5 py-4 space-y-1.5 text-[12px] text-kb-text-body">
                 <p>· 인증서를 PC 또는 이동식 저장 장치에 복사합니다.</p>
                 <p>· 복사된 인증서는 동일한 인증서 암호로 사용됩니다.</p>
               </div>
@@ -702,7 +703,7 @@ export default function CertManagementPage() {
               )}
               <div className="space-y-1">
                 <label className="text-[13px] font-semibold text-kb-text">저장 위치</label>
-                <select className="w-full border border-kb-border px-3 py-2 text-[13px] outline-none focus:border-[#0D5C47] rounded bg-white">
+                <select className="w-full border border-kb-border px-3 py-2 text-[13px] outline-none focus:border-kb-primary rounded bg-white">
                   <option>내 컴퓨터 (C:\Users\공인인증서)</option>
                   <option>이동식 디스크 (D:\)</option>
                   <option>이동식 디스크 (E:\)</option>
@@ -710,10 +711,10 @@ export default function CertManagementPage() {
               </div>
               <div className="flex justify-end gap-3">
                 <button onClick={() => setModal(null)}
-                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-[#F0FAF7] transition-colors">취소</button>
+                  className="px-8 py-2 border border-kb-border text-[13px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">취소</button>
                 <button onClick={() => setMockDone(true)}
                   className="px-8 py-2 text-[13px] font-bold text-white rounded-lg hover:opacity-85"
-                  style={{ backgroundColor: '#0D5C47' }}>복사</button>
+                  style={{ backgroundColor: KB_PRIMARY }}>복사</button>
               </div>
             </div>
           )}

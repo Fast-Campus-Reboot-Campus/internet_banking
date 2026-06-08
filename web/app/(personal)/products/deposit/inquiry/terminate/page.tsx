@@ -1,4 +1,5 @@
 'use client'
+import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -91,23 +92,23 @@ export default function DepositTerminatePage() {
 
   function AccountRow({ acc }: { acc: DepositViewAccount }) {
     return (
-      <tr className="border-b hover:bg-[#F8FFFE] transition-colors" style={{ borderColor: '#E2F5EF' }}>
+      <tr className="border-b hover:bg-kb-primary-surface transition-colors" style={{ borderColor: KB_PRIMARY_BORDER }}>
         <td className="px-4 py-3.5">
-          <p className="font-medium" style={{ color: '#0D5C47' }}>{acc.number}</p>
+          <p className="font-medium" style={{ color: KB_PRIMARY }}>{acc.number}</p>
           <p className="text-[11px] text-kb-text-muted mt-0.5">신규일 {acc.createdAt}</p>
         </td>
         <td className="px-4 py-3.5 text-kb-text">{acc.name}</td>
-        <td className="px-4 py-3.5 text-right font-semibold" style={{ color: '#0D5C47' }}>{formatNumber(acc.balance)}원</td>
+        <td className="px-4 py-3.5 text-right font-semibold" style={{ color: KB_PRIMARY }}>{formatNumber(acc.balance)}원</td>
         <td className="px-4 py-3.5 text-right">
           <div className="flex gap-1.5 justify-end">
             <button
               onClick={() => handleSelect(acc)}
               className="px-4 py-1.5 text-[12px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               해지
             </button>
-            <button className="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition-colors hover:bg-[#F0FAF7]"
-              style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+            <button className="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition-colors hover:bg-kb-primary-bg"
+              style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
               해지상세조회
             </button>
           </div>
@@ -135,7 +136,7 @@ export default function DepositTerminatePage() {
                 <span
                   className="text-[13px]"
                   style={i + 1 === step
-                    ? { color: '#0D5C47', fontWeight: 700, borderBottom: '2px solid #0D5C47', paddingBottom: '2px' }
+                    ? { color: KB_PRIMARY, fontWeight: 700, borderBottom: '2px solid #0D5C47', paddingBottom: '2px' }
                     : { color: '#9CA3AF' }}>
                   STEP {i + 1}. {label}
                 </span>
@@ -147,7 +148,7 @@ export default function DepositTerminatePage() {
           {step === 1 && (
             <>
               <div className="rounded-xl px-5 py-4 mb-5 text-[12px] space-y-1.5"
-                style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+                style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
                 <p className="flex gap-1.5 text-kb-text-muted">
                   <span className="flex-shrink-0">·</span>
                   <span>인터넷으로 해지 가능한 예금은 우측 [도움말]을 참조하시기 바랍니다.</span>
@@ -164,10 +165,10 @@ export default function DepositTerminatePage() {
 
               {/* 총 잔액 요약 */}
               <div className="flex items-center justify-between mb-5 rounded-xl px-6 py-4"
-                style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+                style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
                 <p className="text-[14px] font-bold text-kb-text">
                   총 예금 잔액{' '}
-                  <span className="text-[18px]" style={{ color: '#0D5C47' }}>{formatNumber(totalBalance)}</span>원
+                  <span className="text-[18px]" style={{ color: KB_PRIMARY }}>{formatNumber(totalBalance)}</span>원
                   <span className="text-kb-text-muted font-normal text-[13px] ml-1">({totalCount}계좌)</span>
                 </p>
               </div>
@@ -186,12 +187,12 @@ export default function DepositTerminatePage() {
                   <button
                     onClick={toggle}
                     className="flex items-center justify-between w-full px-5 py-3.5"
-                    style={{ backgroundColor: '#F0FAF7', borderBottom: open ? '1px solid #E2F5EF' : 'none' }}>
+                    style={{ backgroundColor: KB_PRIMARY_BG, borderBottom: open ? '1px solid #E2F5EF' : 'none' }}>
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#5BC9A8' }} />
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: KB_MINT }} />
                       <span className="text-[14px] font-bold text-kb-text">{label}</span>
                       <span className="text-[13px] text-kb-text-muted">({accounts.length}계좌)</span>
-                      <span className="text-[13px] font-semibold ml-1" style={{ color: '#0D5C47' }}>
+                      <span className="text-[13px] font-semibold ml-1" style={{ color: KB_PRIMARY }}>
                         잔액 {formatNumber(accounts.reduce((s, a) => s + a.balance, 0))}원
                       </span>
                     </div>
@@ -203,10 +204,10 @@ export default function DepositTerminatePage() {
                     ) : (
                       <table className="w-full border-collapse text-[13px]">
                         <thead>
-                          <tr style={{ backgroundColor: '#F8FFFE' }}>
+                          <tr style={{ backgroundColor: KB_PRIMARY_SURFACE }}>
                             {['계좌번호', '상품명', '잔액', ''].map((h, i) => (
                               <th key={i} className="px-4 py-2.5 text-[12px] font-semibold text-left"
-                                style={{ borderBottom: '1px solid #E2F5EF', color: '#0D5C47' }}>{h}</th>
+                                style={{ borderBottom: '1px solid #E2F5EF', color: KB_PRIMARY }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -225,7 +226,7 @@ export default function DepositTerminatePage() {
           {step === 2 && selected && (
             <>
               <div className="rounded-xl px-5 py-4 mb-5 text-[12px]"
-                style={{ backgroundColor: '#F8FFFE', border: '1px solid #E2F5EF' }}>
+                style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
                 <p className="flex gap-1.5 text-kb-text-muted">
                   <span className="flex-shrink-0">·</span>
                   <span>해지 시 잔액이 선택하신 입금계좌로 이체됩니다.</span>
@@ -236,17 +237,17 @@ export default function DepositTerminatePage() {
                 <table className="w-full border-collapse text-[13px]">
                   <tbody>
                     {[
-                      { label: '해지계좌번호', value: <span className="font-medium" style={{ color: '#0D5C47' }}>{selected.number}</span> },
+                      { label: '해지계좌번호', value: <span className="font-medium" style={{ color: KB_PRIMARY }}>{selected.number}</span> },
                       { label: '해지계좌명',   value: selected.name },
-                      { label: '해지금액',      value: <span className="font-bold text-[15px]" style={{ color: '#0D5C47' }}>{formatNumber(selected.balance)}원</span> },
+                      { label: '해지금액',      value: <span className="font-bold text-[15px]" style={{ color: KB_PRIMARY }}>{formatNumber(selected.balance)}원</span> },
                     ].map(({ label, value }, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid #E2F5EF' }}>
-                        <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: '#F0FAF7', width: 160 }}>{label}</td>
+                        <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG, width: 160 }}>{label}</td>
                         <td className={rowStyle}>{value}</td>
                       </tr>
                     ))}
                     <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
-                      <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: '#F0FAF7' }}>해지계좌비밀번호</td>
+                      <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>해지계좌비밀번호</td>
                       <td className={rowStyle}>
                         <div className="flex flex-col gap-2">
                           {mouseInput ? (
@@ -270,7 +271,7 @@ export default function DepositTerminatePage() {
                       </td>
                     </tr>
                     <tr>
-                      <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: '#F0FAF7' }}>입금계좌번호</td>
+                      <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>입금계좌번호</td>
                       <td className={rowStyle}>
                         <select
                           value={depositNo}
@@ -291,14 +292,14 @@ export default function DepositTerminatePage() {
               <div className="flex justify-center gap-3">
                 <button
                   onClick={() => setStep(1)}
-                  className="border rounded-xl px-12 py-3 text-[14px] font-medium transition-colors hover:bg-[#F0FAF7]"
+                  className="border rounded-xl px-12 py-3 text-[14px] font-medium transition-colors hover:bg-kb-primary-bg"
                   style={{ borderColor: '#D1D5DB', color: '#6B7280' }}>
                   이전
                 </button>
                 <button
                   onClick={handleConfirm}
                   className="px-12 py-3 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   해지
                 </button>
               </div>
@@ -309,15 +310,15 @@ export default function DepositTerminatePage() {
           {step === 3 && (
             <>
               <div className="rounded-xl p-6 mb-6 flex items-center gap-5"
-                style={{ backgroundColor: '#F0FAF7', border: '1px solid #E2F5EF' }}>
+                style={{ backgroundColor: KB_PRIMARY_BG, border: '1px solid #E2F5EF' }}>
                 <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[16px] font-bold mb-1" style={{ color: '#0D5C47' }}>해지가 완료되었습니다.</p>
+                  <p className="text-[16px] font-bold mb-1" style={{ color: KB_PRIMARY }}>해지가 완료되었습니다.</p>
                   <p className="text-[12px] text-kb-text-muted">해지 결과는 해지결과/내역 조회에서 확인하실 수 있습니다.</p>
                 </div>
               </div>
@@ -325,12 +326,12 @@ export default function DepositTerminatePage() {
               <div className="flex justify-center gap-3">
                 <Link href="/products/deposit/inquiry/terminate-result"
                   className="px-8 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-                  style={{ backgroundColor: '#0D5C47' }}>
+                  style={{ backgroundColor: KB_PRIMARY }}>
                   해지결과 조회
                 </Link>
                 <Link href="/inquiry/accounts"
-                  className="border rounded-xl px-8 py-2.5 text-[14px] font-medium transition-colors hover:bg-[#F0FAF7]"
-                  style={{ borderColor: '#5BC9A8', color: '#0D5C47' }}>
+                  className="border rounded-xl px-8 py-2.5 text-[14px] font-medium transition-colors hover:bg-kb-primary-bg"
+                  style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
                   계좌 조회
                 </Link>
               </div>

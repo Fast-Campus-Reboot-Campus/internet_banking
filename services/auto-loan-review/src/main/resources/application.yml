@@ -32,6 +32,9 @@ spring:
     jdbc:
       initialize-schema: always
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -252,6 +255,9 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    elasticsearch:
+      enabled: false  # ES는 ai.rag.enabled=false 시 미사용 — 헬스 지표 비활성화
   metrics:
     tags:
       application: auto-loan-review

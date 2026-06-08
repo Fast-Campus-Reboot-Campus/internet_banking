@@ -5,6 +5,7 @@ import com.bank.loan.creditevaluation.service.CreditEvaluationService;
 import com.bank.loan.prescreening.event.PrescreeningPassedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -17,9 +18,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
  *   그 결과를 CB 입력으로 재사용해 신용평가 row를 자동 생성한다.
  * - 실제 KCB/NICE API 연동 시 이 리스너에서 외부 API를 호출하면 됨.
  * - 실패해도 가심사 결과에 영향 없음 — 로그만 기록.
+ * - {@code loan.auto-trigger.enabled=false} 로 비활성화 가능(통합테스트는 ceval 을 직접 통제).
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "loan.auto-trigger.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 public class CreditEvaluationAutoTriggerListener {
 

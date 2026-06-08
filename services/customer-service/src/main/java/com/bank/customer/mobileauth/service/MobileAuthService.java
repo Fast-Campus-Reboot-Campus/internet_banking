@@ -10,6 +10,7 @@ import com.bank.customer.mobileauth.repository.MobileAuthRepository;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,9 +27,12 @@ public class MobileAuthService {
 
     private static final int    OTP_EXPIRY_MINUTES = 3;
     private static final int    MAX_ATTEMPTS       = 5;
+    /** local 프로파일 전용 고정 인증번호 — 실 SMS 게이트웨이가 없는 개발/시연 환경에서만 사용 */
+    private static final String LOCAL_FIXED_CODE   = "000000";
 
     private final MobileAuthRepository           mobileAuthRepository;
     private final IdentityVerificationRepository identityVerificationRepository;
+    private final Environment                    environment;
 
     /**
      * 인증 코드 발송.
@@ -36,9 +40,11 @@ public class MobileAuthService {
      */
     @Transactional
     public Long send(SendMobileAuthRequest req, String ip, Long customerId) {
-        String code = generateCode();
+        boolean local = isLocalProfile();
+        String  code  = local ? LOCAL_FIXED_CODE : generateCode();
 
-        log.info("[MobileAuth-MOCK] {} → {} (목적: {})", req.phoneNumber(), code, req.purposeCode());
+        log.info("[MobileAuth-{}] {} → {} (목적: {})",
+                local ? "LOCAL" : "MOCK", req.phoneNumber(), code, req.purposeCode());
 
         MobileAuth auth = mobileAuthRepository.save(MobileAuth.builder()
                 .customerId(customerId)
@@ -105,6 +111,13 @@ public class MobileAuthService {
                     .identityVerifiedAt(OffsetDateTime.now())
                     .build());
         }
+    }
+
+    private boolean isLocalProfile() {
+        for (String profile : environment.getActiveProfiles()) {
+            if ("local".equalsIgnoreCase(profile)) return true;
+        }
+        return false;
     }
 
     private static String generateCode() {

@@ -513,7 +513,8 @@ class ChatbotService:
             "적금": "SAVINGS",
             "예금": "DEPOSIT",
         }
-        product_type_filter = next(
+        requested_type = (request.product_type or "").upper()
+        product_type_filter = requested_type if requested_type in {"DEPOSIT", "SAVINGS", "SUBSCRIPTION"} else next(
             (db_type for keyword, db_type in _type_map.items() if keyword in query_text),
             None,
         )
@@ -629,7 +630,7 @@ class ChatbotService:
         Returns {total_balance, monthly_surplus, monthly_tx_count, has_data, _debug}
         """
         accounts = self._rows(
-            "SELECT * FROM deposit_accounts WHERE customer_id = :cno",
+            "SELECT account_id, balance, account_status FROM deposit_accounts WHERE customer_id = :cno",
             {"cno": customer_no},
         )
         if not accounts:
@@ -643,7 +644,7 @@ class ChatbotService:
         investable_balance = sum(
             float(a.get("balance") or 0)
             for a in active
-            if "is_withdrawable" not in a or a.get("is_withdrawable") is True
+            if a.get("is_withdrawable", True) is not False
         )
 
         if not all_ids:
@@ -1368,6 +1369,13 @@ class ChatbotService:
             },
             *product_cards,
         ]
+
+        if (
+            not str(recommendation or "").strip()
+            or "제공할 수 없습니다" in recommendation
+            or "죄송" in recommendation
+        ):
+            recommendation = self._format_rank_based_recommend(cf, ranked_for_data)
 
         recommendation = self._append_preferential_rate_notice(recommendation, product_cards)
 

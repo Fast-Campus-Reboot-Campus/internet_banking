@@ -2,6 +2,7 @@ package com.bank.aigateway.prompt.compliance;
 
 import com.bank.aigateway.audit.dto.AuditAnalysisRequest;
 import com.bank.aigateway.prompt.PromptRenderer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ public class ComplianceVerificationPromptBuilder {
     private final String system;
     private final String userTemplate;
 
+    @Autowired
     public ComplianceVerificationPromptBuilder(
             @Value("${prompt.compliance.system-resource:classpath:prompts/compliance/system.txt}") Resource systemResource,
             @Value("${prompt.compliance.user-resource:classpath:prompts/compliance/user.txt}") Resource userResource) {

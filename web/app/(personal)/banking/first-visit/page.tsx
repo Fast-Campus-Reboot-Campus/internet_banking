@@ -1,4 +1,5 @@
 'use client'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -46,7 +47,7 @@ function StepList({ steps }: { steps: { num: string; title: string; desc: string
         <div key={step.num}
           className={`px-6 py-5 ${i < steps.length - 1 ? 'border-b border-kb-border' : ''}`}>
           <div className="flex items-start gap-4">
-            <span className="text-[18px] font-bold flex-shrink-0 w-8" style={{ color: '#0D5C47' }}>
+            <span className="text-[18px] font-bold flex-shrink-0 w-8" style={{ color: KB_PRIMARY }}>
               {step.num}
             </span>
             <div>
@@ -96,7 +97,7 @@ export default function FirstVisitPage() {
           <button key={tab} onClick={() => setMainTab(tab)}
             className={`px-6 py-3 text-[14px] whitespace-nowrap transition-colors
               ${mainTab === tab ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
-            style={mainTab === tab ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
+            style={mainTab === tab ? { borderColor: KB_PRIMARY, color: KB_PRIMARY } : {}}>
             {tab}
           </button>
         ))}
@@ -105,7 +106,7 @@ export default function FirstVisitPage() {
       {/* ── 인터넷뱅킹 이용안내 ── */}
       {mainTab === '인터넷뱅킹 이용안내' && (
         <div className="space-y-6">
-          <div className="bg-[#F0FAF7] border border-kb-border rounded-xl px-6 py-4 text-[14px] text-kb-text-body space-y-1.5">
+          <div className="bg-kb-primary-bg border border-kb-border rounded-xl px-6 py-4 text-[14px] text-kb-text-body space-y-1.5">
             <p>· 인터넷뱅킹은 은행이 정한 인증서를 발급받아야 이용이 가능합니다.</p>
             <p>· 이미 다른 은행에서 발급받은 인증서가 있다면 [타행인증서등록]을 통해 이용하실 수 있습니다.</p>
             <p>· 만 14세 미만 고객은 온라인 가입이 제한되며, 가까운 영업점을 방문해 주시기 바랍니다.</p>
@@ -114,12 +115,12 @@ export default function FirstVisitPage() {
           <div className="flex gap-3 pt-2">
             <Link href="/cert/fin-cert-issue"
               className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               인증서 발급하기
             </Link>
             <Link href="/login"
-              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-              style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+              style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
               로그인하기
             </Link>
           </div>
@@ -135,7 +136,7 @@ export default function FirstVisitPage() {
               <button key={tab} onClick={() => setCertSubTab(tab)}
                 className={`px-4 py-2.5 text-[13px] whitespace-nowrap transition-colors
                   ${certSubTab === tab ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
-                style={certSubTab === tab ? { borderColor: '#0D5C47', color: '#0D5C47' } : {}}>
+                style={certSubTab === tab ? { borderColor: KB_PRIMARY, color: KB_PRIMARY } : {}}>
                 ▶ {tab}
               </button>
             ))}
@@ -146,12 +147,12 @@ export default function FirstVisitPage() {
           <div className="flex gap-3 pt-2">
             <Link href="/cert/fin-cert-issue"
               className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               개인용인증서발급 바로가기
             </Link>
             <button onClick={() => setMainTab('타인증서 등록안내')}
-              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-[#F0FAF7]"
-              style={{ borderColor: '#0D5C47', color: '#0D5C47' }}>
+              className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+              style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
               타인증서 등록안내
             </button>
           </div>
@@ -163,7 +164,7 @@ export default function FirstVisitPage() {
         <div className="space-y-5">
           {/* 인증서 종류 안내 */}
           <div className="border border-kb-border rounded-xl overflow-hidden">
-            <div className="px-6 py-3 font-semibold text-[14px] text-white" style={{ backgroundColor: '#0D5C47' }}>
+            <div className="px-6 py-3 font-semibold text-[14px] text-white" style={{ backgroundColor: KB_PRIMARY }}>
               등록 가능한 인증서 종류
             </div>
             <div className="divide-y divide-kb-border">
@@ -183,7 +184,7 @@ export default function FirstVisitPage() {
           <div className="flex gap-3 pt-2">
             <Link href="/cert/joint-cert-issue"
               className="px-6 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
-              style={{ backgroundColor: '#0D5C47' }}>
+              style={{ backgroundColor: KB_PRIMARY }}>
               타행/타기관 인증서등록 바로가기
             </Link>
           </div>

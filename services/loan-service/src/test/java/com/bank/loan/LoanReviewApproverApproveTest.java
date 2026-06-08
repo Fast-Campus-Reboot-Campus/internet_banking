@@ -77,10 +77,12 @@ class LoanReviewApproverApproveTest extends AbstractLoanIntegrationTest {
 
     @Test @Order(30)
     void 동일_심사원이_승인자로_시도_4eye_위반_422() throws Exception {
+        // 4-eye 판정은 인증 주체 기준 — applId1 의 심사원(20360101) 본인이 호출하면 위반
         mockMvc.perform(post("/api/loan-applications/{id}/review/approver-approve", applId1)
+                        .header("X-User-Id", "20360101")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"approverId":20360101,"approverDecisionCd":"APPROVE_AS_IS"}
+                                {"approverDecisionCd":"APPROVE_AS_IS"}
                                 """))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOAN_196"));
@@ -91,7 +93,7 @@ class LoanReviewApproverApproveTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/loan-applications/{id}/review/approver-approve", applId1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"approverId":20360201,"approverDecisionCd":"OVERRIDE_APPROVED"}
+                                {"approverDecisionCd":"OVERRIDE_APPROVED"}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("LOAN_197"));
@@ -103,7 +105,6 @@ class LoanReviewApproverApproveTest extends AbstractLoanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "approverId":20360201,
                                   "approverDecisionCd":"OVERRIDE_APPROVED",
                                   "overrideReasonCd":"RISK_ADJUSTMENT"
                                 }
@@ -126,7 +127,7 @@ class LoanReviewApproverApproveTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/loan-applications/{id}/review/approver-approve", applId3)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"approverId":20360201,"approverDecisionCd":"APPROVE_AS_IS"}
+                                {"approverDecisionCd":"APPROVE_AS_IS"}
                                 """))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOAN_195"));
@@ -137,12 +138,13 @@ class LoanReviewApproverApproveTest extends AbstractLoanIntegrationTest {
         mockMvc.perform(post("/api/loan-applications/{id}/review/approver-approve", applId1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"approverId":20360201,"approverDecisionCd":"APPROVE_AS_IS"}
+                                {"approverDecisionCd":"APPROVE_AS_IS"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.revStatusCd").value("COMPLETED"))
                 .andExpect(jsonPath("$.data.approvedDecisionCd").value("APPROVE_AS_IS"))
-                .andExpect(jsonPath("$.data.approverId").value(20360201))
+                // approverId 는 요청 바디가 아니라 인증 주체(기본 X-User-Id=1)로 기록된다
+                .andExpect(jsonPath("$.data.approverId").value(1))
                 .andExpect(jsonPath("$.data.approvedAt").isNotEmpty());
 
         // 신청 상태 APPROVED 전이 확인
@@ -157,7 +159,6 @@ class LoanReviewApproverApproveTest extends AbstractLoanIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "approverId":20360202,
                                   "approverDecisionCd":"OVERRIDE_REJECTED",
                                   "overrideReasonCd":"RISK_ADJUSTMENT",
                                   "overrideRemark":"추가 위험 요인 발견",

@@ -62,15 +62,15 @@ export default function FaqPage() {
       <h1 className="text-[24px] font-bold text-kb-text mb-8">인터넷뱅킹 FAQ</h1>
 
       {/* 탭 */}
-      <div className="flex border-b-2 border-[#0D5C47] mb-6">
+      <div className="flex border-b-2 border-kb-primary mb-6">
         {(['공동인증서', '인터넷뱅킹', '인증서로그인'] as Tab[]).map(tab => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setExpandedId(null); setSearch('') }}
             className={`px-8 py-3 text-[14px] font-semibold transition-colors
               ${activeTab === tab
-                ? 'bg-[#0D5C47] text-white'
-                : 'bg-kb-beige-light text-kb-text-body hover:bg-[#E2F5EF] border border-kb-border border-b-0'
+                ? 'bg-kb-primary text-white'
+                : 'bg-kb-beige-light text-kb-text-body hover:bg-kb-primary-border border border-kb-border border-b-0'
               }`}
           >
             {tab}
@@ -92,7 +92,7 @@ export default function FaqPage() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 max-w-sm border border-kb-border px-3 py-2 text-[13px] outline-none focus:border-[#0D5C47]"
+          className="flex-1 max-w-sm border border-kb-border px-3 py-2 text-[13px] outline-none focus:border-kb-primary"
         />
         <button
           onClick={() => {}}
@@ -104,7 +104,7 @@ export default function FaqPage() {
       </div>
 
       {/* FAQ 목록 */}
-      <div className="border-t-2 border-[#0D5C47]">
+      <div className="border-t-2 border-kb-primary">
         <div className="grid grid-cols-[60px_1fr] border-b border-kb-border bg-kb-beige-light">
           <div className="px-4 py-3 text-[13px] font-bold text-center text-kb-text">번호</div>
           <div className="px-4 py-3 text-[13px] font-bold text-center text-kb-text">제목</div>
@@ -130,7 +130,7 @@ export default function FaqPage() {
                 </div>
               </button>
               {expandedId === item.id && (
-                <div className="px-6 py-4 bg-[#F8FFFE] border-t border-kb-border text-[13px] text-kb-text-body leading-relaxed">
+                <div className="px-6 py-4 bg-kb-primary-surface border-t border-kb-border text-[13px] text-kb-text-body leading-relaxed">
                   {item.content}
                 </div>
               )}

@@ -174,7 +174,8 @@ ai:
 
 | 항목 | 방어 |
 |------|------|
-| Loop | 도구 호출 ≤ 6, LLM 호출 ≤ 2 (`AgentLoopGuard`) |
+| Loop (auto-loan-review) | 도구 호출 ≤ 6, LLM 호출 ≤ 2 (`AgentLoopGuard`, `ai.agent.max-tool-calls` / `ai.agent.max-llm-calls`) — 근거: 정상종료 run `ai.agent.tool.calls.per_run{outcome=SUCCESS}` p95 + run당 토큰예산 역산 중 min (→ `agent-loop-limits-metrics-plan.md`) |
+| Loop (review-ai-gateway) | 턴 ≤ 5 (`AgenticLoop`, `aigateway.agent.max-turns`) — 근거: `aigateway.loop.turns.per_run{outcome=completed}` p95 + 비용 역산 중 min (→ `agent-loop-limits-metrics-plan.md`) |
 | 무료 한도 | RPD 1500 / RPM 15 카운터, 초과 시 `TemplateFallback` |
 | PII | `PiiAwareChatClient` 통과 (기존 `com.bank.ai.privacy`) |
 | 환각 | `GroundingValidator` 확장(A5) — `validateNumericClaims(opinion, toolResults)` 신규 메서드로 수치 클레임과 도구 결과 매칭. 현재는 Policy ID 검증만 존재 |

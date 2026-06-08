@@ -4,6 +4,9 @@
 > 대상 독자: 개발팀 전원
 > 환경: 로컬 직접 설치 기준 (`ai-service` + Prometheus + Grafana)
 
+> **⚠️ 포트 충돌 주의**: `ai-service`는 기본 포트 8086을 사용하는데, 메인 `docker-compose.yml`의 `auto-loan-review`도 동일한 8086 포트를 점유합니다. 두 서비스를 동시에 실행하면 충돌합니다. `ai-service`를 로컬로 실행할 때는 `docker compose stop auto-loan-review` 후 진행하거나, `AI_APP_PORT`를 다른 번호로 변경하세요.
+> **참고**: `ai-service`(`services/ai-service/`)는 현재 docker-compose에 미통합 상태입니다. 로컬 Gradle 실행(`./gradlew :services:ai-service:bootRun`)으로만 기동 가능합니다.
+
 ---
 
 ## 이 가이드는 무엇인가요?

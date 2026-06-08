@@ -40,6 +40,21 @@ export type DepositProduct = {
   productStatus?: string
 }
 
+export type DepositInterestRate = {
+  rateId: number
+  productId: number
+  rateType: 'BASE' | 'PREFERENTIAL'
+  minimumContractPeriod?: number | null
+  maximumContractPeriod?: number | null
+  minimumJoinAmount?: number | string | null
+  maximumJoinAmount?: number | string | null
+  rate: number | string
+  conditionDescription?: string | null
+  effectiveStartDate?: string
+  effectiveEndDate?: string | null
+  isActive?: boolean
+}
+
 export type DepositContract = {
   contractId: number
   contractNumber: string
@@ -70,7 +85,6 @@ export type DepositAccount = {
   openedAt?: string
   maturityAt?: string
   accountStatus?: string
-  isWithdrawable?: boolean
 }
 
 export type DepositViewAccount = Account & {
@@ -79,9 +93,7 @@ export type DepositViewAccount = Account & {
   rawAccountType?: DepositProductType
   isWithdrawable?: boolean
   accountStatus?: string
-  rawAccountType?: DepositProductType
   savingType?: SavingType
-  isWithdrawable?: boolean
 }
 
 export type DepositRecommendProduct = {
@@ -180,8 +192,18 @@ const SAVING_TYPE_BY_SLUG: Record<string, SavingType> = {
   'axful-together': 'REGULAR',
 }
 
+const LEGACY_CUSTOMER_ID_MAP: Record<string, string> = {
+  CUST001: '1',
+}
+
+export function normalizeDepositCustomerId(customerId?: string | number | null) {
+  const value = String(customerId ?? '').trim()
+  if (!value) return '1'
+  return LEGACY_CUSTOMER_ID_MAP[value] ?? value
+}
+
 function headers(customerId: string) {
-  return { 'X-Customer-Id': customerId }
+  return { 'X-Customer-Id': normalizeDepositCustomerId(customerId) }
 }
 
 function toNumber(value: number | string | undefined, fallback: number | undefined = 0) {
@@ -196,16 +218,16 @@ function toDateText(value?: string) {
 }
 
 export function getCurrentDepositCustomerId() {
-  if (typeof window === 'undefined') return 'CUST001'
+  if (typeof window === 'undefined') return '1'
 
   const direct = localStorage.getItem('customerId')
-  if (direct) return direct
+  if (direct) return normalizeDepositCustomerId(direct)
 
   try {
     const user = JSON.parse(localStorage.getItem('user') || '{}')
-    return user.customerId || user.customer_id || user.id || 'CUST001'
+    return normalizeDepositCustomerId(user.customerId || user.customer_id || user.id)
   } catch {
-    return 'CUST001'
+    return '1'
   }
 }
 
@@ -219,6 +241,11 @@ export async function fetchDepositProducts(params?: {
 
 export async function fetchDepositProduct(productId: number) {
   const { data } = await depositApi.get<DepositProduct>(`/products/${productId}`)
+  return data
+}
+
+export async function fetchDepositInterestRates(productId: number) {
+  const { data } = await depositApi.get<DepositInterestRate[]>(`/products/${productId}/interest-rates`)
   return data
 }
 
@@ -257,17 +284,19 @@ export function toDepositProductCard(product: DepositProduct) {
 }
 
 export async function fetchDepositContracts(customerId: string) {
+  const normalizedCustomerId = normalizeDepositCustomerId(customerId)
   const { data } = await depositApi.get<DepositContract[]>('/contracts', {
-    params: { customerId },
-    headers: headers(customerId),
+    params: { customerId: normalizedCustomerId },
+    headers: headers(normalizedCustomerId),
   })
   return data
 }
 
 export async function fetchDepositAccounts(customerId: string) {
+  const normalizedCustomerId = normalizeDepositCustomerId(customerId)
   const { data } = await depositApi.get<DepositAccount[]>('/accounts', {
-    params: { customerId },
-    headers: headers(customerId),
+    params: { customerId: normalizedCustomerId },
+    headers: headers(normalizedCustomerId),
   })
   return data
 }
@@ -281,9 +310,10 @@ export async function terminateDepositContract(contractId: number, reason = 'ONL
 }
 
 export async function fetchDepositRecommendAgent(customerId: string, periodMonth = 3) {
+  const normalizedCustomerId = normalizeDepositCustomerId(customerId)
   const { data } = await depositApi.get<DepositRecommendResponse>('/products/recommend-agent', {
-    params: { customerId, periodMonth },
-    headers: headers(customerId),
+    params: { customerId: normalizedCustomerId, periodMonth },
+    headers: headers(normalizedCustomerId),
   })
   return data
 }
@@ -300,12 +330,13 @@ async function resolveProductId(slug: string, productName: string) {
 }
 
 export async function createDepositContract(customerId: string, input: CreateDepositContractInput) {
+  const normalizedCustomerId = normalizeDepositCustomerId(customerId)
   const productId = await resolveProductId(input.slug, input.productName)
   const joinAmount = input.amount > 0 ? input.amount : 1
   const contractPeriodMonth = input.periodMonth > 0 ? input.periodMonth : 1
 
   const payload = {
-    customerId,
+    customerId: normalizedCustomerId,
     productId,
     joinAmount,
     contractPeriodMonth,
@@ -320,7 +351,7 @@ export async function createDepositContract(customerId: string, input: CreateDep
   }
 
   const { data } = await depositApi.post<DepositContract>('/contracts', payload, {
-    headers: headers(customerId),
+    headers: headers(normalizedCustomerId),
   })
   return data
 }
@@ -330,6 +361,7 @@ function accountTypeLabel(account: DepositAccount, product?: DepositProduct): Ac
   if (account.accountType === 'SUBSCRIPTION') return '청약'
   if (product && CHECKING_PRODUCT_SLUGS.has(getDepositSlugByProductId(product.productId))) return '입출금'
   if (product?.productName?.includes('통장')) return '입출금'
+  if (account.accountAlias?.includes('통장')) return '입출금'
   return '예금'
 }
 
@@ -361,7 +393,7 @@ export type ExecuteDepositTransferInput = {
   toAccountId?: number
   toAccountNo: string
   amount: number
-  transferType?: 'INTERNAL' | 'EXTERNAL'
+  transferType?: 'INTERNAL' | 'EXTERNAL' | 'AUTO' | 'SCHEDULED'
   counterpartyBankCode?: string
   counterpartyBankName?: string
   counterpartyName?: string
@@ -384,7 +416,7 @@ export async function executeDepositTransfer(
       counterpartyBankName: input.counterpartyBankName,
       counterpartyName: input.counterpartyName,
       channelType: 'INTERNET',
-      transactionMemo: input.transactionMemo ?? '인터넷이체',
+      transactionMemo: input.transactionMemo ?? '인터넷 이체',
     },
     { headers: headers(customerId) }
   )
@@ -402,24 +434,44 @@ export async function fetchTransaction(transactionId: number): Promise<DepositTr
   return data
 }
 
-export type ExecuteDepositTransferInput = {
-  fromAccountId: number
-  toAccountId?: number
-  toAccountNo: string
+export type TransactionChannel = 'BRANCH' | 'ATM' | 'INTERNET' | 'MOBILE' | 'SYSTEM'
+
+export type SavingsPaymentInput = {
+  accountId: number
+  contractId: number
   amount: number
-  transferType: 'INTERNAL' | 'EXTERNAL' | 'AUTO' | 'SCHEDULED'
-  counterpartyBankCode?: string
-  counterpartyBankName?: string
-  counterpartyName?: string
-  transactionMemo?: string
+  paymentRound: number
+  channelType?: TransactionChannel
 }
 
-export async function executeDepositTransfer(input: ExecuteDepositTransferInput): Promise<DepositTransaction> {
-  const { data } = await depositApi.post<DepositTransaction>('/transactions/transfer', {
-    ...input,
-    channelType: 'INTERNET',
+// 적금 납입 — POST /transactions/savings-payment
+export async function paySavings(input: SavingsPaymentInput): Promise<DepositTransaction> {
+  const { data } = await depositApi.post<DepositTransaction>('/transactions/savings-payment', {
+    accountId: input.accountId,
+    contractId: input.contractId,
+    amount: input.amount,
+    paymentRound: input.paymentRound,
+    channelType: input.channelType ?? 'INTERNET',
   })
   return data
+}
+
+// 거래 취소 — PATCH /transactions/{id}/cancel (백엔드: 출금/이체 거래만 취소 가능)
+export async function cancelTransaction(transactionId: number, cancelReason = 'CUSTOMER_REQUEST'): Promise<DepositTransaction> {
+  const { data } = await depositApi.patch<DepositTransaction>(`/transactions/${transactionId}/cancel`, { cancelReason })
+  return data
+}
+
+// 출금/이체 거래이면서 아직 취소되지 않은 건만 취소 가능
+export function isCancelableTransaction(tx: DepositTransaction): boolean {
+  const cancelable = tx.transactionType === 'WITHDRAW' || tx.transactionType === 'TRANSFER'
+  return cancelable && tx.status !== 'CANCELED'
+}
+
+// 다음 적금 납입 회차 = 기존 적금납입 거래 수 + 1
+export function nextSavingsPaymentRound(transactions: DepositTransaction[]): number {
+  const paid = transactions.filter((tx) => tx.transactionType === 'SAVINGS_PAYMENT' && tx.status !== 'CANCELED').length
+  return paid + 1
 }
 
 export async function fetchDepositAccountViewModels(customerId: string): Promise<DepositViewAccount[]> {
@@ -434,12 +486,32 @@ export async function fetchDepositAccountViewModels(customerId: string): Promise
   const contractById = new Map(contracts.map((contract) => [contract.contractId, contract]))
   const productById = new Map(products.map((product) => [product.productId, product]))
 
+  // localStorage에 저장된 type 정보 활용 (입출금/적금/예금 구분)
+  const localTypeMap = new Map<number, Account['type']>()
+  const localNameMap = new Map<number, string>()
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('joinedAccounts')
+      if (raw) {
+        const parsed = JSON.parse(raw) as DepositViewAccount[]
+        parsed.forEach(a => {
+          if (a.apiAccountId) {
+            localTypeMap.set(a.apiAccountId, a.type as Account['type'])
+            if (a.name) localNameMap.set(a.apiAccountId, a.name)
+          }
+        })
+      }
+    } catch {}
+  }
+
   return accounts
     .filter((account) => account.accountStatus !== 'CLOSED')
     .map((account) => {
       const contract = contractById.get(account.contractId)
       const product = contract ? productById.get(contract.productId) : undefined
       const balance = toNumber(account.balance)
+      const resolvedType = localTypeMap.get(account.accountId) ?? accountTypeLabel(account, product)
+      const resolvedName = account.accountAlias || localNameMap.get(account.accountId) || product?.productName || fallbackName(account)
 
       return {
         id: `deposit-${account.accountId}`,
@@ -448,12 +520,10 @@ export async function fetchDepositAccountViewModels(customerId: string): Promise
         rawAccountType: account.accountType,
         isWithdrawable: account.isWithdrawable ?? account.withdrawable,
         accountStatus: account.accountStatus,
-        rawAccountType: account.accountType,
-        savingType: account.savingType,
-        isWithdrawable: account.isWithdrawable,
+        savingType: account.savingType ?? (account.accountType === 'SAVINGS' ? 'REGULAR' : undefined),
         number: account.accountNumber,
-        type: accountTypeLabel(account, product),
-        name: account.accountAlias || product?.productName || fallbackName(account),
+        type: resolvedType,
+        name: resolvedName,
         balance,
         availableBalance: balance,
         createdAt: toDateText(account.openedAt) || '',

@@ -1,7 +1,7 @@
 # 로컬 개발 환경 전용 설정 — prod 배포 시 이 파일은 적용되지 않는다.
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/deposit_db
+    url: jdbc:postgresql://localhost:5433/deposit_db
     username: deposit
     password: deposit
 

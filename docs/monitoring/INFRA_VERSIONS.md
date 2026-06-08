@@ -1,6 +1,6 @@
 # 모니터링 인프라 버전 및 포트 정리
 
-> Last updated: 2026-06-01
+> Last updated: 2026-06-07
 > Docker Compose 기준. 포트 변수 전체 목록은 루트 `.env.sample` 참고.
 
 ---
@@ -15,11 +15,22 @@
 | loan-service | 8083 | `LOAN_APP_PORT` | Spring Boot |
 | payment-service | 8084 | `PAYMENT_APP_PORT` | Spring Boot |
 | master-service | 8085 | `MASTER_APP_PORT` | Spring Boot |
-| ai-service | 8086 | `AI_APP_PORT` | Spring Boot |
-| consultation-service | 8087 | `CONSULTATION_APP_PORT` | Python FastAPI |
-| review-ai-gateway | 8088 | `AIGATEWAY_APP_PORT` | Spring Boot |
-| auto-loan-review | 8089 | `AUTO_LOAN_REVIEW_APP_PORT` | Spring Boot |
-| inference-server | 8090 | — | Python, ai-service에서 호출 (별도 기동) |
+| auto-loan-review | 8086 | `AI_APP_PORT` | Spring Boot, 대출 자동 심사 에이전트 |
+| consultation-service | 8087 | `CONSULTATION_APP_PORT` | Python FastAPI, 챗봇 상담 |
+| review-ai-gateway | 8088 | `AIGATEWAY_APP_PORT` | Spring Boot, 감사 분석 에이전트 |
+| inference-server | 8090 | — | Python, auto-loan-review에서 호출 (별도 기동) |
+
+> **ai-service**: `services/ai-service/` 디렉토리 존재 (Spring Boot, `com.bank.ai` 패키지, RAG 기능 포함)하지만 Dockerfile 없고 docker-compose 미통합. 현재 실행 불가. 담당 팀원 통합 필요.
+
+### consultation-service 단독 실행 포트 (standalone docker-compose)
+
+메인 docker-compose와 동시에 실행할 때 포트 충돌을 피하기 위해 아래 포트를 사용한다.
+
+| 컨테이너 | 호스트 포트 | 비고 |
+|----------|------------|------|
+| consultation-postgres | 5440 | 기본값 5439에서 변경 (`ib-common-db`와 충돌) |
+| consultation-kafka | 9093 | 기본값 9092에서 변경 (`ib-kafka`와 충돌) |
+| consultation-service | 8087 | 변경 없음 |
 
 ---
 
@@ -65,6 +76,7 @@
 | master-db | 5436 | `MASTER_DB_PORT` |
 | ai-db | 5437 | `AI_DB_PORT` |
 | langfuse-db | 5438 | `LANGFUSE_DB_PORT` |
+| common-db | 5439 | `COMMON_DB_PORT` |
 
 ### Kafka
 
@@ -97,10 +109,9 @@
 | loan-service | 8083 | `/actuator/prometheus` |
 | payment-service | 8084 | `/actuator/prometheus` |
 | master-service | 8085 | `/actuator/prometheus` |
-| ai-service | 8086 | `/actuator/prometheus` |
+| auto-loan-review | 8086 | `/actuator/prometheus` |
 | consultation-service | 8087 | `/metrics` |
 | review-ai-gateway | 8088 | `/actuator/prometheus` |
-| auto-loan-review | 8089 | `/actuator/prometheus` |
 | windows-exporter | 9182 | 기본 |
 | kafka-exporter-kftc | 9308 | 기본 |
 | kafka-exporter-bok | 9309 | 기본 |

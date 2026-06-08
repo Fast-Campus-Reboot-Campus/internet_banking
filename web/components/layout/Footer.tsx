@@ -62,7 +62,7 @@ function Dropdown({ label, children }: { label: string; children: React.ReactNod
       <button
         onClick={() => setOpen(v => !v)}
         className={`flex items-center gap-1.5 border px-3 py-1.5 text-[13px] bg-white transition-colors
-          ${open ? 'border-[#0D5C47] text-[#0D5C47]' : 'border-kb-border text-kb-text-body hover:border-[#0D5C47]'}`}
+          ${open ? 'border-kb-primary text-kb-primary' : 'border-kb-border text-kb-text-body hover:border-kb-primary'}`}
       >
         {label}
         <svg viewBox="0 0 10 6" fill="none" className={`w-2.5 h-2.5 transition-transform ${open ? 'rotate-180' : ''}`}>
@@ -127,7 +127,7 @@ export default function Footer() {
             <div className="py-1">
               {NETWORK_ITEMS.map(item => (
                 <Link key={item} href="#"
-                  className="block px-4 py-2 text-[13px] text-kb-text-body hover:bg-[#F0FAF7] hover:text-[#0D5C47] transition-colors">
+                  className="block px-4 py-2 text-[13px] text-kb-text-body hover:bg-kb-primary-bg hover:text-kb-primary transition-colors">
                   {item}
                 </Link>
               ))}
@@ -156,7 +156,7 @@ export default function Footer() {
           {/* 챗봇/채팅/이메일상담 */}
           <button
             onClick={() => setShowConsult(true)}
-            className="flex items-center gap-1.5 border border-kb-border px-3 py-1.5 text-[13px] text-kb-text-body bg-white hover:border-[#0D5C47] hover:text-[#0D5C47] transition-colors">
+            className="flex items-center gap-1.5 border border-kb-border px-3 py-1.5 text-[13px] text-kb-text-body bg-white hover:border-kb-primary hover:text-kb-primary transition-colors">
             챗봇/채팅/이메일상담(24시간)
           </button>
 
@@ -165,7 +165,7 @@ export default function Footer() {
             <div className="py-1">
               {COMPARE_ITEMS.map(item => (
                 <Link key={item.label} href={item.href}
-                  className="block px-4 py-2 text-[13px] text-kb-text-body hover:bg-[#F0FAF7] hover:text-[#0D5C47] transition-colors">
+                  className="block px-4 py-2 text-[13px] text-kb-text-body hover:bg-kb-primary-bg hover:text-kb-primary transition-colors">
                   {item.label}
                 </Link>
               ))}
