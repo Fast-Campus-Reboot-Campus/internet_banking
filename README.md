@@ -139,14 +139,44 @@ CREATE UNIQUE INDEX uq_deposit_transactions_idempotency_key
 - 한도 미설정 시 검증 건너뜀 (`null` 허용)
 - KST 기준 자정 리셋 (`ZoneId.of("Asia/Seoul")`)
 
-### 상품 추천 (RecommendAgentService)
+### 상품 추천 (CashflowBasedRecommendService)
 
-고객의 최근 거래내역 현금흐름을 분석해 예금상품을 추천한다. 외부 AI/LLM 호출 없이 입출금 내역, 월평균 저축 가능 금액, 가입금액 조건, 판매 상태, 금리 기준을 점수화해 산출한다.
+고객의 최근 거래내역 현금흐름을 분석해 예금·적금 상품을 최대 5개 추천한다. 외부 AI/LLM 호출 없이 100점 채점 모델로 동작한다.
+
+#### 추천 흐름
 
 ```
-순현금흐름(netCashFlow) / periodMonth → estimatedSavingsAmount
-→ 가입금액 조건 필터 → 판매 중 상품 필터 → bestRate 내림차순 최대 5개 반환
+순현금흐름(netCashFlow) / periodMonth → monthlySavings
+→ 필터링 → 100점 채점 → 총점 내림차순 상위 5개 반환
 ```
+
+#### 필터링 규칙 (점수 산정 전 제외)
+
+| 조건 | 제외 상품 |
+|---|---|
+| `ProductType.SUBSCRIPTION` | 청약 상품 전체 |
+| 상품명·설명에 "군인", "장병", "군무원" 포함 | 특수 대상 상품 |
+| "youth", "young", "청년" 포함 + 고객 나이 > 34 | 청년 전용 상품 |
+| DEPOSIT — `currentBalance` < minJoinAmount | 잔액 부족 |
+| DEPOSIT — `currentBalance` > maxJoinAmount | 한도 초과 |
+| SAVINGS — `monthlySavings` < minJoinAmount | 월 저축 여력 부족 |
+
+#### 100점 채점 모델
+
+| 항목 | 배점 | 산정 방식 |
+|---|---|---|
+| 재정 적합도 | 40점 | 예금: `currentBalance / minJoinAmount`, 적금: `monthlySavings / (minJoinAmount×2)`. 저축 성장형(연간 저축 > 잔액) 적금에 ×1.30 가중치 |
+| 예상 수익 | 30점 | 실제 이자액 계산 후 후보 풀 내 상대 정규화 (1위=30점). 예금: `잔액×금리×기간/12`, 적금: `monthlySavings × Σ가중개월 × 금리/12` |
+| 유동성 매칭 | 20점 | 거래 빈도(LOW≤5, HIGH≥10 건)와 상품 만기 조합으로 고정 점수. 조기해지 허용 시 +2점 |
+| 부가 혜택 | 10점 | 비과세 혜택 +6점, 중도해지 가능 +4점 |
+
+#### bestRate 계산
+
+```
+bestRate = BASE 금리 최댓값 + PREFERENTIAL 금리 전체 합산
+```
+
+> 기간별 BASE 구간이 여럿이면 최댓값만 취하고, 우대금리는 조건 무관 전부 합산한다.
 
 ```
 GET /api/products/recommend-agent?customerId={customerId}&periodMonth={periodMonth}
@@ -222,6 +252,30 @@ ChatbotWidget (웹)
 
 ---
 
+## 계좌 해지 흐름
+
+| 단계 | 설명 |
+|---|---|
+| 계좌 선택 | 계좌조회 페이지의 각 계좌 카드에서 **해지** 버튼 클릭 → `accountId` 쿼리 파라미터와 함께 해지 페이지로 이동 |
+| 해지 확인 | `accountId`가 전달되면 계좌 선택 단계를 건너뛰고 2단계(해지계좌 확인)로 자동 진입 |
+| 비밀번호 입력 | 마우스 숫자패드 또는 키보드 입력 |
+| 지급 방법 선택 | **당행 계좌**(내 입출금 계좌 중 선택) / **타행 계좌**(은행 선택 + 계좌번호 직접 입력) / **현금** |
+| 완료 | 해지 API 호출 → 잔액 `accountOverrides` localStorage에 반영 |
+
+```
+GET /products/deposit/inquiry/terminate?accountId={accountId}
+```
+
+---
+
+## 거래조회 개선
+
+- 계좌 목록 로드 후 각 계좌별로 거래내역을 병렬 조회(`Promise.all`) → 전체 거래를 한 번에 로드
+- 거래 필터링 기준: `accountNumber` 일치 **또는** `accountId` 일치 — 계좌번호가 없는 거래도 누락 없이 표시
+- 선택 계좌·캘린더 계좌 초기값을 첫 번째 계좌로 자동 설정
+
+---
+
 ## 인증 (customer-service)
 
 ### 로그인 방식
@@ -230,6 +284,16 @@ ChatbotWidget (웹)
 |---|---|---|
 | ID/비밀번호 | `POST /api/v1/auth/login` | 일반 로그인 |
 | 금융인증서 (FinCert) | `POST /api/v1/auth/cert-login` | 인증서 PIN 기반 로그인 |
+
+### 보안카드 에러코드 (CUST_140~144)
+
+| 코드 | HTTP | 설명 |
+|---|---|---|
+| `CUST_140` | 404 | 활성 보안카드 없음 |
+| `CUST_141` | 409 | 이미 활성 보안카드 존재 |
+| `CUST_142` | 401 | 보안카드 코드 불일치 |
+| `CUST_143` | 410 | 보안카드 챌린지 만료·없음 |
+| `CUST_144` | 400 | 챌린지에 없는 위치 코드 포함 |
 
 ### 금융인증서 로그인 SSR 프록시
 

@@ -129,6 +129,17 @@ export const GNB_MENUS = [
 interface StoredUser { name: string; email: string; customer_id: number }
 
 const SESSION_SECONDS = 10 * 60 // 10분
+const SESSION_MS = SESSION_SECONDS * 1000
+
+function getStoredToken() {
+  return localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+}
+
+function renewLocalSession() {
+  const expiry = Date.now() + SESSION_MS
+  localStorage.setItem('sessionExpiry', String(expiry))
+  return expiry
+}
 
 function formatTime(sec: number) {
   const m = String(Math.floor(sec / 60)).padStart(2, '0')
@@ -143,6 +154,7 @@ export default function Header() {
   const [remaining, setRemaining] = useState(SESSION_SECONDS)
   const [extending, setExtending] = useState(false)
   const [extendError, setExtendError] = useState(false)
+  const isLoggedIn = user !== null
 
   useEffect(() => {
     if (pathname.startsWith('/logout')) {
@@ -153,7 +165,11 @@ export default function Header() {
     try {
       const stored = localStorage.getItem('user')
       if (stored) {
-        setUser(JSON.parse(stored))
+        const parsed = JSON.parse(stored)
+        setUser(prev => {
+          if (prev?.customer_id === parsed?.customer_id) return prev
+          return parsed
+        })
         return
       }
       setUser(null)
@@ -162,11 +178,16 @@ export default function Header() {
 
   // 카운트다운 + 자동 로그아웃
   useEffect(() => {
-    if (!user) return
+    if (!isLoggedIn) return
 
     const stored = localStorage.getItem('sessionExpiry')
-    const expiry = stored ? parseInt(stored, 10) : Date.now() + SESSION_SECONDS * 1000
-    if (!stored) localStorage.setItem('sessionExpiry', String(expiry))
+    const parsedExpiry = stored ? parseInt(stored, 10) : NaN
+    const hasValidToken = Boolean(getStoredToken())
+    const expiry = !Number.isFinite(parsedExpiry) || parsedExpiry <= Date.now()
+      ? hasValidToken
+        ? renewLocalSession()
+        : Date.now()
+      : parsedExpiry
 
     const seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
     setRemaining(seconds)
@@ -174,13 +195,23 @@ export default function Header() {
     const tick = setInterval(() => {
       const storedExpiry = localStorage.getItem('sessionExpiry')
       if (!storedExpiry) {
+        if (getStoredToken()) {
+          const renewed = renewLocalSession()
+          setRemaining(Math.max(0, Math.round((renewed - Date.now()) / 1000)))
+          return
+        }
         clearInterval(tick)
-        window.location.href = '/logout'
+        setUser(null)
         return
       }
       const remaining = Math.max(0, Math.round((parseInt(storedExpiry) - Date.now()) / 1000))
       setRemaining(remaining)
       if (remaining <= 0) {
+        if (getStoredToken()) {
+          const renewed = renewLocalSession()
+          setRemaining(Math.max(0, Math.round((renewed - Date.now()) / 1000)))
+          return
+        }
         clearInterval(tick)
         localStorage.removeItem('access_token')
         localStorage.removeItem('accessToken')
@@ -188,14 +219,14 @@ export default function Header() {
         localStorage.removeItem('sessionExpiry')
         localStorage.removeItem('user')
         localStorage.removeItem('customerId')
-        window.location.href = '/logout'
+        setUser(null)
       }
     }, 1000)
 
     return () => {
       clearInterval(tick)
     }
-  }, [user])
+  }, [isLoggedIn, pathname])
 
 
   function handleLogout() {
@@ -214,7 +245,12 @@ export default function Header() {
     if (extending) return
     const refreshToken = localStorage.getItem('refreshToken')
     if (!refreshToken) {
-      window.location.href = '/logout'
+      if (getStoredToken()) {
+        const newExpiry = renewLocalSession()
+        setRemaining(Math.max(0, Math.round((newExpiry - Date.now()) / 1000)))
+        return
+      }
+      setUser(null)
       return
     }
     setExtending(true)

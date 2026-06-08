@@ -265,7 +265,7 @@ export default function AccountsPage() {
                             </Link>
                             <button className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
                               style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>계좌관리</button>
-                            <Link href="/products/deposit/inquiry/terminate"
+                            <Link href={`/products/deposit/inquiry/terminate?accountId=${account.id}`}
                               className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-red-50"
                               style={{ borderColor: '#E05555', color: '#E05555' }}>
                               해지
@@ -297,6 +297,11 @@ export default function AccountsPage() {
                               <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
                                 style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
+                            <Link href={`/products/deposit/inquiry/terminate?accountId=${account.id}`}
+                              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-red-50"
+                              style={{ borderColor: '#E05555', color: '#E05555' }}>
+                              해지
+                            </Link>
                           </div>
                         )
                       )
@@ -324,6 +329,11 @@ export default function AccountsPage() {
                               <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
                                 style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
+                            <Link href={`/products/deposit/inquiry/terminate?accountId=${account.id}`}
+                              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-red-50"
+                              style={{ borderColor: '#E05555', color: '#E05555' }}>
+                              해지
+                            </Link>
                           </div>
                         )
                       )
@@ -351,6 +361,11 @@ export default function AccountsPage() {
                           className="px-4 py-1.5 text-[12px] font-semibold text-white rounded-lg hover:opacity-85 transition-opacity"
                           style={{ backgroundColor: KB_PRIMARY }}>
                           이체
+                        </Link>
+                        <Link href={`/products/deposit/inquiry/terminate?accountId=${account.id}`}
+                          className="px-4 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-red-50"
+                          style={{ borderColor: '#E05555', color: '#E05555' }}>
+                          해지
                         </Link>
                       </div>
                       <div className="relative">
@@ -391,6 +406,11 @@ export default function AccountsPage() {
                               <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
                                 style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
+                            <Link href={`/products/deposit/inquiry/terminate?accountId=${account.id}`}
+                              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-red-50"
+                              style={{ borderColor: '#E05555', color: '#E05555' }}>
+                              해지
+                            </Link>
                           </div>
                         )
                       )

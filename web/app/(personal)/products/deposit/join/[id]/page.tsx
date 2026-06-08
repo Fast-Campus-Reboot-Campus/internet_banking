@@ -9,6 +9,14 @@ import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { createDepositContract, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
+const SESSION_EXTENSION_MS = 10 * 60 * 1000
+
+function extendLocalSessionAfterAuthenticatedAction() {
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+  if (!token) return
+  localStorage.setItem('sessionExpiry', String(Date.now() + SESSION_EXTENSION_MS))
+}
+
 const PRODUCT_NAMES: Record<string, string> = {
   // 예금
   'axful-regular': 'AXful 정기예금',
@@ -314,6 +322,7 @@ export default function DepositJoinPage() {
         autoTransferDay: transferDay ? parseInt(transferDay) : undefined,
         taxExempt,
       })
+      extendLocalSessionAfterAuthenticatedAction()
       localStorage.removeItem('joinedAccounts')
       router.push('/inquiry/accounts')
       router.refresh()

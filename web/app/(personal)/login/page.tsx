@@ -199,6 +199,8 @@ function KBCertTab() {
           localStorage.setItem('access_token', data.data.accessToken)
           localStorage.setItem('customerId',   String(data.data.customerId))
           if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
+          localStorage.setItem('user', JSON.stringify({ name: '고객', email: '', customer_id: data.data.customerId }))
+          localStorage.setItem('sessionExpiry', String(Date.now() + 10 * 60 * 1000))
           try {
             const me = await api.get('/api/v1/customers/me')
             localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
