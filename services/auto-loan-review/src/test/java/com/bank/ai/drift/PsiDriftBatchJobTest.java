@@ -8,6 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -17,16 +22,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 /**
- * PsiDriftBatchJob 통합 테스트 — H2 + 2040년 데이터.
- * 날짜 격리: 2040년 전용 (다른 테스트와 DB 충돌 없음).
+ * PsiDriftBatchJob 통합 테스트 — PostgreSQL Testcontainers + 직전 주 데이터.
+ *
+ * <p>H2 는 PostgreSQL `ON CONFLICT ... DO UPDATE` 업서트를 파싱하지 못하므로
+ * 운영과 동일한 Postgres 에서 검증한다 (db/drift-pg-migration 스키마).
+ * Spring Batch 메타테이블은 Postgres 에 자동 생성(initialize-schema=always).
  */
+@Testcontainers
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:driftjobdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;NON_KEYWORDS=VALUE,YEAR",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
-        "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.hikari.maximum-pool-size=3",
-        "spring.flyway.locations=classpath:db/h2-migration",
+        "spring.flyway.locations=classpath:db/drift-pg-migration",
+        "spring.batch.jdbc.initialize-schema=always",
         "spring.autoconfigure.exclude=" +
                 "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration," +
                 "org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration,org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiTextEmbeddingAutoConfiguration",
@@ -36,6 +42,18 @@ import static org.assertj.core.api.Assertions.within;
         "spring.batch.job.enabled=false"
 })
 class PsiDriftBatchJobTest {
+
+    @Container
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+            .withUrlParam("stringtype", "unspecified");   // JSONB 컬럼에 JSON 문자열 파라미터 바인딩 허용
+
+    @DynamicPropertySource
+    static void datasourceProps(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+    }
 
     @Autowired
     private JobLauncher jobLauncher;
