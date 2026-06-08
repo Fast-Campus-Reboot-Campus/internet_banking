@@ -30,10 +30,12 @@ export type InstantTransferPayload = {
   senderAccountId: string
   receiverBankCode: string
   receiverAccountNo: string
-  expectedReceiverName: string
+  receiverHolderName: string
   transferAmount: number
-  authTokenNo: string
   channel: string
+  receiverMemo?: string
+  senderMemo?: string
+  receiverPassbookSenderDisplay?: string
 }
 
 export type TransferRequestHeaders = {

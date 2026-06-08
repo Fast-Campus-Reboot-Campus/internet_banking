@@ -42,10 +42,11 @@ export default function TransferAccountPage() {
     async function load() {
       let fallback: DepositViewAccount[] = []
       try { const raw = localStorage.getItem('joinedAccounts'); if (raw) fallback = JSON.parse(raw) as DepositViewAccount[] } catch {}
+      let accs: DepositViewAccount[] = []
       try {
         const customerId = getCurrentDepositCustomerId()
         const fetched = await fetchDepositAccountViewModels(customerId)
-        const accs = fetched.length > 0 ? fetched : fallback
+        accs = fetched.length > 0 ? fetched : fallback
         setAccounts(accs)
         if (accs.length > 0) {
           // ?from= 으로 진입한 경우 해당 출금계좌 자동 선택 (입출금 계좌일 때만)
@@ -62,7 +63,12 @@ export default function TransferAccountPage() {
             setFromAccount(firstTransferable.id)
           }
         }
-        const txs = await fetchTransactions({ customerId })
+      } catch { setAccounts(fallback) }
+      try {
+        const txResults = await Promise.allSettled(
+          accs.filter(a => a.apiAccountId).map(a => fetchTransactions({ accountId: a.apiAccountId }))
+        )
+        const txs = txResults.flatMap(r => r.status === 'fulfilled' ? r.value : [])
         const seen = new Set<string>()
         const recent = txs
           .filter((t: DepositTransaction) => t.transactionType === 'TRANSFER' && t.directionType === 'OUT' && t.counterpartyAccountNo)
@@ -75,13 +81,13 @@ export default function TransferAccountPage() {
           }, [])
           .slice(0, 5)
         setRecentAccounts(recent)
-      } catch { setAccounts(fallback) }
+      } catch {}
     }
     load()
   }, [requestedFromAccount])
 
   // 입출금(이체 가능) 계좌만 출금계좌로 노출
-  const transferableAccounts = accounts.filter(a => a.type === '입출금')
+  const transferableAccounts = accounts.filter(a => a.type === '입출금' || a.isWithdrawable)
   const fromAcc = transferableAccounts.find(a => a.id === fromAccount) ?? transferableAccounts[0]
   const isFromAccountLocked = Boolean(requestedFromAccount) && Boolean(fromAcc)
 
