@@ -58,7 +58,6 @@ public class RuleEngineService {
             inference = autoReviewService.review(req);
         } catch (BusinessException e) {
             reviewMetrics.recordInferenceError();
-            reviewMetrics.recordAgentHardFail();
             throw e;
         }
 
@@ -67,9 +66,6 @@ public class RuleEngineService {
         double pd = (pdFromModel != null)
                 ? pdFromModel
                 : inference.proba().getOrDefault(POSITIVE_CLASS, 0.0);
-        if (pdFromModel == null) {
-            reviewMetrics.recordAgentFallback();
-        }
 
         // decision score: PD 모델 가용 시에만 결합 분기 사용. PD-only 폴백 시 null 전달.
         Double decisionScore = (pdFromModel != null) ? inference.decisionScore() : null;
@@ -82,8 +78,6 @@ public class RuleEngineService {
         reviewMetrics.recordDecision(decisionLabel, inference.modelVersion());
         reviewMetrics.recordDuration(elapsed, inference.modelVersion());
         reviewMetrics.recordScore(inference.score(), decisionLabel);
-        reviewMetrics.recordAgentRun(decisionLabel);
-        reviewMetrics.recordAgentLatency(elapsed, decision.track().name());
         recordInputMetrics(req);
 
         // Phase 1.6: LLM 비동기 파이프라인 트리거

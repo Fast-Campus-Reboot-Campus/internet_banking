@@ -37,6 +37,7 @@ class RuleEngineServiceDualScoreTest {
 
     private final AutoReviewService autoReviewService = mock(AutoReviewService.class);
     private final ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+    private final ReviewMetrics reviewMetrics = mock(ReviewMetrics.class);
     private final TrackClassifier classifier = new TrackClassifier(
             new HardConstraintEvaluator(PROPS), new PolicyMatrix(PROPS)
     );

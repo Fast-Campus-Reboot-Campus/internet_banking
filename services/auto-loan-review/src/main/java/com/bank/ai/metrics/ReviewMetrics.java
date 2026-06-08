@@ -104,36 +104,4 @@ public class ReviewMetrics {
                 .increment();
     }
 
-    // ── 에이전트 통합 대시보드용 (agent-unified) ──────────────────────────────
-
-    /** 심사 실행 결과 카운터. outcome = APPROVE | REJECT | CONDITIONAL */
-    public void recordAgentRun(String outcome) {
-        Counter.builder("ai.agent.runs.total")
-                .tag("outcome", outcome)
-                .register(registry)
-                .increment();
-    }
-
-    /** 추론 서버 하드 실패 카운터 (에이전트 통합 대시보드용). */
-    public void recordAgentHardFail() {
-        Counter.builder("ai.agent.hard.fail.total")
-                .register(registry)
-                .increment();
-    }
-
-    /** 심사 end-to-end 처리 시간 (track 레이블, 에이전트 통합 대시보드용). */
-    public void recordAgentLatency(Duration duration, String track) {
-        Timer.builder("ai.agent.latency.seconds")
-                .tag("track", track != null ? track : "unknown")
-                .publishPercentileHistogram()
-                .register(registry)
-                .record(duration);
-    }
-
-    /** PD 모델 미가용으로 decision 모델 확률로 폴백한 건수. */
-    public void recordAgentFallback() {
-        Counter.builder("ai.agent.fallback.total")
-                .register(registry)
-                .increment();
-    }
 }
