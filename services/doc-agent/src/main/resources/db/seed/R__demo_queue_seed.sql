@@ -1,8 +1,11 @@
 -- ============================================================
--- V5: doc-agent Admin 화면 데모 시드 데이터
+-- doc-agent Admin 화면 데모 시드 (local 프로파일 전용)
 --
--- 목적: 휴먼리뷰 큐(GET /api/documents/queue) 에 표시될 샘플 서류 제출 건.
--- 멱등: ON CONFLICT (submission_id) DO NOTHING
+-- Flyway 반복 마이그레이션(R__). 이 파일이 있는 db/seed 디렉터리는
+-- application-local.yml 의 flyway.locations 에서만 추가되므로
+-- 운영/스테이징/docker 프로파일에서는 스캔조차 되지 않는다.
+-- 버전 마이그레이션(V1~) 이후에 실행되어 스키마 존재가 보장된다.
+-- 멱등: ON CONFLICT (submission_id) DO NOTHING — 재실행 안전.
 -- ============================================================
 
 -- 위변조 의심 — HOLD + PENDING 리뷰 (큐에 표시됨)
@@ -51,7 +54,3 @@ INSERT INTO loan_document_submission (
     FALSE, '2025-02-05 09:05:00', '2025-02-05 09:07:00'
 )
 ON CONFLICT (submission_id) DO NOTHING;
-
--- ============================================================
--- 끝.
--- ============================================================
