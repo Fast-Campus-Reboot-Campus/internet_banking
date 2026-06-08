@@ -112,11 +112,15 @@ function NewsSection() {
 // ── 로그인 후 대시보드 퀵액션 ──
 
 export default function HomePage() {
+  // 로그인 여부는 토큰으로 판단한다. user 프로필은 인사말 표시에만 쓰며,
+  // me 조회가 일시적으로 실패해도 토큰만 있으면 로그인 홈을 보여준다.
+  const [authed, setAuthed] = useState(false)
   const [user, setUser] = useState<StoredUser | null>(null)
   const [mainAccount, setMainAccount] = useState<DepositViewAccount | null>(null)
   const [recentTransfers, setRecentTransfers] = useState<RecentTransfer[]>([])
 
   useEffect(() => {
+    setAuthed(!!localStorage.getItem('accessToken'))
     try {
       const raw = localStorage.getItem('user')
       if (raw) setUser(JSON.parse(raw))
@@ -150,7 +154,7 @@ export default function HomePage() {
   }, [])
 
   /* ── 로그인 후 홈 ── */
-  if (user) {
+  if (authed) {
     return (
       <main className="pb-0 bg-white">
 
@@ -164,7 +168,7 @@ export default function HomePage() {
                 {/* 인사말 + 이미지 */}
                 <div className="flex items-end mb-5">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[28px] font-bold text-kb-text mb-2">{user.name} 고객님,</p>
+                    <p className="text-[28px] font-bold text-kb-text mb-2">{user?.name ?? '고객'} 고객님,</p>
                     <p className="text-[14px] font-semibold" style={{ color: KB_PRIMARY }}>AXful은 항상 곁에 있습니다.</p>
                     <p className="text-[14px] font-semibold mb-4" style={{ color: KB_PRIMARY }}>24시간, 365일 늘 환영합니다.</p>
                     <div className="flex items-center gap-3">

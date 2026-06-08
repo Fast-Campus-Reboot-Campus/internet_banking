@@ -8,20 +8,14 @@ import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
-import com.bank.customer.config.EmployeeDirectoryProperties;
-import com.bank.customer.fds.service.FdsService;
-import com.bank.customer.login.domain.LoginAttempt;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.dto.RefreshRequest;
-import com.bank.customer.login.repository.LoginAttemptRepository;
-import com.bank.customer.session.service.LoginSessionService;
 import com.bank.customer.support.CustomerErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -35,7 +29,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -49,15 +42,11 @@ class LoginServiceTest {
     @Mock PasswordEncoder      passwordEncoder;
     @Mock StringRedisTemplate  redisTemplate;
     @Mock ValueOperations<String, String> valueOps;
-    @Mock EmployeeDirectoryProperties employeeDirectory;
-    @Mock LoginAttemptRepository      loginAttemptRepository;
-    @Mock FdsService                  fdsService;
-    @Mock LoginSessionService         loginSessionService;
+    @Mock AuthEventService     authEventService;
 
     private JwtProvider   jwtProvider;
     private JwtProperties jwtProperties;
 
-    @InjectMocks
     private LoginService loginService;
 
     private static final String SECRET = "test-secret-key-must-be-at-least-32-chars-long!!";
@@ -67,30 +56,25 @@ class LoginServiceTest {
         jwtProperties = new JwtProperties(SECRET, 600_000L, 3_600_000L);
         jwtProvider   = new JwtProvider(jwtProperties);
 
-        // Mockito @InjectMocks 는 필드 주입 순서가 보장되지 않으므로 직접 주입
         loginService = new LoginService(
                 credentialRepository, customerRepository,
-                passwordEncoder, jwtProvider, jwtProperties, redisTemplate,
-                employeeDirectory, loginAttemptRepository, fdsService, loginSessionService);
+                passwordEncoder, jwtProvider, redisTemplate, authEventService);
 
-        // 직원 디렉토리 미등록(일반 고객) 기본값 — buildAccessToken NPE 방지
-        given(employeeDirectory.find(anyLong())).willReturn(Optional.empty());
-
-        // 로그인 시도 이력 저장은 referenceId(getLoginAttemptId)를 후속 호출에 사용
-        LoginAttempt attempt = org.mockito.Mockito.mock(LoginAttempt.class);
-        given(attempt.getLoginAttemptId()).willReturn(100L);
-        given(loginAttemptRepository.save(any())).willReturn(attempt);
+        // 후처리는 AuthEventService 단위 책임 — 여기서는 위임 결과만 스텁한다.
+        given(authEventService.onLoginSuccess(any(), anyString(), any(), any(), anyString()))
+                .willReturn(new LoginResponse(1L, "access-token", "refresh-token"));
+        given(authEventService.reissueTokens(any()))
+                .willReturn(new LoginResponse(1L, "new-access-token", "new-refresh-token"));
     }
 
     // ── 로그인 성공 ───────────────────────────────────────────────
 
     @Test
-    @DisplayName("로그인 성공 — accessToken, refreshToken 반환")
+    @DisplayName("로그인 성공 — 검증 통과 후 AuthEventService 후처리 결과를 반환")
     void loginSuccess() {
         Credential credential = mockCredential(false, true, false);
         Customer   customer   = mockCustomer();
 
-        given(redisTemplate.opsForValue()).willReturn(valueOps);
         given(credentialRepository.findByLoginIdAndDeletedAtIsNull("user1"))
                 .willReturn(Optional.of(credential));
         given(passwordEncoder.matches("pass1234", "hashed")).willReturn(true);
@@ -102,7 +86,7 @@ class LoginServiceTest {
         assertThat(response.accessToken()).isNotBlank();
         assertThat(response.refreshToken()).isNotBlank();
         assertThat(response.customerId()).isEqualTo(1L);
-        verify(valueOps).set(anyString(), anyString(), any());
+        verify(authEventService).onLoginSuccess(customer, "user1", "127.0.0.1", "JUnit", AuthEventService.CHANNEL_WEB);
     }
 
     @Test
@@ -115,6 +99,10 @@ class LoginServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(CustomerErrorCode.CUST_010));
+
+        // 실패 시도도 후처리(이력·FDS)에 위임된다
+        verify(authEventService).onLoginFailure(anyString(), any(), anyString(), anyString(),
+                anyString(), anyString(), org.mockito.ArgumentMatchers.eq(true));
     }
 
     @Test
@@ -162,7 +150,7 @@ class LoginServiceTest {
         assertThat(response.refreshToken()).isNotBlank();
         assertThat(response.refreshToken()).isNotEqualTo(oldRefreshToken);
         verify(redisTemplate).delete("RT:1");
-        verify(valueOps).set(anyString(), anyString(), any());
+        verify(authEventService).reissueTokens(customer);
     }
 
     @Test

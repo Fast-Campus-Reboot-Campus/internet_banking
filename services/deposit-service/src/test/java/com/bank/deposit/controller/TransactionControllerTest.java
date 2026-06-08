@@ -120,7 +120,7 @@ class TransactionControllerTest {
     void transfer() throws Exception {
         given(transactionService.transfer(eq(1L), eq(2L), eq("ACC-002"), any(),
                 eq(TransferType.INTERNAL), eq("001"), eq("우리은행"), eq("김수신"),
-                eq(TransactionChannel.MOBILE), eq("이체")))
+                eq(TransactionChannel.MOBILE), eq("이체"), any()))
                 .willReturn(transaction("TRF-001", TransactionType.TRANSFER, DirectionType.OUT));
 
         mockMvc.perform(post("/transactions/transfer")
@@ -239,7 +239,7 @@ class TransactionControllerTest {
     @Test
     @DisplayName("서비스 예외 발생 시 이체 API가 4xx를 반환한다")
     void transferServiceException() throws Exception {
-        given(transactionService.transfer(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        given(transactionService.transfer(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .willThrow(new BusinessException(ErrorCode.INSUFFICIENT_BALANCE));
 
         mockMvc.perform(post("/transactions/transfer")

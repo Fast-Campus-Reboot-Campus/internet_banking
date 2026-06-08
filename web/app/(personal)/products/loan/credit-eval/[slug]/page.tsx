@@ -112,14 +112,14 @@ function BizPlanForm({ applId }: { applId: number | null }) {
           )}
         </>
       ) : (
-        <div className="max-w-lg border border-kb-primary-border p-5 space-y-4">
+        <div className="max-w-lg border border-kb-primary-border rounded-xl p-5 space-y-4">
           {msg && <p className="text-[13px] text-green-600 font-medium">{msg}</p>}
           {err && <p className="text-[13px] text-red-500">{err}</p>}
           <div className="flex items-start gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0 pt-2">업체현황 내용</label>
             <textarea rows={5} value={content} onChange={e => setContent(e.target.value)}
               placeholder="업체 현황을 입력하세요"
-              className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text resize-none" />
+              className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text resize-none" />
           </div>
           <div className="flex items-center gap-4">
             <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">파일 첨부</label>
@@ -181,18 +181,18 @@ function FatiSubmitForm({ applId }: { applId: number | null }) {
       </div>
       {msg && <p className="mb-3 text-[13px] text-green-600 font-medium">{msg}</p>}
       {err && <p className="mb-3 text-[13px] text-red-500">{err}</p>}
-      <div className="border border-kb-primary-border p-5 space-y-4">
+      <div className="border border-kb-primary-border rounded-xl p-5 space-y-4">
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">자료 유형</label>
           <select value={fatiType} onChange={e => setFatiType(e.target.value)}
-            className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none">
             {FATI_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-4">
           <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">기준연도</label>
           <select value={year} onChange={e => setYear(e.target.value)}
-            className="flex-1 border border-kb-primary-border px-3 py-2 text-[13px] focus:outline-none">
+            className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none">
             {YEARS.map(y => <option key={y}>{y}</option>)}
           </select>
         </div>

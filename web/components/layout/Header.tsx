@@ -99,7 +99,7 @@ export const GNB_MENUS = [
         title: '계좌관리',
         href: '/banking/withdrawal-account',
         items: [
-          { label: '출금계좌 등록/삭제/순위변경', href: '/banking/withdrawal-account' },
+          { label: '타행 출금계좌 등록/삭제', href: '/banking/withdrawal-account' },
           { label: '이체한도 조회/변경',          href: '/banking/transfer-limit' },
         ],
       },
@@ -139,12 +139,16 @@ function formatTime(sec: number) {
 export default function Header() {
   const pathname = usePathname()
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  // 로그인 여부는 토큰으로 판단한다(홈과 동일 기준). user 프로필은 인사말 표시에만 쓰며,
+  // me 조회가 실패해 user 키가 비어 있어도 토큰만 있으면 로그인 UI를 보여준다.
+  const [authed, setAuthed] = useState(false)
   const [user, setUser] = useState<StoredUser | null>(null)
   const [remaining, setRemaining] = useState(SESSION_SECONDS)
   const [extending, setExtending] = useState(false)
   const [extendError, setExtendError] = useState(false)
 
   useEffect(() => {
+    setAuthed(!!(localStorage.getItem('accessToken') || localStorage.getItem('access_token')))
     try {
       const stored = localStorage.getItem('user')
       if (stored) setUser(JSON.parse(stored))
@@ -153,7 +157,7 @@ export default function Header() {
 
   // 카운트다운 + 자동 로그아웃
   useEffect(() => {
-    if (!user) return
+    if (!authed) return
 
     const stored = localStorage.getItem('sessionExpiry')
     const expiry = stored ? parseInt(stored, 10) : Date.now() + SESSION_SECONDS * 1000
@@ -186,7 +190,7 @@ export default function Header() {
     return () => {
       clearInterval(tick)
     }
-  }, [user])
+  }, [authed])
 
 
   function handleLogout() {
@@ -249,9 +253,9 @@ export default function Header() {
         {/* 우측: 사용자 영역 */}
         {!isLoginPage && (
           <div className="flex items-center gap-2 text-[14px]">
-            {user ? (
+            {authed ? (
               <>
-                <span className="text-kb-text-muted font-medium">{user.name}님</span>
+                <span className="text-kb-text-muted font-medium">{user?.name ?? '고객'}님</span>
                 <span className="text-kb-border">|</span>
                 <Link href="/mypage" className="text-kb-text-muted hover:text-kb-text transition-colors">My AXful</Link>
                 <span className="text-kb-border">|</span>

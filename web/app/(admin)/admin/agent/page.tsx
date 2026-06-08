@@ -1,10 +1,41 @@
 'use client'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_AGENTS, AgentRecord } from '@/lib/admin-mock-data'
+import {
+  listAgentReviewPending, approveAgentReview, rejectAgentReview,
+  AgentReview, fmtYmd, errMsg,
+} from '@/lib/admin-customer-api'
 
 export default function AgentPage() {
-  const [selected, setSelected] = useState<AgentRecord | null>(null)
+  const [rows, setRows] = useState<AgentReview[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    listAgentReviewPending(0, 50)
+      .then(res => { setRows(res.content); setTotal(res.totalElements) })
+      .catch(e => setError(errMsg(e, '대리인 검토 대기 목록을 불러오지 못했습니다.')))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function act(relationId: number, kind: 'approve' | 'reject') {
+    setBusy(relationId)
+    setError(null)
+    try {
+      if (kind === 'approve') await approveAgentReview(relationId)
+      else await rejectAgentReview(relationId)
+      load()
+    } catch (e) {
+      setError(errMsg(e, '처리에 실패했습니다.'))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <div className="flex min-h-screen bg-kb-beige-light">
@@ -16,88 +47,47 @@ export default function AgentPage() {
         <div className="px-6 py-5">
           <h1 className="text-lg font-bold text-gray-800 mb-4">대리인 위임장 검토</h1>
 
-          <div className="flex items-center gap-3 mb-4 bg-white border border-kb-border rounded-lg px-4 py-3 shadow-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">위임 유형</span>
-              <select className="border border-gray-300 text-xs px-2 py-1 rounded bg-white"><option>전체</option><option>임의대리</option><option>법정대리</option></select>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">상태</span>
-              <select className="border border-gray-300 text-xs px-2 py-1 rounded bg-white"><option>전체</option></select>
-            </div>
-            <button className="ml-auto px-3 py-1.5 bg-kb-yellow text-white text-xs font-bold rounded hover:bg-kb-yellow-dark transition-colors">조회</button>
-          </div>
+          <p className="text-xs text-gray-500 mb-2">대리인 검토 대기 {total.toLocaleString()}건{loading && ' · 조회 중…'}</p>
 
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-gray-500">대리인 검토 {MOCK_AGENTS.length}건</p>
-            <button className="text-xs border border-gray-300 px-3 py-1 rounded text-gray-600">엑셀</button>
-          </div>
+          {error && <div className="mb-3 bg-red-50 border border-red-200 rounded px-4 py-2.5 text-xs text-red-700">{error}</div>}
 
           <div className="bg-white border border-kb-border rounded-lg overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-kb-beige-light border-b border-kb-border text-xs text-kb-text-muted">
-                  {['접수번호','본인 고객번호','대리인 이름','관계','위임 유형','위임 범위','서류 제출','접수일','상태','작업'].map(h=>(
+                  {['관계 ID', '본인 Party', '대리인 이름', '관계유형', '위임 범위', '서류', '접수일', '작업'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {MOCK_AGENTS.map(r => (
-                  <tr key={r.id} className="hover:bg-kb-beige-light cursor-pointer" onClick={() => setSelected(r)}>
-                    <td className="px-3 py-2.5 text-xs text-blue-600 font-mono">{r.id}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-500">{r.ownerId}</td>
+                {rows.map(r => (
+                  <tr key={r.relationId} className="hover:bg-kb-beige-light">
+                    <td className="px-3 py-2.5 text-xs text-blue-600 font-mono">{r.relationId}</td>
+                    <td className="px-3 py-2.5 text-xs text-gray-500">{r.ownerPartyId}</td>
                     <td className="px-3 py-2.5 font-medium">{r.agentName}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.relationship}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.delegationType}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.scope}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-500">{r.documents}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-400">{r.submittedAt}</td>
-                    <td className="px-3 py-2.5">
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium
-                        ${r.status === '검토대기' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
-                        {r.status}
-                      </span>
+                    <td className="px-3 py-2.5 text-gray-600 text-xs">{r.relationTypeCode}</td>
+                    <td className="px-3 py-2.5 text-gray-600 text-xs">{r.representationScope ?? '-'}</td>
+                    <td className="px-3 py-2.5 text-xs">
+                      {r.proofUrl
+                        ? <a href={r.proofUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">위임장</a>
+                        : <span className="text-gray-300">-</span>}
                     </td>
-                    <td className="px-3 py-2.5">
-                      {r.status === '검토대기' && <button className="text-xs bg-kb-yellow text-white px-2 py-0.5 rounded font-medium">검토</button>}
-                      {r.status !== '검토대기' && <button className="text-xs border border-gray-300 text-gray-500 px-2 py-0.5 rounded">보기</button>}
+                    <td className="px-3 py-2.5 text-xs text-gray-400">{fmtYmd(r.relationStartDate)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <button onClick={() => act(r.relationId, 'approve')} disabled={busy === r.relationId}
+                        className="text-xs bg-kb-yellow text-white px-2 py-0.5 rounded mr-1 font-medium hover:bg-kb-yellow-dark disabled:opacity-50">승인</button>
+                      <button onClick={() => act(r.relationId, 'reject')} disabled={busy === r.relationId}
+                        className="text-xs border border-red-400 text-red-600 px-2 py-0.5 rounded hover:bg-red-50 disabled:opacity-50">거절</button>
                     </td>
                   </tr>
                 ))}
+                {!loading && rows.length === 0 && !error && (
+                  <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-400 text-sm">검토 대기 위임건이 없습니다.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
-
-          {selected && (
-            <div className="mt-4 bg-white border border-kb-border rounded-lg p-5 shadow-sm">
-              <h3 className="text-sm font-bold mb-3">위임 서류 검토 ({selected.id})</h3>
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                {['위임장 이미지', '인감증명서', '가족관계증명서'].map(doc => (
-                  <div key={doc} className="border border-gray-200 rounded h-32 flex items-center justify-center bg-gray-50 text-xs text-gray-400">[{doc}]</div>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 gap-4 text-sm mb-4">
-                <div>
-                  <p className="text-xs text-gray-400">위임장 (인감 포함)</p>
-                  <p className="font-medium">위임 범위: {selected.scope}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">인감증명서 (발급일)</p>
-                  <p className="font-medium text-green-600">일치 (등록 인감과 동일)</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">인감 대조 결과</p>
-                  <p className="font-medium text-green-600">일치 (등록 인감과 동일)</p>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-sm rounded">닫기</button>
-                <button className="px-4 py-2 border border-red-400 text-sm rounded text-red-600">거절 (위조 의심)</button>
-                <button className="px-4 py-2 bg-kb-yellow text-white text-sm font-bold rounded hover:bg-kb-yellow-dark transition-colors">승인 (권한 액팅)</button>
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </div>

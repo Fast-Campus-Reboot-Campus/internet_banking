@@ -32,18 +32,9 @@ export default function TransferConfirmPage() {
   const router = useRouter()
   const [data, setData] = useState<PendingTransfer | null>(null)
   const [showCertModal, setShowCertModal] = useState(false)
-  const [certStep, setCertStep] = useState<'info' | 'security' | 'pin'>('info')
+  const [certStep, setCertStep] = useState<'info' | 'pin'>('info')
   const [pin, setPin] = useState<number[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [secPos] = useState<[number, number]>(() => {
-    const a = Math.floor(Math.random() * 30) + 1
-    let b = Math.floor(Math.random() * 30) + 1
-    while (b === a) b = Math.floor(Math.random() * 30) + 1
-    return [a, b]
-  })
-  const [sec1, setSec1] = useState('')
-  const [sec2, setSec2] = useState('')
-  const [secError, setSecError] = useState('')
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingTransfer')
@@ -177,7 +168,7 @@ export default function TransferConfirmPage() {
           {/* 확인/취소 버튼 */}
           <div className="flex justify-center gap-3">
             <button
-              onClick={() => { setShowCertModal(true); setCertStep('info'); setPin([]); setSec1(''); setSec2(''); setSecError('') }}
+              onClick={() => { setShowCertModal(true); setCertStep('info'); setPin([]) }}
               className="px-16 py-3 text-[15px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
               style={{ backgroundColor: KB_PRIMARY }}>
               확인
@@ -243,59 +234,7 @@ export default function TransferConfirmPage() {
                       </div>
                     </div>
                     <div className="flex justify-center">
-                      <button onClick={() => setCertStep('security')}
-                        className="px-16 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
-                        style={{ backgroundColor: KB_PRIMARY }}>
-                        확인
-                      </button>
-                    </div>
-                  </div>
-                ) : certStep === 'security' ? (
-                  <div>
-                    <p className="text-[14px] font-bold text-kb-text mb-1">보안카드 번호 입력</p>
-                    <p className="text-[12px] text-kb-text-muted mb-4">보안카드의 해당 위치 번호 앞 2자리를 입력하세요.</p>
-                    <div className="space-y-3 mb-5">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[13px] font-semibold w-16 text-right" style={{ color: KB_PRIMARY }}>
-                          {String(secPos[0]).padStart(2, '0')}번
-                        </span>
-                        <input
-                          type="password"
-                          maxLength={2}
-                          value={sec1}
-                          onChange={e => setSec1(e.target.value.replace(/\D/g, ''))}
-                          placeholder="앞 2자리"
-                          className="border-2 rounded-lg px-3 py-2 text-[14px] w-24 outline-none text-center tracking-widest"
-                          style={{ borderColor: sec1.length === 2 ? KB_PRIMARY : '#D1D5DB' }}
-                        />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[13px] font-semibold w-16 text-right" style={{ color: KB_PRIMARY }}>
-                          {String(secPos[1]).padStart(2, '0')}번
-                        </span>
-                        <input
-                          type="password"
-                          maxLength={2}
-                          value={sec2}
-                          onChange={e => setSec2(e.target.value.replace(/\D/g, ''))}
-                          placeholder="앞 2자리"
-                          className="border-2 rounded-lg px-3 py-2 text-[14px] w-24 outline-none text-center tracking-widest"
-                          style={{ borderColor: sec2.length === 2 ? KB_PRIMARY : '#D1D5DB' }}
-                        />
-                      </div>
-                    </div>
-                    {secError && <p className="text-[12px] text-red-500 mb-3 text-center">{secError}</p>}
-                    <div className="flex justify-center">
-                      <button
-                        onClick={() => {
-                          if (sec1.length !== 2 || sec2.length !== 2) {
-                            setSecError('보안카드 번호를 모두 입력해주세요.')
-                            return
-                          }
-                          setSecError('')
-                          setCertStep('pin')
-                          setPin([])
-                        }}
+                      <button onClick={() => { setCertStep('pin'); setPin([]) }}
                         className="px-16 py-2.5 text-[14px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
                         style={{ backgroundColor: KB_PRIMARY }}>
                         확인

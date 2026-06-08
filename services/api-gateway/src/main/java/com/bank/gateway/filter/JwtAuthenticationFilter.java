@@ -27,12 +27,23 @@ import java.util.List;
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String ROLE_CUSTOMER = "ROLE_CUSTOMER";
 
     /** 인증 없이 통과할 경로 접두사 목록 */
     private static final List<String> PUBLIC_PATH_PREFIXES = List.of(
             "/api/v1/auth/",
             "/api/v1/mobile-auth/",
             "/actuator/"
+    );
+
+    /**
+     * 고객 본인만 호출 가능한 경로(자금이동·계좌). 직원/관리자 세션 토큰은 ROLE_CUSTOMER 가 없어 차단된다.
+     * 직원용 조회·처리는 {@code /api/v1/internal/**} 로 분리돼 있고, 직원의 개인 거래는
+     * 사용자 모드(ROLE_CUSTOMER) 로그인으로 정상 수행한다.
+     */
+    private static final List<String> CUSTOMER_ONLY_PATHS = List.of(
+            "/api/v1/accounts",
+            "/api/v1/payments"
     );
 
     private final JwtProvider jwtProvider;
@@ -64,6 +75,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             return reject(exchange, HttpStatus.UNAUTHORIZED);
         }
 
+        // 자금이동·계좌 경로는 고객 본인 토큰(ROLE_CUSTOMER)만 허용 — 직원/관리자 세션의 거래 차단.
+        if (requiresCustomerRole(path)
+                && (claims.roles() == null || !claims.roles().contains(ROLE_CUSTOMER))) {
+            return reject(exchange, HttpStatus.FORBIDDEN);
+        }
+
         ServerHttpRequest mutated = exchange.getRequest().mutate()
                 .headers(h -> {
                     h.remove("X-Customer-Id");
@@ -72,6 +89,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                     h.remove("X-User-Role");
                     h.remove("X-User-Branch");
                     h.remove("X-User-Grade");
+                    h.remove("X-Employee-Id");
                 })
                 .header("X-Customer-Id",    String.valueOf(claims.customerId()))
                 .header("X-Customer-Email", claims.email() != null ? claims.email() : "")
@@ -79,6 +97,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 .header("X-User-Role",      String.join(",", claims.roles()))
                 .header("X-User-Branch",    claims.branch() != null ? claims.branch() : "")
                 .header("X-User-Grade",     claims.grade()  != null ? claims.grade()  : "")
+                .header("X-Employee-Id",    claims.employeeId() != null ? String.valueOf(claims.employeeId()) : "")
                 .build();
 
         return chain.filter(exchange.mutate().request(mutated).build());
@@ -91,6 +110,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private boolean isPublic(String path) {
         return PUBLIC_PATH_PREFIXES.stream().anyMatch(path::startsWith);
+    }
+
+    /** 경로가 고객 전용(자금이동·계좌)인지 — base 자체 또는 그 하위 경로면 true. */
+    private boolean requiresCustomerRole(String path) {
+        return CUSTOMER_ONLY_PATHS.stream()
+                .anyMatch(base -> path.equals(base) || path.startsWith(base + "/"));
     }
 
     private Mono<Void> reject(ServerWebExchange exchange, HttpStatus status) {

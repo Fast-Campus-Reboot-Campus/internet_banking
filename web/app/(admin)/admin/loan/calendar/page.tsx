@@ -22,12 +22,12 @@ export default function AdminCalendarPage() {
   // inline edit state
   const [editId, setEditId] = useState<number | null>(null)
   const [editBiz, setEditBiz] = useState(true)
-  const [editNote, setEditNote] = useState('')
+  const [editHolidayName, setEditHolidayName] = useState('')
 
   // new form
   const [newDate, setNewDate] = useState('')
   const [newBiz, setNewBiz] = useState(true)
-  const [newNote, setNewNote] = useState('')
+  const [newHolidayName, setNewHolidayName] = useState('')
 
   function notify(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
   function fail(m: string) { setErr(m); setTimeout(() => setErr(''), 3000) }
@@ -35,22 +35,27 @@ export default function AdminCalendarPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: res } = await businessCalendarApi.list({ year })
-      setRows(res.data ?? res ?? [])
+      const from = `${year}0101`
+      const to   = `${year}1231`
+      const { data: res } = await businessCalendarApi.list({ from, to })
+      setRows(res.data?.items ?? [])
     } catch { fail('영업일 목록을 불러오지 못했습니다.') }
     finally { setLoading(false) }
   }, [year])
 
   function startEdit(row: any) {
     setEditId(row.calId)
-    setEditBiz(row.isBusinessDay)
-    setEditNote(row.note ?? '')
+    setEditBiz(row.businessDayYn === 'Y')
+    setEditHolidayName(row.holidayName ?? '')
   }
 
   async function saveEdit(calId: number) {
     setBusy(true)
     try {
-      await businessCalendarApi.update(calId, { isBusinessDay: editBiz, note: editNote })
+      await businessCalendarApi.update(calId, {
+        businessDayYn: editBiz ? 'Y' : 'N',
+        holidayName: editHolidayName,
+      })
       notify('수정되었습니다.')
       setEditId(null)
       await load()
@@ -73,11 +78,15 @@ export default function AdminCalendarPage() {
     if (!newDate) return fail('날짜를 입력하세요.')
     setBusy(true)
     try {
-      await businessCalendarApi.create({ calDate: newDate, isBusinessDay: newBiz, note: newNote })
+      await businessCalendarApi.create({
+        calDate: newDate.replace(/-/g, ''),
+        businessDayYn: newBiz ? 'Y' : 'N',
+        holidayName: newHolidayName,
+      })
       notify('날짜가 등록되었습니다.')
       setNewDate('')
       setNewBiz(true)
-      setNewNote('')
+      setNewHolidayName('')
       await load()
     } catch (e: any) { fail(e?.response?.data?.message ?? '등록 실패') }
     finally { setBusy(false) }
@@ -120,7 +129,7 @@ export default function AdminCalendarPage() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    {['calId', '날짜', '요일', '영업일여부', '비고', '처리'].map(h => (
+                    {['calId', '날짜', '요일', '영업일여부', '공휴일명', '처리'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs text-gray-600 font-semibold">{h}</th>
                     ))}
                   </tr>
@@ -134,16 +143,16 @@ export default function AdminCalendarPage() {
                       <td className="px-4 py-3">
                         {editId === r.calId ? (
                           <select
-                            value={editBiz ? 'true' : 'false'}
-                            onChange={e => setEditBiz(e.target.value === 'true')}
+                            value={editBiz ? 'Y' : 'N'}
+                            onChange={e => setEditBiz(e.target.value === 'Y')}
                             className="border border-gray-300 rounded px-2 py-1 text-[12px] focus:outline-none"
                           >
-                            <option value="true">영업일</option>
-                            <option value="false">휴일</option>
+                            <option value="Y">영업일</option>
+                            <option value="N">휴일</option>
                           </select>
                         ) : (
-                          <span className={`text-[11px] px-2 py-0.5 rounded border ${r.isBusinessDay ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
-                            {r.isBusinessDay ? '영업일' : '휴일'}
+                          <span className={`text-[11px] px-2 py-0.5 rounded border ${r.businessDayYn === 'Y' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                            {r.businessDayYn === 'Y' ? '영업일' : '휴일'}
                           </span>
                         )}
                       </td>
@@ -151,11 +160,11 @@ export default function AdminCalendarPage() {
                         {editId === r.calId ? (
                           <input
                             type="text"
-                            value={editNote}
-                            onChange={e => setEditNote(e.target.value)}
+                            value={editHolidayName}
+                            onChange={e => setEditHolidayName(e.target.value)}
                             className="border border-gray-300 rounded px-2 py-1 text-[12px] w-full focus:outline-none"
                           />
-                        ) : (r.note || '-')}
+                        ) : (r.holidayName || '-')}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
@@ -218,11 +227,11 @@ export default function AdminCalendarPage() {
                 </div>
               </label>
               <label className="block flex-1">
-                <span className="text-[12px] text-gray-600 mb-1 block">비고</span>
+                <span className="text-[12px] text-gray-600 mb-1 block">공휴일명</span>
                 <input
                   type="text"
-                  value={newNote}
-                  onChange={e => setNewNote(e.target.value)}
+                  value={newHolidayName}
+                  onChange={e => setNewHolidayName(e.target.value)}
                   placeholder="예: 추석 연휴"
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-[13px] focus:outline-none"
                 />

@@ -1,16 +1,14 @@
 package com.bank.customer.pin.service;
 
-import com.bank.common.security.jwt.JwtProperties;
-import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.customer.cert.domain.AuthMethod;
 import com.bank.customer.cert.repository.AuthMethodRepository;
-import com.bank.customer.config.EmployeeDirectoryProperties;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
 import com.bank.customer.device.domain.RegisteredDevice;
 import com.bank.customer.device.repository.RegisteredDeviceRepository;
+import com.bank.customer.login.service.AuthEventService;
 import com.bank.customer.pin.domain.Pin;
 import com.bank.customer.pin.dto.RegisterPinRequest;
 import com.bank.customer.pin.repository.PinRepository;
@@ -23,7 +21,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -47,10 +44,7 @@ class PinServiceTest {
     @Mock RegisteredDeviceRepository deviceRepository;
     @Mock AuthMethodRepository       authMethodRepository;
     @Mock PasswordEncoder            passwordEncoder;
-    @Mock JwtProvider                jwtProvider;
-    @Mock JwtProperties              jwtProperties;
-    @Mock StringRedisTemplate        redisTemplate;
-    @Mock EmployeeDirectoryProperties employeeDirectory;
+    @Mock AuthEventService           authEventService;
 
     private PinService pinService;
 
@@ -61,7 +55,7 @@ class PinServiceTest {
         return new PinService(
                 pinRepository, credentialRepository, customerRepository,
                 deviceRepository, authMethodRepository, passwordEncoder,
-                jwtProvider, jwtProperties, redisTemplate, employeeDirectory);
+                authEventService);
     }
 
     private void givenValidPreconditions() {

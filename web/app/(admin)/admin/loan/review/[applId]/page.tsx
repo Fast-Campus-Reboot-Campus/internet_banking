@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import { adminReviewApi, loanApplicationApi } from '@/lib/loan-api'
+import { viewAdvisoryReport, ackAdvisoryReport, AckResponseCd } from '@/lib/advisory-api'
 
 const REV_STATUS: Record<string, { text: string; cls: string }> = {
   PENDING_APPROVAL:  { text: '확정 대기',   cls: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
@@ -38,8 +39,7 @@ export default function LoanReviewDetailPage() {
 
   // review form state
   const [revType, setRevType]               = useState('MANUAL')
-  const [reviewerId, setReviewerId]         = useState('1')
-  const [approverId, setApproverId]         = useState('2')
+  const [revDecision, setRevDecision]       = useState('APPROVED')
   const [confirmRemark, setConfirmRemark]   = useState('')
   const [ackRemark, setAckRemark]           = useState('')
   const [overrideReason, setOverrideReason] = useState('')
@@ -47,8 +47,14 @@ export default function LoanReviewDetailPage() {
   const [reviseAmount, setReviseAmount]     = useState('')
   const [reviseRate, setReviseRate]         = useState('')
   const [reviseReject, setReviseReject]     = useState('CREDIT_SCORE')
-  const [checkItem, setCheckItem]           = useState('')
-  const [checkResult, setCheckResult]       = useState('PASS')
+  const [revisitReason, setRevisitReason]   = useState('')
+  const [checkItemCd, setCheckItemCd]       = useState('DOCUMENT_CHECK')
+  const [checkResultCd, setCheckResultCd]   = useState('PASS')
+  // 신용평가 입력
+  const [cevalEngine, setCevalEngine]       = useState('KCB')
+  const [cevalDecision, setCevalDecision]   = useState('APPROVE')
+  // DSR 입력
+  const [annualIncome, setAnnualIncome]     = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -130,7 +136,7 @@ export default function LoanReviewDetailPage() {
                         {prescreening.prescResultCd}
                       </span>
                     } />
-                    <KV k="예상 한도" v={prescreening.estimatedLimit != null ? `${(prescreening.estimatedLimit / 10000).toLocaleString('ko-KR')}만원` : '-'} />
+                    <KV k="예상 한도" v={prescreening.estimatedLimitAmt != null ? `${(prescreening.estimatedLimitAmt / 10000).toLocaleString('ko-KR')}만원` : '-'} />
                     <KV k="예상 금리" v={prescreening.estimatedRateBps != null ? `${(prescreening.estimatedRateBps / 100).toFixed(2)}%` : '-'} />
                     <KV k="거절 사유" v={prescreening.rejectReasonCd ?? '-'} />
                   </div>
@@ -155,16 +161,36 @@ export default function LoanReviewDetailPage() {
                         {creditEval.cevalDecisionCd}
                       </span>
                     } />
-                    <KV k="신용점수" v={creditEval.creditScore != null ? `${creditEval.creditScore}점` : '-'} />
-                    <KV k="신용등급" v={creditEval.creditGrade ?? '-'} />
-                    <KV k="PD" v={creditEval.pdValue != null ? `${(creditEval.pdValue * 100).toFixed(2)}%` : '-'} />
+                    <KV k="신용점수" v={creditEval.cevalScore != null ? `${creditEval.cevalScore}점` : '-'} />
+                    <KV k="신용등급" v={creditEval.cevalGrade ?? '-'} />
+                    <KV k="PD" v={creditEval.pdBps != null ? `${(creditEval.pdBps / 100).toFixed(2)}%` : '-'} />
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">신용평가 미실행</p>
                 )}
                 {!ceDone && psPass && (
-                  <Btn label="신용평가 실행" disabled={busy}
-                    onClick={() => act(() => loanApplicationApi.runCreditEvaluation(numApplId), '신용평가가 완료되었습니다.')} />
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <label className="text-[12px] text-gray-600">
+                      CB 엔진
+                      <select value={cevalEngine} onChange={e => setCevalEngine(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="KCB">KCB</option>
+                        <option value="NICE">NICE</option>
+                        <option value="INTERNAL">내부</option>
+                      </select>
+                    </label>
+                    <label className="text-[12px] text-gray-600">
+                      결정
+                      <select value={cevalDecision} onChange={e => setCevalDecision(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="APPROVE">APPROVE</option>
+                        <option value="REVIEW">REVIEW</option>
+                        <option value="REJECT">REJECT</option>
+                      </select>
+                    </label>
+                    <Btn label="신용평가 실행" disabled={busy}
+                      onClick={() => act(() => loanApplicationApi.runCreditEvaluation(numApplId, { cevalEngine, cevalDecisionCd: cevalDecision }), '신용평가가 완료되었습니다.')} />
+                  </div>
                 )}
                 {!ceDone && !psPass && (
                   <p className="text-[12px] text-gray-400">가심사 통과 후 실행 가능</p>
@@ -180,15 +206,23 @@ export default function LoanReviewDetailPage() {
                         {dsr.dsrStatusCd}
                       </span>
                     } />
-                    <KV k="DSR 비율" v={dsr.ratioBps != null ? `${(dsr.ratioBps / 100).toFixed(1)}%` : '-'} />
-                    <KV k="한도 비율" v={dsr.limitBps != null ? `${(dsr.limitBps / 100).toFixed(1)}%` : '-'} />
+                    <KV k="DSR 비율" v={dsr.dsrRatioBps != null ? `${(dsr.dsrRatioBps / 100).toFixed(1)}%` : '-'} />
+                    <KV k="한도 비율" v={dsr.dsrLimitBps != null ? `${(dsr.dsrLimitBps / 100).toFixed(1)}%` : '-'} />
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">DSR 미산정</p>
                 )}
                 {!dsrDone && ceDone && (
-                  <Btn label="DSR 실행" disabled={busy}
-                    onClick={() => act(() => loanApplicationApi.runDsr(numApplId), 'DSR 산정이 완료되었습니다.')} />
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <label className="text-[12px] text-gray-600">
+                      연 소득(원) *
+                      <input type="number" value={annualIncome} onChange={e => setAnnualIncome(e.target.value)}
+                        placeholder="예: 50000000"
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-36" />
+                    </label>
+                    <Btn label="DSR 실행" disabled={busy || !annualIncome}
+                      onClick={() => act(() => loanApplicationApi.runDsr(numApplId, { annualIncomeAmt: parseInt(annualIncome) }), 'DSR 산정이 완료되었습니다.')} />
+                  </div>
                 )}
                 {!dsrDone && !ceDone && (
                   <p className="text-[12px] text-gray-400">신용평가 완료 후 실행 가능</p>
@@ -247,12 +281,15 @@ export default function LoanReviewDetailPage() {
                       </select>
                     </label>
                     <label className="text-[12px] text-gray-600">
-                      심사자 ID
-                      <input type="number" value={reviewerId} onChange={e => setReviewerId(e.target.value)}
-                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
+                      결정 *
+                      <select value={revDecision} onChange={e => setRevDecision(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="APPROVED">승인</option>
+                        <option value="REJECTED">거절</option>
+                      </select>
                     </label>
                     <Btn label="본심사 시작" disabled={busy || !dsrDone}
-                      onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, reviewerId: parseInt(reviewerId) }), '본심사가 시작되었습니다.')} />
+                      onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, revDecisionCd: revDecision }), '본심사가 시작되었습니다.')} />
                     <Btn label="자동 결정" disabled={busy || !dsrDone} variant="outline"
                       onClick={() => act(() => adminReviewApi.autoDecide(numApplId), '자동 결정이 완료되었습니다.')} />
                     {!dsrDone && <span className="text-[11px] text-gray-400">DSR 완료 후 본심사 가능</span>}
@@ -263,18 +300,13 @@ export default function LoanReviewDetailPage() {
                 {status === 'PENDING_APPROVAL' && (
                   <div className="flex flex-wrap gap-3 items-end mt-2 pt-3 border-t border-gray-100">
                     <label className="text-[12px] text-gray-600">
-                      확정자 ID
-                      <input type="number" value={reviewerId} onChange={e => setReviewerId(e.target.value)}
-                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
-                    </label>
-                    <label className="text-[12px] text-gray-600">
                       비고
                       <input type="text" value={confirmRemark} onChange={e => setConfirmRemark(e.target.value)}
                         placeholder="(선택)"
                         className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-48" />
                     </label>
                     <Btn label="심사 확정" disabled={busy}
-                      onClick={() => act(() => adminReviewApi.confirm(numApplId, { reviewerId: parseInt(reviewerId), confirmRemark }), '심사가 확정되었습니다.')} />
+                      onClick={() => act(() => adminReviewApi.confirm(numApplId, { confirmRemark }), '심사가 확정되었습니다.')} />
                   </div>
                 )}
 
@@ -292,13 +324,8 @@ export default function LoanReviewDetailPage() {
                           <input type="text" value={overrideReason} onChange={e => setOverrideReason(e.target.value)}
                             className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-64" />
                         </label>
-                        <label className="text-[12px] text-gray-600">
-                          담당자 ID
-                          <input type="number" value={approverId} onChange={e => setApproverId(e.target.value)}
-                            className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
-                        </label>
                         <Btn label="편향 오버라이드" disabled={busy || !overrideReason}
-                          onClick={() => act(() => adminReviewApi.biasOverride(revId, { overrideBy: parseInt(approverId), overrideReason }), '오버라이드가 완료되었습니다.')} />
+                          onClick={() => act(() => adminReviewApi.biasOverride(revId, { overrideReason }), '오버라이드가 완료되었습니다.')} />
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-3 items-end">
@@ -323,17 +350,12 @@ export default function LoanReviewDetailPage() {
                         ⚠ CRITICAL 미해소 Advisory 리포트가 있습니다 — 승인 전 검토 필요
                       </div>
                     )}
-                    <p className="text-[12px] text-gray-500 mb-2">4-eye 원칙: 심사자와 다른 ID를 입력하세요.</p>
+                    <p className="text-[12px] text-gray-500 mb-2">4-eye 원칙: 로그인한 직원(심사자와 다른 사람)이 승인해야 합니다.</p>
                     <div className="flex flex-wrap gap-3 items-end">
-                      <label className="text-[12px] text-gray-600">
-                        승인자 ID
-                        <input type="number" value={approverId} onChange={e => setApproverId(e.target.value)}
-                          className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
-                      </label>
                       <Btn label="승인" disabled={busy}
-                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverId: parseInt(approverId), approvalDecision: 'APPROVED' }), '승인이 완료되었습니다.')} />
+                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverDecisionCd: 'APPROVED' }), '승인이 완료되었습니다.')} />
                       <Btn label="반려" disabled={busy} variant="danger"
-                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverId: parseInt(approverId), approvalDecision: 'REJECTED' }), '반려 처리되었습니다.')} />
+                        onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverDecisionCd: 'REJECTED' }), '반려 처리되었습니다.')} />
                     </div>
                   </div>
                 )}
@@ -373,9 +395,15 @@ export default function LoanReviewDetailPage() {
                           </select>
                         </label>
                       )}
-                      <Btn label="정정 저장" disabled={busy}
+                      <label className="text-[12px] text-gray-600">
+                        정정 사유 *
+                        <input type="text" value={revisitReason} onChange={e => setRevisitReason(e.target.value)}
+                          placeholder="정정 사유 코드"
+                          className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-40" />
+                      </label>
+                      <Btn label="정정 저장" disabled={busy || !revisitReason}
                         onClick={() => {
-                          const body: any = { revDecisionCd: reviseDecision }
+                          const body: any = { revDecisionCd: reviseDecision, revisitReasonCd: revisitReason }
                           if (reviseDecision === 'APPROVED') {
                             if (reviseAmount) body.approvedAmount = parseInt(reviseAmount)
                             if (reviseRate)   body.approvedRateBps = parseInt(reviseRate)
@@ -408,28 +436,7 @@ export default function LoanReviewDetailPage() {
 
               {/* Review Advisory 리포트 (advisory-service) */}
               {advisoryReports.length > 0 && (
-                <Section title={`Review Advisory 리포트 (${advisoryReports.length}건)`}>
-                  <div className="space-y-2">
-                    {advisoryReports.map((r: any, i: number) => (
-                      <div key={i} className={`text-[12px] border rounded px-3 py-2 ${
-                        r.severityCd === 'CRITICAL' ? 'bg-red-50 border-red-300' :
-                        r.severityCd === 'HIGH'     ? 'bg-orange-50 border-orange-300' :
-                        r.severityCd === 'MEDIUM'   ? 'bg-yellow-50 border-yellow-200' :
-                        'bg-gray-50 border-gray-200'}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                            r.severityCd === 'CRITICAL' ? 'bg-red-200 text-red-800' :
-                            r.severityCd === 'HIGH'     ? 'bg-orange-200 text-orange-800' :
-                            r.severityCd === 'MEDIUM'   ? 'bg-yellow-200 text-yellow-800' :
-                            'bg-gray-200 text-gray-700'}`}>{r.severityCd}</span>
-                          <span className="font-semibold text-gray-800">{r.advrTitle}</span>
-                          <span className="ml-auto text-[10px] text-gray-400">{r.advrStatusCd}</span>
-                        </div>
-                        {r.advrSummary && <p className="text-gray-600">{r.advrSummary}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </Section>
+                <AdvisorySection reports={advisoryReports} onRefresh={load} busy={busy} />
               )}
 
               {/* 체크 로그 */}
@@ -446,10 +453,10 @@ export default function LoanReviewDetailPage() {
                     <tbody className="divide-y divide-gray-100">
                       {checks.map((c: any, i: number) => (
                         <tr key={i}>
-                          <td className="px-3 py-2 text-gray-700">{c.checkItem}</td>
+                          <td className="px-3 py-2 text-gray-700">{c.checkItemCd}</td>
                           <td className="px-3 py-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.checkResult === 'PASS' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {c.checkResult}
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.checkResultCd === 'PASS' ? 'bg-green-100 text-green-700' : c.checkResultCd === 'FAIL' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                              {c.checkResultCd}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-gray-500">{c.remark ?? '-'}</td>
@@ -463,22 +470,29 @@ export default function LoanReviewDetailPage() {
                   <div className="flex gap-3 items-end">
                     <label className="text-[12px] text-gray-600">
                       체크 항목
-                      <input type="text" value={checkItem} onChange={e => setCheckItem(e.target.value)}
-                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-48" />
+                      <select value={checkItemCd} onChange={e => setCheckItemCd(e.target.value)}
+                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
+                        <option value="DOCUMENT_CHECK">서류확인</option>
+                        <option value="IDENTITY_CHECK">본인확인</option>
+                        <option value="CROSS_TRANSACTION">교차거래</option>
+                        <option value="ETC">기타</option>
+                      </select>
                     </label>
                     <label className="text-[12px] text-gray-600">
                       결과
-                      <select value={checkResult} onChange={e => setCheckResult(e.target.value)}
+                      <select value={checkResultCd} onChange={e => setCheckResultCd(e.target.value)}
                         className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px]">
                         <option value="PASS">PASS</option>
                         <option value="FAIL">FAIL</option>
+                        <option value="REVIEW">REVIEW</option>
+                        <option value="N_A">N/A</option>
                       </select>
                     </label>
-                    <Btn label="체크 추가" disabled={busy || !checkItem}
+                    <Btn label="체크 추가" disabled={busy}
                       onClick={() => act(
-                        () => adminReviewApi.addCheck(revId, { checkItem, checkResult }),
+                        () => adminReviewApi.addCheck(revId, { checkItemCd, checkResultCd }),
                         '체크가 추가되었습니다.'
-                      ).then(() => setCheckItem(''))} />
+                      )} />
                   </div>
                 )}
               </Section>
@@ -506,6 +520,116 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
       <p className="text-[11px] text-gray-400 mb-0.5">{k}</p>
       <p className="text-[13px] font-medium text-gray-800">{v}</p>
     </div>
+  )
+}
+
+const ACK_CODES: { value: AckResponseCd; label: string }[] = [
+  { value: 'MAINTAIN',        label: '결정 유지' },
+  { value: 'OVERTURN',        label: '결정 번복' },
+  { value: 'ESCALATE',        label: '상위 심사 상신' },
+  { value: 'NEEDS_MORE_INFO', label: '추가 정보 필요' },
+]
+
+function AdvisorySection({ reports, onRefresh, busy }: {
+  reports: any[]; onRefresh: () => Promise<void>; busy: boolean
+}) {
+  const [ackTarget, setAckTarget]   = useState<number | null>(null)
+  const [ackCode, setAckCode]       = useState<AckResponseCd>('MAINTAIN')
+  const [ackRemark, setAckRemark]   = useState('')
+  const [acting, setActing]         = useState(false)
+  const [msg, setMsg]               = useState('')
+  const [err, setErr]               = useState('')
+
+  function notify(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
+  function fail(m: string)   { setErr(m); setTimeout(() => setErr(''), 4000) }
+
+  async function handleView(advrId: number) {
+    setActing(true)
+    try {
+      await viewAdvisoryReport(advrId)
+      notify(`리포트 #${advrId} 조회 마킹 완료`)
+      await onRefresh()
+    } catch { fail('조회 마킹 실패') }
+    finally { setActing(false) }
+  }
+
+  async function handleAck(advrId: number) {
+    setActing(true)
+    try {
+      await ackAdvisoryReport(advrId, { ackResponseCd: ackCode, ackRemark: ackRemark || undefined })
+      notify(`리포트 #${advrId} ack 완료`)
+      setAckTarget(null); setAckRemark('')
+      await onRefresh()
+    } catch (e: any) { fail(e?.response?.data?.message ?? 'ack 실패') }
+    finally { setActing(false) }
+  }
+
+  return (
+    <Section title={`Review Advisory 리포트 (${reports.length}건)`}>
+      {msg && <div className="mb-3 px-3 py-1.5 bg-green-50 border border-green-300 text-green-700 text-[12px] rounded">{msg}</div>}
+      {err && <div className="mb-3 px-3 py-1.5 bg-red-50 border border-red-300 text-red-700 text-[12px] rounded">{err}</div>}
+      <div className="space-y-2">
+        {reports.map((r: any) => (
+          <div key={r.advrId ?? r.advrTitle} className={`text-[12px] border rounded px-3 py-2 ${
+            r.severityCd === 'CRITICAL' ? 'bg-red-50 border-red-300' :
+            r.severityCd === 'HIGH'     ? 'bg-orange-50 border-orange-300' :
+            r.severityCd === 'MEDIUM'   ? 'bg-yellow-50 border-yellow-200' :
+            'bg-gray-50 border-gray-200'}`}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                r.severityCd === 'CRITICAL' ? 'bg-red-200 text-red-800' :
+                r.severityCd === 'HIGH'     ? 'bg-orange-200 text-orange-800' :
+                r.severityCd === 'MEDIUM'   ? 'bg-yellow-200 text-yellow-800' :
+                'bg-gray-200 text-gray-700'}`}>{r.severityCd}</span>
+              <span className="font-semibold text-gray-800 flex-1">{r.advrTitle}</span>
+              <span className="text-[10px] text-gray-400">{r.advrStatusCd}</span>
+              {r.advrId && (
+                <>
+                  {r.advrStatusCd === 'OPEN' && (
+                    <button onClick={() => handleView(r.advrId)} disabled={acting || busy}
+                      className="text-[10px] px-2 py-0.5 border border-blue-300 text-blue-600 rounded hover:bg-blue-50 disabled:opacity-50">
+                      조회 마킹
+                    </button>
+                  )}
+                  {(r.advrStatusCd === 'VIEWED' || r.advrStatusCd === 'OPEN') && ackTarget !== r.advrId && (
+                    <button onClick={() => setAckTarget(r.advrId)} disabled={acting || busy}
+                      className="text-[10px] px-2 py-0.5 border border-green-300 text-green-700 rounded hover:bg-green-50 disabled:opacity-50">
+                      ACK
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            {r.advrSummary && <p className="mt-1 text-gray-600">{r.advrSummary}</p>}
+            {ackTarget === r.advrId && (
+              <div className="mt-2 pt-2 border-t border-gray-200 flex flex-wrap gap-2 items-end">
+                <label className="text-[11px] text-gray-600">
+                  응답
+                  <select value={ackCode} onChange={e => setAckCode(e.target.value as AckResponseCd)}
+                    className="ml-1.5 border border-gray-300 rounded px-2 py-0.5 text-[11px]">
+                    {ACK_CODES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </label>
+                <label className="text-[11px] text-gray-600 flex-1">
+                  비고
+                  <input type="text" value={ackRemark} onChange={e => setAckRemark(e.target.value)}
+                    placeholder="(선택)"
+                    className="ml-1.5 border border-gray-300 rounded px-2 py-0.5 text-[11px] w-full max-w-xs" />
+                </label>
+                <button onClick={() => handleAck(r.advrId)} disabled={acting}
+                  className="text-[11px] px-3 py-0.5 bg-green-600 text-white rounded hover:opacity-90 disabled:opacity-50">
+                  확인
+                </button>
+                <button onClick={() => setAckTarget(null)}
+                  className="text-[11px] px-3 py-0.5 border border-gray-300 rounded hover:bg-gray-50">
+                  취소
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Section>
   )
 }
 

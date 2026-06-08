@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import { adminReviewApi } from '@/lib/loan-api'
+import { useAdminRoles } from '@/components/admin/RoleGate'
+import { hasAnyRole, BankRole } from '@/lib/admin-auth'
 
 const REV_STATUS: Record<string, { text: string; cls: string }> = {
   PENDING_APPROVAL:  { text: '확정 대기',   cls: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
@@ -157,9 +159,14 @@ function StatsPanel() {
 }
 
 export default function LoanReviewListPage() {
-  const [tab, setTab] = useState<'pending' | 'approver' | 'stats'>('pending')
+  const roles = useAdminRoles()
+  // 본사 상신 건은 ROLE_HQ_REVIEWER 전용 (ROLE_ADMIN 은 hasAnyRole 에서 항상 통과)
+  const canViewEscalated = hasAnyRole(roles, BankRole.HQ_REVIEWER)
+
+  const [tab, setTab] = useState<'pending' | 'approver' | 'escalated' | 'stats'>('pending')
   const [pending, setPending] = useState<ReviewItem[]>([])
   const [pendingApprover, setPendingApprover] = useState<ReviewItem[]>([])
+  const [escalated, setEscalated] = useState<ReviewItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -176,9 +183,23 @@ export default function LoanReviewListPage() {
 
   useEffect(() => { load() }, [load])
 
+  // 상신 건은 HQ_REVIEWER 권한이 있을 때만 별도 로드 (Page 응답 → content)
+  useEffect(() => {
+    if (!canViewEscalated) return
+    adminReviewApi.listEscalated()
+      .then(res => setEscalated(res.data?.data?.content ?? []))
+      .catch(() => {})
+  }, [canViewEscalated])
+
+  // 권한이 사라지면 상신 탭에 머무르지 않도록 보정
+  useEffect(() => {
+    if (!canViewEscalated && tab === 'escalated') setTab('pending')
+  }, [canViewEscalated, tab])
+
   const TABS = [
     { id: 'pending',  label: `확정 대기 (${pending.length})` },
     { id: 'approver', label: `승인자 대기 (${pendingApprover.length})` },
+    ...(canViewEscalated ? [{ id: 'escalated', label: `상신 건 (${escalated.length})` } as const] : []),
     { id: 'stats',    label: '통계' },
   ] as const
 
@@ -219,6 +240,10 @@ export default function LoanReviewListPage() {
           ) : tab === 'approver' ? (
             <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <ReviewTable items={pendingApprover} emptyMsg="승인자 대기 건이 없습니다." />
+            </div>
+          ) : tab === 'escalated' ? (
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <ReviewTable items={escalated} emptyMsg="본사 상신 건이 없습니다." />
             </div>
           ) : (
             <StatsPanel />

@@ -1165,6 +1165,16 @@ export default function ChatbotWidget() {
   }
 
   async function startTransfer(accountId: number, accountNumber: string, balance: number) {
+    if (!isLoggedIn) {
+      pendingLoginActionRef.current = 'transfer'
+      pushMessages([{
+        id: messageId('auth'),
+        role: 'bot',
+        text: '이체 서비스는 로그인 후 이용하실 수 있습니다.',
+        loginForm: true,
+      }])
+      return
+    }
     setTransferState({
       step: 'form',
       fromAccountId: accountId,
@@ -2371,7 +2381,7 @@ export default function ChatbotWidget() {
           setPanelOffset({ x: 0, y: 0 })
           setOpen(true)
         }}
-        className="fixed bottom-6 right-28 z-[320] flex h-16 w-32 items-center justify-center gap-2 rounded-full bg-red-600 text-white shadow-xl transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+        className="fixed bottom-6 right-20 z-[320] flex h-16 w-32 items-center justify-center gap-2 rounded-full bg-red-600 text-white shadow-xl transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
         aria-label={TEXT.openChat}
       >
         <MessageCircle className="h-7 w-7" />

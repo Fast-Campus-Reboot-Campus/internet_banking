@@ -1,15 +1,31 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_MINORS, MinorRecord, MinorStatus } from '@/lib/admin-mock-data'
+import { listMinors, Minor, fmtYmd, errMsg } from '@/lib/admin-customer-api'
 
-const STATUS_COLOR: Record<MinorStatus, string> = {
-  '검토대기': 'bg-orange-100 text-orange-700',
-  '거절':     'bg-red-100 text-red-700',
+/** YYYYMMDD 생년월일 → 만 나이 */
+function ageOf(birthYmd: string | null): string {
+  if (!birthYmd || birthYmd.length !== 8) return '-'
+  const y = +birthYmd.slice(0, 4), m = +birthYmd.slice(4, 6), d = +birthYmd.slice(6, 8)
+  const today = new Date()
+  let age = today.getFullYear() - y
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--
+  return `만 ${age}세`
 }
 
 export default function MinorPage() {
-  const [selected, setSelected] = useState<MinorRecord | null>(null)
+  const [rows, setRows] = useState<Minor[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    listMinors(0, 50)
+      .then(res => { setRows(res.content); setTotal(res.totalElements) })
+      .catch(e => setError(errMsg(e, '미성년 목록을 불러오지 못했습니다.')))
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
     <div className="flex min-h-screen bg-kb-beige-light">
@@ -19,92 +35,42 @@ export default function MinorPage() {
           심사 &gt; <span className="text-gray-700 font-medium">미성년 검토</span>
         </div>
         <div className="px-6 py-5">
-          <h1 className="text-lg font-bold text-gray-800 mb-4">미성년자 법정대리인 관계 검토</h1>
-
-          <div className="flex items-center gap-3 mb-4 bg-white border border-kb-border rounded-lg px-4 py-3 shadow-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">상태</span>
-              <select className="border border-gray-300 text-xs px-2 py-1 rounded bg-white"><option>전체</option></select>
-            </div>
-            <span className="text-xs text-gray-400">접수일 2026-04-01 ~ 2026-05-11</span>
-            <button className="ml-auto px-3 py-1.5 bg-kb-yellow text-white text-xs font-bold rounded hover:bg-kb-yellow-dark transition-colors">조회</button>
-          </div>
+          <h1 className="text-lg font-bold text-gray-800 mb-4">미성년자(만 19세 미만) 검토</h1>
 
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-gray-500">미성년 가입 검토 {MOCK_MINORS.length}건</p>
-            <button className="text-xs border border-gray-300 px-3 py-1 rounded text-gray-600">엑셀</button>
+            <p className="text-xs text-gray-500">미성년 가입 {total.toLocaleString()}건{loading && ' · 조회 중…'}</p>
           </div>
+
+          {error && <div className="mb-3 bg-red-50 border border-red-200 rounded px-4 py-2.5 text-xs text-red-700">{error}</div>}
 
           <div className="bg-white border border-kb-border rounded-lg overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-kb-beige-light border-b border-kb-border text-xs text-kb-text-muted">
-                  {['접수번호','미성년 이름','나이','법정대리인','관계','관계 검증','대리인 본인확인','접수일','상태','작업'].map(h=>(
+                  {['Party ID', '이름', '생년월일', '나이', '성별', '국적', '법정대리인 관계'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {MOCK_MINORS.map(r => (
-                  <tr key={r.id} className="hover:bg-kb-beige-light cursor-pointer" onClick={() => setSelected(r)}>
-                    <td className="px-3 py-2.5 text-xs text-blue-600 font-mono">{r.id}</td>
-                    <td className="px-3 py-2.5 font-medium">{r.minorName}</td>
-                    <td className="px-3 py-2.5 text-gray-600">만 {r.age}세</td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.guardianName}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.relationship}</td>
-                    <td className="px-3 py-2.5">
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium
-                        ${r.relationshipCheck.startsWith('일치') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {r.relationshipCheck}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-gray-600">{r.guardianVerified ? '✓ PASS 인증' : '✗ 미완료'}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-400">{r.submittedAt}</td>
-                    <td className="px-3 py-2.5"><span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${STATUS_COLOR[r.status]}`}>{r.status}</span></td>
-                    <td className="px-3 py-2.5">
-                      {r.status === '검토대기' && <button className="text-xs bg-kb-yellow text-white px-2 py-0.5 rounded font-medium">검토</button>}
-                      {r.status === '거절' && <button className="text-xs border border-gray-300 text-gray-500 px-2 py-0.5 rounded">보기</button>}
-                    </td>
+                {rows.map(r => (
+                  <tr key={r.partyId} className="hover:bg-kb-beige-light">
+                    <td className="px-3 py-2.5 text-xs text-blue-600 font-mono">{r.partyId}</td>
+                    <td className="px-3 py-2.5 font-medium">{r.partyName}</td>
+                    <td className="px-3 py-2.5 text-gray-500">{fmtYmd(r.birthDate)}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{ageOf(r.birthDate)}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{r.genderCode === 'M' ? '남' : r.genderCode === 'F' ? '여' : '-'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{r.nationalityCode ?? '-'}</td>
+                    <td className="px-3 py-2.5 text-xs text-gray-400">관계 조회 별도</td>
                   </tr>
                 ))}
+                {!loading && rows.length === 0 && !error && (
+                  <tr><td colSpan={7} className="px-3 py-8 text-center text-gray-400 text-sm">미성년 대상이 없습니다.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
-
-          {selected && (
-            <div className="mt-4 bg-white border border-kb-border rounded-lg p-5 shadow-sm">
-              <h3 className="text-sm font-bold mb-3">관계 검증 상세 ({selected.id})</h3>
-              <table className="w-full text-sm border border-gray-200 rounded overflow-hidden mb-4">
-                <thead>
-                  <tr className="bg-kb-beige-light text-xs text-kb-text-muted">
-                    <th className="px-4 py-2 text-left font-medium">항목</th>
-                    <th className="px-4 py-2 text-left font-medium">미성년 본인</th>
-                    <th className="px-4 py-2 text-left font-medium">법정대리인</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {[
-                    { label:'이름', minor:selected.minorName, guardian:selected.guardianName.split(' ')[0] },
-                    { label:'생년월일', minor:`2014-08-15 (만 ${selected.age}세)`, guardian:'1985-03-15 (만 41세)' },
-                    { label:'가족관계증명서', minor:'✓ 부녀 관계 확인 (2026-05-10 발급)', guardian:'-' },
-                    { label:'법정대리인 본인확인', minor:'-', guardian:'✓ PASS 인증 완료' },
-                    { label:'동의서 서명', minor:'-', guardian:'✓ 전자서명 완료' },
-                  ].map(row => (
-                    <tr key={row.label}>
-                      <td className="px-4 py-2 text-gray-500">{row.label}</td>
-                      <td className="px-4 py-2 font-medium">{row.minor}</td>
-                      <td className="px-4 py-2 font-medium">{row.guardian}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-sm rounded">닫기</button>
-                <button className="px-4 py-2 border border-red-400 text-sm rounded text-red-600">거절 (관계 불일치)</button>
-                <button className="px-4 py-2 bg-kb-yellow text-white text-sm font-bold rounded hover:bg-kb-yellow-dark transition-colors">승인 (가입 진행)</button>
-              </div>
-            </div>
-          )}
+          <p className="mt-3 text-xs text-gray-400">※ 검토상태(승인/거절) 워크플로와 법정대리인 관계 검증은 추후 연동됩니다(현재 목록 조회만).</p>
         </div>
       </main>
     </div>

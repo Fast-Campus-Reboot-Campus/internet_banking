@@ -100,10 +100,13 @@ class LoanReviewAcknowledgeBiasTest extends AbstractLoanIntegrationTest {
 
     @Test @Order(23)
     void bias_override_상급자_우회() throws Exception {
+        // 우회 승인자는 바디가 아닌 인증 토큰(X-User-Id)에서 식별한다.
+        // run() 의 심사자는 기본 토큰(X-User-Id=1)이므로, 4-eye 를 위해 다른 직원으로 우회한다.
         mockMvc.perform(post("/api/loan-reviews/{revId}/bias-override", revId)
+                        .header("X-User-Id", "20350901")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"overrideBy":20350901,"overrideReason":"규정 검토 후 수용 가능 판단"}
+                                {"overrideReason":"규정 검토 후 수용 가능 판단"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.biasOverrideBy").value(20350901))

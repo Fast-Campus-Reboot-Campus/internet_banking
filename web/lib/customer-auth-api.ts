@@ -68,12 +68,19 @@ export async function sendMobileAuth(params: {
   return data.data // mobileAuthId
 }
 
+/**
+ * 휴대폰 인증 검증. name·rrn(주민번호 13자리)을 함께 보내면 주민번호 기반 본인확인까지 수행되고
+ * 가입에 쓸 verificationId 를 돌려준다. (미제공 시 단순 전화인증 → null)
+ */
 export async function verifyMobileAuth(params: {
   phoneNumber: string
   purposeCode: MobileAuthPurpose
   code: string
-}): Promise<void> {
-  await api.post('/api/v1/mobile-auth/verify', params)
+  name?: string
+  rrn?: string
+}): Promise<number | null> {
+  const { data } = await api.post('/api/v1/mobile-auth/verify', params)
+  return data.data?.verificationId ?? null
 }
 
 /* ── 등록기기 ── */

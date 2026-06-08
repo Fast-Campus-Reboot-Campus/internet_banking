@@ -37,7 +37,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   22) 이미 확정된 본심사 재 confirm → 422 LOAN_049
  *   23) 수동 본심사(처음부터 COMPLETED)에 confirm → 422 LOAN_049
  *   24) 본심사 없는 신청 confirm → 404 LOAN_042
- *   25) reviewerId 누락 → 400
  *
  * 권고 목록 (pending):
  *   30) GET /api/loan-reviews/pending — 확정 안 된 권고만 포함, 확정된 본심사·수동 본심사 미포함
@@ -192,11 +191,13 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
     void 권고_APPROVED_확정_후_BIAS_REVIEWING() throws Exception {
         // confirm 은 이제 BIAS_REVIEWING 으로 전이 (승인자 단계 도입으로 COMPLETED 아님)
         // approveApplId 는 시나리오 10 에서 PENDING_APPROVAL APPROVED 권고 상태
-        String body = """
-                { "reviewerId":91001, "confirmRemark":"권고 그대로 확정" }
-                """;
+        // 확정 심사관은 바디가 아닌 인증 토큰(X-User-Id)에서만 식별한다.
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", approveApplId)
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                        .header("X-User-Id", "91001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "confirmRemark":"권고 그대로 확정" }
+                                """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.revStatusCd").value("BIAS_REVIEWING"))
                 .andExpect(jsonPath("$.data.revDecisionCd").value("APPROVED"))
@@ -207,11 +208,9 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
     @Test @Order(21)
     void 권고_REJECTED_확정_후_BIAS_REVIEWING() throws Exception {
         // cbRejectApplId 는 시나리오 11 에서 PENDING_APPROVAL REJECTED 권고 상태
-        String body = """
-                { "reviewerId":91002 }
-                """;
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", cbRejectApplId)
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                        .header("X-User-Id", "91002")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.revStatusCd").value("BIAS_REVIEWING"))
                 .andExpect(jsonPath("$.data.revDecisionCd").value("REJECTED"))
@@ -225,9 +224,7 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
         // 시나리오 20 에서 approveApplId 가 이미 BIAS_REVIEWING — PENDING_APPROVAL 아님
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", approveApplId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "reviewerId":91003 }
-                                """))
+                        .content("{}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOAN_049"));
     }
@@ -237,9 +234,7 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
         // alreadyReviewedAppl 는 setup 에서 수동 본심사로 즉시 COMPLETED 됨
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", alreadyReviewedAppl)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "reviewerId":91004 }
-                                """))
+                        .content("{}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOAN_049"));
     }
@@ -249,19 +244,9 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
         // noCevalApplId 는 본심사 시도 자체가 422 라 본심사 row 없음
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", noCevalApplId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "reviewerId":91005 }
-                                """))
+                        .content("{}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("LOAN_042"));
-    }
-
-    @Test @Order(25)
-    void reviewerId_누락_400() throws Exception {
-        mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", dsrFailApplId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isBadRequest());
     }
 
     @Test @Order(40)
@@ -292,9 +277,7 @@ class LoanReviewAutoDecideFlowTest extends AbstractLoanIntegrationTest {
         // 시나리오 41 에서 dsrFailApplId 권고 가 EXPIRED 됨
         mockMvc.perform(post("/api/loan-applications/{applId}/review/confirm", dsrFailApplId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "reviewerId":92001 }
-                                """))
+                        .content("{}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("LOAN_049"));
     }

@@ -1,24 +1,43 @@
 'use client'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_DUPLICATES, DuplicateRecord, DupStatus } from '@/lib/admin-mock-data'
+import {
+  listDuplicatesPending, markDuplicate, markDistinct,
+  DuplicateReview, fmtDate, errMsg,
+} from '@/lib/admin-customer-api'
 
-const STATUS_COLOR: Record<DupStatus, string> = {
-  '검토대기': 'bg-orange-100 text-orange-700',
-  '검토중':   'bg-blue-100 text-blue-700',
-  '복본':     'bg-green-100 text-green-700',
-}
-
-const COMPARE_ROWS = [
-  { label: '이름', newVal: '김민수', existVal: '김민수', match: true },
-  { label: '생년월일', newVal: '1985-03-15', existVal: '1985-03-15', match: true },
-  { label: 'CI', newVal: 'a8f3...c921', existVal: 'b2e7...d445', match: false },
-  { label: '휴대폰', newVal: '010-****-3456', existVal: '010-****-7890', match: false },
-  { label: '주소', newVal: '서울 강남구', existVal: '부산 해운대구', match: false },
-]
+const MATCH_LABEL: Record<string, string> = { CI: 'CI 충돌', NAME_BIRTH: '이름+생년월일' }
 
 export default function DuplicatesPage() {
-  const [selected, setSelected] = useState<DuplicateRecord | null>(null)
+  const [rows, setRows] = useState<DuplicateReview[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    listDuplicatesPending(0, 50)
+      .then(res => { setRows(res.content); setTotal(res.totalElements) })
+      .catch(e => setError(errMsg(e, '중복 검토 대기 목록을 불러오지 못했습니다.')))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function act(caseId: number, kind: 'duplicate' | 'distinct') {
+    setBusy(caseId)
+    setError(null)
+    try {
+      if (kind === 'duplicate') await markDuplicate(caseId)
+      else await markDistinct(caseId)
+      load()
+    } catch (e) {
+      setError(errMsg(e, '처리에 실패했습니다.'))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <div className="flex min-h-screen bg-kb-beige-light">
@@ -30,82 +49,41 @@ export default function DuplicatesPage() {
         <div className="px-6 py-5">
           <h1 className="text-lg font-bold text-gray-800 mb-4">중복 고객 의심건 검토</h1>
 
-          <div className="flex items-center gap-3 mb-4 bg-white border border-kb-border rounded-lg px-4 py-3 shadow-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">처리상태</span>
-              <select className="border border-gray-300 text-xs px-2 py-1 rounded bg-white"><option>전체</option></select>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">일치 유형</span>
-              <select className="border border-gray-300 text-xs px-2 py-1 rounded bg-white"><option>전체</option></select>
-            </div>
-            <span className="text-xs text-gray-400">발생일 2026-04-01 ~ 2026-05-11</span>
-            <button className="ml-auto px-3 py-1.5 bg-kb-yellow text-white text-xs font-bold rounded hover:bg-kb-yellow-dark transition-colors">조회</button>
-          </div>
+          <p className="text-xs text-gray-500 mb-2">중복 의심 {total.toLocaleString()}건{loading && ' · 조회 중…'}</p>
 
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-gray-500">동명이인 의심 {MOCK_DUPLICATES.length}건</p>
-            <button className="text-xs border border-gray-300 px-3 py-1 rounded text-gray-600">엑셀</button>
-          </div>
+          {error && <div className="mb-3 bg-red-50 border border-red-200 rounded px-4 py-2.5 text-xs text-red-700">{error}</div>}
 
           <div className="bg-white border border-kb-border rounded-lg overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-kb-beige-light border-b border-kb-border text-xs text-kb-text-muted">
-                  {['발생번호','신규 고객번호','기존 고객번호','이름','생년월일','일치 항목','발생일','처리상태','작업'].map(h=>(
+                  {['케이스 ID', '신규 Party', '기존 Party', '일치 유형', '발생일', '작업'].map(h => (
                     <th key={h} className="px-3 py-2.5 text-left font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {MOCK_DUPLICATES.map(r => (
-                  <tr key={r.id} className="hover:bg-kb-beige-light cursor-pointer" onClick={() => setSelected(r)}>
-                    <td className="px-3 py-2.5 text-xs text-blue-600 font-mono">{r.id}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-500">{r.newCustomerId} (신규)</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-500">{r.existingCustomerId} (기존)</td>
-                    <td className="px-3 py-2.5 font-medium">{r.name} / {r.name}</td>
-                    <td className="px-3 py-2.5 text-gray-500">{r.birthDate}</td>
-                    <td className="px-3 py-2.5"><span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{r.matchType}</span></td>
-                    <td className="px-3 py-2.5 text-xs text-gray-400">{r.detectedAt}</td>
-                    <td className="px-3 py-2.5"><span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${STATUS_COLOR[r.status]}`}>{r.status}</span></td>
-                    <td className="px-3 py-2.5"><button className="text-xs bg-kb-yellow text-white px-2 py-0.5 rounded font-medium">대조</button></td>
+                {rows.map(r => (
+                  <tr key={r.duplicateReviewCaseId} className="hover:bg-kb-beige-light">
+                    <td className="px-3 py-2.5 text-xs text-blue-600 font-mono">{r.duplicateReviewCaseId}</td>
+                    <td className="px-3 py-2.5 text-xs text-gray-600">{r.newPartyName} <span className="text-gray-400">({r.newPartyId})</span></td>
+                    <td className="px-3 py-2.5 text-xs text-gray-600">{r.existingPartyName} <span className="text-gray-400">({r.existingPartyId})</span></td>
+                    <td className="px-3 py-2.5"><span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{MATCH_LABEL[r.matchTypeCode] ?? r.matchTypeCode}</span></td>
+                    <td className="px-3 py-2.5 text-xs text-gray-400">{fmtDate(r.detectedAt)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <button onClick={() => act(r.duplicateReviewCaseId, 'duplicate')} disabled={busy === r.duplicateReviewCaseId}
+                        className="text-xs border border-red-400 text-red-600 px-2 py-0.5 rounded mr-1 hover:bg-red-50 disabled:opacity-50">복본 확정</button>
+                      <button onClick={() => act(r.duplicateReviewCaseId, 'distinct')} disabled={busy === r.duplicateReviewCaseId}
+                        className="text-xs border border-gray-300 text-gray-700 px-2 py-0.5 rounded hover:bg-gray-50 disabled:opacity-50">별개(동명이인)</button>
+                    </td>
                   </tr>
                 ))}
+                {!loading && rows.length === 0 && !error && (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400 text-sm">검토 대기 중복 의심건이 없습니다.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
-
-          {/* 양쪽 정보 대조 */}
-          {selected && (
-            <div className="mt-4 bg-white border border-kb-border rounded-lg p-5 shadow-sm">
-              <h3 className="text-sm font-bold mb-3">양쪽 정보 대조 ({selected.id})</h3>
-              <table className="w-full text-sm border border-gray-200 rounded overflow-hidden mb-4">
-                <thead>
-                  <tr className="bg-kb-beige-light text-xs text-kb-text-muted">
-                    <th className="px-4 py-2 text-left font-medium">항목</th>
-                    <th className="px-4 py-2 text-left font-medium">신규 고객 {selected.newCustomerId}</th>
-                    <th className="px-4 py-2 text-left font-medium">기존 고객 {selected.existingCustomerId}</th>
-                    <th className="px-4 py-2 text-left font-medium">일치</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {COMPARE_ROWS.map(row => (
-                    <tr key={row.label}>
-                      <td className="px-4 py-2 text-gray-500">{row.label}</td>
-                      <td className="px-4 py-2 font-medium">{row.newVal}</td>
-                      <td className="px-4 py-2 font-medium">{row.existVal}</td>
-                      <td className="px-4 py-2">{row.match ? <span className="text-green-600">✓</span> : <span className="text-red-500">✗</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setSelected(null)} className="px-4 py-2 border border-gray-300 text-sm rounded">닫기</button>
-                <button className="px-4 py-2 border border-gray-300 text-sm rounded text-gray-700">동명이인으로 확정 (별도 유지)</button>
-                <button className="px-4 py-2 bg-red-500 text-white text-sm font-bold rounded">동일인 → 기존계정 안내, 신규 차단</button>
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </div>

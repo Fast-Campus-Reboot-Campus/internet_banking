@@ -17,6 +17,8 @@ import com.bank.customer.party.repository.ComplianceInfoRepository;
 import com.bank.customer.party.repository.PartyPersonRepository;
 import com.bank.customer.party.repository.PartyRepository;
 import com.bank.customer.party.repository.PartyRoleRepository;
+import com.bank.customer.identity.domain.IdentityVerification;
+import com.bank.customer.identity.repository.IdentityVerificationRepository;
 import com.bank.customer.register.dto.RegisterRequest;
 import com.bank.customer.register.dto.RegisterResponse;
 import com.bank.customer.support.CustomerErrorCode;
@@ -35,6 +37,8 @@ public class RegisterService {
 
     private static final DateTimeFormatter DATE_FMT      = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final int               MAX_PWD_FAIL  = 5;
+    /** 본인확인 후 가입까지 허용 시간(분) — 지나면 재인증 필요 */
+    private static final long              VERIFICATION_VALIDITY_MINUTES = 30;
 
     private final PartyRepository                  partyRepository;
     private final PartyPersonRepository            partyPersonRepository;
@@ -44,6 +48,7 @@ public class RegisterService {
     private final CredentialRepository             credentialRepository;
     private final CustomerStatusHistoryRepository  customerStatusHistoryRepository;
     private final CustomerGradeHistoryRepository   customerGradeHistoryRepository;
+    private final IdentityVerificationRepository   identityVerificationRepository;
     private final PasswordEncoder                  passwordEncoder;
 
     public RegisterResponse register(RegisterRequest request) {
@@ -52,35 +57,108 @@ public class RegisterService {
             throw new BusinessException(CustomerErrorCode.CUST_001);
         }
 
+        // 검증된 신원(주민번호 본인확인)이 권위 소스 — 이름·생년월일·성별·CI·RRN 은 여기서 가져온다.
+        IdentityVerification identity = loadVerifiedIdentity(request.verificationId());
+
         OffsetDateTime now   = OffsetDateTime.now();
         String         today = now.format(DATE_FMT);
 
-        // 1) Party
+        // party 패턴: 한 사람(CI) = 한 party, 역할(CUSTOMER/EMPLOYEE…)은 N개.
+        // CI 로 동일인 party 가 이미 있으면(예: 직원) 새 party 를 만들지 않고 역할·고객만 더한다.
+        String ci = identity.getIdentityVerificationCiValue();
+        RegisterResponse response = partyPersonRepository.findByCiValueAndDeletedAtIsNull(ci)
+                .map(pp -> registerOnExistingParty(pp.getPartyId(), request, now, today))
+                .orElseGet(() -> registerNewParty(request, identity, now, today));
+
+        identity.consume(response.customerId());   // 검증 1건은 가입 1건에만 사용
+        return response;
+    }
+
+    /** verificationId 로 본인확인 이력을 읽고 유효성(목적·소비·만료)을 검사한다. */
+    private IdentityVerification loadVerifiedIdentity(Long verificationId) {
+        IdentityVerification identity = identityVerificationRepository.findById(verificationId)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_094));
+
+        if (!isSignupPurpose(identity.getIdentityVerificationPurposeCode())) {
+            throw new BusinessException(CustomerErrorCode.CUST_094);
+        }
+        if (identity.isConsumed()) {
+            throw new BusinessException(CustomerErrorCode.CUST_096);
+        }
+        if (identity.getIdentityVerifiedAt().plusMinutes(VERIFICATION_VALIDITY_MINUTES)
+                .isBefore(OffsetDateTime.now())) {
+            throw new BusinessException(CustomerErrorCode.CUST_095);
+        }
+        return identity;
+    }
+
+    private boolean isSignupPurpose(String purposeCode) {
+        return "SIGNUP".equals(purposeCode) || "IDENTITY_VERIFY".equals(purposeCode);
+    }
+
+    /** 신규 신원 — party 부터 새로 만든다. 인적사항·CI·RRN 은 검증 이력에서 박제한다. */
+    private RegisterResponse registerNewParty(RegisterRequest request, IdentityVerification identity,
+                                              OffsetDateTime now, String today) {
         Party party = partyRepository.save(Party.builder()
                 .partyTypeCode(Party.TYPE_PERSONAL)
-                .partyName(request.name())
+                .partyName(identity.getIdentityVerificationName())
                 .partyStatusCode(Party.STATUS_ACTIVE)
                 .build());
 
-        // 2) PartyPerson
         partyPersonRepository.save(PartyPerson.builder()
                 .partyId(party.getPartyId())
-                .birthDate(request.birthDate())
-                .genderCode(request.genderCode())
+                .birthDate(identity.getIdentityVerificationBirthDate())
+                .genderCode(identity.getIdentityVerificationGenderCode())
+                .ciValue(identity.getIdentityVerificationCiValue())
+                .rrnEncrypted(identity.getRrnEncrypted())
                 .isPepYn("F")
                 .build());
 
-        // 3) PartyRole — CUSTOMER 역할 부여 (법인과 동일)
+        saveCustomerRole(party.getPartyId(), today);
+        saveComplianceInfo(party.getPartyId());
+
+        return createCustomerWithCredential(party.getPartyId(), request, now, today);
+    }
+
+    /**
+     * 기존 party 재사용 — 고객 역할이 없던 party(예: 직원)에 CUSTOMER 역할과 고객 레코드를 더한다.
+     * 이미 활성 고객이 있으면 중복 가입(uq_customer_active_per_party 와도 정합)이므로 거부한다.
+     */
+    private RegisterResponse registerOnExistingParty(Long partyId, RegisterRequest request,
+                                                     OffsetDateTime now, String today) {
+        if (customerRepository.existsByPartyIdAndCustomerStatusCodeNotAndDeletedAtIsNull(
+                partyId, Customer.STATUS_CLOSED)) {
+            throw new BusinessException(CustomerErrorCode.CUST_003);
+        }
+
+        // 고객 역할이 없으면 추가 (직원 등 다른 역할만 보유하던 party)
+        if (partyRoleRepository.findByPartyIdAndRoleTypeCodeAndRoleStatusCodeAndDeletedAtIsNull(
+                partyId, PartyRole.TYPE_CUSTOMER, PartyRole.STATUS_ACTIVE).isEmpty()) {
+            saveCustomerRole(partyId, today);
+        }
+
+        // 컴플라이언스 정보가 없으면 초기화 (직원 시드 등은 미보유)
+        if (complianceInfoRepository.findByPartyIdAndDeletedAtIsNull(partyId).isEmpty()) {
+            saveComplianceInfo(partyId);
+        }
+
+        return createCustomerWithCredential(partyId, request, now, today);
+    }
+
+    /** CUSTOMER 역할 부여 (법인과 동일) */
+    private void saveCustomerRole(Long partyId, String today) {
         partyRoleRepository.save(PartyRole.builder()
-                .partyId(party.getPartyId())
+                .partyId(partyId)
                 .roleTypeCode(PartyRole.TYPE_CUSTOMER)
                 .roleStatusCode(PartyRole.STATUS_ACTIVE)
                 .roleStartDate(today)
                 .build());
+    }
 
-        // 4) ComplianceInfo — AML/KYC 초기화 (법인과 동일)
+    /** ComplianceInfo — AML/KYC 초기화 (법인과 동일) */
+    private void saveComplianceInfo(Long partyId) {
         complianceInfoRepository.save(ComplianceInfo.builder()
-                .partyId(party.getPartyId())
+                .partyId(partyId)
                 .amlRiskLevelCode(ComplianceInfo.AML_LOW)
                 .isOfacSanctionedYn("F")
                 .isUnSanctionedYn("F")
@@ -94,10 +172,13 @@ public class RegisterService {
                 .crsStatusCode(ComplianceInfo.CRS_PENDING)
                 .crsReportableYn("F")
                 .build());
+    }
 
-        // 5) Customer
+    /** 고객·자격증명·초기 이력 생성 (신규/기존 party 공통) */
+    private RegisterResponse createCustomerWithCredential(Long partyId, RegisterRequest request,
+                                                          OffsetDateTime now, String today) {
         Customer customer = customerRepository.save(Customer.builder()
-                .partyId(party.getPartyId())
+                .partyId(partyId)
                 .customerStatusCode(Customer.STATUS_ACTIVE)
                 .customerGradeCode(Customer.GRADE_NORMAL)
                 .mainCustomerYn("F")
@@ -111,7 +192,6 @@ public class RegisterService {
                 .email(request.email())
                 .build());
 
-        // 6) Credential
         credentialRepository.save(Credential.builder()
                 .customerId(customer.getCustomerId())
                 .loginId(request.loginId())
@@ -122,7 +202,6 @@ public class RegisterService {
                 .passwordChangedAt(now)
                 .build());
 
-        // 7) 이력
         customerStatusHistoryRepository.save(
                 CustomerStatusHistory.ofInitial(customer.getCustomerId(), now));
         customerGradeHistoryRepository.save(

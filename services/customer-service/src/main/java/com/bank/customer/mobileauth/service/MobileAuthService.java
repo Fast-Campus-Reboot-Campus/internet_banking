@@ -1,11 +1,14 @@
 package com.bank.customer.mobileauth.service;
 
 import com.bank.common.web.BusinessException;
+import com.bank.customer.crypto.CryptoService;
 import com.bank.customer.identity.domain.IdentityVerification;
+import com.bank.customer.identity.port.IdentityVerificationPort;
 import com.bank.customer.identity.repository.IdentityVerificationRepository;
 import com.bank.customer.mobileauth.domain.MobileAuth;
 import com.bank.customer.mobileauth.dto.SendMobileAuthRequest;
 import com.bank.customer.mobileauth.dto.VerifyMobileAuthRequest;
+import com.bank.customer.mobileauth.dto.VerifyMobileAuthResponse;
 import com.bank.customer.mobileauth.repository.MobileAuthRepository;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +35,8 @@ public class MobileAuthService {
 
     private final MobileAuthRepository           mobileAuthRepository;
     private final IdentityVerificationRepository identityVerificationRepository;
+    private final IdentityVerificationPort       identityVerificationPort;
+    private final CryptoService                  cryptoService;
     private final Environment                    environment;
 
     /**
@@ -66,10 +71,11 @@ public class MobileAuthService {
 
     /**
      * 인증 코드 검증.
-     * 목적이 IDENTITY_VERIFY이면 IdentityVerification 이력도 함께 저장.
+     * 신원확인 목적(SIGNUP/IDENTITY_VERIFY)이면 주민번호 기반 본인확인까지 수행해
+     * IdentityVerification 이력(실 CI·생년월일·성별 + RRN 암호문)을 저장하고 verificationId 를 돌려준다.
      */
     @Transactional(noRollbackFor = BusinessException.class)
-    public void verify(VerifyMobileAuthRequest req, Long customerId) {
+    public VerifyMobileAuthResponse verify(VerifyMobileAuthRequest req, Long customerId) {
         MobileAuth auth = mobileAuthRepository
                 .findTopByMobileAuthRecipientPhoneNumberAndMobileAuthPurposeCodeAndMobileAuthVerifiedYnOrderByMobileAuthSentAtDesc(
                         req.phoneNumber(), req.purposeCode(), "F")
@@ -94,23 +100,32 @@ public class MobileAuthService {
 
         auth.verify();
 
-        // 본인확인 목적이면 이력 저장 (MVP: CI값은 전화번호 해시로 대체)
-        if (MobileAuth.PURPOSE_IDENTITY_VERIFY.equals(req.purposeCode())) {
-            identityVerificationRepository.save(IdentityVerification.builder()
-                    .customerId(customerId)
-                    .mobileAuthId(auth.getMobileAuthId())
-                    .identityVerificationAgencyCode(IdentityVerification.AGENCY_NICE)
-                    .identityVerificationPurposeCode(req.purposeCode())
-                    .identityVerificationCiValue(sha256(req.phoneNumber()))
-                    .identityVerificationName("N/A")
-                    .identityVerificationBirthDate("00000000")
-                    .identityVerificationGenderCode("0")
-                    .identityVerificationNationalityTypeCode("DOMESTIC")
-                    .identityVerificationTelecomCarrierCode(auth.getMobileAuthTelecomCarrierCode())
-                    .identityVerificationPhoneNumber(req.phoneNumber())
-                    .identityVerifiedAt(OffsetDateTime.now())
-                    .build());
+        // 주민번호가 제공된 경우에만 신원확인 이력 생성(가입용). 미제공(단순 전화인증)은 verificationId 없이 통과.
+        if (req.rrn() == null || req.rrn().isBlank()) {
+            return new VerifyMobileAuthResponse(null);
         }
+
+        // 신원확인: 주민번호로 CI·생년월일·성별 파생(본인확인기관 목) + RRN 암호화 저장(평문 미보관).
+        IdentityVerificationPort.VerifiedIdentity vi =
+                identityVerificationPort.resolve(req.name(), req.rrn(), req.phoneNumber());
+
+        IdentityVerification saved = identityVerificationRepository.save(IdentityVerification.builder()
+                .customerId(customerId)
+                .mobileAuthId(auth.getMobileAuthId())
+                .identityVerificationAgencyCode(IdentityVerification.AGENCY_NICE)
+                .identityVerificationPurposeCode(req.purposeCode())
+                .identityVerificationCiValue(vi.ci())
+                .identityVerificationName(req.name())
+                .identityVerificationBirthDate(vi.birthDate())
+                .identityVerificationGenderCode(vi.genderCode())
+                .identityVerificationNationalityTypeCode(vi.nationalityTypeCode())
+                .identityVerificationTelecomCarrierCode(auth.getMobileAuthTelecomCarrierCode())
+                .identityVerificationPhoneNumber(req.phoneNumber())
+                .identityVerifiedAt(OffsetDateTime.now())
+                .rrnEncrypted(cryptoService.encrypt(req.rrn()))
+                .build());
+
+        return new VerifyMobileAuthResponse(saved.getIdentityVerificationId());
     }
 
     private boolean isLocalProfile() {
