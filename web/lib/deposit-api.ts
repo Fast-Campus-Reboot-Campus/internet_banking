@@ -142,32 +142,8 @@ export type CreateDepositContractInput = {
   taxExempt?: boolean
 }
 
-const PRODUCT_ID_BY_SLUG: Record<string, number> = {
-  'axful-regular': 6,
-  'axful-super': 7,
-  regular: 8,
-  'axful-youth': 9,
-  'axful-free': 10,
-  'axful-dollar': 11,
-  'axful-green': 12,
-  'axful-soldier': 13,
-  'axful-star-savings': 14,
-  'housing-savings': 15,
-  'youth-housing': 16,
-  'axful-sok': 17,
-  election: 18,
-  'axful-living': 19,
-  'axful-gs': 20,
-  'monimo-daily': 21,
-  'axful-moim': 22,
-  'axful-star-account': 23,
-  'axful-wallet': 24,
-  'axful-free-account': 25,
-  'axful-youth-account': 26,
-  'axful-work': 9004,
-  'axful-dream': 9005,
-  'axful-together': 9006,
-}
+// 하드코딩 ID는 환경마다 시퀀스가 달라 오동작 유발 — resolveProductId에서 항상 API 조회
+const PRODUCT_ID_BY_SLUG: Record<string, number> = {}
 
 const SLUG_BY_PRODUCT_ID = Object.fromEntries(
   Object.entries(PRODUCT_ID_BY_SLUG).map(([slug, productId]) => [productId, slug])
