@@ -21,6 +21,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByContractIdAndTransactionType(Long contractId, TransactionType type);
     Optional<Transaction> findByTransactionNumber(String transactionNumber);
     Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
+    Optional<Transaction> findByIdempotencyKeyAndAccountId(String idempotencyKey, Long accountId);
     List<Transaction> findByAccountIdInAndTransactionAtBetweenAndStatus(
             List<Long> accountIds, OffsetDateTime start, OffsetDateTime end, TransactionStatus status);
 

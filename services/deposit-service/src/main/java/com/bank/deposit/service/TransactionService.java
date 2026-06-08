@@ -13,10 +13,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.dao.DataIntegrityViolationException;
+
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
@@ -109,7 +112,8 @@ public class TransactionService {
                                 String counterpartyName, TransactionChannel channelType, String transactionMemo,
                                 String idempotencyKey) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
+            Optional<Transaction> existing = transactionRepository
+                    .findByIdempotencyKeyAndAccountId(idempotencyKey, fromAccountId);
             if (existing.isPresent()) {
                 return existing.get();
             }
@@ -146,29 +150,40 @@ public class TransactionService {
         source.withdraw(amount, clock);
         OffsetDateTime now = OffsetDateTime.now(clock);
 
-        Transaction outTx = transactionRepository.save(Transaction.builder()
-                .transactionNumber(generateTxnNumber("TRF"))
-                .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
-                .accountId(fromAccountId)
-                .transactionType(TransactionType.TRANSFER)
-                .directionType(DirectionType.OUT)
-                .amount(amount)
-                .balanceBefore(before)
-                .balanceAfter(source.getBalance())
-                .availableBalanceAfter(source.getBalance())
-                .transferType(resolvedType)
-                .counterpartyAccountId(toAccountId)
-                .counterpartyAccountNo(toAccountNo)
-                .counterpartyBankCode(counterpartyBankCode)
-                .counterpartyBankName(counterpartyBankName)
-                .counterpartyName(counterpartyName)
-                .channelType(channelType != null ? channelType : TransactionChannel.INTERNET)
-                .transactionAt(now)
-                .postedAt(now)
-                .transferRequestedAt(now)
-                .transferCompletedAt(now)
-                .transactionMemo(transactionMemo)
-                .build());
+        Transaction outTx;
+        try {
+            outTx = transactionRepository.save(Transaction.builder()
+                    .transactionNumber(generateTxnNumber("TRF"))
+                    .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
+                    .accountId(fromAccountId)
+                    .transactionType(TransactionType.TRANSFER)
+                    .directionType(DirectionType.OUT)
+                    .amount(amount)
+                    .balanceBefore(before)
+                    .balanceAfter(source.getBalance())
+                    .availableBalanceAfter(source.getBalance())
+                    .transferType(resolvedType)
+                    .counterpartyAccountId(toAccountId)
+                    .counterpartyAccountNo(toAccountNo)
+                    .counterpartyBankCode(counterpartyBankCode)
+                    .counterpartyBankName(counterpartyBankName)
+                    .counterpartyName(counterpartyName)
+                    .channelType(channelType != null ? channelType : TransactionChannel.INTERNET)
+                    .transactionAt(now)
+                    .postedAt(now)
+                    .transferRequestedAt(now)
+                    .transferCompletedAt(now)
+                    .transactionMemo(transactionMemo)
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            // 동시 요청으로 idempotency_key 유니크 제약 위반 시 기존 거래 반환
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                return transactionRepository
+                        .findByIdempotencyKeyAndAccountId(idempotencyKey, fromAccountId)
+                        .orElseThrow(() -> e);
+            }
+            throw e;
+        }
 
         if (resolvedType == TransferType.INTERNAL) {
             BigDecimal targetBefore = target.getBalance();
@@ -260,9 +275,15 @@ public class TransactionService {
                 .build());
     }
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private void validateDailyTransferLimit(Account source, BigDecimal amount) {
-        OffsetDateTime startOfDay = LocalDate.now(clock).atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime endOfDay = startOfDay.plusDays(1);
+        if (source.getDailyWithdrawLimit() == null && source.getDailyWithdrawCountLimit() == null) {
+            return;
+        }
+        LocalDate koreaToday = LocalDate.now(clock.withZone(KST));
+        OffsetDateTime startOfDay = koreaToday.atStartOfDay(KST).toOffsetDateTime();
+        OffsetDateTime endOfDay = koreaToday.plusDays(1).atStartOfDay(KST).toOffsetDateTime();
 
         if (source.getDailyWithdrawLimit() != null) {
             BigDecimal todayTotal = transactionRepository.sumAmountByAccountIdAndDirectionTypeAndTransactionAtBetween(
