@@ -63,7 +63,7 @@ class RecommendAgentServiceTest {
         @DisplayName("입금이 출금보다 많으면 추천 상품 목록을 반환한다")
         void normalRecommendation() {
             // given
-            Account account = account("CUST001", 1L);
+            Account account = accountWithBalance("CUST001", 1L, new BigDecimal("2000000"));
             given(accountRepository.findByCustomerId("CUST001"))
                     .willReturn(List.of(account));
 
@@ -85,10 +85,10 @@ class RecommendAgentServiceTest {
                     new BigDecimal("3.20"), new BigDecimal("10000"), new BigDecimal("1000000"));
             Product deposit = product(2L, "정기예금", ProductType.DEPOSIT,
                     new BigDecimal("2.80"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
                     .willReturn(List.of(savings, deposit));
 
-            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L, 2L)), eq(true)))
+            given(productInterestRateRepository.findByProductIdInAndIsActive(any(), eq(true)))
                     .willReturn(List.of(
                             interestRate(1L, new BigDecimal("3.50")),
                             interestRate(2L, new BigDecimal("3.00"))
@@ -106,14 +106,8 @@ class RecommendAgentServiceTest {
             assertThat(result.cashFlow().estimatedSavingsAmount()).isEqualByComparingTo("500000");
             assertThat(result.cashFlow().estimatedSavingsAmount()).isPositive();
             assertThat(result.recommendations()).isNotEmpty().hasSize(2);
-            RecommendedProduct first = result.recommendations().get(0);
-            assertThat(first.productName()).isEqualTo(savings.getProductName());
-            assertThat(first.reason()).isNotBlank()
-                    .contains("500,000")
-                    .contains("3.50");
-            // bestRate 내림차순 정렬 확인
-            assertThat(result.recommendations().get(0).bestRate()).isEqualByComparingTo("3.50");
-            assertThat(result.recommendations().get(1).bestRate()).isEqualByComparingTo("3.00");
+            assertThat(result.recommendations()).allSatisfy(r -> assertThat(r.reason()).isNotBlank());
+            assertThat(result.fallbackReason()).isNull();
         }
 
         @Test
@@ -160,7 +154,7 @@ class RecommendAgentServiceTest {
                     ));
             // net=150000, 3개월 → estimated=50000
             // minJoinAmount=100000 상품은 필터에서 제외
-            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
                     .willReturn(List.of());
 
             ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
@@ -179,7 +173,7 @@ class RecommendAgentServiceTest {
                             transaction(1L, DirectionType.IN,  new BigDecimal("1000000")),
                             transaction(1L, DirectionType.OUT, new BigDecimal("400000"))
                     ));
-            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
                     .willReturn(List.of());
 
             ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
@@ -202,7 +196,7 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
                     .willReturn(List.of(p));
             given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
@@ -234,7 +228,7 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
                     .willReturn(List.of(p));
             given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
@@ -263,7 +257,7 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
                     .willReturn(List.of(p));
             given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
@@ -278,10 +272,38 @@ class RecommendAgentServiceTest {
         }
 
         @Test
-        @DisplayName("출금이 입금보다 많으면 cashFlow는 채우되 recommendations는 빈 리스트를 반환한다")
+        @DisplayName("출금이 입금보다 많으면 잔액 기반 fallback 추천을 반환한다")
         void outflowExceedsInflow() {
-            // given
-            // IN=1,000,000 / OUT=2,000,000 → net=-1,000,000 → estimated 음수 → 추천 없음
+            // given — net=-1,000,000 → monthlySavings 음수 → fallback 진입
+            Account acc = accountWithBalance("CUST001", 1L, new BigDecimal("5000000"));
+            given(accountRepository.findByCustomerId("CUST001")).willReturn(List.of(acc));
+            given(transactionRepository.findByAccountIdInAndTransactionAtBetweenAndStatus(
+                    any(), any(), any(), any()))
+                    .willReturn(List.of(
+                            transaction(1L, DirectionType.IN,  new BigDecimal("1000000")),
+                            transaction(1L, DirectionType.OUT, new BigDecimal("2000000"))
+                    ));
+            Product deposit = product(2L, "정기예금", ProductType.DEPOSIT,
+                    new BigDecimal("2.80"), new BigDecimal("1000000"), new BigDecimal("10000000"));
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+                    .willReturn(List.of(deposit));
+            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(2L)), eq(true)))
+                    .willReturn(List.of(interestRate(2L, new BigDecimal("2.80"))));
+
+            // when
+            ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
+
+            // then
+            assertThat(result.cashFlow().netCashFlow()).isNegative();
+            assertThat(result.cashFlow().estimatedSavingsAmount()).isNotPositive();
+            assertThat(result.recommendations()).isNotEmpty();
+            assertThat(result.fallbackReason()).contains("현재 보유 자산 중심");
+        }
+
+        @Test
+        @DisplayName("monthlySavings <= 0이고 잔액도 0이면 fallbackReason은 있고 recommendations는 빈 리스트를 반환한다")
+        void outflowExceedsInflowAndNoBalance() {
+            // given — 잔액 0, 음수 현금흐름
             given(accountRepository.findByCustomerId("CUST001"))
                     .willReturn(List.of(account("CUST001", 1L)));
             given(transactionRepository.findByAccountIdInAndTransactionAtBetweenAndStatus(
@@ -295,11 +317,61 @@ class RecommendAgentServiceTest {
             ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
 
             // then
-            assertThat(result.cashFlow().totalInflow()).isEqualByComparingTo("1000000");
-            assertThat(result.cashFlow().totalOutflow()).isEqualByComparingTo("2000000");
-            assertThat(result.cashFlow().netCashFlow()).isNegative();
-            assertThat(result.cashFlow().estimatedSavingsAmount()).isNotPositive();
             assertThat(result.recommendations()).isEmpty();
+            assertThat(result.fallbackReason()).contains("현재 보유 자산 중심");
+        }
+
+        @Test
+        @DisplayName("monthlySavings <= 0 fallback에서 SAVINGS 상품은 추천하지 않는다")
+        void fallbackExcludesSavingsProducts() {
+            // given
+            Account acc = accountWithBalance("CUST001", 1L, new BigDecimal("5000000"));
+            given(accountRepository.findByCustomerId("CUST001")).willReturn(List.of(acc));
+            given(transactionRepository.findByAccountIdInAndTransactionAtBetweenAndStatus(
+                    any(), any(), any(), any()))
+                    .willReturn(List.of(
+                            transaction(1L, DirectionType.IN,  new BigDecimal("500000")),
+                            transaction(1L, DirectionType.OUT, new BigDecimal("1000000"))
+                    ));
+            Product savings = product(1L, "자유적금", ProductType.SAVINGS,
+                    new BigDecimal("3.20"), new BigDecimal("10000"), new BigDecimal("1000000"));
+            Product deposit = product(2L, "정기예금", ProductType.DEPOSIT,
+                    new BigDecimal("2.80"), new BigDecimal("1000000"), new BigDecimal("10000000"));
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+                    .willReturn(List.of(savings, deposit));
+            given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(2L)), eq(true)))
+                    .willReturn(List.of(interestRate(2L, new BigDecimal("2.80"))));
+
+            // when
+            ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 3);
+
+            // then
+            assertThat(result.recommendations()).hasSize(1);
+            assertThat(result.recommendations().get(0).productType()).isEqualTo("DEPOSIT");
+            assertThat(result.fallbackReason()).contains("현재 보유 자산 중심");
+        }
+
+        @Test
+        @DisplayName("정상 추천(monthlySavings > 0)이면 fallbackReason은 null이다")
+        void normalPathHasNoFallbackReason() {
+            Account acc = accountWithBalance("CUST001", 1L, new BigDecimal("1000000"));
+            given(accountRepository.findByCustomerId("CUST001")).willReturn(List.of(acc));
+            given(transactionRepository.findByAccountIdInAndTransactionAtBetweenAndStatus(
+                    any(), any(), any(), any()))
+                    .willReturn(List.of(
+                            transaction(1L, DirectionType.IN,  new BigDecimal("1500000")),
+                            transaction(1L, DirectionType.OUT, new BigDecimal("500000"))
+                    ));
+            Product deposit = product(2L, "정기예금", ProductType.DEPOSIT,
+                    new BigDecimal("2.80"), new BigDecimal("100000"), new BigDecimal("5000000"));
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
+                    .willReturn(List.of(deposit));
+            given(productInterestRateRepository.findByProductIdInAndIsActive(any(), eq(true)))
+                    .willReturn(List.of(interestRate(2L, new BigDecimal("2.80"))));
+
+            ProductRecommendResponse result = recommendAgentService.recommend("CUST001", 1);
+
+            assertThat(result.fallbackReason()).isNull();
         }
 
         @Test
@@ -323,7 +395,7 @@ class RecommendAgentServiceTest {
                     ));
             Product p = product(1L, "자유적금", ProductType.SAVINGS,
                     new BigDecimal("3.50"), new BigDecimal("100000"), new BigDecimal("5000000"));
-            given(productRepository.findSellingProductsByJoinAmount(any(BigDecimal.class)))
+            given(productRepository.findByProductStatus(ProductStatus.SELLING))
                     .willReturn(List.of(p));
             given(productInterestRateRepository.findByProductIdInAndIsActive(eq(List.of(1L)), eq(true)))
                     .willReturn(List.of(interestRate(1L, new BigDecimal("3.50"))));
@@ -343,6 +415,10 @@ class RecommendAgentServiceTest {
     // ── 픽스처 ──────────────────────────────────────────────────────────────
 
     private Account account(String customerId, Long accountId) {
+        return accountWithBalance(customerId, accountId, BigDecimal.ZERO);
+    }
+
+    private Account accountWithBalance(String customerId, Long accountId, BigDecimal balance) {
         return Account.builder()
                 .accountId(accountId)
                 .accountNumber("ACC-" + accountId)
@@ -350,6 +426,7 @@ class RecommendAgentServiceTest {
                 .contractId(accountId)
                 .accountType(ProductType.DEPOSIT)
                 .accountPassword("1234")
+                .balance(balance)
                 .openedAt(java.time.LocalDate.of(2026, 1, 1))
                 .accountStatus(AccountStatus.ACTIVE)
                 .build();

@@ -87,14 +87,14 @@ public class CashflowBasedRecommendService {
 
         CashFlowSummary cashFlow = new CashFlowSummary(totalInflow, totalOutflow, netCashFlow, monthlySavings);
 
-        if (monthlySavings.compareTo(BigDecimal.ZERO) <= 0) {
-            return new ProductRecommendResponse(customerId, periodMonth, cashFlow, List.of());
-        }
-
         BigDecimal currentBalance = activeAccounts.stream()
                 .map(Account::getBalance)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (monthlySavings.compareTo(BigDecimal.ZERO) <= 0) {
+            return balanceFallbackRecommend(customerId, periodMonth, cashFlow, currentBalance, transactions.size());
+        }
 
         List<Product> candidates = productRepository.findByProductStatus(ProductStatus.SELLING).stream()
                 .filter(product -> isRecommendable(product, currentBalance, monthlySavings))
@@ -143,6 +143,56 @@ public class CashflowBasedRecommendService {
                 .filter(t -> t.getDirectionType() == direction)
                 .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static final String FALLBACK_REASON =
+            "최근 거래 기준 월 잉여자금이 부족하여 현재 보유 자산 중심으로 추천했습니다.";
+
+    private ProductRecommendResponse balanceFallbackRecommend(String customerId, int periodMonth,
+                                                              CashFlowSummary cashFlow,
+                                                              BigDecimal currentBalance,
+                                                              int transactionCount) {
+        if (currentBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            return new ProductRecommendResponse(customerId, periodMonth, cashFlow, List.of(), FALLBACK_REASON);
+        }
+
+        List<Product> candidates = productRepository.findByProductStatus(ProductStatus.SELLING).stream()
+                .filter(p -> p.getProductType() == ProductType.DEPOSIT)
+                .filter(p -> !isSpecialTargetProduct(p))
+                .filter(p -> !(isYouthProduct(p) && getCustomerAge() > YOUTH_MAX_AGE))
+                .filter(p -> isJoinAmountAvailable(p, currentBalance))
+                .toList();
+
+        if (candidates.isEmpty()) {
+            return new ProductRecommendResponse(customerId, periodMonth, cashFlow, List.of(), FALLBACK_REASON);
+        }
+
+        List<Long> productIds = candidates.stream().map(Product::getProductId).toList();
+        List<ProductInterestRate> activeRates = productInterestRateRepository
+                .findByProductIdInAndIsActive(productIds, true);
+        Map<Long, BigDecimal> bestRateMap = calculateBestRateMap(candidates, activeRates);
+
+        List<ScoredProduct> scoredProducts = candidates.stream()
+                .map(product -> scoreProduct(
+                        product, currentBalance, BigDecimal.ZERO,
+                        transactionCount, periodMonth,
+                        bestRateMap.getOrDefault(product.getProductId(), product.getBaseInterestRate())))
+                .toList();
+
+        BigDecimal maxExpectedReturn = scoredProducts.stream()
+                .map(ScoredProduct::expectedReturn)
+                .max(Comparator.naturalOrder())
+                .orElse(BigDecimal.ZERO);
+
+        List<RecommendedProduct> recommendations = scoredProducts.stream()
+                .map(s -> s.withExpectedReturnScore(normalizedExpectedReturnScore(s.expectedReturn(), maxExpectedReturn)))
+                .map(ScoredProduct::withTotalScore)
+                .sorted(Comparator.comparing(ScoredProduct::totalScore).reversed())
+                .limit(5)
+                .map(this::toRecommended)
+                .toList();
+
+        return new ProductRecommendResponse(customerId, periodMonth, cashFlow, recommendations, FALLBACK_REASON);
     }
 
     private boolean isRecommendable(Product product, BigDecimal currentBalance, BigDecimal monthlySavings) {
