@@ -14,9 +14,10 @@ import java.util.Set;
 /**
  * /api/v1/internal/** (직원 전용 관리 API) 인가 인터셉터.
  *
- * <p>SecurityConfig 가 permitAll 이라 customer-service 자체엔 인가 계층이 없다.
- * 게이트웨이가 JWT 에서 주입한 {@code X-User-Role} 에 직원 역할이 없으면 403 으로 차단해
- * 등급/신용등급/FDS 룰 등 고영향 직원 API 에 대한 방어선(defense-in-depth)을 둔다.
+ * <p>직무별 실인가는 {@link SecurityConfig} 의 {@code requestMatchers(...).hasAnyRole(...)} 가
+ * 담당한다(필터 단계라 이 인터셉터보다 먼저 실행됨). 이 인터셉터는 그보다 앞단에서 "고객
+ * 토큰" 같은 비직원 호출을 구조화된 {@code COMMON_403} 으로 끊는 coarse 방어선(defense-in-depth)
+ * 으로 남는다 — SecurityConfig 가 더 좁으므로 권한 판정의 단일 소스는 SecurityConfig 다.
  *
  * <p>고객 토큰은 {@code ROLE_CUSTOMER} 만 보유하므로 직원 역할 화이트리스트로 검증한다.
  */
