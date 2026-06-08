@@ -77,3 +77,17 @@ chatbot_kafka_consume_total = Counter(
     "Kafka 이벤트 소비 수",
     ["event_type", "status"],
 )
+
+# ── 레이블 사전 초기화 (rate() 정상 동작 보장) ────────────────────────────────
+# 레이블 있는 Counter는 첫 .inc() 전까지 /metrics에 미노출 → Prometheus가 기준값 0을
+# 못 보고 rate()가 항상 0을 반환하는 문제 방지
+for _screen in ["WEB_PERSONAL", "CHAT", "HOME", "PRODUCT_TAB", "TRANSFER_TAB", "UNKNOWN"]:
+    chatbot_session_total.labels(entry_screen=_screen)
+
+for _method in [
+    "SCENARIO", "STAFF_REQUEST",
+    "FEATURE_PRODUCT_GUIDE", "FEATURE_RATE_GUIDE", "FEATURE_JOIN_CONDITION",
+    "FEATURE_PRODUCT_COMPARE", "FEATURE_TERMS_RAG", "FEATURE_CASH_FLOW_RECOMMEND",
+    "FEATURE_FAQ", "FEATURE_MY_ACCOUNTS", "FEATURE_INTEREST_HISTORY", "FEATURE_SAVINGS_GOAL",
+]:
+    chatbot_message_total.labels(process_method=_method)
