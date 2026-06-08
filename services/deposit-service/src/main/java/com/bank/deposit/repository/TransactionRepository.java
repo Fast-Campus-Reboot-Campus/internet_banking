@@ -20,7 +20,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Page<Transaction> findByAccountIdAndTransactionAtBetween(Long accountId, OffsetDateTime start, OffsetDateTime end, Pageable pageable);
     List<Transaction> findByContractIdAndTransactionType(Long contractId, TransactionType type);
     Optional<Transaction> findByTransactionNumber(String transactionNumber);
-    Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
     Optional<Transaction> findByIdempotencyKeyAndAccountId(String idempotencyKey, Long accountId);
     List<Transaction> findByAccountIdInAndTransactionAtBetweenAndStatus(
             List<Long> accountIds, OffsetDateTime start, OffsetDateTime end, TransactionStatus status);
