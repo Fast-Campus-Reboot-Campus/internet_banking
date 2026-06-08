@@ -11,7 +11,6 @@ export default function AdminReviewNewPage() {
   const [applId, setApplId]         = useState('')
   const [revType, setRevType]       = useState('MANUAL')
   const [revDecision, setRevDecision] = useState('APPROVED')
-  const [reviewerId, setReviewerId] = useState('1')
   const [busy, setBusy]             = useState(false)
   const [err, setErr]               = useState('')
 
@@ -22,7 +21,6 @@ export default function AdminReviewNewPage() {
       await adminReviewApi.run(parseInt(applId), {
         revTypeCd: revType,
         revDecisionCd: revDecision,
-        reviewerId: parseInt(reviewerId),
       })
       router.push(`/admin/loan/review/${applId}`)
     } catch (e: any) {
@@ -66,11 +64,6 @@ export default function AdminReviewNewPage() {
                 <option value="APPROVED">승인</option>
                 <option value="REJECTED">거절</option>
               </select>
-            </div>
-            <div>
-              <label className="block text-[13px] font-medium text-gray-700 mb-1">심사자 ID</label>
-              <input type="number" value={reviewerId} onChange={e => setReviewerId(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] focus:outline-none" />
             </div>
             <div className="flex gap-3 pt-2">
               <Link href="/admin/loan/review"

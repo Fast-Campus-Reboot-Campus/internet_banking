@@ -40,8 +40,6 @@ export default function LoanReviewDetailPage() {
   // review form state
   const [revType, setRevType]               = useState('MANUAL')
   const [revDecision, setRevDecision]       = useState('APPROVED')
-  const [reviewerId, setReviewerId]         = useState('1')
-  const [approverId, setApproverId]         = useState('2')
   const [confirmRemark, setConfirmRemark]   = useState('')
   const [ackRemark, setAckRemark]           = useState('')
   const [overrideReason, setOverrideReason] = useState('')
@@ -290,13 +288,8 @@ export default function LoanReviewDetailPage() {
                         <option value="REJECTED">거절</option>
                       </select>
                     </label>
-                    <label className="text-[12px] text-gray-600">
-                      심사자 ID
-                      <input type="number" value={reviewerId} onChange={e => setReviewerId(e.target.value)}
-                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
-                    </label>
                     <Btn label="본심사 시작" disabled={busy || !dsrDone}
-                      onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, revDecisionCd: revDecision, reviewerId: parseInt(reviewerId) }), '본심사가 시작되었습니다.')} />
+                      onClick={() => act(() => adminReviewApi.run(numApplId, { revTypeCd: revType, revDecisionCd: revDecision }), '본심사가 시작되었습니다.')} />
                     <Btn label="자동 결정" disabled={busy || !dsrDone} variant="outline"
                       onClick={() => act(() => adminReviewApi.autoDecide(numApplId), '자동 결정이 완료되었습니다.')} />
                     {!dsrDone && <span className="text-[11px] text-gray-400">DSR 완료 후 본심사 가능</span>}
@@ -307,18 +300,13 @@ export default function LoanReviewDetailPage() {
                 {status === 'PENDING_APPROVAL' && (
                   <div className="flex flex-wrap gap-3 items-end mt-2 pt-3 border-t border-gray-100">
                     <label className="text-[12px] text-gray-600">
-                      확정자 ID
-                      <input type="number" value={reviewerId} onChange={e => setReviewerId(e.target.value)}
-                        className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
-                    </label>
-                    <label className="text-[12px] text-gray-600">
                       비고
                       <input type="text" value={confirmRemark} onChange={e => setConfirmRemark(e.target.value)}
                         placeholder="(선택)"
                         className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-48" />
                     </label>
                     <Btn label="심사 확정" disabled={busy}
-                      onClick={() => act(() => adminReviewApi.confirm(numApplId, { reviewerId: parseInt(reviewerId), confirmRemark }), '심사가 확정되었습니다.')} />
+                      onClick={() => act(() => adminReviewApi.confirm(numApplId, { confirmRemark }), '심사가 확정되었습니다.')} />
                   </div>
                 )}
 
@@ -336,13 +324,8 @@ export default function LoanReviewDetailPage() {
                           <input type="text" value={overrideReason} onChange={e => setOverrideReason(e.target.value)}
                             className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-64" />
                         </label>
-                        <label className="text-[12px] text-gray-600">
-                          담당자 ID
-                          <input type="number" value={approverId} onChange={e => setApproverId(e.target.value)}
-                            className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
-                        </label>
                         <Btn label="편향 오버라이드" disabled={busy || !overrideReason}
-                          onClick={() => act(() => adminReviewApi.biasOverride(revId, { overrideBy: parseInt(approverId), overrideReason }), '오버라이드가 완료되었습니다.')} />
+                          onClick={() => act(() => adminReviewApi.biasOverride(revId, { overrideReason }), '오버라이드가 완료되었습니다.')} />
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-3 items-end">
@@ -367,13 +350,8 @@ export default function LoanReviewDetailPage() {
                         ⚠ CRITICAL 미해소 Advisory 리포트가 있습니다 — 승인 전 검토 필요
                       </div>
                     )}
-                    <p className="text-[12px] text-gray-500 mb-2">4-eye 원칙: 심사자와 다른 ID를 입력하세요.</p>
+                    <p className="text-[12px] text-gray-500 mb-2">4-eye 원칙: 로그인한 직원(심사자와 다른 사람)이 승인해야 합니다.</p>
                     <div className="flex flex-wrap gap-3 items-end">
-                      <label className="text-[12px] text-gray-600">
-                        승인자 ID
-                        <input type="number" value={approverId} onChange={e => setApproverId(e.target.value)}
-                          className="ml-2 border border-gray-300 rounded px-2 py-1 text-[12px] w-20" />
-                      </label>
                       <Btn label="승인" disabled={busy}
                         onClick={() => act(() => adminReviewApi.approverApprove(numApplId, { approverDecisionCd: 'APPROVED' }), '승인이 완료되었습니다.')} />
                       <Btn label="반려" disabled={busy} variant="danger"

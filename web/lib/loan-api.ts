@@ -415,7 +415,7 @@ export const adminReviewApi = {
   autoDecide: (applId: number) =>
     api.post<any>(`/api/loan-applications/${applId}/review/auto-decide`, {}),
 
-  confirm: (applId: number, body: { reviewerId: number; confirmRemark?: string }) =>
+  confirm: (applId: number, body: { confirmRemark?: string }) =>
     api.post<any>(`/api/loan-applications/${applId}/review/confirm`, body),
 
   acknowledgeBias: (applId: number, body?: { acknowledgeRemark?: string }) =>
@@ -436,7 +436,7 @@ export const adminReviewApi = {
   addCheck: (revId: number, body: object) =>
     api.post<any>(`/api/loan-reviews/${revId}/checks`, body),
 
-  biasOverride: (revId: number, body: { overrideBy: number; overrideReason: string }) =>
+  biasOverride: (revId: number, body: { overrideReason: string }) =>
     api.post<any>(`/api/loan-reviews/${revId}/bias-override`, body),
 
   getAdvisoryReports: (revId: number) =>
