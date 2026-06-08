@@ -164,6 +164,9 @@ public enum LoanErrorCode implements ErrorCode {
     LOAN_205(HttpStatus.BAD_REQUEST, "break-glass 사유는 10자 이상이어야 합니다."),
     LOAN_206(HttpStatus.NOT_FOUND,   "break-glass 대상 건을 찾을 수 없습니다."),
 
+    // 본심사 정정(재심사) 4-eye (207)
+    LOAN_207(HttpStatus.FORBIDDEN,   "정정(재심사) 행위자를 인증할 수 없거나, 최종 승인자 본인이 자신의 승인 건을 단독 정정할 수 없습니다. 4-eye 원칙에 따라 다른 사람이 정정해야 합니다."),
+
     // RAG (210-219)
     LOAN_210(HttpStatus.SERVICE_UNAVAILABLE,  "임베딩 API 호출에 실패했습니다. 잠시 후 재시도하세요."),
     LOAN_211(HttpStatus.BAD_GATEWAY,          "임베딩 API 응답이 유효하지 않습니다. (차원 불일치 또는 빈 응답)");

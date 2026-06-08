@@ -60,7 +60,16 @@ public class LoanReviewReviseService {
 
         boolean approved = LoanReview.DECISION_APPROVED.equals(req.revDecisionCd());
         OffsetDateTime now = OffsetDateTime.now();
+
+        // 정정 행위자는 인증된 호출자(currentActorId)로만 식별한다. 요청 바디 값은 신뢰하지 않는다.
+        // 4-eye: 최종 승인자(approverId) 본인이 자신의 승인 건을 단독으로 정정하지 못하게 막는다.
         Long actorId = currentActor.currentActorId();
+        if (actorId == null || CurrentActorProvider.SYSTEM.equals(actorId)) {
+            throw new BusinessException(LoanErrorCode.LOAN_207);
+        }
+        if (actorId.equals(review.getApproverId())) {
+            throw new BusinessException(LoanErrorCode.LOAN_207);
+        }
 
         Long approvedAmount = null;
         Integer approvedRate = null;
@@ -88,11 +97,11 @@ public class LoanReviewReviseService {
                 approvedAmount, approvedRate, approvedPeriod,
                 approved ? null : req.rejectReasonCd(),
                 req.revRemark(),
-                req.reviewerId(),
+                actorId,
                 now
         );
 
-        checkLogWriter.logRevisit(review.getRevId(), approved, req);
+        checkLogWriter.logRevisit(review.getRevId(), approved, req, actorId);
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
