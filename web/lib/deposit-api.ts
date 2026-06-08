@@ -145,6 +145,28 @@ export type CreateDepositContractInput = {
 // 하드코딩 ID는 환경마다 시퀀스가 달라 오동작 유발 — resolveProductId에서 항상 API 조회
 const PRODUCT_ID_BY_SLUG: Record<string, number> = {}
 
+// 상품명 → slug 역조회 (API 상품을 slug로 매핑할 때 사용)
+const PRODUCT_NAME_TO_SLUG: Record<string, string> = {
+  'AXful 정기예금': 'axful-regular',
+  'AXful 수퍼정기예금(개인)': 'axful-super',
+  '일반정기예금': 'regular',
+  'AXful 청년도약계좌': 'axful-youth',
+  'AXful 내맘대로적금': 'axful-free',
+  'AXful 달러자적금': 'axful-dollar',
+  'AXful 맑은하늘적금': 'axful-green',
+  'AXful 특★한 적금': 'axful-star-savings',
+  'AXful 장병내일준비적금': 'axful-soldier',
+  'AXful 직장인우대적금': 'axful-work',
+  'AXful 꿈적금': 'axful-dream',
+  'AXful 함께적금': 'axful-together',
+  'AXful 자유입출금통장': 'axful-free-account',
+  'AXful 청년우대통장': 'axful-youth-account',
+  'AXful 쏙머니통장': 'axful-sok',
+  '모니모 AXful 매일이자 통장': 'monimo-daily',
+  '주택청약종합저축': 'housing-savings',
+  '청년 주택드림 청약통장': 'youth-housing',
+}
+
 const SLUG_BY_PRODUCT_ID = Object.fromEntries(
   Object.entries(PRODUCT_ID_BY_SLUG).map(([slug, productId]) => [productId, slug])
 ) as Record<number, string>
@@ -231,8 +253,10 @@ export function getDepositProductIdBySlug(slug: string) {
   return PRODUCT_ID_BY_SLUG[slug]
 }
 
-export function getDepositSlugByProductId(productId: number) {
-  return SLUG_BY_PRODUCT_ID[productId] || `product-${productId}`
+export function getDepositSlugByProductId(productId: number, productName?: string) {
+  if (SLUG_BY_PRODUCT_ID[productId]) return SLUG_BY_PRODUCT_ID[productId]
+  if (productName && PRODUCT_NAME_TO_SLUG[productName]) return PRODUCT_NAME_TO_SLUG[productName]
+  return `product-${productId}`
 }
 
 export function toDepositProductCard(product: DepositProduct) {
@@ -246,7 +270,7 @@ export function toDepositProductCard(product: DepositProduct) {
       : undefined
 
   return {
-    id: getDepositSlugByProductId(product.productId),
+    id: getDepositSlugByProductId(product.productId, product.productName),
     name: product.productName,
     channel: '인터넷·스타뱅킹',
     desc: product.description,

@@ -287,7 +287,7 @@ export default function DepositListPage() {
 
         products.forEach(product => {
           const card = toDepositProductCard(product)
-          const slug = getDepositSlugByProductId(product.productId)
+          const slug = getDepositSlugByProductId(product.productId, product.productName)
           if (product.productType === 'SUBSCRIPTION') {
             next['주택청약']?.push(card)
           } else if (product.productType === 'SAVINGS') {
