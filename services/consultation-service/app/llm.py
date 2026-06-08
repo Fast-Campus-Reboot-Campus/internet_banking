@@ -7,6 +7,8 @@
 # (더 구체적인 "내 패턴/현금흐름 분석 기반" 의도이므로)
 _INTENT_PRIORITY: list[str] = [
     "SAVINGS_GOAL",
+    "MY_ACCOUNTS",
+    "INTEREST_HISTORY",
     "RATE_GUIDE",
     "JOIN_CONDITION",
     "PRODUCT_COMPARE",
@@ -24,12 +26,23 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
         "저축 계획", "저축계획", "얼마 모으", "얼마나 모으",
         "모을 수 있", "몇 개월이면", "몇년이면",
     ],
+    "MY_ACCOUNTS": [
+        "내 계좌", "내계좌", "계좌 보여", "계좌 조회", "계좌조회",
+        "계좌 목록", "계좌 알려", "내 통장", "통장 보여", "잔액 조회",
+        "잔액 보여", "잔액 알려", "내 잔액",
+    ],
+    "INTEREST_HISTORY": [
+        "이자 내역", "이자내역", "이자 조회", "이자 확인", "이자 얼마 받",
+        "이자 받은", "이자 지급", "이자 내역 보여", "이자 내역 알려",
+        "이번 달 이자", "이자 내역 조회",
+    ],
     "RATE_GUIDE": [
         "금리 목록", "금리 보여", "금리 알려줘", "이자율 알려", "금리 현황",
         "금리 알려", "금리 어떻게", "금리가 어떻게", "금리가 얼마", "금리 얼마",
         "이자 얼마", "이자율이", "금리 비교", "어떤 금리", "금리 정보",
         "모든 금리", "전체 금리", "상품 금리", "금리 보여줘",
         "금리 말해줘", "금리들", "금리 다", "금리 전부",
+        "우대금리", "우대 금리", "우대금리 조건", "우대금리 알려",
     ],
     "JOIN_CONDITION": [
         "가입 조건", "가입조건", "가입 자격", "가입 대상",
@@ -246,90 +259,21 @@ class FeatureAnswerFormatter:
         return "\n".join(lines)
 
 
-import time
-
-from langfuse.decorators import observe
-
-from app.metrics import (
-    chatbot_fallback_total,
-    chatbot_llm_completion_tokens,
-    chatbot_llm_duration_seconds,
-    chatbot_llm_error_total,
-    chatbot_llm_prompt_tokens,
-)
-
-# ──────────────────────────────────────────────────────────────────────────────
-# LLM 응답 (OpenAI)
-# ──────────────────────────────────────────────────────────────────────────────
-
-_SYSTEM_PROMPT = """당신은 인터넷 뱅킹 고객 상담 챗봇입니다.
-예금, 적금, 청약 등 수신 금융상품에 대한 질문에 친절하고 정확하게 답변하세요.
-
-규칙:
-1. 고객의 자연어 질문을 의도에 맞게 해석하세요. 구어체·줄임말도 이해하세요.
-2. [참고 정보]에 추천 상품 목록이 있으면, 해당 상품에 대한 후속 질문으로 간주하고 그 정보를 바탕으로 답하세요.
-3. 예금과 적금의 차이, 금리 개념, 가입 방법 등 일반 금융 질문에는 간단명료하게 설명하세요.
-4. '제일 좋은', '가장 좋은', '최고의', '1위', '어떤 게 나아', '골라줘', '추천해줘' 등 단일 추천을 묻는 질문에는 상품 1개만 지정해서 답하세요.
-5. 장점·특징·이유 등을 묻는 후속 질문에는 bullet point로 구체적으로 답하세요.
-6. 본인 계좌/계약 조회처럼 인증이 필요한 경우에는 '상담사 연결이 필요합니다'라고 안내하세요.
-7. 답변은 한국어로, 간결하게 (300자 이내) 작성하세요."""
-
-
 class LlmAdapter:
-    """OpenAI API를 호출해 자유 텍스트 질문에 답변."""
+    """외부 AI 호출 없이 기존 서비스 생성자와 테스트 계약을 유지하는 어댑터."""
 
-    process_method_code = "BP003_GPT"
+    process_method_code = "BP003_RULE"
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str = "", model: str = "rule-based"):
         self.api_key = api_key
         self.model = model
 
-    @observe(name="llm-answer")
     def answer(self, message: str, context: str = "") -> tuple[str, bool]:
-        """LLM 응답을 반환한다.
-
-        Returns:
-            (response_text, is_error) — is_error=True 이면 LLM 호출 실패를 의미하며
-            호출자가 상담사 이관 등 fallback 처리를 수행해야 한다.
-        """
-        from langfuse.decorators import langfuse_context
-        langfuse_context.update_current_trace(
-            tags=["consultation-service"],
-            metadata={"service": "consultation-service"},
+        return (
+            "자동 답변 범위를 벗어난 문의입니다. 상담사 연결을 이용해 주세요.",
+            True,
         )
-        start = time.perf_counter()
-        is_error = False
-        try:
-            from langfuse.openai import OpenAI
-            client = OpenAI(api_key=self.api_key)
 
-            messages = [{"role": "system", "content": _SYSTEM_PROMPT}]
-            if context:
-                messages.append({"role": "system", "content": f"[참고 정보]\n{context}"})
-            messages.append({"role": "user", "content": message})
-
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=500,
-                temperature=0.3,
-            )
-            if response.usage:
-                chatbot_llm_prompt_tokens.labels(method="answer").observe(response.usage.prompt_tokens)
-                chatbot_llm_completion_tokens.labels(method="answer").observe(response.usage.completion_tokens)
-            return response.choices[0].message.content.strip(), False
-        except Exception as exc:
-            is_error = True
-            return (
-                f"죄송합니다, 일시적인 오류가 발생했습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요. ({exc})",
-                True,
-            )
-        finally:
-            chatbot_llm_duration_seconds.labels(method="answer").observe(time.perf_counter() - start)
-            if is_error:
-                chatbot_llm_error_total.labels(method="answer").inc()
-
-    @observe(name="llm-recommend")
     def recommend(
         self,
         cash_flow: dict,
@@ -337,130 +281,21 @@ class LlmAdapter:
         user_query: str,
         history_ctx: str = "",
     ) -> str:
-        """현금흐름 분석 + 실제 상품 데이터 + 대화 이력 기반 개인화 추천 응답.
+        raise RuntimeError("상품 추천은 규칙 기반 추천 엔진에서만 처리합니다.")
 
-        Args:
-            cash_flow   : _analyze_customer_cash_flow() 반환값
-            products    : DB에서 조회한 판매 중인 수신 상품 목록
-            user_query  : 고객 질문 텍스트
-            history_ctx : _build_history_context() 반환값 (없으면 빈 문자열)
-        """
-        from langfuse.decorators import langfuse_context
-        langfuse_context.update_current_trace(
-            tags=["consultation-service"],
-            metadata={"service": "consultation-service"},
-        )
-        start = time.perf_counter()
-        is_error = False
-        try:
-            from langfuse.openai import OpenAI
-            client = OpenAI(api_key=self.api_key)
-
-            # ── 현금흐름 요약 텍스트 ─────────────────────────────────────────────
-            total_balance   = float(cash_flow.get("total_balance", 0))
-            monthly_surplus = float(cash_flow.get("monthly_surplus", 0))
-            tx_count        = float(cash_flow.get("monthly_tx_count", 0))
-            has_data        = cash_flow.get("has_data", False)
-
-            cf_text = (
-                f"- 총 잔액: {total_balance:,.0f}원\n"
-                f"- 월 평균 잉여자금(입금-출금): {monthly_surplus:,.0f}원\n"
-                f"- 월 평균 거래 건수: {tx_count:.1f}건"
-            ) if has_data else "거래 내역이 충분하지 않아 현금흐름 분석이 제한됩니다."
-
-            # ── 상품 목록 텍스트 ─────────────────────────────────────────────────
-            def _product_line(p: dict) -> str:
-                pref_cond = p.get("pref_condition", "")
-                pref_note = f" [우대조건: {pref_cond}]" if pref_cond else ""
-                return (
-                    f"- {p.get('deposit_product_name') or p.get('product_name', '')} "
-                    f"({p.get('deposit_product_type') or p.get('product_type', '')}) "
-                    f"기본금리 {p.get('base_interest_rate', '')}%  "
-                    f"가입금액 {p.get('min_join_amount', '')}~{p.get('max_join_amount', '')}원  "
-                    f"{p.get('min_period_month', '')}~{p.get('max_period_month', '')}개월"
-                    f"{pref_note}"
-                )
-            product_lines = [_product_line(p) for p in products[:8]]
-            product_text = (
-                "\n".join(product_lines) if product_lines else "현재 판매 중인 수신 상품 없음"
-            )
-
-            # ── 시스템 프롬프트 ──────────────────────────────────────────────────
-            system_prompt = (
-                "당신은 인터넷 뱅킹 개인 금융 상담 AI입니다.\n"
-                "고객의 현금흐름 데이터와 실제 판매 중인 수신 상품 정보를 바탕으로 "
-                "고객에게 가장 알맞은 금융 상품을 구체적으로 추천하세요.\n"
-                "규칙:\n"
-                "1. 추천 근거를 반드시 명시하세요 (잔액·잉여자금·거래 패턴과 연계)\n"
-                "2. 상품명과 금리는 구체적인 상품 추천 요청 시에만 언급하세요. "
-                "'예금과 적금 중 어느 게 맞나요?' 같은 **상품 유형 비교 질문**에는 상품명을 나열하지 말고 "
-                "예금/적금 중 어느 유형이 더 적합한지만 간결하게 답하세요.\n"
-                "3. '예금과 적금 중 나한테 적합한 거', '뭐가 더 나아?', '뭐가 더 적합해?' 같은 유형 비교 질문은 "
-                "반드시 예금 또는 적금 중 **하나의 유형만 선택**해서 이유와 함께 답하세요. "
-                "상품 목록 나열 금지. '둘 다 가능합니다' 절대 금지. "
-                "기준: 월 잉여자금 30만원 이상→적금, 잔액 1000만원 이상→예금, 둘 다면 적금 우선.\n"
-                "4. '하나만 추천해줘', '하나만 골라줘' 요청 시에만 구체적인 AXful 상품명을 추천하세요. 군인 전용(장병) 상품 추천 금지.\n"
-                "5. '둘 중', '어느 쪽이', '뭐가 더' 같은 후속 질문은 이전 대화 이력을 참고해 맥락을 파악하고 답변하세요\n"
-                "6. 거래 내역이 부족할 때도 질문 의도에 맞게 일반적인 기준으로 답변하세요\n"
-                "7. 고객이 대출·보험·펀드 등 수신 외 상품을 요청하면 "
-                "'해당 상품은 담당 창구 또는 앱에서 안내 가능합니다'라고 안내하세요\n"
-                "8. 답변은 한국어로, 친절하고 간결하게 (400자 이내)"
-            )
-
-            # ── 메시지 조립 ──────────────────────────────────────────────────────
-            context_parts = [
-                f"[고객 현금흐름 분석]\n{cf_text}",
-                f"[현재 판매 중인 수신 상품]\n{product_text}",
-            ]
-            if history_ctx:
-                context_parts.append(history_ctx)
-
-            llm_messages: list[dict] = [
-                {"role": "system", "content": system_prompt},
-                {"role": "system", "content": "\n\n".join(context_parts)},
-                {"role": "user",   "content": user_query or "내 현금 흐름에 맞는 상품을 추천해줘"},
-            ]
-
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=llm_messages,
-                max_tokens=600,
-                temperature=0.3,
-            )
-            if response.usage:
-                chatbot_llm_prompt_tokens.labels(method="recommend").observe(response.usage.prompt_tokens)
-                chatbot_llm_completion_tokens.labels(method="recommend").observe(response.usage.completion_tokens)
-            return response.choices[0].message.content.strip()
-
-        except ImportError:
-            is_error = True
-            return (
-                "죄송합니다, AI 추천 서비스를 사용하려면 openai 패키지가 필요합니다. "
-                "상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
-            )
-        except Exception:
-            is_error = True
-            # 구체적인 에러 메시지를 외부에 노출하지 않는다
-            return (
-                "죄송합니다, 상품 추천 중 일시적인 오류가 발생했습니다. "
-                "잠시 후 다시 시도하거나 '상담사 연결'을 선택해 주세요."
-            )
-        finally:
-            chatbot_llm_duration_seconds.labels(method="recommend").observe(time.perf_counter() - start)
-            if is_error:
-                chatbot_llm_error_total.labels(method="recommend").inc()
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 상담사 이관 fallback
-# ──────────────────────────────────────────────────────────────────────────────
 
 class LlmHandoffAdapter:
     process_method_code = "BP002"
 
     def answer(self, message: str) -> str:
-        chatbot_fallback_total.inc()
+        try:
+            from app.metrics import chatbot_fallback_total
+            chatbot_fallback_total.inc()
+        except Exception:
+            pass
         return (
             "시나리오로 즉시 처리하기 어려운 문의입니다. "
-            "LLM 응답 검증 레이어가 연결되기 전까지는 상담사 연결을 권장합니다."
+            "상담사 연결을 이용해 주세요."
         )
+
+

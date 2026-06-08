@@ -47,6 +47,8 @@ management:
       show-details: always
   metrics:
     distribution:
+      percentiles-histogram:
+        http.server.requests: true
       percentiles:
         http.server.requests: 0.5, 0.95, 0.99
     tags:
@@ -65,6 +67,8 @@ springdoc:
   default-produces-media-type: application/json
 
 logging:
+  file:
+    name: ${LOG_DIR:/logs}/deposit-service.log
   level:
     root: INFO
     org.springframework.web: INFO

@@ -254,14 +254,17 @@ export default function AccountsPage() {
                   open={depositOpen} onToggle={() => setDepositOpen(v => !v)} />
                 {depositOpen && (
                   pureDepositAccounts.length === 0
-                    ? <EmptyState message="가입된 예금 계좌가 없습니다." subMessage="여유자금을 예금에 맡겨보세요." actionHref="/products/deposit" actionLabel="가입하기" />
+                    ? <EmptyState message="가입된 예금 계좌가 없습니다." subMessage="여유자금을 예금에 맡겨보세요." actionHref="/products/deposit/list?tab=deposit" actionLabel="가입하기" />
                     : pureDepositAccounts.map(account =>
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
-                            {['조회', '해지예상조회', '계좌관리'].map(label => (
-                              <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
-                                style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
-                            ))}
+                            <Link href="/inquiry/transactions"
+                              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-kb-primary-bg"
+                              style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                              조회
+                            </Link>
+                            <button className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
+                              style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>계좌관리</button>
                             <Link href="/products/deposit/inquiry/terminate"
                               className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-red-50"
                               style={{ borderColor: '#E05555', color: '#E05555' }}>
@@ -281,11 +284,16 @@ export default function AccountsPage() {
                   open={regularSavingsOpen} onToggle={() => setRegularSavingsOpen(v => !v)} />
                 {regularSavingsOpen && (
                   regularSavingsAccounts.length === 0
-                    ? <EmptyState message="가입된 정기적금 계좌가 없습니다." subMessage="매월 일정액을 납입하는 정기적금을 시작해보세요." actionHref="/products/deposit/list?tab=정기적금" actionLabel="가입하기" />
+                    ? <EmptyState message="가입된 정기적금 계좌가 없습니다." subMessage="매월 일정액을 납입하는 정기적금을 시작해보세요." actionHref="/products/deposit/list?tab=regular-savings" actionLabel="가입하기" />
                     : regularSavingsAccounts.map(account =>
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
-                            {['조회', '해지예상조회', '납입현황', '계좌관리'].map(label => (
+                            <Link href="/inquiry/transactions"
+                              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-kb-primary-bg"
+                              style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                              조회
+                            </Link>
+                            {['납입현황', '계좌관리'].map(label => (
                               <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
                                 style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
@@ -303,11 +311,16 @@ export default function AccountsPage() {
                   open={freeSavingsOpen} onToggle={() => setFreeSavingsOpen(v => !v)} />
                 {freeSavingsOpen && (
                   freeSavingsAccounts.length === 0
-                    ? <EmptyState message="가입된 자유적금 계좌가 없습니다." subMessage="목돈 마련의 첫걸음, 자유적금을 시작해보세요." actionHref="/products/deposit/list?tab=자유적금" actionLabel="가입하기" />
+                    ? <EmptyState message="가입된 자유적금 계좌가 없습니다." subMessage="목돈 마련의 첫걸음, 자유적금을 시작해보세요." actionHref="/products/deposit/list?tab=free-savings" actionLabel="가입하기" />
                     : freeSavingsAccounts.map(account =>
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">
-                            {['조회', '해지예상조회', '입금', '계좌관리'].map(label => (
+                            <Link href="/inquiry/transactions"
+                              className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border text-center transition-colors hover:bg-kb-primary-bg"
+                              style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                              조회
+                            </Link>
+                            {['입금', '계좌관리'].map(label => (
                               <button key={label} className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border transition-colors hover:bg-kb-primary-bg"
                                 style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>{label}</button>
                             ))}
@@ -324,7 +337,7 @@ export default function AccountsPage() {
                   balance={bal(checkingAccounts.reduce((s, a) => s + a.balance, 0))}
                   open={checkingOpen} onToggle={() => setCheckingOpen(v => !v)} />
                 {checkingOpen && (checkingAccounts.length === 0
-                ? <EmptyState message="가입된 입출금 계좌가 없습니다." subMessage="자유롭게 입출금할 수 있는 통장을 개설해보세요." actionHref="/products/deposit" actionLabel="가입하기" />
+                ? <EmptyState message="가입된 입출금 계좌가 없습니다." subMessage="자유롭게 입출금할 수 있는 통장을 개설해보세요." actionHref="/products/deposit/list?tab=checking" actionLabel="가입하기" />
                 : checkingAccounts.map(account =>
                   accountCard(account,
                     <div className="flex flex-col gap-1">
@@ -334,7 +347,7 @@ export default function AccountsPage() {
                           style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
                           조회
                         </Link>
-                        <Link href="/transfer/account"
+                        <Link href={`/transfer/account?from=${account.number}`}
                           className="px-4 py-1.5 text-[12px] font-semibold text-white rounded-lg hover:opacity-85 transition-opacity"
                           style={{ backgroundColor: KB_PRIMARY }}>
                           이체
@@ -370,7 +383,7 @@ export default function AccountsPage() {
                   open={subscriptionOpen} onToggle={() => setSubscriptionOpen(v => !v)} />
                 {subscriptionOpen && (
                   subscriptionAccounts.length === 0
-                    ? <EmptyState message="가입된 청약 계좌가 없습니다." subMessage="내 집 마련의 첫걸음, 주택청약을 시작해보세요." actionHref="/products/deposit" actionLabel="가입하기" />
+                    ? <EmptyState message="가입된 청약 계좌가 없습니다." subMessage="내 집 마련의 첫걸음, 주택청약을 시작해보세요." actionHref="/products/deposit/list?tab=subscription" actionLabel="가입하기" />
                     : subscriptionAccounts.map(account =>
                         accountCard(account,
                           <div className="grid grid-cols-2 gap-1">

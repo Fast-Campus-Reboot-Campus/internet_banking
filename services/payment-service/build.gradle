@@ -34,6 +34,7 @@ dependencies {
 
     // Feign (deposit/loan/customer HTTP 클라이언트 — Stage 6에서 구현)
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'io.github.openfeign:feign-hc5'
 
     // Flyway (DB 마이그레이션 — Stage 3에서 V1 마이그레이션 SQL 추가)
     implementation 'org.flywaydb:flyway-core'

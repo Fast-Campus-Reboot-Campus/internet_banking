@@ -26,7 +26,7 @@ scrape_configs:
       - targets: ['host.docker.internal:8081']
 
   - job_name: 'deposit-service'
-    metrics_path: /actuator/prometheus
+    metrics_path: /api/actuator/prometheus
     static_configs:
       - targets: ['host.docker.internal:8082']
 
@@ -44,11 +44,6 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ['host.docker.internal:8085']
-
-  - job_name: 'ai-service'
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: ['host.docker.internal:8086']
 
   - job_name: 'windows-exporter'
     static_configs:
@@ -85,7 +80,7 @@ scrape_configs:
   - job_name: 'auto-loan-review'
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ['host.docker.internal:8089']
+      - targets: ['host.docker.internal:8086']
 
   # --- 모니터링 스택 직접 메트릭 ---
 

@@ -792,8 +792,12 @@ function IdLoginTab() {
 
       window.location.href = '/'
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } }
-      setError(axiosErr.response?.data?.message ?? '로그인에 실패했습니다.')
+      const axiosErr = err as { code?: string; message?: string; response?: { data?: { message?: string } } }
+      if (!axiosErr.response && (axiosErr.code === 'ERR_NETWORK' || axiosErr.message === 'Network Error')) {
+        setError('로그인 서버에 연결할 수 없습니다. API Gateway(8080)와 customer-service(8081)를 확인해주세요.')
+      } else {
+        setError(axiosErr.response?.data?.message ?? '로그인에 실패했습니다.')
+      }
     } finally {
       setLoading(false)
     }

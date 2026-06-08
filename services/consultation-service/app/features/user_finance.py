@@ -89,15 +89,13 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
     def execute_cash_flow_recommend(
         self, request: ChatbotFeatureExecuteRequest
     ) -> ChatbotFeatureExecuteResponse:
-        """현금흐름 분석 → LLM 기반 개인화 상품 추천.
+        """현금흐름 분석 → 규칙 기반 개인화 상품 추천.
 
         흐름:
           1. customer_no 인증 확인
           2. 현금흐름 분석 (잔액·월 잉여자금·거래 빈도)
-          3. 판매 중인 수신 상품 전체 조회 → LLM 컨텍스트로 전달
-          4. 대화 이력 → LLM 컨텍스트로 전달
-          5. LlmAdapter.recommend() 호출 → 개인화 추천 생성
-          6. LLM 미연결 시 룰 기반 fallback 추천
+          3. 판매 중인 수신 상품 조회
+          4. 현금흐름과 상품 조건을 점수화해 추천 문구 생성
         """
         if not request.customer_no:
             return self._auth_required(
@@ -116,7 +114,7 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
                 "has_data": False,
             }
 
-        # ── 2. 판매 중인 수신 상품 목록 (LLM 컨텍스트용) ──────────────────────
+        # ── 2. 판매 중인 수신 상품 목록 ───────────────────────────────────────
         products = self._rows(
             """
             SELECT banking_product_id AS product_id,
@@ -136,27 +134,8 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
             """
         )
 
-        # ── 3. LLM 추천 ───────────────────────────────────────────────────────
-        if self._llm_adapter:
-            history_ctx = (
-                self._build_history_context(request.chatbot_consultation_id)
-                if request.chatbot_consultation_id
-                else ""
-            )
-            try:
-                recommendation = self._llm_adapter.recommend(
-                    cash_flow=cf,
-                    products=products,
-                    user_query=request.query or "내 현금 흐름에 맞는 상품을 추천해줘",
-                    history_ctx=history_ctx,
-                )
-            except Exception:
-                recommendation = (
-                    "죄송합니다, 추천 생성 중 오류가 발생했습니다. "
-                    "상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
-                )
-        else:
-            recommendation = self._rule_based_recommend(cf, products)
+        # ── 3. 규칙 기반 추천 ────────────────────────────────────────────────
+        recommendation = self._rule_based_recommend(cf, products)
 
         # 상위 3개 상품을 recommended_product 형식으로 data에 포함
         top3 = products[:3]

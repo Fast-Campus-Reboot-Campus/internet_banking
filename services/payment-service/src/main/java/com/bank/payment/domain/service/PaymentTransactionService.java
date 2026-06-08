@@ -541,13 +541,14 @@ public class PaymentTransactionService {
      * @param withdrawResult B-3 출금 응답 (TRANSFER_OUT 분개 잔액박제용)
      * @param command 원 명령 (금액/계좌/수신은행 등)
      * @param senderHolderName 송신 예금주명 (step2 A-2 조회값)
+     * @param receiverHolderName 수신 예금주명 (step2 A-2 조회값, "미조회") — DB 스냅샷용; command.receiverHolderName()은 null 가능
      * @param senderBankCode 자행 3자리 은행코드 (004/088)
      * @return PaymentResult (CLEARING, completedAt=null — BOK 응답 대기)
      */
     @Transactional
     public PaymentResult txStep4InterBok(PaymentInstruction pi, BalanceTxData withdrawResult,
                                           PaymentCommand command, String senderHolderName,
-                                          String senderBankCode) {
+                                          String receiverHolderName, String senderBankCode) {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
         String businessDate = now.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -632,23 +633,23 @@ public class PaymentTransactionService {
         String settlementRequestedAt = now.format(CLEARING_AT_FMT);
 
         // 11. Outbox BOK_REQUEST_SENT — SETTLEMENT_REQUEST payload (⑤ 계약, Record Key=bokReferenceNo)
-        // Map.of는 10쌍 한계 → 12쌍이므로 Map.ofEntries 사용
+        // Map.ofEntries는 null value 불허 → receiverHolderName null 시 NPE. LinkedHashMap으로 교체.
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(Map.ofEntries(
-                    Map.entry("messageType",          "SETTLEMENT_REQUEST"),
-                    Map.entry("messageVersion",       "v1"),
-                    Map.entry("bokReferenceNo",       bokReferenceNo),
-                    Map.entry("paymentInstructionNo", piId),
-                    Map.entry("senderBankCode",       senderBankCode),
-                    Map.entry("senderAccountNo",      command.senderAccountId()),
-                    Map.entry("receiverBankCode",     command.receiverBankCode()),
-                    Map.entry("receiverAccountNo",    command.receiverAccountNo()),
-                    Map.entry("receiverHolderName",   command.receiverHolderName()),
-                    Map.entry("settlementAmount",     transferAmount),
-                    Map.entry("fee",                  feeAmount),
-                    Map.entry("requestedAt",          now.toString())
-            ));
+            Map<String, Object> payloadMap = new LinkedHashMap<>();
+            payloadMap.put("messageType",          "SETTLEMENT_REQUEST");
+            payloadMap.put("messageVersion",       "v1");
+            payloadMap.put("bokReferenceNo",       bokReferenceNo);
+            payloadMap.put("paymentInstructionNo", piId);
+            payloadMap.put("senderBankCode",       senderBankCode);
+            payloadMap.put("senderAccountNo",      command.senderAccountId());
+            payloadMap.put("receiverBankCode",     command.receiverBankCode());
+            payloadMap.put("receiverAccountNo",    command.receiverAccountNo());
+            payloadMap.put("receiverHolderName",   receiverHolderName);
+            payloadMap.put("settlementAmount",     transferAmount);
+            payloadMap.put("fee",                  feeAmount);
+            payloadMap.put("requestedAt",          now.toString());
+            payload = objectMapper.writeValueAsString(payloadMap);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Outbox payload 직렬화 실패(BOK_REQUEST_SENT): " + piId, e);
         }
@@ -666,7 +667,7 @@ public class PaymentTransactionService {
                 senderHolderName,
                 command.receiverBankCode(),
                 command.receiverAccountNo(),
-                command.receiverHolderName(),
+                receiverHolderName,
                 transferAmount,
                 settlementRequestedAt);
         settlementTransactionMapper.insert(bst);
@@ -794,13 +795,16 @@ public class PaymentTransactionService {
     }
 
     /**
-     * TX-SETTLEMENT (S2-A 완결): CLEARING→COMPLETED 한 트랜잭션.
-     * 1. PI CLEARING→COMPLETED (version 3→4, completedAt=now)
-     * 2. CT clearing_status REQUESTED→SETTLED + settled_at/settlement_date (counterparty NULL — P-015 OUT 미적용)
-     * 3. 상태이력: seq5 KFTC_SETTLED(CLEARING→CLEARING, KFTC) + seq6 PAYMENT_COMPLETED(CLEARING→COMPLETED, SYSTEM)
-     * 4. Outbox: KFTC_SETTLED(회계계 P-001 unwind 트리거) + PAYMENT_COMPLETED
-     * ★청산대기 역분개는 회계계 책임(P-001). 우리 ledger CLEARING_PENDING 그대로.
-     * ★completeIntra 미사용 — isIntraBank 가드로 타행 호출 불가. updateStatus 직접 호출.
+     * TX-SETTLEMENT (S2-A 통지 수신): KFTC 차액결제 이연 — PI CLEARING 유지, CT SETTLED.
+     * 1. CT clearing_status REQUESTED→SETTLED + settled_at/settlement_date
+     *    (마감배치가 CT.clearing_status=SETTLED + PI.status=CLEARING 조합으로 처리 대상 식별)
+     * 2. next_timeout_at = NULL — SETTLED 후 마감 대기 중 TimeoutDetectionWorker 오판 방지
+     *    (selectTimedOut: next_timeout_at IS NOT NULL AND status='CLEARING' → null이면 미해당)
+     * 3. 상태이력: seq5 KFTC_SETTLED (CLEARING→CLEARING, KFTC)
+     * 4. Outbox KFTC_SETTLED (회계계 P-001 CLEARING_PENDING unwind + 마감배치 트리거용)
+     * ★ PI 상태 CLEARING 그대로 유지 — COMPLETED 전이 + 분개 unwind는 마감배치(Step 6)가 수행.
+     * ★ version 갱신 없음 — PI 상태 변경 없으므로 낙관락 불필요.
+     * ★ BOK txSettlementBok(RTGS 즉시 COMPLETED)와 달리 CLEARING 이연. 건드리지 말 것.
      */
     @Transactional
     public void txSettlement(PaymentInstruction pi, String clearingNo,
@@ -808,14 +812,12 @@ public class PaymentTransactionService {
         LocalDateTime now = LocalDateTime.now();
         String piId = pi.getPaymentInstructionId();
 
-        // 1. PI CLEARING→COMPLETED (낙관락: pi.getVersion()=3 → WHERE v=3, SET v=4)
-        int updated = paymentInstructionMapper.updateStatus(piId, "COMPLETED", now, null, pi.getVersion());
-        if (updated == 0) {
-            throw new OptimisticLockingFailureException("SETTLEMENT 상태갱신 충돌: " + piId);
-        }
-
-        // 2. CT REQUESTED→SETTLED (counterparty_payment_id=NULL — input에 없음, P-015 OUT 미적용)
+        // 1. CT REQUESTED→SETTLED (settled_at/settlement_date 기록 — 마감배치 조회 기준)
         clearingTransactionMapper.updateSettled(piId, settledAt, settlementDate);
+
+        // 2. next_timeout_at = NULL (CLEARING 유지 상태로 마감 대기 — 타임아웃 폴러 오판 방지)
+        //    updateStatus를 거치지 않으므로 자동 NULL화 없음 → 명시적 클리어 필수
+        paymentInstructionMapper.updateNextTimeoutAt(piId, null);
 
         // 3. 상태이력 seq5: KFTC_SETTLED (CLEARING→CLEARING, 상태 유지 — 청산완료 이벤트 기록)
         Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);
@@ -824,12 +826,7 @@ public class PaymentTransactionService {
                 idGenerator.nextHistoryId(), piId, seq,
                 "CLEARING", "CLEARING", "KFTC_SETTLED", "KFTC", now));
 
-        // 4. 상태이력 seq6: PAYMENT_COMPLETED (CLEARING→COMPLETED)
-        statusHistoryMapper.insert(StatusHistory.of(
-                idGenerator.nextHistoryId(), piId, seq + 1,
-                "CLEARING", "COMPLETED", "PAYMENT_COMPLETED", "SYSTEM", now));
-
-        // 5. Outbox KFTC_SETTLED — 먼저 INSERT (회계계 P-001 CLEARING_PENDING unwind 트리거)
+        // 4. Outbox KFTC_SETTLED (회계계 P-001 CLEARING_PENDING unwind 트리거 + 마감배치 SETTLEMENT_NOTIFY 이벤트)
         String kftcSettledPayload;
         try {
             kftcSettledPayload = objectMapper.writeValueAsString(Map.of(
@@ -844,29 +841,17 @@ public class PaymentTransactionService {
         }
         outboxMessageMapper.insert(OutboxMessage.of(
                 idGenerator.nextMessageId(), piId, "KFTC_SETTLED", "v1", kftcSettledPayload, now));
-
-        // 6. Outbox PAYMENT_COMPLETED — 나중 INSERT (message_id 단조증가 → 워커 ORDER BY message_id로 순서 보장)
-        String paymentCompletedPayload;
-        try {
-            paymentCompletedPayload = objectMapper.writeValueAsString(Map.of(
-                    "paymentInstructionId", piId,
-                    "status", "COMPLETED",
-                    "transferAmount", pi.getTransferAmount(),
-                    "completedAt", now.toString()));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Outbox payload 직렬화 실패(PAYMENT_COMPLETED): " + piId, e);
-        }
-        outboxMessageMapper.insert(OutboxMessage.of(
-                idGenerator.nextMessageId(), piId, "PAYMENT_COMPLETED", "v1", paymentCompletedPayload, now));
     }
 
     /**
      * TX-SETTLEMENT-BOK (S3 완결): CLEARING→COMPLETED 한 트랜잭션.
      * 1. PI CLEARING→COMPLETED (version 3→4, completedAt=now)
      * 2. BST settlement_status REQUESTED→SETTLED + settled_at/settlement_date
+     * 2.5. BOK RTGS 한은당좌 unwind 분개 쌍 INSERT (CLEARING_PENDING_UNWIND + INTERBANK_SETTLEMENT)
+     *      — 원분개 CLEARING_PENDING(KB-CLR-BOK)에서 accountId/snap/holder/amount/currency/일자 계승
+     *      — journal_no 균형: clearingPendingUnwind.amount == bokDda.amount == clearingOrig.amount
      * 3. 상태이력: BOK_CONFIRMED(CLEARING→CLEARING, BOK) + PAYMENT_COMPLETED(CLEARING→COMPLETED, SYSTEM)
-     * 4. Outbox: BOK_CONFIRMED(먼저, 회계계 P-001 unwind 트리거) + PAYMENT_COMPLETED(나중)
-     * txSettlement의 BOK판 — 대칭. version WHERE pi.getVersion()(=3) 동일.
+     * 4. Outbox: BOK_CONFIRMED(먼저) + PAYMENT_COMPLETED(나중)
      */
     @Transactional
     public void txSettlementBok(PaymentInstruction pi, String bokReferenceNo,
@@ -882,6 +867,27 @@ public class PaymentTransactionService {
 
         // 2. BST REQUESTED→SETTLED (counterparty_payment_id=NULL — P-015 OUT 미적용)
         settlementTransactionMapper.updateSettled(piId, settledAt, settlementDate);
+
+        // 2.5. BOK RTGS 한은당좌 unwind 분개 쌍 — 원분개 CLEARING_PENDING(KB-CLR-BOK) 계승
+        List<Ledger> originals = ledgerMapper.selectOriginalsByPaymentId(piId);
+        Ledger clearingOrig = originals.stream()
+                .filter(l -> "CLEARING_PENDING".equals(l.getJournalType()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("BOK 청산대기 원분개 없음: " + piId));
+        String jnSettlement = idGenerator.nextJournalNo();
+        ledgerMapper.insert(Ledger.clearingPendingUnwind(
+                idGenerator.nextLedgerId(), piId,
+                clearingOrig.getAccountId(), clearingOrig.getAccountNoSnap(), clearingOrig.getHolderNameSnap(),
+                jnSettlement, clearingOrig.getAmount(),
+                clearingOrig.getCurrency(),
+                clearingOrig.getTransactionDate(), clearingOrig.getPostingDate(), clearingOrig.getValueDate(),
+                now, "BOK RTGS 한은당좌 정산 - 청산대기 해소"));
+        ledgerMapper.insert(Ledger.bokDda(
+                idGenerator.nextLedgerId(), piId,
+                jnSettlement, clearingOrig.getAmount(),
+                clearingOrig.getCurrency(),
+                clearingOrig.getTransactionDate(), clearingOrig.getPostingDate(), clearingOrig.getValueDate(),
+                now, "BOK RTGS 한은당좌 정산"));
 
         // 3. 상태이력: BOK_CONFIRMED (CLEARING→CLEARING, 상태 유지 — 한은 정산완료 이벤트 기록)
         Integer maxSeq = statusHistoryMapper.selectMaxSequence(piId);

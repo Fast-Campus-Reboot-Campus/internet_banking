@@ -3,6 +3,7 @@ import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE }
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import CartModal from '@/components/products/CartModal'
 import DepositSidebar from '@/components/products/DepositSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
@@ -201,6 +202,7 @@ const CHECKING_PRODUCTS: Product[] = [
     name: 'AXful 자유입출금통장',
     channel: '인터넷뱅킹',
     desc: '언제든 자유롭게 입출금 가능한 기본 통장',
+    canApply: true,
   },
   {
     id: 'axful-youth-account',
@@ -233,22 +235,40 @@ const HOUSING_PRODUCTS: Product[] = [
 type Tab = '예금' | '정기적금' | '자유적금' | '입출금자유' | '주택청약'
 const TABS: Tab[] = ['예금', '정기적금', '자유적금', '입출금자유', '주택청약']
 
+const TAB_ALIASES: Record<string, Tab> = {
+  deposit: '예금',
+  'regular-savings': '정기적금',
+  regular: '정기적금',
+  'free-savings': '자유적금',
+  free: '자유적금',
+  checking: '입출금자유',
+  account: '입출금자유',
+  demand: '입출금자유',
+  subscription: '주택청약',
+  housing: '주택청약',
+}
+
+function resolveTabParam(raw: string | null): Tab | null {
+  if (!raw) return null
+  const decoded = decodeURIComponent(raw).trim()
+  if ((TABS as readonly string[]).includes(decoded)) return decoded as Tab
+  return TAB_ALIASES[decoded.toLowerCase()] ?? null
+}
+
 const DEPOSIT_PRODUCT_TYPES = ['전체', '정기예금', '지수연동예금', '시장성예금']
 const JOIN_METHODS = ['전체', '인터넷뱅킹', 'AXful Next', '영업점']
 const JOIN_PERIODS = ['전체', '3개월 미만', '3-6개월 미만', '6-12개월 미만', '12-24개월 미만', '24개월 이상']
 
 export default function DepositListPage() {
+  const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('예금')
   const [apiProductsMap, setApiProductsMap] = useState<Partial<Record<Tab, Product[]>>>({})
 
   // URL ?tab= 파라미터로 초기 탭 설정 (클라이언트 전용)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const raw = params.get('tab') as Tab | null
-    if (raw && (TABS as readonly string[]).includes(raw)) {
-      setTab(raw)
-    }
-  }, [])
+    const nextTab = resolveTabParam(searchParams.get('tab'))
+    if (nextTab) setTab(nextTab)
+  }, [searchParams])
 
   useEffect(() => {
     let cancelled = false

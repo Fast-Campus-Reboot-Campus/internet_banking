@@ -1,7 +1,7 @@
 # Deposit Service
 
 작성자: 정혜영  
-수정일: 2026-06-04
+수정일: 2026-06-07
 
 Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, 계약, 거래 내역을 담당하는 백엔드 서비스입니다. 프론트엔드의 예금 상품 조회, 상품 상세, 계좌이체, 이체 결과 조회, 거래내역 조회 화면과 연동됩니다.
 
@@ -26,6 +26,8 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 이체 시나리오 테스트 | INTERNAL 토AccountId null, 존재하지 않는 계좌, CLOSED 계좌, 계좌번호 불일치, 타행이체 잔액 차감 검증 추가. |
 | 챗봇 상품 추천 우대금리 표시 | 상품 추천 카드에 우대금리 수치(+X%)와 조건을 함께 표시합니다. `banking_deposit_product_interest_rates` 테이블의 PREFERENTIAL 금리 합산값과 조건을 카드에 노출합니다. |
 | 이체 API 중복 함수 제거 | `web/lib/deposit-api.ts`의 `executeDepositTransfer` 중복 정의를 제거했습니다. |
+| 당행이체 계좌번호 조회 자동화 | `TransactionService.transfer()`에서 INTERNAL 이체 시 `toAccountId`가 null이면 throw 대신 `accountRepository.findByAccountNumber(toAccountNo)`로 계좌를 조회해 ID를 자동 매핑합니다. 타인 당행 계좌 이체 시 프론트가 내부 ID를 알 수 없는 구조적 한계를 백엔드에서 해소합니다. |
+| **챗봇·상담 테이블 소유권 이관 (V5 → V12)** | V5 마이그레이션에 포함됐던 `chatbot_*` · `consultation` 테이블 6개를 deposit-service 관할에서 제거합니다. 해당 테이블의 실제 소유자는 consultation-service이며, 서비스 기동 시 SQLAlchemy `create_all()`로 올바른 스키마로 자동 생성됩니다. V12 마이그레이션에서 기존 deposit-db의 불일치 테이블을 DROP해 충돌을 해소합니다. |
 
 ## 백엔드 변경 상세
 
@@ -103,6 +105,42 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 4. 실패하면 실패 메시지를 결과 영역에 표시합니다.
 5. 처리 후 `pendingTransfer`를 제거해 중복 실행을 막습니다.
 
+#### 당행이체 라우팅 개선 — `toAccountId` 자동 조회
+
+**배경**
+
+프론트엔드는 본인 계좌 목록만 보유하므로(`fetchDepositAccountViewModels(customerId)`), 타인 당행 계좌의 내부 ID(`toAccountId`)를 알 수 없습니다. 기존 코드는 `toAccountId`가 null이면 즉시 `ACCOUNT_NOT_FOUND`를 throw해 타인 당행 계좌 이체가 항상 실패했습니다.
+
+**변경 내용**
+
+`TransactionService.transfer()`에서 INTERNAL 이체 시 `toAccountId`가 null이면 throw 대신 `toAccountNo`로 계좌를 조회해 ID를 자동으로 채웁니다.
+
+```java
+// 변경 전
+if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
+    throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND);
+}
+
+// 변경 후
+if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
+    toAccountId = accountRepository.findByAccountNumber(toAccountNo)
+            .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND))
+            .getAccountId();
+}
+```
+
+**효과**
+
+- 프론트는 계좌번호와 은행코드만 전달하면 됩니다. INTERNAL/EXTERNAL 라우팅을 추측할 필요가 없어집니다.
+- 계좌번호가 실제로 존재하지 않으면 기존과 동일하게 `ACCOUNT_NOT_FOUND`를 반환합니다. 안전장치는 유지됩니다.
+- 관련 이슈 #87·#89·#90의 타인 당행 계좌 이체 실패 버그가 한 곳 수정으로 해소됩니다.
+
+관련 파일:
+
+| 파일 | 내용 |
+| --- | --- |
+| `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java` | INTERNAL `toAccountId` null 시 `findByAccountNumber` 조회로 변경 |
+
 관련 파일:
 
 | 파일 | 내용 |
@@ -134,7 +172,8 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 타행이체 출금 거래 생성 | OUT 방향, TRF- 번호, 잔액 차감 검증 |
 | 당행이체 양방향 거래 생성 | OUT+IN 각각 생성, 채널 SYSTEM, "이체 수신" 메모 |
 | 잔액 부족 이체 예외 | `BusinessException` 발생 |
-| INTERNAL toAccountId null 예외 | `BusinessException` 발생 |
+| INTERNAL toAccountId null → 계좌번호 조회 성공 | `findByAccountNumber`로 ID 매핑 후 이체 정상 처리 |
+| INTERNAL toAccountId null + 존재하지 않는 계좌번호 | `BusinessException(ACCOUNT_NOT_FOUND)` 발생 |
 | 존재하지 않는 출금 계좌 예외 | `BusinessException` 발생 |
 | CLOSED 계좌 이체 예외 | `BusinessException` 발생 |
 | 당행이체 계좌번호 불일치 예외 | `BusinessException` 발생 |
@@ -236,6 +275,9 @@ DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback �
 
 백엔드:
 
+- `services/deposit-service/src/main/resources/db/migration/V5__full_erd_schema.sql` (chatbot·consultation 테이블 제거)
+- `services/deposit-service/src/main/resources/db/migration/V12__drop_chatbot_consultation_tables.sql` (신규)
+- `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/controller/ProductController.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/domain/enums/TransactionChannel.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/dto/response/ProductResponse.java`
@@ -260,6 +302,57 @@ DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback �
 - `web/app/(personal)/transfer/inquiry/page.tsx`
 - `web/app/(personal)/inquiry/transactions/page.tsx`
 
+## DB 마이그레이션 구조
+
+### 챗봇·상담 테이블 소유권 정리 (V5 → V12)
+
+**배경**
+
+V5(`V5__full_erd_schema.sql`)는 전체 ERD를 일괄 생성하는 마이그레이션으로, 챗봇·상담 관련 테이블도 포함돼 있었습니다.
+그러나 이 테이블들의 실제 소유자는 **consultation-service**이며, deposit-service Java 코드는 해당 테이블을 직접 참조하지 않습니다.
+V5의 테이블 스키마(컬럼명 `id`)와 consultation-service SQLAlchemy 모델(컬럼명 `node_id` 등)이 달라 consultation-service가 기동 실패하는 문제가 있었습니다.
+
+**해결**
+
+| 마이그레이션 | 처리 내용 |
+|---|---|
+| `V5__full_erd_schema.sql` | `chatbot_scenario`, `chatbot_intent`, `chatbot_node`, `consultation`, `chatbot_consultation`, `chatbot_conversation_history` 6개 테이블 정의 제거 |
+| `V12__drop_chatbot_consultation_tables.sql` | 이미 실행된 deposit-db의 해당 테이블을 FK 순서대로 DROP (IF EXISTS CASCADE) |
+
+**기동 흐름**
+
+```
+deposit-service 기동
+  → Flyway V12 실행: 불일치 chatbot·consultation 테이블 DROP
+  → consultation-service 기동
+  → SQLAlchemy create_all(): 올바른 컬럼명으로 chatbot·consultation 테이블 재생성
+```
+
+**영향 없음 확인**
+
+- deposit-service Java 코드에서 chatbot·consultation 테이블 참조 없음
+- V6~V11 마이그레이션에서 해당 테이블 참조 없음
+- consultation-service는 deposit-db의 `deposit_*` 테이블(상품·계좌·거래)을 직접 조회하므로 DB 분리 불가 — 동일 deposit-db 유지
+
+### 현재 마이그레이션 목록
+
+| 버전 | 내용 |
+|---|---|
+| V1 | 전체 스키마 초기화 |
+| V2 | Postman 시드 데이터 |
+| V3 | 상품 인덱스 추가 |
+| V4 | 상품 금리 제약 추가 |
+| V5 | 전체 ERD 스키마 (chatbot·consultation 제외) |
+| V6 | 약관 신청 관리 테이블 |
+| V7 | 정기적금 시드 데이터 |
+| V8 | 고객 프론트 상품 시드 데이터 |
+| V9 | 계좌 version 컬럼 추가 |
+| V10 | 계좌 날짜·번호 시퀀스 |
+| V11 | 예약이체 스케줄 테이블 |
+| **V12** | **chatbot·consultation 테이블 DROP (consultation-service 소유권 이관)** |
+
+---
+
 ## 담당 범위 확인
 
-이번 커밋에는 customer-service 변경을 포함하지 않습니다. 인증, 고객, 상담 서비스 담당 영역의 파일은 제외하고 deposit-service와 deposit 프론트 연동 파일만 포함합니다.
+이번 커밋에는 customer-service 변경을 포함하지 않습니다. 인증, 고객 서비스 담당 영역의 파일은 제외하고 deposit-service와 deposit 프론트 연동 파일만 포함합니다.

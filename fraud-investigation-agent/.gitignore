@@ -1,0 +1,14 @@
+# 환경/비밀 — 절대 커밋 금지
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# 루트 .gitignore 가 data/ 를 무시하지만, PoC 목 케이스는 추적해야 함
+!data/
+!data/cases/
+!data/cases/*.json

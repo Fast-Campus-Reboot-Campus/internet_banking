@@ -289,15 +289,10 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
         # 달성 가능 우선, 금리 내림차순 정렬
         enriched.sort(key=lambda x: (not x["achievable"], -x["base_interest_rate"]))
 
-        # ── 추천 메시지 생성 ──────────────────────────────────────────────────
-        if self._llm_adapter:
-            message = self._llm_recommend(
-                goal_amount, goal_months, monthly_payment, lump_sum, enriched, query
-            )
-        else:
-            message = self._rule_recommend(
-                goal_amount, goal_months, monthly_payment, lump_sum, enriched
-            )
+        # ── 추천 메시지 생성 (룰 기반) ───────────────────────────────────────
+        message = self._rule_recommend(
+            goal_amount, goal_months, monthly_payment, lump_sum, enriched
+        )
 
         return ChatbotFeatureExecuteResponse(
             feature_code="SAVINGS_GOAL",
@@ -305,75 +300,6 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
             message=message,
             data=enriched,
         )
-
-    def _llm_recommend(
-        self,
-        goal_amount: float,
-        goal_months: int,
-        monthly_payment: float | None,
-        lump_sum: float | None,
-        products: list[dict],
-        user_query: str,
-    ) -> str:
-        product_lines = []
-        for p in products[:4]:
-            name = p.get("product_name") or "알 수 없음"
-            ptype = "적금" if p.get("product_type") == "SAVINGS" else "예금"
-            rate = p.get("base_interest_rate", 0)
-            maturity = p.get("maturity_amount", 0)
-            interest = p.get("interest_amount", 0)
-            achievable = "✅ 달성가능" if p.get("achievable") else "❌ 목표 미달"
-            if monthly_payment and p.get("product_type") == "SAVINGS":
-                product_lines.append(
-                    f"- [{ptype}] {name}: 금리 {rate}%, 월 {monthly_payment:,.0f}원 납입 시 "
-                    f"만기 {maturity:,.0f}원 (이자 {interest:,.0f}원) {achievable}"
-                )
-            else:
-                principal = lump_sum or goal_amount
-                product_lines.append(
-                    f"- [{ptype}] {name}: 금리 {rate}%, {principal:,.0f}원 예치 시 "
-                    f"만기 {maturity:,.0f}원 (이자 {interest:,.0f}원) {achievable}"
-                )
-
-        payment_info = (
-            f"- 월 납입 가능액: {monthly_payment:,.0f}원" if monthly_payment
-            else f"- 예치 목돈: {lump_sum:,.0f}원"
-        )
-
-        context = (
-            f"[고객 저축 목표]\n"
-            f"- 목표 금액: {goal_amount:,.0f}원\n"
-            f"- 목표 기간: {_period_str(goal_months)}\n"
-            f"{payment_info}\n\n"
-            f"[상품별 계산 결과]\n" + "\n".join(product_lines)
-        )
-
-        system_prompt = (
-            "당신은 인터넷 뱅킹 금융 상담 AI입니다.\n"
-            "고객의 저축 목표와 계산된 상품 비교 데이터를 바탕으로 최적 상품을 추천하세요.\n"
-            "규칙:\n"
-            "1. 목표 금액·기간·납입액을 언급하며 맞춤 분석임을 강조하세요.\n"
-            "2. 달성 가능한 상품 위주로 추천하고, 달성 불가 상품은 이유를 설명하세요.\n"
-            "3. 상품 2~3개를 비교하고 1개를 최종 추천하며 근거를 명확히 하세요.\n"
-            "4. 답변은 한국어로, 친절하고 구체적으로 (500자 이내)"
-        )
-
-        try:
-            from langfuse.openai import OpenAI
-            client = OpenAI(api_key=self._llm_adapter.api_key)
-            response = client.chat.completions.create(
-                model=self._llm_adapter.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "system", "content": context},
-                    {"role": "user", "content": user_query},
-                ],
-                max_tokens=600,
-                temperature=0.3,
-            )
-            return response.choices[0].message.content.strip()
-        except Exception:
-            return self._rule_recommend(goal_amount, goal_months, monthly_payment, lump_sum, products)
 
     def _rule_recommend(
         self,
