@@ -92,7 +92,10 @@ payment:
     account-id: ${PAYMENT_DISBURSEMENT_ACCOUNT_ID:BANK_DISBURSE_001}
 
 doc-agent:
-  base-url: ${DOC_AGENT_BASE_URL:http://doc-agent:8080}
+  # doc-agent 는 8087 에서 listen 한다(서비스 server.port=8087, compose 8087:8087).
+  # 도커 네트워크 기본값은 http://doc-agent:8087, 호스트 실행 시 DOC_AGENT_BASE_URL=http://localhost:8087 로 오버라이드.
+  # doc-agent 미기동(compose profile "doc" 미활성) 시에도 서류 업로드는 검증 보류(PENDING)로 강등되어 성공한다.
+  base-url: ${DOC_AGENT_BASE_URL:http://doc-agent:8087}
 
 internal:
   token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
