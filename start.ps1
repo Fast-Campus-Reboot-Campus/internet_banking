@@ -48,6 +48,13 @@ if (Test-Path $envFile) {
     }
 }
 
+# consultation-service (FastAPI 챗봇) 환경변수
+# env_prefix="CONSULTATION_" 이므로 OpenAI 키는 prefix 형태로 브리지한다.
+$env:CONSULTATION_DATABASE_URL   = "postgresql+psycopg://deposit:deposit@localhost:5433/deposit_db"
+$env:CONSULTATION_KAFKA_ENABLED  = "false"
+$env:CONSULTATION_OPENAI_API_KEY = $env:OPENAI_API_KEY
+$env:CONSULTATION_OPENAI_MODEL   = "gpt-4o-mini"
+
 # 1. Start infra containers only (skip Docker-build app services)
 Write-Host "[1/3] Starting infrastructure..." -ForegroundColor Yellow
 $infra = @(
@@ -100,11 +107,24 @@ Start-Process cmd -ArgumentList "/k gradlew.bat :services:review-ai-gateway:boot
 Start-Sleep -Seconds 2
 Start-Process cmd -ArgumentList "/k gradlew.bat :services:doc-agent:bootRun" -WorkingDirectory $root -WindowStyle Normal
 Start-Sleep -Seconds 2
+
+# consultation-service (FastAPI, 8090) — venv 자동 구성 후 기동
+$consultDir    = Join-Path $root "services\consultation-service"
+$consultVenvPy = Join-Path $consultDir ".venv\Scripts\python.exe"
+if (-not (Test-Path $consultVenvPy)) {
+    Write-Host "  consultation-service: venv 생성 + 의존성 설치 (최초 1회, 수 분 소요)..." -ForegroundColor Yellow
+    python -m venv (Join-Path $consultDir ".venv")
+    & $consultVenvPy -m pip install --upgrade pip -q
+    & $consultVenvPy -m pip install -r (Join-Path $consultDir "requirements.txt") -q
+}
+Start-Process cmd -ArgumentList "/k `"$consultVenvPy`" -m uvicorn app.main:app --host 0.0.0.0 --port 8090 --log-level info" -WorkingDirectory $consultDir -WindowStyle Normal
+Start-Sleep -Seconds 2
+
 Start-Process cmd -ArgumentList "/k npm run dev" -WorkingDirectory "$root\web" -WindowStyle Normal
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " 10 service windows opened (ready in ~30-90s)"
+Write-Host " 11 service windows opened (ready in ~30-90s)"
 Write-Host ""
 Write-Host " Web UI      http://localhost:3001" -ForegroundColor Green
 Write-Host ""
@@ -118,6 +138,7 @@ Write-Host "   api-gw     http://localhost:8080/actuator/health"
 Write-Host "   auto-loan  http://localhost:8089/swagger-ui.html"
 Write-Host "   review-ai  http://localhost:8088/swagger-ui.html"
 Write-Host "   doc-agent  http://localhost:8087/swagger-ui.html"
+Write-Host "   chatbot    http://localhost:8090/docs  (consultation-service)"
 Write-Host ""
 Write-Host " Grafana     http://localhost:3000  (admin/admin)" -ForegroundColor Green
 Write-Host " Langfuse    http://localhost:3002" -ForegroundColor Green
