@@ -54,6 +54,7 @@ class EsCorpusIndexerTest {
                         .asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
                 .withEnv("xpack.security.enabled", "false")
                 .withEnv("xpack.license.self_generated.type", "trial")
+                .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m")   // Docker Desktop 메모리 제약 — ES OOM(exit 137) 방지
                 .withStartupTimeout(Duration.ofMinutes(5));
     }
 
