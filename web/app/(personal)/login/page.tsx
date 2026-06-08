@@ -474,17 +474,52 @@ const MOCK_JOINT_CERTS = [
   },
 ]
 
-async function handleCertLogin(certSerialNumber: string, certType: string, pin: string) {
-  const { data } = await api.post('/api/v1/auth/cert-login', { certSerialNumber, pin, certType })
+async function persistLoginState(auth: { customerId: number; accessToken: string; refreshToken?: string }) {
+  const fallbackUser = { name: '홍길동', email: '', customer_id: auth.customerId }
+
   localStorage.removeItem('sessionExpiry')
-  localStorage.setItem('accessToken', data.data.accessToken)
-  localStorage.setItem('access_token', data.data.accessToken)
-  localStorage.setItem('customerId', String(data.data.customerId))
-  if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
+  localStorage.setItem('accessToken', auth.accessToken)
+  localStorage.setItem('access_token', auth.accessToken)
+  localStorage.setItem('customerId', String(auth.customerId))
+  localStorage.setItem('user', JSON.stringify(fallbackUser))
+  localStorage.setItem('sessionExpiry', String(Date.now() + 10 * 60 * 1000))
+  if (auth.refreshToken) localStorage.setItem('refreshToken', auth.refreshToken)
+
   try {
     const me = await api.get('/api/v1/customers/me')
     localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
   } catch {}
+}
+
+async function handleCertLogin(certSerialNumber: string, certType: string, pin: string) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 8000)
+  let res: Response
+  try {
+    res = await fetch('/api/customer/cert-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ certSerialNumber, pin, certType }),
+      signal: controller.signal,
+    })
+  } catch (err: unknown) {
+    const e = err as { name?: string }
+    throw new Error(e.name === 'AbortError' ? '로그인 요청 시간이 초과되었습니다.' : '인증 서버와 통신할 수 없습니다.')
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+
+  const text = await res.text()
+  let data: { code?: string; message?: string; data?: { accessToken: string; refreshToken?: string; customerId: number } } | null = null
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    throw new Error('인증 서버 응답을 확인할 수 없습니다.')
+  }
+  if (!res.ok || data?.code !== 'OK' || !data.data) {
+    throw new Error(data?.message ?? '인증서 로그인에 실패했습니다.')
+  }
+  await persistLoginState(data.data)
   window.location.href = '/'
 }
 
@@ -515,8 +550,8 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
       const cert = MOCK_JOINT_CERTS.find(c => c.id === selectedCert)!
       await handleCertLogin(cert.serialNumber, cert.certType, password)
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } }
-      setError(e.response?.data?.message ?? '인증서 암호가 맞지 않습니다.')
+      const e = err as { response?: { data?: { message?: string } }; message?: string }
+      setError(e.response?.data?.message ?? e.message ?? '인증서 암호가 맞지 않습니다.')
     } finally {
       setLoading(false)
     }
@@ -776,20 +811,10 @@ function IdLoginTab() {
     localStorage.removeItem('accessToken')
     localStorage.removeItem('access_token')
     localStorage.removeItem('sessionExpiry')
+    localStorage.removeItem('user')
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
-      localStorage.setItem('accessToken', data.data.accessToken)
-      localStorage.setItem('access_token', data.data.accessToken)
-      localStorage.setItem('customerId', String(data.data.customerId))
-      if (data.data.refreshToken) {
-        localStorage.setItem('refreshToken', data.data.refreshToken)
-      }
-
-      try {
-        const me = await api.get('/api/v1/customers/me')
-        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, email: me.data.data.email ?? '', customer_id: me.data.data.customerId }))
-      } catch {}
-
+      await persistLoginState(data.data)
       window.location.href = '/'
     } catch (err: unknown) {
       const axiosErr = err as { code?: string; message?: string; response?: { data?: { message?: string } } }
@@ -1026,14 +1051,9 @@ function KBStarModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-/* ── 숫자패드 셔플 ── */
+/* ── 테스트용 숫자패드 ── */
 function shufflePad(): string[] {
-  const digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-  for (let i = digits.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[digits[i], digits[j]] = [digits[j], digits[i]]
-  }
-  return digits
+  return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
 }
 
 /* ── 금융인증서 모달 ── */
@@ -1050,15 +1070,35 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
     return () => clearTimeout(t)
   }, [])
 
+  useEffect(() => {
+    if (step !== 'yeskey') return
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (/^[0-9]$/.test(e.key)) handleDigit(e.key)
+      if (e.key === 'Backspace') setPin((p) => p.slice(0, -1))
+      if (e.key === 'Enter' && pin.length === 6) submitPin(pin)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
+
   async function submitPin(finalPin: string) {
+    if (loading) return
+    if (finalPin.length !== 6) {
+      setErrorMsg('비밀번호 6자리를 입력해주세요.')
+      return
+    }
     setLoading(true)
+    setErrorMsg('')
     try {
       await handleCertLogin('FINCERT-TEST-2024-000001', 'CERT_FIN', finalPin)
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } }
-      const next = attemptsLeft - 1
+      const e = err as { response?: { data?: { message?: string } }; message?: string }
+      const next = Math.max(attemptsLeft - 1, 0)
+      const message = e.response?.data?.message ?? e.message ?? `비밀번호가\n맞지 않습니다\n(${next}회 남음)`
       setAttemptsLeft(next)
-      setErrorMsg(e.response?.data?.message ?? `비밀번호가\n맞지 않습니다\n(${next}회 남음)`)
+      setErrorMsg(message)
       setPin('')
       setPad(shufflePad())
     } finally {
@@ -1070,6 +1110,7 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
     if (pin.length >= 6 || loading) return
     const next = pin + d
     setPin(next)
+    setErrorMsg('')
     if (next.length === 6) submitPin(next)
   }
 
@@ -1212,6 +1253,16 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
                 <button className="text-[12px] hover:underline" style={{ color: KB_PRIMARY }}>
                   비밀번호를 잊으셨나요?
                 </button>
+                {loading && (
+                  <p className="text-[12px] font-medium" style={{ color: KB_PRIMARY }}>
+                    로그인 확인 중입니다...
+                  </p>
+                )}
+                {errorMsg && (
+                  <p className="w-full rounded border border-red-200 bg-red-50 px-3 py-2 text-center text-[12px] font-medium text-red-600 whitespace-pre-line">
+                    {errorMsg}
+                  </p>
+                )}
 
                 <div className="grid grid-cols-3 gap-0.5 w-full mt-1">
                   {pad.slice(0, 9).map((d) => (
@@ -1226,7 +1277,8 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
                     </button>
                   ))}
                   <button
-                    onClick={() => { setPad(shufflePad()); setPin('') }}
+                    onClick={() => { setPad(shufflePad()); setPin(''); setErrorMsg('') }}
+                    disabled={loading}
                     className="h-12 flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-500 text-xl"
                     tabIndex={-1}
                   >↻</button>
@@ -1238,12 +1290,21 @@ function FinCertModal({ onClose }: { onClose: () => void }) {
                   >{pad[9]}</button>
                   <button
                     onClick={() => setPin((p) => p.slice(0, -1))}
+                    disabled={loading}
                     className="h-12 flex items-center justify-center hover:bg-gray-100 transition-colors"
                     tabIndex={-1}
                   >
                     <span className="bg-gray-500 text-white text-xs rounded px-1.5 py-0.5">✕</span>
                   </button>
                 </div>
+                <button
+                  onClick={() => submitPin(pin)}
+                  disabled={loading || pin.length !== 6}
+                  className="mt-1 w-full rounded-lg py-2.5 text-[14px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  style={{ backgroundColor: KB_PRIMARY }}
+                >
+                  {loading ? '확인 중...' : '로그인'}
+                </button>
               </div>
             </div>
           </div>
