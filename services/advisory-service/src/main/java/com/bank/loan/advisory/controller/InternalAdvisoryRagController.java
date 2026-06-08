@@ -12,8 +12,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import com.bank.loan.advisory.domain.AdvisoryDocument;
+import com.bank.loan.advisory.repository.AdvisoryDocumentRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -21,6 +24,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * RAG 내부 관리 API (plan §11.5 — Task 6-8).
@@ -35,10 +41,29 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class InternalAdvisoryRagController {
 
-    private final DocumentIngestionService   ingestionService;
-    private final CaseIndexingService        caseIndexingService;
-    private final CaseIndexBackfillService   backfillService;
-    private final CurrentActorProvider       currentActor;
+    private final DocumentIngestionService      ingestionService;
+    private final CaseIndexingService           caseIndexingService;
+    private final CaseIndexBackfillService      backfillService;
+    private final CurrentActorProvider          currentActor;
+    private final AdvisoryDocumentRepository    documentRepository;
+
+    @Operation(summary = "정책문서 목록 조회", description = "삭제되지 않은 전체 정책문서를 최신순으로 반환.")
+    @GetMapping("/documents")
+    public ApiResponse<List<DocumentSummaryResponse>> listDocuments() {
+        List<DocumentSummaryResponse> items = documentRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()
+                .stream().map(DocumentSummaryResponse::of).toList();
+        return ApiResponse.ok(items);
+    }
+
+    public record DocumentSummaryResponse(
+            Long docId, String docCd, String docTitle, String docCategoryCd,
+            String docVersion, String activeYn, OffsetDateTime createdAt) {
+        static DocumentSummaryResponse of(AdvisoryDocument d) {
+            return new DocumentSummaryResponse(
+                    d.getDocId(), d.getDocCd(), d.getDocTitle(), d.getDocCategoryCd(),
+                    d.getDocVersion(), d.getActiveYn(), d.getCreatedAt());
+        }
+    }
 
     @Operation(summary = "정책문서 등록 및 인입",
             description = "정책문서를 등록하고 청크 분할·임베딩·적재 후 자동 활성화한다. " +

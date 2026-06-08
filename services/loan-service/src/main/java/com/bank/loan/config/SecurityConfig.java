@@ -102,6 +102,11 @@ public class SecurityConfig {
                         "/api/internal/eod/**"
                 ).hasRole(LoanRole.OPS.spring())
 
+                // advisory 내부 RAG 관리 — 운영자/관리자도 접근 가능 (문서 등록·인덱싱)
+                .requestMatchers("/api/internal/advisory/**").hasAnyRole(
+                        LoanRole.ADMIN.spring(), LoanRole.OPS.spring(), LoanRole.INTERNAL.spring()
+                )
+
                 // 서비스 간 내부 엔드포인트 — ROLE_INTERNAL (X-Internal-Token)
                 .requestMatchers("/api/internal/**").hasRole(LoanRole.INTERNAL.spring())
 
