@@ -17,6 +17,7 @@ function LogoutContent() {
     localStorage.removeItem('sessionExpiry')
     localStorage.removeItem('user')
     localStorage.removeItem('customerId')
+    sessionStorage.clear()
   }, [])
 
   return (

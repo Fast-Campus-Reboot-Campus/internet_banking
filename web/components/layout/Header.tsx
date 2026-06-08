@@ -145,11 +145,20 @@ export default function Header() {
   const [extendError, setExtendError] = useState(false)
 
   useEffect(() => {
+    if (pathname.startsWith('/logout')) {
+      setUser(null)
+      return
+    }
+
     try {
       const stored = localStorage.getItem('user')
-      if (stored) setUser(JSON.parse(stored))
+      if (stored) {
+        setUser(JSON.parse(stored))
+        return
+      }
+      setUser(null)
     } catch {}
-  }, [])
+  }, [pathname])
 
   // 카운트다운 + 자동 로그아웃
   useEffect(() => {
@@ -196,6 +205,8 @@ export default function Header() {
     localStorage.removeItem('sessionExpiry')
     localStorage.removeItem('user')
     localStorage.removeItem('customerId')
+    sessionStorage.clear()
+    setUser(null)
     window.location.href = '/logout?reason=manual'
   }
 
