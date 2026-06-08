@@ -55,7 +55,7 @@ public class ReviewMetrics {
         DistributionSummary.builder("review.score")
                 .tag("decision", decision)
                 .publishPercentileHistogram()
-                .minimumExpectedValue(0.0)
+                .minimumExpectedValue(1e-9)
                 .maximumExpectedValue(1.0)
                 .register(registry)
                 .record(score);
@@ -75,7 +75,7 @@ public class ReviewMetrics {
     public void recordDsr(double dsr) {
         DistributionSummary.builder("review.input.dsr")
                 .publishPercentileHistogram()
-                .minimumExpectedValue(0.0)
+                .minimumExpectedValue(1e-9)
                 .maximumExpectedValue(1.5)
                 .register(registry)
                 .record(dsr);
