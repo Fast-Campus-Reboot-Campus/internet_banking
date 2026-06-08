@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -105,7 +106,14 @@ public class TransactionService {
     public Transaction transfer(Long fromAccountId, Long toAccountId, String toAccountNo,
                                 BigDecimal amount, TransferType transferType,
                                 String counterpartyBankCode, String counterpartyBankName,
-                                String counterpartyName, TransactionChannel channelType, String transactionMemo) {
+                                String counterpartyName, TransactionChannel channelType, String transactionMemo,
+                                String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<Transaction> existing = transactionRepository.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+        }
         TransferType resolvedType = transferType != null ? transferType : TransferType.INTERNAL;
         if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
             toAccountId = accountRepository.findByAccountNumber(toAccountNo)
@@ -140,6 +148,7 @@ public class TransactionService {
 
         Transaction outTx = transactionRepository.save(Transaction.builder()
                 .transactionNumber(generateTxnNumber("TRF"))
+                .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
                 .accountId(fromAccountId)
                 .transactionType(TransactionType.TRANSFER)
                 .directionType(DirectionType.OUT)

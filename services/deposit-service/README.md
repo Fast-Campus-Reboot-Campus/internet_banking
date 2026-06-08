@@ -324,6 +324,9 @@ DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback �
 - `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java` (일일 한도 검증 추가)
 - `services/deposit-service/src/main/java/com/bank/deposit/repository/TransactionRepository.java` (당일 합계·건수 쿼리 추가)
 - `services/deposit-service/src/main/java/com/bank/deposit/exception/ErrorCode.java` (한도 초과 에러 코드 추가)
+- `services/deposit-service/src/main/resources/db/migration/V13__add_idempotency_key_to_transactions.sql` (신규)
+- `services/deposit-service/src/main/java/com/bank/deposit/domain/entity/Transaction.java` (idempotencyKey 필드 추가)
+- `services/deposit-service/src/main/java/com/bank/deposit/dto/request/TransferRequest.java` (idempotencyKey 필드 추가)
 - `services/deposit-service/src/main/java/com/bank/deposit/controller/ProductController.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/domain/enums/TransactionChannel.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/dto/response/ProductResponse.java`
@@ -396,6 +399,57 @@ deposit-service 기동
 | V10 | 계좌 날짜·번호 시퀀스 |
 | V11 | 예약이체 스케줄 테이블 |
 | **V12** | **chatbot·consultation 테이블 DROP (consultation-service 소유권 이관)** |
+| **V13** | **`deposit_transactions.idempotency_key` 컬럼 추가 및 부분 UNIQUE 인덱스** |
+
+---
+
+## 이체 중복·누락 방지 (멱등성 키)
+
+네트워크 타임아웃, 재시도, 화면 새로고침 등으로 동일한 이체 요청이 두 번 이상 서버에 도달할 수 있습니다. 클라이언트가 `idempotencyKey`를 포함해 전송하면 동일 키로 이미 완료된 이체를 재처리하지 않고 기존 결과를 반환합니다.
+
+### 작동 방식
+
+```
+POST /transactions/transfer
+  { ..., "idempotencyKey": "uuid-or-any-64-char-string" }
+
+  → transfer() 진입
+  → idempotencyKey 존재 → DB에서 동일 키 조회
+      → 이미 있음 → 기존 Transaction 반환 (이체 재실행 없음)
+      → 없음      → 정상 이체 수행 후 idempotencyKey 저장
+```
+
+- 키가 null이거나 빈 문자열이면 멱등성 검사를 건너뜁니다(기존 동작 유지).
+- 키는 최대 64자이며, `NOT NULL` 행 사이에서만 UNIQUE 제약이 적용됩니다(부분 인덱스).
+
+### 멱등성 키 생성 권장 방식
+
+클라이언트는 이체 시도마다 새 UUID를 생성해 키로 사용합니다. 재시도 시에는 **같은 키**를 그대로 전송합니다.
+
+```ts
+// 프론트엔드 예시
+const idempotencyKey = crypto.randomUUID(); // 처음 시도 시 생성, sessionStorage에 보관
+// 재시도 시에도 동일 키 사용
+```
+
+### 보호하는 시나리오
+
+| 시나리오 | 결과 |
+|---|---|
+| 네트워크 타임아웃 후 재시도 | 두 번째 요청에서 기존 이체 결과 반환 — 중복 출금 없음 |
+| 화면 새로고침으로 이체 페이지 재진입 | 동일 키로 이미 처리됐으면 기존 결과 반환 |
+| 클라이언트 미전송(키 없음) | 멱등성 검사 없이 정상 이체 수행 |
+
+### 관련 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `src/main/resources/db/migration/V13__add_idempotency_key_to_transactions.sql` | `idempotency_key VARCHAR(64) NULL` 컬럼 추가, 부분 UNIQUE 인덱스 생성 |
+| `src/main/java/com/bank/deposit/domain/entity/Transaction.java` | `idempotencyKey` 필드 추가 |
+| `src/main/java/com/bank/deposit/repository/TransactionRepository.java` | `findByIdempotencyKey(String)` 메서드 추가 |
+| `src/main/java/com/bank/deposit/dto/request/TransferRequest.java` | `idempotencyKey` 필드 추가 |
+| `src/main/java/com/bank/deposit/controller/TransactionController.java` | `req.idempotencyKey()` 서비스로 전달 |
+| `src/main/java/com/bank/deposit/service/TransactionService.java` | 이체 시작 시 멱등성 키 조회, OUT 거래 저장 시 키 포함 |
 
 ---
 
