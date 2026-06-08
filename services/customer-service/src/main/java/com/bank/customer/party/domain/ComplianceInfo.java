@@ -60,6 +60,9 @@ public class ComplianceInfo extends BaseEntity {
     @Column(name = "aml_next_review_date", length = 8)
     private String amlNextReviewDate;
 
+    @Column(name = "aml_last_assessed_by_employee_id")
+    private Long amlLastAssessedByEmployeeId;
+
     // ── 제재 ─────────────────────────────────────────────────────────────────
     @Column(name = "is_ofac_sanctioned_yn", nullable = false, length = 1)
     private String isOfacSanctionedYn;
@@ -95,6 +98,9 @@ public class ComplianceInfo extends BaseEntity {
 
     @Column(name = "kyc_next_review_date", length = 8)
     private String kycNextReviewDate;
+
+    @Column(name = "kyc_completed_by_employee_id")
+    private Long kycCompletedByEmployeeId;
 
     @Column(name = "identity_verification_method_code", length = 10)
     private String identityVerificationMethodCode;
@@ -149,16 +155,18 @@ public class ComplianceInfo extends BaseEntity {
     public boolean isSanctioned() { return "T".equals(isSanctionedYn); }
     public boolean isEddRequired() { return "T".equals(eddRequiredYn); }
 
-    public void updateAmlRisk(String riskLevel) {
-        this.amlRiskLevelCode    = riskLevel;
-        this.amlLastAssessedAt   = OffsetDateTime.now();
+    public void updateAmlRisk(String riskLevel, Long assessedByEmployeeId) {
+        this.amlRiskLevelCode            = riskLevel;
+        this.amlLastAssessedAt           = OffsetDateTime.now();
+        this.amlLastAssessedByEmployeeId = assessedByEmployeeId;
     }
 
-    public void completeKyc(String expiryDate, String methodCode) {
+    public void completeKyc(String expiryDate, String methodCode, Long completedByEmployeeId) {
         this.kycStatusCode                    = KYC_COMPLETED;
         this.kycCompletedAt                   = OffsetDateTime.now();
         this.kycExpiryDate                    = expiryDate;
         this.identityVerificationMethodCode   = methodCode;
+        this.kycCompletedByEmployeeId         = completedByEmployeeId;
     }
 
     public void updateSanctionScreen(String screenDate) {

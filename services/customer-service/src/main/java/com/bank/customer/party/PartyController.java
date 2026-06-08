@@ -162,9 +162,9 @@ public class PartyController {
     @PatchMapping("/internal/compliance/screening-hits/{hitId}/clear")
     public ResponseEntity<ApiResponse<Void>> clearScreeningHit(
             @PathVariable Long hitId,
-            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam(required = false) String comment) {
-        partyManageService.clearScreeningHit(hitId, reviewerEmployeeId, comment);
+        partyManageService.clearScreeningHit(hitId, parseEmployeeId(employeeIdHeader), comment);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -172,9 +172,9 @@ public class PartyController {
     @PatchMapping("/internal/compliance/screening-hits/{hitId}/confirm")
     public ResponseEntity<ApiResponse<Void>> confirmScreeningHit(
             @PathVariable Long hitId,
-            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam(required = false) String comment) {
-        partyManageService.confirmScreeningHit(hitId, reviewerEmployeeId, comment);
+        partyManageService.confirmScreeningHit(hitId, parseEmployeeId(employeeIdHeader), comment);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -191,9 +191,9 @@ public class PartyController {
     @PatchMapping("/internal/party/duplicates/{caseId}/duplicate")
     public ResponseEntity<ApiResponse<Void>> markDuplicate(
             @PathVariable Long caseId,
-            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam(required = false) String comment) {
-        partyManageService.markDuplicate(caseId, reviewerEmployeeId, comment);
+        partyManageService.markDuplicate(caseId, parseEmployeeId(employeeIdHeader), comment);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -201,9 +201,9 @@ public class PartyController {
     @PatchMapping("/internal/party/duplicates/{caseId}/distinct")
     public ResponseEntity<ApiResponse<Void>> markDistinct(
             @PathVariable Long caseId,
-            @RequestHeader(value = "X-User-Id", required = false) Long reviewerEmployeeId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam(required = false) String comment) {
-        partyManageService.markDistinct(caseId, reviewerEmployeeId, comment);
+        partyManageService.markDistinct(caseId, parseEmployeeId(employeeIdHeader), comment);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -218,8 +218,9 @@ public class PartyController {
     @PatchMapping("/internal/party/{partyId}/compliance/aml-risk")
     public ResponseEntity<ApiResponse<Void>> updateAmlRisk(
             @PathVariable Long partyId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam String riskLevel) {
-        partyManageService.updateAmlRisk(partyId, riskLevel);
+        partyManageService.updateAmlRisk(partyId, riskLevel, parseEmployeeId(employeeIdHeader));
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
@@ -227,9 +228,23 @@ public class PartyController {
     @PatchMapping("/internal/party/{partyId}/compliance/kyc-complete")
     public ResponseEntity<ApiResponse<Void>> completeKyc(
             @PathVariable Long partyId,
+            @RequestHeader(value = "X-Employee-Id", required = false) String employeeIdHeader,
             @RequestParam String expiryDate,
             @RequestParam String methodCode) {
-        partyManageService.completeKyc(partyId, expiryDate, methodCode);
+        partyManageService.completeKyc(partyId, expiryDate, methodCode, parseEmployeeId(employeeIdHeader));
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    /**
+     * 게이트웨이가 주입한 X-Employee-Id 헤더를 검토 직원 employee_id 로 파싱한다.
+     * 직원이 아니면 게이트웨이가 빈 문자열을 넣으므로(또는 헤더 부재) null 로 정규화한다.
+     */
+    private static Long parseEmployeeId(String header) {
+        if (header == null || header.isBlank()) return null;
+        try {
+            return Long.parseLong(header.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

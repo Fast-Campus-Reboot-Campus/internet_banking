@@ -242,17 +242,17 @@ public class PartyManageService {
     }
 
     @Transactional
-    public void updateAmlRisk(Long partyId, String riskLevel) {
+    public void updateAmlRisk(Long partyId, String riskLevel, Long assessedByEmployeeId) {
         ComplianceInfo info = complianceInfoRepository.findByPartyIdAndDeletedAtIsNull(partyId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_115));
-        info.updateAmlRisk(riskLevel);
+        info.updateAmlRisk(riskLevel, assessedByEmployeeId);
     }
 
     @Transactional
-    public void completeKyc(Long partyId, String expiryDate, String methodCode) {
+    public void completeKyc(Long partyId, String expiryDate, String methodCode, Long completedByEmployeeId) {
         ComplianceInfo info = complianceInfoRepository.findByPartyIdAndDeletedAtIsNull(partyId)
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_115));
-        info.completeKyc(expiryDate, methodCode);
+        info.completeKyc(expiryDate, methodCode, completedByEmployeeId);
     }
 
     /** 고객 ID → partyId 변환 헬퍼 */
