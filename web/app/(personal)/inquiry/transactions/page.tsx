@@ -88,7 +88,8 @@ export default function TransactionsPage() {
   const calTxs = (() => {
     if (!calSearched || !calAccount) return []
     const prefix = `${year}-${month}`
-    return allTransactions.filter(t => acc?.number === t.accountNumber && t.transactionAt.startsWith(prefix))
+    const calNumber = accounts.find(a => a.id === calAccount)?.number
+    return allTransactions.filter(t => calNumber === t.accountNumber && t.transactionAt.startsWith(prefix))
   })()
 
   function buildCalendar() {

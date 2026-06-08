@@ -3,7 +3,7 @@ import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE }
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { formatNumber } from '@/lib/mock-data'
+import { formatNumber, type Account } from '@/lib/mock-data'
 import InquirySidebar from '@/components/inquiry/InquirySidebar'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId } from '@/lib/deposit-api'
 
