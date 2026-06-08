@@ -1,0 +1,26 @@
+{
+  "name": "case_h1_flipped",
+  "description": "case_h1 과 동일하나 device 결과만 '낯선 기기'로 뒤집음 — 경로가 수취망(H1)에서 인증(H2)으로 갈리는지 확인용.",
+  "alert": {
+    "id": "ALT-H1-FLIP",
+    "account": "110-111-1001",
+    "customer_id": "CUST-1001",
+    "tx_context": {
+      "amount": 8000000,
+      "payee": "안전계좌(신규)",
+      "time": "2026-06-07T02:14:00",
+      "channel": "MOBILE"
+    },
+    "anomaly_score": 80.0
+  },
+  "tool_responses": {
+    "get_party": { "life_status": "ALIVE", "guardianship": "NONE", "name_match": true },
+    "get_customer": { "avg_tx_amount": 300000, "usual_channel": "MOBILE", "tenure_years": 9 },
+    "get_auth_events": { "recent_cert_fail": 0, "password_changed_recently": false, "events": [] },
+    "get_device_fingerprint": { "known_device": false, "device_id": "DEV-NEW-77", "first_seen_days": 0 },
+    "get_fds_history": { "past_detections": 1, "last_pattern": "none" },
+    "get_str_history": { "past_str_reports": 4, "last_report": "2026-03-01" },
+    "get_related_accounts": { "same_device_customers": 11, "organized_ring": true, "linked_str_reports": 4 },
+    "get_aml_history": { "structuring": false, "layering_hops": 1 }
+  }
+}

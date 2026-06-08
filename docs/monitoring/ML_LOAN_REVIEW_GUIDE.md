@@ -2,16 +2,29 @@
 
 > 대상 대시보드: **ML 대출 심사 모니터링**
 > 대상 독자: 개발팀 전원
-> 환경: 로컬 직접 설치 기준 (`ai-service` + Prometheus + Grafana)
+> 환경: 메인 `docker-compose.yml` 기준 (`auto-loan-review` + Prometheus + Grafana)
 
-> **⚠️ 포트 충돌 주의**: `ai-service`는 기본 포트 8086을 사용하는데, 메인 `docker-compose.yml`의 `auto-loan-review`도 동일한 8086 포트를 점유합니다. 두 서비스를 동시에 실행하면 충돌합니다. `ai-service`를 로컬로 실행할 때는 `docker compose stop auto-loan-review` 후 진행하거나, `AI_APP_PORT`를 다른 번호로 변경하세요.
-> **참고**: `ai-service`(`services/ai-service/`)는 현재 docker-compose에 미통합 상태입니다. 로컬 Gradle 실행(`./gradlew :services:ai-service:bootRun`)으로만 기동 가능합니다.
+> **⚠️ 현재 대시보드 상태 (2026-06-08 기준)**
+>
+> 이 대시보드의 대부분 패널이 **No data** 상태입니다. 이유는 다음과 같습니다.
+>
+> **왜 데이터가 없나요?**
+> 대출 자동 심사는 두 단계로 이루어집니다.
+> 1. `auto-loan-review` 서비스가 심사 요청을 받아 전처리
+> 2. `inference-server`(ML 모델 서버)에 예측을 요청하고 APPROVE/REJECT/CONDITIONAL 결과를 받음
+>
+> 현재 `inference-server`가 실행되지 않고 있기 때문에, 심사 자체가 이루어지지 않아 대부분의 지표가 기록되지 않습니다.
+>
+> **왜 inference-server가 실행되지 않나요?**
+> ML 모델은 2026년 5월에 학습된 것으로 문서에 기록되어 있지만(`docs/ai/MODEL_CARDS.md`), 학습된 모델 파일이 GitHub 저장소에 올라와 있지 않아 서버를 띄울 수 없는 상태입니다. ML 담당 팀원에게 모델 파일 공유를 요청해야 합니다.
+>
+> **지금 수집되는 지표**: 추론 오류 건수(`review_inference_error_total`)만 수집 중입니다. 나머지 지표는 inference-server가 연결되면 자동으로 수집되기 시작합니다.
 
 ---
 
 ## 이 가이드는 무엇인가요?
 
-고객이 대출을 신청하면 ai-service는 ML 모델 서버(inference-server)에 심사 요청을 보내고, APPROVE / CONDITIONAL / REJECT 중 하나의 결정을 반환합니다. 이 대시보드는 그 과정이 지금 정상적으로 작동하고 있는지, 모델이 이상한 결과를 내고 있지는 않은지를 한눈에 확인할 수 있도록 만들어졌습니다.
+고객이 대출을 신청하면 `auto-loan-review` 서비스는 ML 모델 서버(inference-server)에 심사 요청을 보내고, APPROVE / CONDITIONAL / REJECT 중 하나의 결정을 반환합니다. 이 대시보드는 그 과정이 지금 정상적으로 작동하고 있는지, 모델이 이상한 결과를 내고 있지는 않은지를 한눈에 확인할 수 있도록 만들어졌습니다.
 
 ---
 
@@ -21,9 +34,9 @@
 대출 신청 요청
       │
       ▼
-  ai-service (8086)
+  auto-loan-review (8086)
       │  입력 데이터 검증 및 전처리
-      │  결측치 / 이상치 메트릭 기록
+      │  결측치 / 이상치 메트릭 기록 (creditScoreProxy, dsr)
       │
       ▼
 inference-server (8090)
@@ -31,7 +44,7 @@ inference-server (8090)
       │  APPROVE / CONDITIONAL / REJECT 반환
       │
       ▼
-  ai-service
+  auto-loan-review
       │  응답시간 기록 (Timer)
       │  결정 결과 / 신뢰도 기록 (Counter, DistributionSummary)
       │
@@ -52,11 +65,12 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 |------|-----|------|
 | Grafana (대시보드) | `http://localhost:3000` | admin / admin |
 | Prometheus (알림 확인) | `http://localhost:9090/alerts` | 없음 |
-| ai-service 메트릭 원본 | `http://localhost:8086/actuator/prometheus` | 없음 |
+| auto-loan-review 메트릭 원본 | `http://localhost:8086/actuator/prometheus` | 없음 |
 
 대시보드 경로: Grafana 접속 → 왼쪽 메뉴 **Dashboards** → **ML 대출 심사 모니터링**
 
-> ai-service, inference-server, Prometheus가 모두 실행 중이어야 데이터가 표시됩니다.
+> `auto-loan-review`, `inference-server`, Prometheus가 모두 실행 중이어야 전체 데이터가 표시됩니다.
+> 현재는 inference-server가 없어서 추론 오류 건수를 제외한 대부분의 패널이 No data 상태입니다. 상단 주의사항을 참고하세요.
 
 ---
 
@@ -79,11 +93,11 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 
 **용어:**
 - **Inference (추론)** — ML 모델이 입력 데이터를 보고 결과를 예측하는 행위. 여기서는 심사 결과(APPROVE 등)를 내놓는 것.
-- **inference-server** — 실제 ML 모델이 올라가 있는 별도 서버. ai-service가 HTTP로 요청을 보내면 예측 결과를 반환한다.
+- **inference-server** — 실제 ML 모델이 올라가 있는 별도 서버. `auto-loan-review`가 HTTP로 요청을 보내면 예측 결과를 반환한다.
 
 ### 총 심사 건수 (1h)
 - 최근 1시간 동안 처리된 자동 심사 건수입니다.
-- 갑자기 0에 가까워지면 ai-service 또는 업스트림 서비스에 문제가 생긴 것입니다.
+- 갑자기 0에 가까워지면 `auto-loan-review` 또는 업스트림 서비스에 문제가 생긴 것입니다.
 
 ### 추론 실패 건수 (1h)
 - inference-server 연결 실패 또는 오류 응답으로 인해 심사가 완료되지 못한 건수입니다.
@@ -93,7 +107,9 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 |------|------|
 | 정상 | 0 |
 | 주의 | 1 ~ 5건 |
-| 위험 | 5건 초과 (알림 발생) |
+| 위험 | 계속 발생 (에러율이 5%를 넘으면 알림 발생) |
+
+> 알림은 1건이 발생했다고 바로 울리지 않습니다. 5분 평균 에러율이 5%를 넘을 때 발동합니다. 예를 들어 분당 100건 처리 중 5건 이상이 실패하는 상태가 2분 이상 지속되면 알림이 발생합니다.
 
 ### REJECT 비율 (10m)
 - 최근 10분간 심사 건수 중 REJECT 된 비율입니다.
@@ -129,7 +145,7 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 **용어:**
 - **p50 / p95** — 응답시간 분포. p95 = 100건 중 느린 5건을 제외한 나머지의 최대 응답시간. 낮을수록 빠름.
 
-추론 요청을 보내고 결과를 받을 때까지 걸린 시간입니다.
+심사 요청을 받은 순간부터 APPROVE/REJECT/CONDITIONAL 결정이 완료될 때까지의 전체 처리 시간입니다. inference-server 호출 시간이 대부분을 차지합니다.
 
 | 등급 | p50 | p95 |
 |------|-----|-----|
@@ -151,7 +167,7 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 모델이 내린 결정에 대한 확신 정도를 보여줍니다.
 
 ### 결정별 신뢰도 분포 (p50 / p95)
-- APPROVE / REJECT 각각의 신뢰도 중간값과 상위 분포를 보여줍니다.
+- APPROVE / REJECT / CONDITIONAL 각각의 신뢰도 중간값과 상위 분포를 보여줍니다.
 - 신뢰도가 갑자기 낮아지면(예: APPROVE인데 score=0.51) **모델이 확신하지 못하는 경계 케이스가 늘어난 것**입니다.
 
 | 상황 | 의미 |
@@ -168,7 +184,7 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 
 **용어:**
 - **데이터 드리프트** — 실제로 들어오는 입력 데이터의 분포가 모델 학습 때와 달라지는 현상. 드리프트가 심해지면 모델 정확도가 떨어진다.
-- **DSR (Debt Service Ratio)** — 연소득 대비 연간 부채 상환 비율. 값이 클수록 부채 부담이 크다. 정상 범위: 0.0 ~ 1.0.
+- **DSR (Debt Service Ratio)** — 연소득 대비 연간 부채 상환 비율. 값이 클수록 부채 부담이 크다. 이상치 기준: 1.5 초과.
 - **신용점수 Proxy** — 내부 기준으로 산출한 신용도 점수. 0 ~ 1000 범위. 높을수록 신용도가 좋음.
 
 입력 피처 분포가 변화하면 모델 정확도가 떨어질 수 있습니다. 이 섹션은 그 신호를 조기에 감지합니다.
@@ -213,12 +229,11 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 **용어:**
 - **결측치** — 필수 입력 값이 없는 경우. DSR이 null로 들어오는 것이 대표적인 예.
 - **이상치** — 정상 범위를 벗어난 값. DSR이 1.8로 들어오는 경우처럼 비현실적인 값.
-- **LTV (Loan to Value)** — 자산 대비 대출 비율. 값이 클수록 담보 여력이 적다. 정상 범위: 0.0 ~ 1.5.
 
 잘못된 입력이 들어오고 있는지 감지합니다.
 
 ### 핵심 필드 결측치 발생 추이
-- DSR, LTV, 신용점수, 연소득, 신청금액, 총부채 중 null 값이 들어온 횟수입니다.
+- 현재 감지 중인 필드는 **DSR**과 **신용점수 proxy** 두 가지입니다. 해당 값이 null로 들어온 횟수를 보여줍니다.
 
 | 등급 | 5분간 결측치 수 |
 |------|----------------|
@@ -231,15 +246,14 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 
 ### 핵심 필드 이상치 발생 추이
 - 정상 범위를 벗어난 값이 들어온 횟수입니다.
+- 현재 감지 중인 필드는 다음 두 가지입니다.
 
 | 필드 | 정상 범위 | 이상치 기준 |
 |------|----------|------------|
-| DSR | 0.0 ~ 1.0 | 0 미만 또는 1.0 초과 |
-| LTV | 0.0 ~ 1.5 | 0 미만 또는 1.5 초과 |
+| DSR | 0.0 ~ 1.5 | 0 미만 또는 1.5 초과 |
 | 신용점수 proxy | 0 ~ 1000 | 0 미만 또는 1000 초과 |
-| 나이 | 18 ~ 100 | 18 미만 또는 100 초과 |
-| 연소득 | 0 이상 | 0 미만 |
-| 신청금액 | 0 초과 | 0 이하 |
+
+> 이상치 감지 대상 필드는 `ReviewMetrics.java`의 `recordInputMetrics()` 에서 관리합니다. 필드를 추가하려면 해당 메서드에 조건을 추가하면 됩니다.
 
 - 이상치 급증은 클라이언트 버그 또는 데이터 변환 오류가 원인인 경우가 많습니다.
 
@@ -249,7 +263,7 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 
 ### 추론 에러율이 급등했다
 1. **inference-server 상태** 확인 — `http://localhost:8090/health` 응답 여부
-2. **ai-service 로그** 확인 — `INFERENCE_UNAVAILABLE` 또는 `INFERENCE_FAILED` 오류 내용
+2. **auto-loan-review 로그** 확인 — `INFERENCE_UNAVAILABLE` 또는 `INFERENCE_FAILED` 오류 내용
 3. 네트워크 연결 문제인지 모델 오류인지 구분
 4. inference-server 재기동 또는 이전 버전으로 롤백
 
@@ -300,7 +314,7 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 - **결측치 / 이상치**: 정상 데이터만 들어오면 No data입니다. 정상입니다.
 
 ### 전체 패널이 No data
-1. **Prometheus Targets 확인**: `http://localhost:9090/targets` → `ai-service` 가 **UP** 인지 확인
+1. **Prometheus Targets 확인**: `http://localhost:9090/targets` → `auto-loan-review` 가 **UP** 인지 확인
 2. **메트릭 원본 확인**: `http://localhost:8086/actuator/prometheus` 에서 `review_` 로 시작하는 메트릭이 있는지 확인
 3. **datasource 확인**: Grafana → `http://localhost:3000/connections/datasources` → Prometheus → **Save & test**
 
@@ -308,29 +322,25 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 - datasource UID 불일치 문제입니다.
 - Grafana datasource URL에서 UID 확인 후 `infra/grafana/provisioning/dashboards/ml-loan-review.json` 의 datasource uid 값을 해당 UID로 교체한 뒤 Grafana 재시작합니다.
 
-```powershell
-# Grafana 재시작 (관리자 PowerShell)
-Restart-Service -Name "Grafana"
+```bash
+docker compose restart grafana
 ```
 
 ---
 
 ## 13. 로컬 실행 방법
 
-```powershell
-# 1. ai-service DB 기동 (pgvector 포함 이미지 필수)
-docker compose up -d ai-db
+```bash
+# 1. 전체 스택 기동 (프로젝트 루트에서)
+docker compose up -d
 
-# 2. ai-service 기동 (프로젝트 루트에서)
-.\gradlew.bat :services:ai-service:bootRun --args='--spring.profiles.active=local'
-
-# 3. Mock inference-server 기동 (별도 PowerShell 창, 8090 포트)
+# 2. Mock inference-server 기동 (inference-server 모델 파일이 없는 경우, 별도 PowerShell 창)
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add("http://localhost:8090/")
 $listener.Start()
 while ($listener.IsListening) {
     $ctx = $listener.GetContext()
-    $body = '{"model_version":"v2","predictions":[{"decision":"APPROVE","score":0.87,"proba":{"APPROVE":0.87,"CONDITIONAL":0.08,"REJECT":0.05}}]}'
+    $body = '{"model_version":"v1","predictions":[{"decision":"APPROVE","score":0.87,"proba":{"APPROVE":0.87,"CONDITIONAL":0.08,"REJECT":0.05}}]}'
     $buf = [System.Text.Encoding]::UTF8.GetBytes($body)
     $ctx.Response.ContentType = "application/json"
     $ctx.Response.OutputStream.Write($buf, 0, $buf.Length)
@@ -338,25 +348,26 @@ while ($listener.IsListening) {
 }
 ```
 
-> 실제 inference-server가 있으면 Mock 서버 없이 `ai.inference.base-url` 설정만 변경하면 됩니다.
+> 실제 inference-server 모델 파일이 있으면 Mock 서버 없이 inference-server를 직접 기동하면 됩니다.
+> inference-server 기동: `cd inference-server && pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8090`
 
 ### 테스트 요청 전송
 
-```powershell
+```bash
 # 정상 요청
-Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/ai/auto-review" `
-  -ContentType "application/json" `
-  -Body '{"gender":"M","age":35,"dsr":0.35,"ltv":0.5,"creditScoreProxy":720,"annualIncomeKw":60000,"requestedAmountKw":30000,"totalDebtKw":15000,"requestedPeriodMo":12,"purposeCd":"LIVING","purposeRedFlag":false}'
+curl -s -X POST http://localhost:8086/api/ai/auto-review/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"revId":1,"sex":"M","age":35,"dsr":0.35,"ltv":0.5,"creditScoreProxy":720,"annualIncomeKw":60000,"requestedAmountKw":30000,"totalDebtKw":15000,"requestedPeriodMo":12,"purposeCd":"LIVING","purposeRedFlag":false,"applicantSegment":"MASS","productCode":"HL001"}'
 
-# 결측치 테스트 (dsr 없음)
-Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/ai/auto-review" `
-  -ContentType "application/json" `
-  -Body '{"gender":"F","age":28,"ltv":0.4,"creditScoreProxy":680,"annualIncomeKw":45000,"requestedAmountKw":20000,"totalDebtKw":10000,"requestedPeriodMo":12,"purposeCd":"LIVING","purposeRedFlag":false}'
+# 결측치 테스트 (dsr 없음 → review_input_missing_total 증가)
+curl -s -X POST http://localhost:8086/api/ai/auto-review/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"revId":2,"sex":"F","age":28,"ltv":0.4,"creditScoreProxy":680,"annualIncomeKw":45000,"requestedAmountKw":20000,"totalDebtKw":10000,"requestedPeriodMo":12,"purposeCd":"LIVING","purposeRedFlag":false,"applicantSegment":"MASS","productCode":"HL001"}'
 
-# 이상치 테스트 (dsr=1.8)
-Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/ai/auto-review" `
-  -ContentType "application/json" `
-  -Body '{"gender":"M","age":45,"dsr":1.8,"ltv":0.9,"creditScoreProxy":400,"annualIncomeKw":30000,"requestedAmountKw":50000,"totalDebtKw":40000,"requestedPeriodMo":24,"purposeCd":"BUSINESS","purposeRedFlag":true}'
+# 이상치 테스트 (dsr=1.8 → review_input_outlier_total 증가)
+curl -s -X POST http://localhost:8086/api/ai/auto-review/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"revId":3,"sex":"M","age":45,"dsr":1.8,"ltv":0.9,"creditScoreProxy":400,"annualIncomeKw":30000,"requestedAmountKw":50000,"totalDebtKw":40000,"requestedPeriodMo":24,"purposeCd":"BUSINESS","purposeRedFlag":true,"applicantSegment":"MASS","productCode":"HL001"}'
 ```
 
 ---
@@ -366,11 +377,12 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/ai/auto-review" `
 | 파일 | 역할 |
 |------|------|
 | `infra/prometheus/alerts.yml` | 알림 규칙 정의 (ml-loan-review 그룹) |
-| `infra/prometheus/prometheus.yml` | 데이터 수집 대상 설정 (ai-service 포함) |
+| `infra/prometheus/prometheus.yml` | 데이터 수집 대상 설정 (auto-loan-review 포함) |
 | `infra/grafana/provisioning/dashboards/ml-loan-review.json` | 대시보드 정의 파일 |
-| `services/ai-service/src/main/java/com/bank/ai/review/observability/ReviewMetrics.java` | 메트릭 수집 코드 |
-| `services/ai-service/src/main/java/com/bank/ai/review/service/AutoReviewService.java` | 심사 서비스 (메트릭 연동) |
-| `services/ai-service/src/main/resources/application-local.yml` | 로컬 개발 설정 (Security 제외) |
+| `services/auto-loan-review/src/main/java/com/bank/ai/metrics/ReviewMetrics.java` | 어떤 지표를 어떻게 기록할지 정의한 파일 |
+| `services/auto-loan-review/src/main/java/com/bank/ai/rule/service/RuleEngineService.java` | 심사가 완료되는 시점에 위 메트릭을 실제로 기록하는 파일 |
+| `docs/ai/MODEL_CARDS.md` | 사용 중인 ML 모델 명세 — 모델 이름, 학습 데이터, 성능 지표 기록 |
+| `docs/plan/phase-c-ml-pipeline.md` | 모델 학습 방법 및 파이프라인 구현 계획 |
 
 ---
 
@@ -384,7 +396,7 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8086/api/ai/auto-review" `
 
 | 지표 | 설명 |
 |------|------|
-| 추론 응답시간 (p50/p95) | inference-server 호출 ~ 응답까지 걸린 시간 |
+| 심사 처리시간 (p50/p95) | 요청 수신부터 결정 완료까지 end-to-end 시간 (inference-server 호출 포함) |
 | 결정 분포 (APPROVE/CONDITIONAL/REJECT) | 심사 결과 비율 및 추이 |
 | 예측 신뢰도 (Score) | 모델이 결정에 확신하는 정도 (0~1) |
 | 추론 에러율 | inference-server 연결 실패 / 오류 응답 비율 |

@@ -78,7 +78,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(review_decision_total{application=\"ai-service\"}[1h]))",
+          "expr": "sum(increase(review_decision_total{application=\"auto-loan-review\"}[1h]))",
           "legendFormat": "1시간 심사 건수"
         }
       ],
@@ -135,7 +135,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(review_inference_error_total{application=\"ai-service\"}[1h]))",
+          "expr": "sum(increase(review_inference_error_total{application=\"auto-loan-review\"}[1h]))",
           "legendFormat": "추론 실패 건수"
         }
       ],
@@ -192,7 +192,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"REJECT\"}[10m])) / sum(rate(review_decision_total{application=\"ai-service\"}[10m]))",
+          "expr": "sum(rate(review_decision_total{application=\"auto-loan-review\", decision=\"REJECT\"}[10m])) / sum(rate(review_decision_total{application=\"auto-loan-review\"}[10m]))",
           "legendFormat": "REJECT 비율"
         }
       ],
@@ -249,7 +249,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(review_inference_error_total{application=\"ai-service\"}[5m])) / (sum(rate(review_decision_total{application=\"ai-service\"}[5m])) + sum(rate(review_inference_error_total{application=\"ai-service\"}[5m])) + 0.001)",
+          "expr": "sum(rate(review_inference_error_total{application=\"auto-loan-review\"}[5m])) / (sum(rate(review_decision_total{application=\"auto-loan-review\"}[5m])) + sum(rate(review_inference_error_total{application=\"auto-loan-review\"}[5m])) + 0.001)",
           "legendFormat": "에러율"
         }
       ],
@@ -281,15 +281,15 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"APPROVE\"}[5m]))",
+          "expr": "sum(rate(review_decision_total{application=\"auto-loan-review\", decision=\"APPROVE\"}[5m]))",
           "legendFormat": "APPROVE"
         },
         {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"CONDITIONAL\"}[5m]))",
+          "expr": "sum(rate(review_decision_total{application=\"auto-loan-review\", decision=\"CONDITIONAL\"}[5m]))",
           "legendFormat": "CONDITIONAL"
         },
         {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"REJECT\"}[5m]))",
+          "expr": "sum(rate(review_decision_total{application=\"auto-loan-review\", decision=\"REJECT\"}[5m]))",
           "legendFormat": "REJECT"
         }
       ],
@@ -321,7 +321,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(review_inference_error_total{application=\"ai-service\"}[5m]))",
+          "expr": "sum(increase(review_inference_error_total{application=\"auto-loan-review\"}[5m]))",
           "legendFormat": "추론 실패"
         }
       ],
@@ -390,7 +390,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
           "legendFormat": "p50"
         }
       ],
@@ -447,7 +447,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
           "legendFormat": "p95"
         }
       ],
@@ -479,11 +479,11 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(review_duration_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
           "legendFormat": "p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (le))",
           "legendFormat": "p95"
         }
       ],
@@ -527,23 +527,23 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"auto-loan-review\", decision=\"APPROVE\"}[5m])) by (le))",
           "legendFormat": "APPROVE p50"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"CONDITIONAL\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"auto-loan-review\", decision=\"CONDITIONAL\"}[5m])) by (le))",
           "legendFormat": "CONDITIONAL p50"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"REJECT\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(review_score_bucket{application=\"auto-loan-review\", decision=\"REJECT\"}[5m])) by (le))",
           "legendFormat": "REJECT p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(review_score_bucket{application=\"auto-loan-review\", decision=\"APPROVE\"}[5m])) by (le))",
           "legendFormat": "APPROVE p95"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_score_bucket{application=\"ai-service\", decision=\"REJECT\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(review_score_bucket{application=\"auto-loan-review\", decision=\"REJECT\"}[5m])) by (le))",
           "legendFormat": "REJECT p95"
         }
       ],
@@ -587,11 +587,11 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_input_dsr_bucket{application=\"ai-service\"}[10m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(review_input_dsr_bucket{application=\"auto-loan-review\"}[10m])) by (le))",
           "legendFormat": "DSR p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_input_dsr_bucket{application=\"ai-service\"}[10m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(review_input_dsr_bucket{application=\"auto-loan-review\"}[10m])) by (le))",
           "legendFormat": "DSR p95"
         }
       ],
@@ -623,11 +623,11 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(review_input_credit_score_bucket{application=\"ai-service\"}[10m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(review_input_credit_score_bucket{application=\"auto-loan-review\"}[10m])) by (le))",
           "legendFormat": "신용점수 p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_input_credit_score_bucket{application=\"ai-service\"}[10m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(review_input_credit_score_bucket{application=\"auto-loan-review\"}[10m])) by (le))",
           "legendFormat": "신용점수 p95"
         }
       ],
@@ -671,15 +671,15 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"APPROVE\"}[5m])) by (modelVersion)",
+          "expr": "sum(rate(review_decision_total{application=\"auto-loan-review\", decision=\"APPROVE\"}[5m])) by (modelVersion)",
           "legendFormat": "APPROVE ({{modelVersion}})"
         },
         {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"REJECT\"}[5m])) by (modelVersion)",
+          "expr": "sum(rate(review_decision_total{application=\"auto-loan-review\", decision=\"REJECT\"}[5m])) by (modelVersion)",
           "legendFormat": "REJECT ({{modelVersion}})"
         },
         {
-          "expr": "sum(rate(review_decision_total{application=\"ai-service\", decision=\"CONDITIONAL\"}[5m])) by (modelVersion)",
+          "expr": "sum(rate(review_decision_total{application=\"auto-loan-review\", decision=\"CONDITIONAL\"}[5m])) by (modelVersion)",
           "legendFormat": "CONDITIONAL ({{modelVersion}})"
         }
       ],
@@ -711,7 +711,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"ai-service\"}[5m])) by (modelVersion, le))",
+          "expr": "histogram_quantile(0.95, sum(rate(review_duration_seconds_bucket{application=\"auto-loan-review\"}[5m])) by (modelVersion, le))",
           "legendFormat": "p95 ({{modelVersion}})"
         }
       ],
@@ -755,7 +755,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(review_input_missing_total{application=\"ai-service\"}[5m])) by (field)",
+          "expr": "sum(increase(review_input_missing_total{application=\"auto-loan-review\"}[5m])) by (field)",
           "legendFormat": "결측 — {{field}}"
         }
       ],
@@ -787,7 +787,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(review_input_outlier_total{application=\"ai-service\"}[5m])) by (field)",
+          "expr": "sum(increase(review_input_outlier_total{application=\"auto-loan-review\"}[5m])) by (field)",
           "legendFormat": "이상치 — {{field}}"
         }
       ],

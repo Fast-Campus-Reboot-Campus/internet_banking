@@ -112,11 +112,14 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             BalanceTxData depositResult = step3b_deposit(pi, command);
 
             // TX-2: 분개 2건 + COMPLETED + Outbox + 멱등키완료
-            return txService.txStep4(pi, withdrawStep.txData(), depositResult, command,
+            PaymentResult result = txService.txStep4(pi, withdrawStep.txData(), depositResult, command,
                     validation.senderHolderName(), validation.receiverHolderName());
+            metrics.paymentCompleted(pi.getRequestedAt());
+            return result;
 
         } catch (PaymentValidationException e) {
             // 비즈니스 거절 → DRAFT→FAILED. 자금변동 없음(B-3 미도달). 200 OK + status=FAILED
+            metrics.paymentFailed();
             return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()), "DRAFT");
 
         } catch (DepositInboundFailureException e) {
@@ -133,6 +136,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             // DRAFT 분기: authorize 전 deposit 호출 실패. 보상 진입 금지(withdrawStep=null, B-3 미도달).
             if ("DRAFT".equals(freshPi.getStatus())) {
                 String fc = DepositErrorMapper.toFailureCategory(e.getDepositResponseCode());
+                metrics.paymentFailed();
                 return txService.txStepFail(freshPi, fc, failedEventTypeFor(fc), "DRAFT");
             }
 
@@ -140,6 +144,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             // 출금이 일어나지 않았으므로 보상(step3c_withdrawCancel) 부적절. 출금 분개 시작 전이므로 AUTHORIZED→FAILED.
             if (withdrawStep == null) {
                 String fc = DepositErrorMapper.toFailureCategory(e.getDepositResponseCode());
+                metrics.paymentFailed();
                 return txService.txStepFail(freshPi, fc, failedEventTypeFor(fc), "AUTHORIZED");
             }
 
@@ -152,6 +157,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
             // TX-B: REVERSING→FAILED + 이력 2건 + Outbox + 멱등키
             // WHERE version=2 → version=3
+            metrics.paymentFailed();
             return txService.txCompleteReversal(pi, command.idempotencyKey(), pi.getVersion() + 2);
 
         } catch (LedgerInsertFailureException e) {
@@ -176,6 +182,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             step3c_withdrawCancel(freshPi, command, withdrawStep.callId(), withdrawStep.txData());
 
             // TX-B: REVERSING→FAILED + 이력 2건 + Outbox + 멱등키 (freshPi.version+1=2 → WHERE version=2, DB version→3)
+            metrics.paymentFailed();
             return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
         }
     }
@@ -246,8 +253,10 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             w = step3_withdraw(pi, command);
             BalanceTxData deposit = step3b_deposit(pi, command);
 
-            return txService.txStep4Scheduled(pi, w.txData(), deposit, command,
+            PaymentResult result = txService.txStep4Scheduled(pi, w.txData(), deposit, command,
                     validation.senderHolderName(), validation.receiverHolderName());
+            metrics.paymentCompleted(pi.getRequestedAt());
+            return result;
 
         } catch (PaymentValidationException e) {
             // sender/잔액 실패 — B-3 미도달, 자금변동 없음
@@ -255,6 +264,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             if ("FAILED".equals(freshPi.getStatus()) || "CANCELED".equals(freshPi.getStatus())) {
                 return new PaymentResult(piId, pi.getTransactionNo(), "FAILED", "SYSTEM_ERROR", null);
             }
+            metrics.paymentFailed();
             return txService.txStepFail(freshPi, e.getFailureCategory(),
                     failedEventTypeFor(e.getFailureCategory()), "PROCESSING");
 
@@ -268,6 +278,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             txService.txMarkReversing(freshPi, freshPi.getVersion(), "PROCESSING");
             step3c_withdrawCancel(freshPi, command, w.callId(), w.txData());
             // txCompleteReversal WHERE version=V+2 → FAILED(V+3)
+            metrics.paymentFailed();
             return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
 
         } catch (LedgerInsertFailureException e) {
@@ -278,6 +289,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
             }
             txService.txMarkReversing(freshPi, freshPi.getVersion(), "PROCESSING");
             step3c_withdrawCancel(freshPi, command, w.callId(), w.txData());
+            metrics.paymentFailed();
             return txService.txCompleteReversal(freshPi, command.idempotencyKey(), freshPi.getVersion() + 1);
         }
     }
@@ -322,6 +334,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         } catch (PaymentValidationException e) {
             // step2 검증 실패 — 자금변동 없음(B-3 미도달). 200 OK + status=FAILED
+            metrics.paymentFailed();
             return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()), "DRAFT");
         }
     }
@@ -344,6 +357,7 @@ public class PaymentOrchestratorImpl implements PaymentOrchestrator {
 
         } catch (PaymentValidationException e) {
             // step2 검증 실패 — 자금변동 없음(B-3 미도달). 200 OK + status=FAILED
+            metrics.paymentFailed();
             return txService.txStepFail(pi, e.getFailureCategory(), failedEventTypeFor(e.getFailureCategory()), "DRAFT");
         }
     }

@@ -1,0 +1,26 @@
+{
+  "name": "case_death",
+  "description": "사망계좌 인출 시도 — 조사 중 get_party 가 사망 반환. 이상도 낮아도(평범한 금액) 예산 남아도 즉시 fail-closed 종료.",
+  "alert": {
+    "id": "ALT-DEATH",
+    "account": "110-999-9009",
+    "customer_id": "CUST-9009",
+    "tx_context": {
+      "amount": 300000,
+      "payee": "타행 계좌",
+      "time": "2026-06-07T11:20:00",
+      "channel": "ATM"
+    },
+    "anomaly_score": 15.0
+  },
+  "tool_responses": {
+    "get_party": { "life_status": "DEATH", "guardianship": "NONE", "name_match": true },
+    "get_customer": { "avg_tx_amount": 250000, "usual_channel": "ATM", "tenure_years": 20 },
+    "get_auth_events": { "recent_cert_fail": 0, "password_changed_recently": false, "events": [] },
+    "get_device_fingerprint": { "known_device": true, "device_id": "DEV-USUAL-20", "first_seen_days": 2000 },
+    "get_fds_history": { "past_detections": 0, "last_pattern": "none" },
+    "get_str_history": { "past_str_reports": 0 },
+    "get_related_accounts": { "same_device_customers": 1, "organized_ring": false, "linked_str_reports": 0 },
+    "get_aml_history": { "structuring": false, "layering_hops": 0 }
+  }
+}
