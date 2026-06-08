@@ -1,7 +1,7 @@
 # Deposit Service
 
 작성자: 정혜영  
-수정일: 2026-06-07
+수정일: 2026-06-08
 
 Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, 계약, 거래 내역을 담당하는 백엔드 서비스입니다. 프론트엔드의 예금 상품 조회, 상품 상세, 계좌이체, 이체 결과 조회, 거래내역 조회 화면과 연동됩니다.
 
@@ -28,6 +28,7 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 이체 API 중복 함수 제거 | `web/lib/deposit-api.ts`의 `executeDepositTransfer` 중복 정의를 제거했습니다. |
 | 당행이체 계좌번호 조회 자동화 | `TransactionService.transfer()`에서 INTERNAL 이체 시 `toAccountId`가 null이면 throw 대신 `accountRepository.findByAccountNumber(toAccountNo)`로 계좌를 조회해 ID를 자동 매핑합니다. 타인 당행 계좌 이체 시 프론트가 내부 ID를 알 수 없는 구조적 한계를 백엔드에서 해소합니다. |
 | **챗봇·상담 테이블 소유권 이관 (V5 → V12)** | V5 마이그레이션에 포함됐던 `chatbot_*` · `consultation` 테이블 6개를 deposit-service 관할에서 제거합니다. 해당 테이블의 실제 소유자는 consultation-service이며, 서비스 기동 시 SQLAlchemy `create_all()`로 올바른 스키마로 자동 생성됩니다. V12 마이그레이션에서 기존 deposit-db의 불일치 테이블을 DROP해 충돌을 해소합니다. |
+| **이체 일일 한도 검증** | ERD에 정의된 `daily_withdraw_limit`(하루 금액 한도), `daily_withdraw_count_limit`(하루 횟수 한도)를 이체 실행 시점에 실제로 검증합니다. 한도 초과 시 `BusinessException`을 던지고 이체를 차단합니다. |
 
 ## 백엔드 변경 상세
 
@@ -231,6 +232,49 @@ if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
 ./gradlew :services:deposit-service:build
 ```
 
+## 이체 일일 한도 검증
+
+ERD에 정의된 계좌 이체 한도를 이체 실행 시점에 실제로 검증합니다.
+
+### 한도 항목
+
+| 필드 | DB 컬럼 | 설명 |
+|---|---|---|
+| 하루 금액 한도 | `daily_withdraw_limit` | 당일 출금·이체 합산 금액이 이 값을 초과하면 이체 차단 |
+| 하루 횟수 한도 | `daily_withdraw_count_limit` | 당일 출금·이체 건수가 이 값에 도달하면 이체 차단 |
+
+한도 값이 `null`이면 해당 항목은 무제한으로 처리됩니다.
+
+### 검증 흐름
+
+```
+transfer() 호출
+  → 출금 계좌 조회 (FOR UPDATE 락)
+  → validateDailyTransferLimit()
+      → 오늘 00:00 ~ 24:00 UTC 기준 OUT 방향 거래 합계 금액 조회
+      → 합계 + 이체금액 > daily_withdraw_limit  →  DAILY_TRANSFER_AMOUNT_EXCEEDED 예외
+      → 오늘 OUT 방향 거래 건수 조회
+      → 건수 >= daily_withdraw_count_limit  →  DAILY_TRANSFER_COUNT_EXCEEDED 예외
+  → 잔액 차감 및 거래 기록
+```
+
+### 에러 코드
+
+| 에러 코드 | HTTP 상태 | 메시지 |
+|---|---|---|
+| `DAILY_TRANSFER_AMOUNT_EXCEEDED` | 400 Bad Request | 하루 이체 금액 한도를 초과했습니다. |
+| `DAILY_TRANSFER_COUNT_EXCEEDED` | 400 Bad Request | 하루 이체 횟수 한도를 초과했습니다. |
+
+### 관련 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `src/main/java/com/bank/deposit/service/TransactionService.java` | `validateDailyTransferLimit()` 메서드 추가, `transfer()` 앞단에서 호출 |
+| `src/main/java/com/bank/deposit/repository/TransactionRepository.java` | 당일 OUT 방향 합계 금액·건수 조회 쿼리 추가 |
+| `src/main/java/com/bank/deposit/exception/ErrorCode.java` | `DAILY_TRANSFER_AMOUNT_EXCEEDED`, `DAILY_TRANSFER_COUNT_EXCEEDED` 추가 |
+
+---
+
 ## 챗봇 상품 추천 우대금리 표시
 
 챗봇 상품 추천 카드에 우대금리 수치와 조건을 함께 표시합니다.
@@ -277,7 +321,9 @@ DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback �
 
 - `services/deposit-service/src/main/resources/db/migration/V5__full_erd_schema.sql` (chatbot·consultation 테이블 제거)
 - `services/deposit-service/src/main/resources/db/migration/V12__drop_chatbot_consultation_tables.sql` (신규)
-- `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java`
+- `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java` (일일 한도 검증 추가)
+- `services/deposit-service/src/main/java/com/bank/deposit/repository/TransactionRepository.java` (당일 합계·건수 쿼리 추가)
+- `services/deposit-service/src/main/java/com/bank/deposit/exception/ErrorCode.java` (한도 초과 에러 코드 추가)
 - `services/deposit-service/src/main/java/com/bank/deposit/controller/ProductController.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/domain/enums/TransactionChannel.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/dto/response/ProductResponse.java`

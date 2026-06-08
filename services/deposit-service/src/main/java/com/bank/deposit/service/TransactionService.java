@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -130,6 +131,8 @@ public class TransactionService {
                 validateCounterpartyAccountNo(toAccountId, toAccountNo, counterparty);
             }
         }
+
+        validateDailyTransferLimit(source, amount);
 
         BigDecimal before = source.getBalance();
         source.withdraw(amount, clock);
@@ -246,6 +249,27 @@ public class TransactionService {
                 .postedAt(OffsetDateTime.now(clock))
                 .transactionSummary("거래 취소")
                 .build());
+    }
+
+    private void validateDailyTransferLimit(Account source, BigDecimal amount) {
+        OffsetDateTime startOfDay = LocalDate.now(clock).atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime endOfDay = startOfDay.plusDays(1);
+
+        if (source.getDailyWithdrawLimit() != null) {
+            BigDecimal todayTotal = transactionRepository.sumAmountByAccountIdAndDirectionTypeAndTransactionAtBetween(
+                    source.getAccountId(), DirectionType.OUT, startOfDay, endOfDay);
+            if (todayTotal.add(amount).compareTo(source.getDailyWithdrawLimit()) > 0) {
+                throw new BusinessException(ErrorCode.DAILY_TRANSFER_AMOUNT_EXCEEDED);
+            }
+        }
+
+        if (source.getDailyWithdrawCountLimit() != null) {
+            long todayCount = transactionRepository.countByAccountIdAndDirectionTypeAndTransactionAtBetween(
+                    source.getAccountId(), DirectionType.OUT, startOfDay, endOfDay);
+            if (todayCount >= source.getDailyWithdrawCountLimit()) {
+                throw new BusinessException(ErrorCode.DAILY_TRANSFER_COUNT_EXCEEDED);
+            }
+        }
     }
 
     private Account getActiveAccountForUpdate(Long accountId) {
