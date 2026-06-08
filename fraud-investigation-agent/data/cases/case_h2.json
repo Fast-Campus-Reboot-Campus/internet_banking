@@ -1,10 +1,10 @@
 {
   "name": "case_h2",
-  "description": "계정탈취 — 낯선 기기 + 인증 실패 연발 + 비번 변경 직후 송금. device=낯선기기·auth 이상이 H1과 갈리는 지점.",
+  "description": "계정탈취 — 낯선 기기 + 인증 실패 연발 + 비번 변경 직후 송금. device=낯선기기·auth 이상이 H1과 갈리는 지점. (customer_id=1 '테스트고객' 은 customer-service 시드와 매핑 — get_auth_events 실연결 토글 대상)",
   "alert": {
     "id": "ALT-H2",
     "account": "110-222-2002",
-    "customer_id": "CUST-2002",
+    "customer_id": "1",
     "tx_context": {
       "amount": 5000000,
       "payee": "신규 수취인",
