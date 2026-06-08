@@ -14,14 +14,14 @@ const LOAN_TYPE_LABEL: Record<string, string> = {
 }
 
 const STATUS_CLS: Record<string, string> = {
-  ON_SALE: 'bg-green-100 text-green-700 border-green-300',
-  SUSPENDED: 'bg-gray-100 text-gray-500 border-gray-300',
+  ACTIVE: 'bg-green-100 text-green-700 border-green-300',
+  DRAFT: 'bg-yellow-100 text-yellow-700 border-yellow-300',
   DISCONTINUED: 'bg-gray-100 text-gray-500 border-gray-300',
 }
 
 function statusBadge(status: string) {
   const cls = STATUS_CLS[status] ?? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-  const label = status === 'ON_SALE' ? '판매중' : status === 'SUSPENDED' ? '중단' : status === 'DISCONTINUED' ? '종료' : status
+  const label = status === 'ACTIVE' ? '판매중' : status === 'DRAFT' ? '준비중' : status === 'DISCONTINUED' ? '종료' : status
   return (
     <span className={`text-[11px] px-2 py-0.5 rounded border ${cls}`}>{label}</span>
   )
@@ -186,7 +186,7 @@ export default function AdminLoanProductsPage() {
                       </td>
                       <td className="px-4 py-3">{statusBadge(p.prodStatusCd)}</td>
                       <td className="px-4 py-3">
-                        {p.prodStatusCd === 'ON_SALE' && (
+                        {p.prodStatusCd === 'ACTIVE' && (
                           <button
                             onClick={() => handleDiscontinue(p.prodId)}
                             disabled={busy}

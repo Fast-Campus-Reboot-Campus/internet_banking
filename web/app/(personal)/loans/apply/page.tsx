@@ -54,7 +54,7 @@ export default function LoanApplyPage() {
   const [previewError, setPreviewError] = useState('')
 
   useEffect(() => {
-    loanProductApi.list({ prodStatusCd: 'ON_SALE', size: 20 })
+    loanProductApi.list({ prodStatusCd: 'ACTIVE', size: 20 })
       .then(({ data: res }) => {
         const items: Product[] = res.data?.items ?? []
         setProducts(items)
