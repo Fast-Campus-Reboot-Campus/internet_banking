@@ -340,12 +340,15 @@ function accountTypeLabel(account: DepositAccount, product?: DepositProduct): Ac
   if (product && CHECKING_PRODUCT_SLUGS.has(getDepositSlugByProductId(product.productId))) return '입출금'
   if (product?.productName?.includes('통장')) return '입출금'
   if (account.accountAlias?.includes('통장')) return '입출금'
+  // contracts/products 조회 실패 시 isWithdrawable로 폴백
+  if (account.isWithdrawable ?? account.withdrawable) return '입출금'
   return '예금'
 }
 
 function fallbackName(account: DepositAccount) {
   if (account.accountType === 'SAVINGS') return '가입 적금'
   if (account.accountType === 'SUBSCRIPTION') return '가입 청약'
+  if (account.isWithdrawable ?? account.withdrawable) return '가입 통장'
   return '가입 예금'
 }
 
