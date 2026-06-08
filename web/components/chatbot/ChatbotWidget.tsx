@@ -351,7 +351,17 @@ export default function ChatbotWidget() {
     setMounted(true)
     const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
     const cid = localStorage.getItem('customerId') ? getCurrentDepositCustomerId() : ''
-    if (token) setIsLoggedIn(true)
+    if (token) {
+      setIsLoggedIn(true)
+    } else {
+      pendingLoginActionRef.current = 'welcome'
+      setMessages([{
+        id: 'welcome',
+        role: 'bot',
+        text: '안녕하세요. 챗봇 서비스를 이용하시려면 먼저 로그인해 주세요.',
+        loginForm: true,
+      }])
+    }
     if (cid) setCustomerNo(cid)
   }, [])
 
@@ -2272,7 +2282,13 @@ export default function ChatbotWidget() {
                         setMessages(prev => prev.map(m => m.loginForm ? { ...m, loginForm: false } : m))
                         const pending = pendingLoginActionRef.current
                         pendingLoginActionRef.current = null
-                        if (pending === 'recommend') {
+                        if (pending === 'welcome') {
+                          setMessages([{
+                            id: 'welcome',
+                            role: 'bot',
+                            text: '로그인되었습니다. 원하시는 상품군을 고르거나 현금 흐름 기반 상품 추천을 받아보세요.',
+                          }])
+                        } else if (pending === 'recommend') {
                           setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null })
                         } else {
                           // my_products: isLoggedIn이 아직 setState 반영 전이므로 직접 실행
