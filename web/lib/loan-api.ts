@@ -1,5 +1,43 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- 대출 API 응답 타입 미정의 구간, 빌드 차단 방지용 임시 처리 */
-import { api } from "./api";
+import axios from "axios";
+import { getAdminGatewayHeaders } from "@/lib/admin-loan-auth";
+
+// loan-service 전용 axios 인스턴스.
+// 인증·고객 API(@/lib/api)는 customer-service를 가리키지만, 대출 엔드포인트는
+// loan-service(기본 8083)를 직접 호출한다. (게이트웨이 미경유 로컬 개발 구성)
+// 인증 우선순위:
+//   1. accessToken(JWT) → Authorization: Bearer <token>  (개인 뱅킹 로그인)
+//   2. admin_user(목업) → X-User-Id / X-User-Role 헤더   (어드민 목업 로그인)
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_LOAN_API_URL || "http://localhost:8083",
+  headers: { "Content-Type": "application/json" },
+});
+
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      // 어드민 목업 세션 → 게이트웨이 헤더 폴백
+      const adminHeaders = getAdminGatewayHeaders();
+      Object.assign(config.headers, adminHeaders);
+    }
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("access_token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(err);
+  },
+);
 
 // ─── 공통 타입 ───────────────────────────────────────────────
 
@@ -22,8 +60,8 @@ export interface LoanProduct {
 export interface PreferentialRatePolicy {
   policyId: number;
   policyName: string;
-  discountBps: number;
-  conditionDesc: string;
+  preferentialRateBps: number;
+  conditionCd: string;
 }
 
 export interface LoanApplication {
@@ -148,14 +186,14 @@ export const loanApplicationApi = {
   getPrescreening: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/prescreening`),
 
-  runCreditEvaluation: (applId: number) =>
-    api.post<any>(`/api/loan-applications/${applId}/credit-evaluation`, {}),
+  runCreditEvaluation: (applId: number, body: { cevalEngine: string; cevalDecisionCd: string; cevalEngineVersion?: string; cevalGrade?: string; cevalScore?: number; evalLimitAmount?: number; evalRateBps?: number }) =>
+    api.post<any>(`/api/loan-applications/${applId}/credit-evaluation`, body),
 
   getCreditEvaluation: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/credit-evaluation`),
 
-  runDsr: (applId: number, body?: { newAnnualRepayAmt?: number }) =>
-    api.post<any>(`/api/loan-applications/${applId}/dsr-calculation`, body ?? {}),
+  runDsr: (applId: number, body: { annualIncomeAmt: number; newAnnualRepayAmt?: number; existingAnnualRepayAmt?: number }) =>
+    api.post<any>(`/api/loan-applications/${applId}/dsr-calculation`, body),
 
   getDsr: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/dsr-calculation`),
@@ -215,6 +253,12 @@ export const loanContractApi = {
 
   list: (params: { customerId: number; page?: number; size?: number }) =>
     api.get<any>("/api/loan-contracts", { params }),
+
+  adminList: (params: {
+    cntrStatusCd?: string; dateFrom?: string; dateTo?: string;
+    page?: number; size?: number;
+  }) =>
+    api.get<any>("/api/admin/loan-contracts", { params }),
 
   get: (cntrId: number) =>
     api.get<any>(`/api/loan-contracts/${cntrId}`),
@@ -371,7 +415,7 @@ export const adminReviewApi = {
   autoDecide: (applId: number) =>
     api.post<any>(`/api/loan-applications/${applId}/review/auto-decide`, {}),
 
-  confirm: (applId: number, body: { reviewerId: number; confirmRemark?: string }) =>
+  confirm: (applId: number, body: { confirmRemark?: string }) =>
     api.post<any>(`/api/loan-applications/${applId}/review/confirm`, body),
 
   acknowledgeBias: (applId: number, body?: { acknowledgeRemark?: string }) =>
@@ -392,7 +436,7 @@ export const adminReviewApi = {
   addCheck: (revId: number, body: object) =>
     api.post<any>(`/api/loan-reviews/${revId}/checks`, body),
 
-  biasOverride: (revId: number, body: { overrideBy: number; overrideReason: string }) =>
+  biasOverride: (revId: number, body: { overrideReason: string }) =>
     api.post<any>(`/api/loan-reviews/${revId}/bias-override`, body),
 
   getAdvisoryReports: (revId: number) =>
@@ -424,46 +468,46 @@ export const adminLoanApi = {
 // ─── 영업일 캘린더 ────────────────────────────────────────────
 
 export const businessCalendarApi = {
-  list: (params?: { year?: number; page?: number; size?: number }) =>
-    api.get<any>("/api/business-calendars", { params }),
+  list: (params?: { from?: string; to?: string; page?: number; size?: number }) =>
+    api.get<any>("/api/business-calendar", { params }),
 
   get: (calId: number) =>
-    api.get<any>(`/api/business-calendars/${calId}`),
+    api.get<any>(`/api/business-calendar/${calId}`),
 
   create: (body: object) =>
-    api.post<any>("/api/business-calendars", body),
+    api.post<any>("/api/business-calendar", body),
 
   update: (calId: number, body: object) =>
-    api.patch<any>(`/api/business-calendars/${calId}`, body),
+    api.put<any>(`/api/business-calendar/${calId}`, body),
 
   delete: (calId: number) =>
-    api.delete<any>(`/api/business-calendars/${calId}`),
+    api.delete<any>(`/api/business-calendar/${calId}`),
 };
 
 // ─── 신용정보 보고서 ──────────────────────────────────────────
 
 export const creditInfoReportApi = {
-  list: (params?: { page?: number; size?: number }) =>
+  list: (params?: { statusCd?: string; page?: number; size?: number }) =>
     api.get<any>("/api/credit-info-reports", { params }),
 
-  retry: (reportId: number) =>
-    api.post<any>(`/api/credit-info-reports/${reportId}/retry`, {}),
+  retry: (crptId: number) =>
+    api.post<any>(`/api/credit-info-reports/${crptId}/retry`, {}),
 
-  ack: (reportId: number, body?: object) =>
-    api.post<any>(`/api/credit-info-reports/${reportId}/ack`, body ?? {}),
+  ack: (crptId: number, body?: object) =>
+    api.post<any>(`/api/credit-info-reports/${crptId}/ack`, body ?? {}),
 };
 
 // ─── 알림 발송함 ──────────────────────────────────────────────
 
 export const notificationOutboxApi = {
   get: (outboxId: number) =>
-    api.get<any>(`/api/notification-outbox/${outboxId}`),
+    api.get<any>(`/api/notifications/${outboxId}`),
 
   list: (params?: { page?: number; size?: number }) =>
-    api.get<any>("/api/notification-outbox", { params }),
+    api.get<any>("/api/notifications", { params }),
 
   retry: (outboxId: number) =>
-    api.post<any>(`/api/notification-outbox/${outboxId}/retry`, {}),
+    api.post<any>(`/api/notifications/${outboxId}/retry`, {}),
 };
 
 // ─── 본인인증 ─────────────────────────────────────────────────

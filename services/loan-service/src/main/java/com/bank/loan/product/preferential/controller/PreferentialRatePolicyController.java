@@ -10,11 +10,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Tag(name = "대출상품 - 우대금리", description = "PreferentialRatePolicy - 상품별 우대금리 정책")
 @RestController
@@ -23,6 +26,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class PreferentialRatePolicyController {
 
     private final PreferentialRatePolicyService service;
+
+    @Operation(summary = "우대금리 정책 목록 조회")
+    @GetMapping
+    public ApiResponse<List<PreferentialRatePolicyResponse>> list(@PathVariable Long prodId) {
+        return ApiResponse.ok(service.list(prodId));
+    }
 
     @Operation(summary = "우대금리 정책 등록",
             description = "상품에 우대금리 정책을 등록한다. 초기 active_yn=Y, 동일 조건의 활성 정책은 중복 불가.")

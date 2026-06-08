@@ -19,19 +19,6 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    section: '심사', dot: 'bg-orange-400',
-    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
-    items: [
-      { label: '제재대상 Hit 검토', href: '/admin/screening' },
-      { label: 'EDD 심사·승인',    href: '/admin/edd' },
-      { label: '중복고객 검토',     href: '/admin/duplicates' },
-      { label: '증표 위변조 검토',  href: '/admin/id-verify' },
-      { label: '얼굴인증 라우팅',   href: '/admin/face-routing' },
-      { label: '대리인 검토',       href: '/admin/agent' },
-      { label: '미성년 검토',       href: '/admin/minor' },
-    ],
-  },
-  {
     section: '회원관리', dot: 'bg-sky-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK', 'ROLE_PRIMARY_OWNER', 'ROLE_BRANCH_STAFF'],
     items: [
@@ -43,9 +30,7 @@ const NAV: NavSection[] = [
     section: '정책', dot: 'bg-purple-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
     items: [
-      { label: '약관 관리',     href: '/admin/terms' },
       { label: '동의이력 조회', href: '/admin/consent-log' },
-      { label: 'FATCA/CRS',    href: '/admin/fatca' },
     ],
   },
   {
@@ -67,7 +52,9 @@ const NAV: NavSection[] = [
     section: '대출', dot: 'bg-green-400',
     roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
     items: [
-      { label: '본심사 목록',    href: '/admin/loan/review' },
+      { label: '계약 모니터링',      href: '/admin/loan/contracts' },
+      { label: '본심사 목록',        href: '/admin/loan/review' },
+      { label: '자동심사 시뮬레이터', href: '/admin/loan/auto-review-sim' },
       { label: '담보 관리',      href: '/admin/loan/collateral' },
       { label: '서류 관리',      href: '/admin/loan/documents' },
       { label: '우대금리 정책',  href: '/admin/loan/rate-policy' },
@@ -76,6 +63,16 @@ const NAV: NavSection[] = [
       { label: '신용정보 보고서',href: '/admin/loan/credit-report' },
       { label: '알림 발송함',    href: '/admin/loan/notification' },
       { label: '본인인증 조회',  href: '/admin/loan/identity' },
+    ],
+  },
+  {
+    section: 'AI 심사지원', dot: 'bg-violet-400',
+    roles: ['ROLE_HQ_AUDIT', 'ROLE_HQ_REVIEW', 'ROLE_HQ_RISK'],
+    items: [
+      { label: 'RAG 문서관리',  href: '/admin/ai/rag-documents' },
+      { label: '자문 규칙',     href: '/admin/ai/advisory-rules' },
+      { label: '감사·리스크',   href: '/admin/ai/audit-risk' },
+      { label: '서류 검토 큐',  href: '/admin/ai/doc-review' },
     ],
   },
   {

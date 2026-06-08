@@ -52,7 +52,7 @@ advisory:
   base-url: ${ADVISORY_BASE_URL:http://advisory-service:8080}
 
 ai-service:
-  base-url: ${AI_SERVICE_BASE_URL:http://localhost:8086}
+  base-url: ${AI_SERVICE_BASE_URL:http://localhost:8089}
 
 prompt:
   bias:

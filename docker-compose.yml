@@ -372,11 +372,8 @@ services:
       context: .
       dockerfile: services/auto-loan-review/Dockerfile
     container_name: ib-auto-loan-review
-    ports:
-      - "${AI_APP_PORT:-8086}:8086"
     environment:
-      AI_APP_PORT: 8086
-      AUTO_LOAN_REVIEW_APP_PORT: 8086
+      AUTO_LOAN_REVIEW_APP_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
       AI_DB_HOST: ai-db
       AI_DB_PORT: 5432
       AI_DB_NAME: ${AI_DB_NAME:-ai_db}
@@ -388,10 +385,10 @@ services:
       REDIS_PORT: 6379
       SPRING_PROFILES_ACTIVE: docker
       LOG_DIR: /logs
-      AI_LLM_PROVIDER: ${AI_LLM_PROVIDER:-stub}
-      AI_LLM_MODEL: ${AI_LLM_MODEL:-stub-v1}
-      AI_LLM_BASE_URL: ${AI_LLM_BASE_URL:-}
-      AI_LLM_API_KEY: ${AI_LLM_API_KEY:-}
+      AI_LLM_PROVIDER: ${GEMINI_LOAN_PROVIDER:-stub}
+      AI_LLM_MODEL: ${GEMINI_LOAN_MODEL:-stub-v1}
+      GEMINI_BASE_URL: ${GEMINI_LOAN_BASE_URL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       - C:/logs/internet-banking:/logs
     depends_on:
@@ -400,7 +397,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health | grep -q UP"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${AUTO_LOAN_REVIEW_APP_PORT:-8089}/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -614,7 +611,7 @@ services:
       MASTER_SERVICE_HOST: master-service
       MASTER_SERVICE_PORT: ${MASTER_APP_PORT:-8085}
       AI_SERVICE_HOST: auto-loan-review
-      AI_SERVICE_PORT: ${AI_APP_PORT:-8086}
+      AI_SERVICE_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
     volumes:
       - C:/logs/internet-banking:/logs
     depends_on:
@@ -840,7 +837,7 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       LOG_DIR: /logs
       LOAN_SERVICE_URL: http://loan-service:8083
-      AI_SERVICE_BASE_URL: http://auto-loan-review:8086
+      AI_SERVICE_BASE_URL: http://auto-loan-review:8089
       ADVISORY_BASE_URL: http://advisory-service:8080
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}

@@ -90,6 +90,26 @@ employee-directory:
       branch: "0001"
       grade: DEPUTY_MANAGER
       roles: [ROLE_DEPUTY_MANAGER]
+    - customer-id: 9101
+      branch: "0001"
+      grade: DEPUTY_MANAGER
+      roles: [ROLE_DEPUTY_MANAGER]
+    - customer-id: 9102
+      branch: "0001"
+      grade: BRANCH_MANAGER
+      roles: [ROLE_BRANCH_MANAGER]
+    - customer-id: 9103
+      branch: "HQ01"
+      grade: HQ_REVIEWER
+      roles: [ROLE_HQ_REVIEWER]
+    - customer-id: 9104
+      branch: "OPS"
+      grade: OPS
+      roles: [ROLE_OPS]
+    - customer-id: 9105
+      branch: "COMP"
+      grade: COMPLIANCE
+      roles: [ROLE_COMPLIANCE]
 
 logging:
   file:

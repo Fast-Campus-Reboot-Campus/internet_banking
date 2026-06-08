@@ -24,6 +24,7 @@ export default function AdminCollateralPage() {
   // release modal
   const [releasing, setReleasing] = useState<any>(null)
   const [releaseReason, setReleaseReason] = useState('')
+  const [releaseDate, setReleaseDate] = useState('')
 
   function notify(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
   function fail(m: string)   { setErr(m); setTimeout(() => setErr(''), 4000) }
@@ -33,7 +34,7 @@ export default function AdminCollateralPage() {
     setLoading(true); setErr('')
     try {
       const { data: res } = await collateralApi.list(parseInt(applId))
-      setCols(res.data ?? [])
+      setCols(res.data?.items ?? [])
     } catch { fail('담보 목록을 불러오지 못했습니다.') }
     finally { setLoading(false) }
   }
@@ -59,7 +60,10 @@ export default function AdminCollateralPage() {
     if (!releasing) return
     setBusy(true)
     try {
-      await adminLoanApi.releaseCollateral(releasing.colId, { releaseReasonCd: releaseReason || 'LOAN_REPAID' })
+      await adminLoanApi.releaseCollateral(releasing.colId, {
+        releaseReasonCd: releaseReason || 'LOAN_REPAID',
+        releaseDate: releaseDate.replace(/-/g, ''),
+      })
       notify('담보가 해제되었습니다.')
       setReleasing(null)
       await reload()
@@ -126,7 +130,7 @@ export default function AdminCollateralPage() {
                             수정
                           </button>
                           {c.colStatusCd === 'ACTIVE' && (
-                            <button onClick={() => { setReleasing(c); setReleaseReason('') }}
+                            <button onClick={() => { setReleasing(c); setReleaseReason(''); setReleaseDate(new Date().toISOString().slice(0, 10)) }}
                               className="px-2 py-1 text-[11px] border border-red-300 text-red-600 rounded hover:bg-red-50">
                               해제
                             </button>
@@ -160,12 +164,15 @@ export default function AdminCollateralPage() {
           <Modal title={`담보 해제 — ${releasing.colName}`} onClose={() => setReleasing(null)}>
             <label className="block text-[13px] text-gray-600 mb-1">해제 사유</label>
             <select value={releaseReason} onChange={e => setReleaseReason(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] mb-4 focus:outline-none">
+              className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] mb-3 focus:outline-none">
               <option value="LOAN_REPAID">대출 상환</option>
               <option value="COLLATERAL_SWAP">담보 교체</option>
               <option value="ADMIN_OVERRIDE">관리자 처리</option>
               <option value="OTHER">기타</option>
             </select>
+            <label className="block text-[13px] text-gray-600 mb-1">해제 일자</label>
+            <input type="date" value={releaseDate} onChange={e => setReleaseDate(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-[13px] mb-4 focus:outline-none" />
             <div className="flex justify-end gap-2">
               <button onClick={() => setReleasing(null)} className="px-4 py-2 text-[13px] border border-gray-300 rounded hover:bg-gray-50">취소</button>
               <button onClick={doRelease} disabled={busy}

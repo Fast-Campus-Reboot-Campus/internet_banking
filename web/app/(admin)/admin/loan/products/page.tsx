@@ -28,8 +28,10 @@ function statusBadge(status: string) {
 }
 
 const EMPTY_FORM = {
+  prodCd: '',
   prodName: '',
   loanTypeCd: 'CREDIT',
+  rateTypeCd: 'FIXED',
   baseRateBps: '',
   minRateBps: '',
   maxRateBps: '',
@@ -61,7 +63,7 @@ export default function AdminLoanProductsPage() {
     setLoading(true)
     try {
       const { data: res } = await loanProductApi.list({ size: 50 })
-      setProducts(res.data ?? res ?? [])
+      setProducts(res.data?.items ?? [])
     } catch { fail('상품 목록을 불러오지 못했습니다.') }
     finally { setLoading(false) }
   }, [])
@@ -75,10 +77,14 @@ export default function AdminLoanProductsPage() {
   })
 
   async function handleDiscontinue(prodId: number) {
-    if (!confirm('해당 상품을 중단하시겠습니까?')) return
+    const reasonCd = prompt('단종 사유 코드를 입력하세요. (예: SALES_END)', 'SALES_END')
+    if (!reasonCd) return
+    const today = new Date()
+    const saleEndDate =
+      `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
     setBusy(true)
     try {
-      await loanProductApi.discontinue(prodId)
+      await loanProductApi.discontinue(prodId, { saleEndDate, reasonCd })
       notify('상품이 중단되었습니다.')
       await load()
     } catch (e: any) { fail(e?.response?.data?.message ?? '중단 실패') }
@@ -89,8 +95,10 @@ export default function AdminLoanProductsPage() {
     setBusy(true)
     try {
       await loanProductApi.create({
+        prodCd: form.prodCd,
         prodName: form.prodName,
         loanTypeCd: form.loanTypeCd,
+        rateTypeCd: form.rateTypeCd,
         baseRateBps: Number(form.baseRateBps),
         minRateBps: Number(form.minRateBps),
         maxRateBps: Number(form.maxRateBps),
@@ -208,6 +216,12 @@ export default function AdminLoanProductsPage() {
               <div className="px-5 py-4 border-t border-gray-200">
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block">
+                    <span className="text-[12px] text-gray-600 mb-1 block">상품코드</span>
+                    <input type="text" value={form.prodCd} onChange={e => setF('prodCd', e.target.value)}
+                      placeholder="예: CREDIT_2026_01"
+                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-[13px] focus:outline-none" />
+                  </label>
+                  <label className="block">
                     <span className="text-[12px] text-gray-600 mb-1 block">상품명</span>
                     <input type="text" value={form.prodName} onChange={e => setF('prodName', e.target.value)}
                       className="w-full border border-gray-300 rounded px-3 py-1.5 text-[13px] focus:outline-none" />
@@ -219,6 +233,15 @@ export default function AdminLoanProductsPage() {
                       {Object.entries(LOAN_TYPE_LABEL).map(([k, v]) => (
                         <option key={k} value={k}>{v}</option>
                       ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-[12px] text-gray-600 mb-1 block">금리유형</span>
+                    <select value={form.rateTypeCd} onChange={e => setF('rateTypeCd', e.target.value)}
+                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-[13px] focus:outline-none">
+                      <option value="FIXED">고정금리(FIXED)</option>
+                      <option value="VARIABLE">변동금리(VARIABLE)</option>
+                      <option value="MIXED">혼합금리(MIXED)</option>
                     </select>
                   </label>
                   <label className="block">
@@ -279,7 +302,7 @@ export default function AdminLoanProductsPage() {
                     className="px-4 py-2 text-[13px] border border-gray-300 rounded hover:bg-gray-50">
                     취소
                   </button>
-                  <button onClick={handleCreate} disabled={busy || !form.prodName}
+                  <button onClick={handleCreate} disabled={busy || !form.prodCd || !form.prodName}
                     className="px-5 py-2 bg-[#1B3A6B] text-white text-[13px] rounded hover:opacity-90 disabled:opacity-50">
                     {busy ? '등록 중...' : '등록'}
                   </button>

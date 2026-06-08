@@ -288,8 +288,8 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
                                   <span className="inline-block mt-0.5 w-2 h-2 rounded-full bg-kb-primary flex-shrink-0" />
                                   <span>
                                     <span className="font-medium text-kb-text">{p.policyName}</span>
-                                    <span className="text-[#1A56DB] font-bold ml-2">-{bpsToRate(p.discountBps)}%</span>
-                                    {p.conditionDesc && <span className="text-kb-text-muted ml-2">({p.conditionDesc})</span>}
+                                    <span className="text-[#1A56DB] font-bold ml-2">-{bpsToRate(p.preferentialRateBps)}%</span>
+                                    {p.conditionCd && <span className="text-kb-text-muted ml-2">({p.conditionCd})</span>}
                                   </span>
                                 </li>
                               ))}
