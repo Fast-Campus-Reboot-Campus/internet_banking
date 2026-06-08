@@ -19,6 +19,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.test.context.NestedTestConfiguration;
+import org.springframework.test.context.NestedTestConfiguration.EnclosingConfiguration;
 
 import java.util.List;
 import java.util.Map;
@@ -201,6 +203,7 @@ class RagPipelineSmokeTest {
      * DONE 콜백이 전송되는지 검증. RagRetrievalService 는 실제 빈 사용.
      */
     @Nested
+    @NestedTestConfiguration(EnclosingConfiguration.OVERRIDE)   // 바깥 @MockBean 상속 차단 — 중복 mock 정의 방지
     @SpringBootTest(
             webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
             properties = {
