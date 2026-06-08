@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getAdminGatewayHeaders } from '@/lib/admin-loan-auth'
 
 const advisoryApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_ADVISORY_API_URL || 'http://localhost:8083',
@@ -8,7 +9,12 @@ const advisoryApi = axios.create({
 advisoryApi.interceptors.request.use((config) => {
   if (typeof window === 'undefined') return config
   const token = localStorage.getItem('accessToken')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  } else {
+    // 어드민 목업 세션 → 게이트웨이 헤더 폴백
+    Object.assign(config.headers, getAdminGatewayHeaders())
+  }
   return config
 })
 

@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- 대출 API 응답 타입 미정의 구간, 빌드 차단 방지용 임시 처리 */
 import axios from "axios";
+import { getAdminGatewayHeaders } from "@/lib/admin-loan-auth";
 
 // loan-service 전용 axios 인스턴스.
 // 인증·고객 API(@/lib/api)는 customer-service를 가리키지만, 대출 엔드포인트는
 // loan-service(기본 8083)를 직접 호출한다. (게이트웨이 미경유 로컬 개발 구성)
-// loan-service의 JwtFallbackAuthFilter가 Bearer 토큰을 직접 파싱해 인증한다.
+// 인증 우선순위:
+//   1. accessToken(JWT) → Authorization: Bearer <token>  (개인 뱅킹 로그인)
+//   2. admin_user(목업) → X-User-Id / X-User-Role 헤더   (어드민 목업 로그인)
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_LOAN_API_URL || "http://localhost:8083",
   headers: { "Content-Type": "application/json" },
@@ -13,7 +16,13 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("accessToken");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      // 어드민 목업 세션 → 게이트웨이 헤더 폴백
+      const adminHeaders = getAdminGatewayHeaders();
+      Object.assign(config.headers, adminHeaders);
+    }
   }
   return config;
 });
