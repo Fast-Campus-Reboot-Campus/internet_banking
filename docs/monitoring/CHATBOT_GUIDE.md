@@ -57,7 +57,7 @@
 - 갑자기 0으로 떨어지면 서비스 다운 또는 업스트림(프론트엔드) 장애 의심.
 
 ### 상담사 이관율
-- 전체 메시지 처리 중 상담사 이관이 발생한 비율.
+- 지금까지 시작된 전체 세션 중 상담사로 이관된 세션의 비율.
 - 높을수록 챗봇이 스스로 처리하지 못하는 문의가 많다는 뜻.
 
 | 등급 | 비율 |
@@ -65,7 +65,7 @@
 | 정상 | 30% 미만 |
 | 주의 | 30% 이상 (알림 발생) |
 
-> **참고**: 서비스 재시작 직후에는 이전 카운터 누적치와 섞여 100%를 초과하는 이상값이 보일 수 있다. 일정 시간이 지나면 정상화된다.
+> **참고**: 이 수치는 서비스가 시작된 이후의 **누적 비율**이다. 서비스를 재시작하면 카운터가 0에서 다시 시작되므로, 재시작 직후 첫 세션이 이관되면 100%로 표시될 수 있다. 시간이 지나면서 자연스럽게 안정된 비율로 수렴한다.
 
 ### 평균 만족도
 - 상담 종료 시 입력된 만족도 점수의 평균 (1~5점).
@@ -76,36 +76,48 @@
 ## 4. 메시지 라우팅 섹션
 
 **용어:**
-- **process_method** — 챗봇이 메시지를 처리한 방식. SCENARIO(버튼 선택), BP003_GPT(LLM 응답), STAFF_REQUEST(이관 안내), FEATURE_*(기능 실행), STAFF_ERROR_FALLBACK(오류로 인한 이관).
+- **process_method** — 챗봇이 메시지 하나를 어떤 방식으로 처리했는지를 나타내는 분류값. 하나의 세션에서도 메시지마다 다른 방식으로 처리될 수 있다.
 
 ### 메시지 처리 방식별 추이
 - 시간축으로 어떤 방식으로 응답했는지 보여준다.
 
-| process_method | 의미 |
-|---------------|------|
-| BP003_GPT | LLM이 자연어로 응답 — 정상적인 상담 흐름 |
-| STAFF_REQUEST | 상담사 이관 안내 (고객 요청 이관) |
-| SCENARIO | 시나리오 버튼 흐름으로 처리 |
-| FEATURE_* | 잔액 조회 등 기능 실행으로 처리 |
-| STAFF_ERROR_FALLBACK | LLM 오류로 인한 자동 이관 — 주의 필요 |
+| process_method | 한국어 | 의미 |
+|---------------|--------|------|
+| SCENARIO | 시나리오 흐름 | 버튼을 눌러 정해진 대화 흐름으로 처리 |
+| STAFF_REQUEST | 상담사 이관 | 챗봇이 처리 못하거나 고객이 요청해 상담사로 연결 |
+| FEATURE_PRODUCT_GUIDE | 상품 안내 | 예금·적금·청약 상품 목록 조회 |
+| FEATURE_RATE_GUIDE | 금리 안내 | 기본금리·우대금리 조회 |
+| FEATURE_JOIN_CONDITION | 가입 조건 안내 | 가입 대상·기간·금액 조건 조회 |
+| FEATURE_PRODUCT_COMPARE | 상품 비교 | 두 상품 간 차이 비교 |
+| FEATURE_TERMS_RAG | 약관 안내 | 중도해지·수수료 등 약관 검색 |
+| FEATURE_FAQ | 자주 묻는 질문 | FAQ 고정 답변 제공 |
+| FEATURE_CASH_FLOW_RECOMMEND | 맞춤 상품 추천 | 고객 현금흐름 분석 후 상품 추천 |
+| FEATURE_MY_ACCOUNTS | 내 계좌 조회 | 본인 계좌 목록·잔액 조회 |
+| FEATURE_INTEREST_HISTORY | 이자 내역 조회 | 이자 지급 내역 조회 |
+| FEATURE_SAVINGS_GOAL | 저축 목표 계산 | 목표 금액 달성까지 기간·납입액 계산 |
 
-- **STAFF_ERROR_FALLBACK가 급증하면**: LLM 오류율도 함께 확인할 것.
+> **참고**: 현재 LLM이 연결되지 않아 자연어 자유 응답은 지원되지 않는다. intent를 인식하지 못한 메시지는 모두 STAFF_REQUEST(상담사 이관)로 처리된다.
 
 ### 메시지 처리 방식 분포 (1h)
 - 최근 1시간 누적 분포를 파이 차트로 보여준다.
-- BP003_GPT 비중이 압도적으로 높은 것이 정상.
+- 실제로 사용된 방식만 표시된다 (0건인 항목은 제외).
 
 ---
 
 ## 5. LLM 섹션
 
-**용어:**
-- **LLM** — 챗봇이 자연어로 응답하기 위해 호출하는 AI 언어 모델 (OpenAI GPT).
-- **RAG** — LLM 응답 시 상품 정보 등 DB 데이터를 컨텍스트로 함께 전달해 더 정확한 답변을 유도하는 방식.
+> **⚠️ 현재 상태: LLM 미연결**
+>
+> consultation-service는 LLM(OpenAI GPT) 연결 설정(`CONSULTATION_OPENAI_API_KEY`, `CONSULTATION_OPENAI_MODEL`)은 준비되어 있지만, 실제 LLM API를 호출하는 코드가 아직 구현되지 않았다. 현재 챗봇은 키워드 기반 규칙 엔진으로만 동작한다.
+>
+> 따라서 **LLM 관련 패널 3개(응답시간, 오류율, 오류 추이)는 지금 모두 "No data"가 정상**이다. LLM이 연결되면 자동으로 데이터가 채워진다.
+
+**용어 (LLM 연결 이후 참고용):**
+- **LLM** — 챗봇이 자연어로 응답하기 위해 호출하는 AI 언어 모델 (OpenAI GPT 예정).
 - **p50 / p95** — 응답시간 분포. p95 = 100건 중 느린 5건을 제외한 나머지의 최대 응답시간.
 
 ### LLM 응답시간 P50/P95
-- LLM 호출부터 응답 수신까지 걸린 시간.
+- LLM 호출부터 응답 수신까지 걸린 시간. (LLM 연결 후 수집 시작)
 
 | 등급 | P50 | P95 |
 |------|-----|-----|
@@ -113,20 +125,14 @@
 | 주의 | 3~5초 | 10~20초 (알림 발생) |
 | 위험 | 5초 초과 | 20초 초과 |
 
-- P95만 급등하면: 특정 긴 질문에서 지연 — 프롬프트 길이 확인.
-- 전체가 함께 느려지면: OpenAI API 서버 이슈 또는 네트워크 문제.
-
 ### LLM 오류율
-- LLM 호출 중 에러가 발생한 비율.
+- LLM 호출 중 에러가 발생한 비율. (LLM 연결 후 수집 시작)
 
 | 등급 | 비율 |
 |------|------|
 | 정상 | 0% |
 | 주의 | 5% 미만 |
 | 위험 | 10% 이상 (알림 발생) |
-
-- 오류 발생 시 자동으로 상담사 이관으로 전환된다.
-- 오류율이 높으면: OpenAI API 키 유효성, 잔여 크레딧, 네트워크 연결 확인.
 
 ### LLM 오류 발생 추이
 - 오류가 특정 시점에 몰려 발생하면: 외부 API 장애.
@@ -225,46 +231,63 @@
 
 ## 11. 로컬 실행 방법
 
-```powershell
-# 1. consultation-service 기동
-cd "c:\Users\jaho3\OneDrive\바탕 화면\AX_FULL_Bank\internet_banking\services\consultation-service"
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8087
+consultation-service는 자체 `docker-compose.yml`로 실행된다 (메인 `docker-compose.yml`과 별도).
 
-# 2. Kafka 토픽 생성 (KAFKA_ENABLED=true 시 필요)
-docker exec payment-kftc-kafka kafka-topics.sh --create --topic consultation.chatbot.events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
-docker exec payment-kftc-kafka kafka-topics.sh --create --topic consultation.chat.events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+```bash
+# 프로젝트 루트에서
+cd services/consultation-service
+docker compose up -d
 ```
 
-### 테스트 요청 전송
+서비스가 뜨면 `http://localhost:8087/health` 에서 `{"status":"UP"}` 응답을 확인한다.
 
-```powershell
-# 세션 시작
-$s = Invoke-RestMethod -Method Post -Uri "http://localhost:8087/chatbot/consultations/start" -ContentType "application/json" -Body '{"entry_screen":"MAIN"}'
-$id = $s.chatbot_consultation_id
+> Prometheus와 Grafana는 메인 `docker-compose.yml`로 별도 기동되어 있어야 한다.
 
-# LLM 호출 (자연어 메시지)
-Invoke-RestMethod -Method Post -Uri "http://localhost:8087/chatbot/consultations/$id/messages" -ContentType "application/json" -Body '{"message":"적금 금리 알려줘"}'
+### 테스트 데이터 넣기
 
-# 상담사 이관
-Invoke-RestMethod -Method Post -Uri "http://localhost:8087/chatbot/consultations/$id/messages" -ContentType "application/json" -Body '{"message":"상담사 연결", "button_value":"AGENT"}'
+아래 순서대로 실행하면 세션 시작 → 메시지 처리 → 이관 → 종료까지 한 사이클이 완성된다.
 
-# 상담 종료 (만족도 포함)
-$chat = Invoke-RestMethod -Method Get -Uri "http://localhost:8087/chat/queue"
-$chatId = ($chat | Where-Object { $_.chatbot_consultation_id -eq $id }).chat_consultation_id
-Invoke-RestMethod -Method Post -Uri "http://localhost:8087/chat/consultations/$chatId/end" -ContentType "application/json" -Body '{"satisfaction_score": 5}'
+```bash
+# 1. 세션 시작 (entry_screen은 WEB_PERSONAL, HOME 등 실제 진입 화면 구분)
+curl -X POST http://localhost:8087/chatbot/consultations/start \
+  -H "Content-Type: application/json" \
+  -d '{"customer_no":"TEST001", "entry_screen":"WEB_PERSONAL", "app_version":"1.0.0"}'
+# → chatbot_consultation_id 값을 메모해둔다 (이하 {ID})
+
+# 2. 메시지 전송 — FEATURE 경로 (상품 질문)
+curl -X POST http://localhost:8087/chatbot/consultations/{ID}/messages \
+  -H "Content-Type: application/json" \
+  -d '{"message":"적금 금리 알려줘"}'
+
+# 3. 메시지 전송 — STAFF_REQUEST 경로 (이관 발생)
+curl -X POST http://localhost:8087/chatbot/consultations/{ID}/messages \
+  -H "Content-Type: application/json" \
+  -d '{"message":"직접 상담 받고 싶어요"}'
+
+# 4. 이관된 세션 확인
+curl http://localhost:8087/chat/queue
+# → chat_consultation_id 값을 메모해둔다 (이하 {CHAT_ID})
+
+# 5. 상담 종료 + 만족도 입력 (session_ended_total, satisfaction_score 수집)
+curl -X POST http://localhost:8087/chat/consultations/{CHAT_ID}/end \
+  -H "Content-Type: application/json" \
+  -d '{"satisfaction_score": 4}'
 ```
+
+> **주의**: `session_ended_total`과 `satisfaction_score`는 상담사 이관 후 `/chat/consultations/{id}/end` 를 호출해야 기록된다. 이관 없이 창을 닫은 세션은 종료 카운트에 포함되지 않는다.
 
 ---
 
 ## 12. "No data" 표시 시 대처법
 
-| 패널 | No data 원인 | 조치 |
-|------|-------------|------|
-| LLM 오류율 / 오류 추이 | LLM 에러 없음 | 정상 — 에러 없으면 당연히 No data |
-| Kafka 이벤트 발행/소비 | KAFKA_ENABLED=false | `.env`에서 true로 변경 후 재시작 |
+| 패널 | No data / 0 원인 | 조치 |
+|------|-----------------|------|
+| LLM 응답시간, 오류율, 오류 추이 | **현재 LLM 미연결** | 정상 — LLM 구현 후 자동으로 채워짐 |
+| LLM 토큰 사용량, 평균 토큰/호출 | 현재 LLM 미연결 | 정상 |
+| 세션 시작 (건/분) | 지금 세션이 생성되지 않는 중 | 정상 — 트래픽 있을 때만 0이 아닌 값 표시 |
+| Kafka 이벤트 발행/소비 | KAFKA_ENABLED=false 또는 트래픽 없음 | `.env`에서 `CONSULTATION_KAFKA_ENABLED=true` 확인 |
 | HTTP 5xx 오류율 | 서버 에러 없음 | 정상 |
-| LLM 응답시간 | 요청이 적거나 방금 시작됨 | 메시지 몇 건 더 보낸 후 확인 |
-| 전체 패널 | Prometheus 미수집 | `http://localhost:9090/targets`에서 consultation-service UP 여부 확인 |
+| 전체 패널 | Prometheus 미수집 | `http://localhost:9090/targets` 에서 consultation-service UP 여부 확인 |
 
 ---
 
