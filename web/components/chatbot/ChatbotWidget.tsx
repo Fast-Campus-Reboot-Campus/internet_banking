@@ -1165,6 +1165,16 @@ export default function ChatbotWidget() {
   }
 
   async function startTransfer(accountId: number, accountNumber: string, balance: number) {
+    if (!isLoggedIn) {
+      pendingLoginActionRef.current = 'transfer'
+      pushMessages([{
+        id: messageId('auth'),
+        role: 'bot',
+        text: '이체 서비스는 로그인 후 이용하실 수 있습니다.',
+        loginForm: true,
+      }])
+      return
+    }
     setTransferState({
       step: 'form',
       fromAccountId: accountId,
