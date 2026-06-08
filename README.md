@@ -14,7 +14,7 @@ MSA 구조 기반 인터넷뱅킹 플랫폼. 수신·여신·결제·고객·상
 | `loan-service` | Java 17 / Spring Boot 3.x | 8083 | 대출 신청~상환 전 생애주기 + RAG |
 | `master-service` | Java 17 / Spring Boot 3.x | 8085 | 공통 코드·마스터 데이터 |
 | `ai-service` | Java 17 / Spring Boot 3.x | 8086 | AI 모델 서빙, 임베딩, RAG 벡터검색 |
-| `auto-loan-review` | Java 17 / Spring Boot 3.x | 8086 | 자동심사 에이전트, 편향검증, 4-eye 승인 |
+| `auto-loan-review` | Java 17 / Spring Boot 3.x | 8089 | 자동심사 에이전트, 편향검증, 4-eye 승인 |
 | `review-ai-gateway` | Java 17 / Spring Boot 3.x | 8088 | 심사 AI 라우팅 게이트웨이 |
 | `payment-service` | Java 17 / Spring Boot 3.x | — | 결제·이체 처리, Kafka 이벤트 |
 | `api-gateway` | Java 17 / Spring Cloud Gateway | — | (보조 게이트웨이) |

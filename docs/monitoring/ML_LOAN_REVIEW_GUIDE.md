@@ -34,7 +34,7 @@
 대출 신청 요청
       │
       ▼
-  auto-loan-review (8086)
+  auto-loan-review (8089)
       │  입력 데이터 검증 및 전처리
       │  결측치 / 이상치 메트릭 기록 (creditScoreProxy, dsr)
       │
@@ -65,7 +65,7 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 |------|-----|------|
 | Grafana (대시보드) | `http://localhost:3000` | admin / admin |
 | Prometheus (알림 확인) | `http://localhost:9090/alerts` | 없음 |
-| auto-loan-review 메트릭 원본 | `http://localhost:8086/actuator/prometheus` | 없음 |
+| auto-loan-review 메트릭 원본 | `http://localhost:8089/actuator/prometheus` | 없음 |
 
 대시보드 경로: Grafana 접속 → 왼쪽 메뉴 **Dashboards** → **ML 대출 심사 모니터링**
 
@@ -315,7 +315,7 @@ inference-server에 연결이 안 되거나 모델이 오류를 반환하면 에
 
 ### 전체 패널이 No data
 1. **Prometheus Targets 확인**: `http://localhost:9090/targets` → `auto-loan-review` 가 **UP** 인지 확인
-2. **메트릭 원본 확인**: `http://localhost:8086/actuator/prometheus` 에서 `review_` 로 시작하는 메트릭이 있는지 확인
+2. **메트릭 원본 확인**: `http://localhost:8089/actuator/prometheus` 에서 `review_` 로 시작하는 메트릭이 있는지 확인
 3. **datasource 확인**: Grafana → `http://localhost:3000/connections/datasources` → Prometheus → **Save & test**
 
 ### Prometheus는 UP인데 Grafana에 No data
@@ -355,17 +355,17 @@ while ($listener.IsListening) {
 
 ```bash
 # 정상 요청
-curl -s -X POST http://localhost:8086/api/ai/auto-review/evaluate \
+curl -s -X POST http://localhost:8089/api/ai/auto-review/evaluate \
   -H "Content-Type: application/json" \
   -d '{"revId":1,"sex":"M","age":35,"dsr":0.35,"ltv":0.5,"creditScoreProxy":720,"annualIncomeKw":60000,"requestedAmountKw":30000,"totalDebtKw":15000,"requestedPeriodMo":12,"purposeCd":"LIVING","purposeRedFlag":false,"applicantSegment":"MASS","productCode":"HL001"}'
 
 # 결측치 테스트 (dsr 없음 → review_input_missing_total 증가)
-curl -s -X POST http://localhost:8086/api/ai/auto-review/evaluate \
+curl -s -X POST http://localhost:8089/api/ai/auto-review/evaluate \
   -H "Content-Type: application/json" \
   -d '{"revId":2,"sex":"F","age":28,"ltv":0.4,"creditScoreProxy":680,"annualIncomeKw":45000,"requestedAmountKw":20000,"totalDebtKw":10000,"requestedPeriodMo":12,"purposeCd":"LIVING","purposeRedFlag":false,"applicantSegment":"MASS","productCode":"HL001"}'
 
 # 이상치 테스트 (dsr=1.8 → review_input_outlier_total 증가)
-curl -s -X POST http://localhost:8086/api/ai/auto-review/evaluate \
+curl -s -X POST http://localhost:8089/api/ai/auto-review/evaluate \
   -H "Content-Type: application/json" \
   -d '{"revId":3,"sex":"M","age":45,"dsr":1.8,"ltv":0.9,"creditScoreProxy":400,"annualIncomeKw":30000,"requestedAmountKw":50000,"totalDebtKw":40000,"requestedPeriodMo":24,"purposeCd":"BUSINESS","purposeRedFlag":true,"applicantSegment":"MASS","productCode":"HL001"}'
 ```
