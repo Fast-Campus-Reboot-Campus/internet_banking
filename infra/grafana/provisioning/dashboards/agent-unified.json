@@ -1250,7 +1250,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(chatbot_handoff_total[5m])) / sum(rate(chatbot_message_total[5m]))"
+          "expr": "sum(chatbot_handoff_total) / (sum(chatbot_session_total) + 0.001)"
         }
       ]
     },
