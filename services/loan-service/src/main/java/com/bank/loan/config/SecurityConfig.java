@@ -89,10 +89,14 @@ public class SecurityConfig {
                         "/api/loan-products/*/preferential-rate-policies"
                 ).permitAll()
 
-                // 운영자 계약 모니터링 — ROLE_OPS
+                // 운영자 계약 모니터링(읽기 전용) — 운영/본사/지점 직원 역할 허용 (CUSTOMER·INTERNAL 제외)
                 .requestMatchers(HttpMethod.GET,
                         "/api/admin/loan-contracts"
-                ).hasRole(LoanRole.OPS.spring())
+                ).hasAnyRole(
+                        LoanRole.OPS.spring(), LoanRole.ADMIN.spring(),
+                        LoanRole.HQ_REVIEWER.spring(), LoanRole.COMPLIANCE.spring(),
+                        LoanRole.BRANCH_MANAGER.spring(), LoanRole.DEPUTY_MANAGER.spring()
+                )
 
                 // 운영팀 전용 내부 엔드포인트 — ROLE_OPS
                 .requestMatchers(HttpMethod.POST,
