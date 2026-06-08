@@ -511,18 +511,19 @@ State 예시
 
 ### 16-3. 도구 레이어 — AXful Bank 자산을 Tool로 노출
 
-| Tool | AXful 자산 | 주는 신호 |
-|---|---|---|
-| `get_party` | party 도메인 | 사망·후견(→fail-closed), 명의자 불일치(→T1) |
-| `get_customer` | customer | 평소 거래·디바이스 baseline |
-| `get_auth_events` | 인증보안계 (CERT_FAIL_BLOCK) | 인증 실패·비번 변경(→H2) |
-| `get_device_fingerprint` | FDS·세션 | 평소/낯선 기기 |
-| `get_fds_history` | fds_detection·incident | 과거 탐지 패턴 |
-| `get_str_history` | STR | 과거 의심거래 보고 |
-| `get_related_accounts` | 거래·수취 네트워크 | 동일 디바이스 다고객, 연관계좌(→T1·T2·T3) |
-| `get_aml_history` | AML | 구조화·세탁 이력(→H3·H4) |
+| Tool | AXful 자산 | 주는 신호 | 실연결/목 |
+|---|---|---|---|
+| `get_auth_events` | 인증보안계 (CERT_FAIL_BLOCK) | 인증 실패·비번 변경(→H2) | 🟢 실연결(1순위) |
+| `get_customer` | customer | 평소 거래·디바이스 baseline | 🟢 실연결/목 |
+| `get_party` | party 도메인 | 사망·후견(→fail-closed), 명의자 불일치(→T1) | 🟡 사망=읽기후 실연결/목, 후견=목 |
+| `get_fds_history` | fds_detection·incident | 과거 탐지 패턴 | 🟡 목(우선순위 밖) |
+| `get_device_fingerprint` | device 서비스 부재 | 평소/낯선 기기 | 🔴 목 |
+| `get_str_history` | STR 서브시스템 부재 | 과거 의심거래 보고 | 🔴 목 |
+| `get_related_accounts` | 수취 네트워크 그래프 부재 | 동일 디바이스 다고객, 연관계좌(→T1·T2·T3) | 🔴 목 |
+| `get_aml_history` | AML 서브시스템 부재 | 구조화·세탁 이력(→H3·H4) | 🔴 목 |
 
 목표: "위험 시나리오를 **확정하거나 기각하라**" / 예산: 최대 5~6회 호출. **순서는 안 줌 — 에이전트가 정함.**
+실연결/목 경계의 근거·로드맵은 §16-9. (도구 인터페이스는 전부 실 스키마 기반, 데이터 원천만 진짜/목으로 갈림.)
 
 ### 16-4. 도구 선택 — 혼합형 (Matrix + LLM) ★핵심
 
@@ -621,3 +622,38 @@ get_party:               decisive   사망·후견 → 즉시 fail-closed
 - 러너: `scripts/run_investigation.py --case <name> [--step] [--compare]`.
 - 케이스: `data/cases/{case_h1,case_h2,case_h5,case_death}.json`.
 - 테스트: `pytest` (구조·도구·LLM·그래프·게이트·통합 스냅샷).
+
+### 16-9. 실데이터 연동 경계 · 로드맵 (도구별 진짜/목)
+
+> 8개 도구는 전부 조회 전용·기본 목. "실데이터"는 도구마다 난이도가 천차만별이라, **무엇을
+> 실연결하고 무엇을 목으로 둘지의 경계 자체가 설계 판단**이다 — 없는 서브시스템을 PoC에서 만들지
+> 않고, 가성비 높은 곳만 붙인다. (백엔드 스캔 결과 `/internal` 엔드포인트는 현재 0개 → 연동
+> 표면부터 새로 만들어야 함. `guardian` 0건, STR/AML/수취망/device 는 실서브시스템 부재.)
+
+| 도구 | 소스 | 실데이터 | 가르는 것(§16-4) | 연동 단계 |
+|---|---|---|---|---|
+| `get_auth_events` | 인증보안계 `CERT_FAIL_BLOCK` | 🟢 존재·본인 도메인 | **H2↔H5 (계정탈취)** | **1순위 — 실연결(Stage 7)** |
+| `get_party`(사망) | party `END_REASON` | 🟡 존재, 읽기 엔드포인트 필요 | fail-closed | 2순위(선택) |
+| `get_customer` | customer | 🟢 존재·본인 도메인 | baseline | 2순위(선택) |
+| `get_fds_history` | `fds_detection` | 🟡 존재 | 과거 패턴(맥락) | 목(우선순위 밖) |
+| `get_party`(후견) | 부재(`guardian` 0건) | 🔴 | fail-closed | 목 |
+| `get_device_fingerprint` | device 서비스 불명확 | 🔴 | H1↔H2 | 목 |
+| `get_str_history` | STR 서브시스템 부재 | 🔴 | H1↔H4 | 목 |
+| `get_aml_history` | AML 서브시스템 부재 | 🔴 | H3↔H4 | 목 |
+| `get_related_accounts` | 수취 네트워크 그래프 부재 | 🔴 | H1↔H3 (+태그) | 목 |
+
+범례: 🟢 존재·본인 도메인 / 🟡 존재하나 읽기 엔드포인트 추가 필요 / 🔴 서브시스템 부재(각각 별도 프로젝트급).
+
+**3단계 로드맵**
+
+1. **1순위 — `get_auth_events` 단일 실연결 (가성비 최고, = Stage 7).**
+   `CERT_FAIL_BLOCK` 은 H2(계정탈취)를 가르는 *핵심 판단 도구*라, 흔한 baseline 조회가 아니라
+   **흥미로운 판단에 실제로 쓰이는 🟢**. customer 도 🟢지만 baseline 이라 덜 인상적. auth_events 하나면
+   "우리 인증보안계가 에이전트 도구로 실제 작동"이 증명된다.
+2. **2순위(선택) — `get_party`(사망) + `get_customer`.** 사망은 fail-closed 트리거라 의미 있고,
+   `END_REASON` 읽기 엔드포인트만 추가하면 되니 🟡 중간. 여력 될 때만.
+3. **목 유지(지금 만들지 말 것) — 🔴 5종 + 후견.** STR·AML 서브시스템, 수취망 그래프, device 서비스는
+   각각 별도 프로젝트급. PoC에 넣으면 핵심 루프(가치)는 못 만들고 인프라만 파다 끝난다.
+
+**실연결 방식**: customer-service 에 **읽기 전용 `/internal` 엔드포인트 + RBAC(BankRole) 게이팅 + 시드
+데이터**(운영 PII 아님). 에이전트(Python)는 그 엔드포인트를 `tools.py` 의 해당 함수에서 호출(현재 목 자리).

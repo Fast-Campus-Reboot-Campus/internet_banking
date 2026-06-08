@@ -143,23 +143,49 @@ pytest                                     # 전체 테스트
 
 **일부러 안 쓴 것** (← 판단의 증거): RAG·벡터스토어(키 조회로 충분 + 근사 검색 위험), 캐시(party는 최신성이 생명), 무거운 프레임워크 추상화(감사 구멍), 단일 모델(비용·속도), 인프라 APM(에이전트 결정 못 봄 — 다른 층).
 
-## 기존 백엔드 자산 재사용 (AXful Bank)
+## 기존 백엔드 자산 재사용 (AXful Bank) — 실재 / 목 구분
 
-| 백엔드 작업 | 에이전트에서 |
-|---|---|
-| party 도메인 (사망·후견·명의자) | `get_party` — 결정적 사실 + 명의자 불일치 |
-| 인증보안계 (`CERT_FAIL_BLOCK`) | `get_auth_events` — 계정탈취(H2) 판별 |
-| FDS (`fds_detection`·incident) | `get_fds_history`·`get_device_fingerprint` |
-| RBAC (`BankRole`·`hasAnyRole`) | 동작(지급정지·STR) 권한 게이팅 |
-| JWT 인증 (게이트웨이 1회 검증) | 호출자 신원 확정 |
+| 도구 | 백엔드 자산 | PoC 처리 |
+|---|---|---|
+| `get_auth_events` | 인증보안계 `CERT_FAIL_BLOCK` (실재) | **실연결** — 계정탈취(H2) 판별 |
+| `get_customer` | 본인 도메인 customer (실재) | 실연결 / 목 |
+| `get_party`(사망) | party `END_REASON` 등 (실재) | 읽기 추가 후 실연결 / 목 |
+| `get_party`(후견) · `get_fds_history` · `get_device_fingerprint` · `get_str_history` · `get_aml_history` · `get_related_accounts` | 미구현 또는 부재 | 목 (인터페이스는 실 스키마 기반) |
+| RBAC · JWT | 실재 | 동작 게이팅 · 신원 확정 |
 
-> 맨땅 토이가 아니라 직접 만든 백엔드를 에이전트 도구로 재배선.
+> 도구 인터페이스는 직접 만든 은행 스키마 기반. **인증 이벤트는 실연결**, 별도 인프라가 필요한 도구(연관계좌 그래프·STR/AML 서브시스템·device 서비스)는 목 — **무엇이 실재고 무엇이 목인지 정확히 구분**한다. 상세 경계·로드맵은 위 "실데이터 연동 경계" 표와 corpus §16-9.
 
 ## 현재 상태
 
 - **완료**: 설계 전체(2축 가설·도구 매트릭스·혼합형 도구선택·종료조건·루프), 책임 등급표, ① 트리아지 데모 UI(작동).
 - **진행 예정 (2주 PoC)**: ② 조사 루프를 실제 Python+LangGraph로 — 가설 수립 → Matrix+LLM 도구 선택 → 도구 실행 → 증거 반영 → 게이트 재계획 → 권고. AXful 자산은 Tool로, LLM·외부 연동은 목. CLI 러너로 H1 추적 시연.
 - **v2**: 엄밀한 기대정보이득 도구선택(현재 LLM 휴리스틱+매트릭스), 분석가 피드백 학습, LangGraph 체크포인터, 과거 유사사건 검색(이때 벡터 정당).
+
+## 실데이터 연동 경계 (도구별 진짜/목)
+
+8개 도구는 전부 조회 전용이고 기본은 목이다. "실데이터"는 도구마다 난이도가 천차만별 —
+일부는 본인 도메인이라 읽기 엔드포인트만 추가하면 되고, 일부는 **서브시스템 자체가 없어 별도 프로젝트급**이다.
+이 경계를 명시하는 것 자체가 설계 판단이다(없는 걸 만들지 않고, 가성비 높은 곳만 실연결).
+
+| 도구 | 소스 | 실데이터 | 가르는 것 | 연동 |
+|---|---|---|---|---|
+| `get_auth_events` | 인증보안계 `CERT_FAIL_BLOCK` | 🟢 | **H2 계정탈취** | **1순위 — 실연결** |
+| `get_party`(사망) | party `END_REASON` | 🟡 | fail-closed | 2순위(선택) |
+| `get_customer` | customer | 🟢 | baseline | 2순위(선택) |
+| `get_fds_history` | `fds_detection` | 🟡 | 과거 패턴 | 목(우선순위 밖) |
+| `get_party`(후견) | — 부재 | 🔴 | fail-closed | 목 |
+| `get_device_fingerprint` | device 서비스 부재 | 🔴 | H1↔H2 | 목 |
+| `get_str_history` | STR 서브시스템 부재 | 🔴 | H1↔H4 | 목 |
+| `get_aml_history` | AML 서브시스템 부재 | 🔴 | H3↔H4 | 목 |
+| `get_related_accounts` | 수취망 그래프 부재 | 🔴 | H1↔H3·태그 | 목 |
+
+🟢 존재·본인 도메인 / 🟡 존재하나 읽기 엔드포인트 필요 / 🔴 서브시스템 부재(별도 프로젝트급)
+
+- **1순위(가성비 최고)**: `get_auth_events` 하나만 실연결. `CERT_FAIL_BLOCK`은 H2(계정탈취)를 가르는 핵심 도구라 *흥미로운 판단에 실제로 쓰이는 🟢* — "우리 인증보안계가 에이전트 도구로 실제 작동"을 한 도구로 증명한다.
+- **2순위(선택)**: `get_party`(사망) + `get_customer`. 사망은 fail-closed 트리거라 의미 있고, `END_REASON` 읽기 엔드포인트만 추가하면 됨. 여력 되면 여기까지.
+- **목 유지(지금 만들지 말 것)**: STR·AML·수취망 그래프·device 서비스·후견. 각각 별도 프로젝트급 — PoC에 넣으면 핵심 루프 대신 인프라만 파다 끝난다.
+
+> 실연결 방식: customer-service에 **읽기 전용 `/internal` 엔드포인트 + RBAC + 시드 데이터**(운영 데이터 아님). 상세는 corpus §16-9.
 
 ## PM 관점
 
