@@ -32,15 +32,20 @@ const FALLBACK = { userId: 9104, loanRole: 'ROLE_OPS' }
 
 /**
  * localStorage의 admin_user 세션에서 loan-service 게이트웨이 헤더를 생성.
- * accessToken이 있으면 헤더를 주입하지 않음 (JWT 인증 우선).
+ *
+ * 신원 우선순위(라우트 기준):
+ *   - `/admin/*` 화면에서 admin_user 가 있으면 → admin 신원(게이트웨이 헤더)을 우선한다.
+ *     개인 로그인 accessToken 이 남아있어도 admin 역할로 호출해야 advisory/RAG/계약 등이
+ *     ROLE_CUSTOMER 로 오인되어 403 나는 것을 막는다.
+ *   - 그 외(개인 화면)에서는 빈 객체를 반환 → 호출부가 accessToken(JWT) 을 사용한다.
  *
  * @returns 헤더 객체 또는 빈 객체
  */
 export function getAdminGatewayHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {}
 
-  // JWT가 있으면 게이트웨이 헤더 불필요 (JwtFallbackAuthFilter 가 처리)
-  if (localStorage.getItem('accessToken')) return {}
+  // 개인 화면에서는 admin 헤더를 주입하지 않음 (개인 JWT 우선)
+  if (!window.location.pathname.startsWith('/admin')) return {}
 
   const adminUserJson = localStorage.getItem('admin_user')
   if (!adminUserJson) return {}

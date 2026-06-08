@@ -15,13 +15,13 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      // 어드민 목업 세션 → 게이트웨이 헤더 폴백
-      const adminHeaders = getAdminGatewayHeaders();
+    // /admin 화면에선 admin 신원(게이트웨이 헤더) 우선, 그 외엔 개인 JWT
+    const adminHeaders = getAdminGatewayHeaders();
+    if (Object.keys(adminHeaders).length > 0) {
       Object.assign(config.headers, adminHeaders);
+    } else {
+      const token = localStorage.getItem("accessToken");
+      if (token) config.headers.Authorization = `Bearer ${token}`;
     }
   }
   return config;
