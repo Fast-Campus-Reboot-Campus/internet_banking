@@ -141,6 +141,19 @@ public class SecurityConfig {
                         "/api/loan-applications/*/review/acknowledge-bias"
                 ).hasAnyRole(LoanRole.DEPUTY_MANAGER.spring(), LoanRole.OPS.spring())
 
+                // 신용평가·DSR 실행 — 직원 전용 (DEPUTY·OPS)
+                // (가심사 POST /prescreening 은 고객 한도조회와 같은 엔드포인트라 규칙 미적용)
+                .requestMatchers(HttpMethod.POST,
+                        "/api/loan-applications/*/credit-evaluation",
+                        "/api/loan-applications/*/dsr-calculation"
+                ).hasAnyRole(LoanRole.DEPUTY_MANAGER.spring(), LoanRole.OPS.spring())
+
+                // 결정 정정(PATCH) — 최종 결재권자만 (BRANCH_MANAGER)
+                // 경로가 /review 로 같아도 위 POST 규칙은 POST 한정이라 PATCH 는 별도 규칙 필요
+                .requestMatchers(HttpMethod.PATCH,
+                        "/api/loan-applications/*/review"
+                ).hasRole(LoanRole.BRANCH_MANAGER.spring())
+
                 // 승인자 최종 결재 — ROLE_BRANCH_MANAGER
                 .requestMatchers(HttpMethod.POST,
                         "/api/loan-applications/*/review/approver-approve"
