@@ -155,6 +155,8 @@ const CHECKING_PRODUCT_SLUGS = new Set([
   'axful-wallet',
   'axful-free-account',
   'axful-youth-account',
+  'axful-sok',
+  'monimo-daily',
 ])
 
 const SAVING_TYPE_BY_SLUG: Record<string, SavingType> = {

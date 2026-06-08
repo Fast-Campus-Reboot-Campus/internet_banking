@@ -321,6 +321,13 @@ export default function DepositDetailPage() {
   const isSavings         = SAVINGS_IDS.has(id)
   const isFreeStyleSavings = FREE_SAVINGS_IDS.has(id)
 
+  // 수시입출금 통장 상품 ID 목록
+  const CHECKING_IDS = new Set([
+    'axful-sok', 'monimo-daily', 'axful-moim', 'axful-star-account',
+    'axful-wallet', 'axful-free-account', 'axful-youth-account',
+  ])
+  const isChecking = CHECKING_IDS.has(id)
+
   useEffect(() => {
     const productId = getDepositProductIdBySlug(id)
     if (!productId) return
@@ -656,8 +663,22 @@ export default function DepositDetailPage() {
                     </table>
                   </div>
                 </>
+              ) : isChecking ? (
+                /* 수시입출금 통장 — 기본 레이아웃 */
+                <div className="py-8 space-y-6">
+                  <table className="w-full border-collapse border-t-2 border-kb-text">
+                    <tbody>
+                      <SpecRow label="가입대상">실명의 개인</SpecRow>
+                      <SpecRow label="가입기간">제한 없음</SpecRow>
+                      <SpecRow label="가입금액">제한 없음</SpecRow>
+                      <SpecRow label="이자지급방식">매월 이자지급식</SpecRow>
+                      <SpecRow label="세금">이자소득세 15.4% (지방소득세 포함)</SpecRow>
+                      <SpecRow label="적용이율">{product.rate}</SpecRow>
+                    </tbody>
+                  </table>
+                </div>
               ) : (
-                /* 다른 상품 — 기본 레이아웃 */
+                /* 기타 예금 상품 — 기본 레이아웃 */
                 <div className="py-8 space-y-6">
                   <table className="w-full border-collapse border-t-2 border-kb-text">
                     <tbody>
