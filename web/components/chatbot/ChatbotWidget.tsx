@@ -351,9 +351,8 @@ export default function ChatbotWidget() {
     setMounted(true)
     const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
     const cid = localStorage.getItem('customerId') ? getCurrentDepositCustomerId() : ''
-    if (token) {
-      setIsLoggedIn(true)
-    } else {
+
+    const showLoginPrompt = () => {
       pendingLoginActionRef.current = 'welcome'
       setMessages([{
         id: 'welcome',
@@ -362,7 +361,25 @@ export default function ChatbotWidget() {
         loginForm: true,
       }])
     }
-    if (cid) setCustomerNo(cid)
+
+    if (token) {
+      // 토큰이 있어도 서버에서 유효성 검증 후 로그인 처리
+      api.get('/api/v1/customers/me')
+        .then(() => {
+          setIsLoggedIn(true)
+          if (cid) setCustomerNo(cid)
+        })
+        .catch(() => {
+          // 만료되거나 유효하지 않은 토큰 → 로컬 스토리지 정리 후 로그인 요구
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('customerId')
+          localStorage.removeItem('user')
+          showLoginPrompt()
+        })
+    } else {
+      showLoginPrompt()
+    }
   }, [])
 
   useEffect(() => {
@@ -992,9 +1009,12 @@ export default function ChatbotWidget() {
   async function handleQuickAction(action: (typeof quickActions)[number]) {
     if (loading) return
 
-    const AUTH_REQUIRED = new Set(['my_products', 'recommend'])
+    const AUTH_REQUIRED = new Set(['my_products', 'recommend', 'product_guide'])
     if (AUTH_REQUIRED.has(action.type) && !isLoggedIn) {
-      pendingLoginActionRef.current = action.type
+      // product_guide는 로그인 후 재실행을 위해 query도 함께 저장
+      pendingLoginActionRef.current = action.type === 'product_guide' && 'query' in action
+        ? `product_guide:${action.query}`
+        : action.type
       pushMessages([{
         id: messageId('auth'),
         role: 'bot',
@@ -2288,6 +2308,10 @@ export default function ChatbotWidget() {
                             role: 'bot',
                             text: '로그인되었습니다. 원하시는 상품군을 고르거나 현금 흐름 기반 상품 추천을 받아보세요.',
                           }])
+                        } else if (pending && pending.startsWith('product_guide:')) {
+                          // 로그인 전에 눌렀던 상품 가이드 버튼 재실행
+                          const query = pending.replace('product_guide:', '')
+                          handleFeature('PRODUCT_GUIDE', query, false)
                         } else if (pending === 'recommend') {
                           setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null })
                         } else {
