@@ -443,8 +443,8 @@ docker exec ib-kafka bash -c "
 
 | 지표 | 메서드 | 호출 위치 |
 |------|--------|----------|
-| `payment_instruction_completed_total` | `paymentCompleted()` | `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer` |
-| `payment_instruction_failed_total` | `paymentFailed()` | `PaymentOrchestratorImpl` (7개 경로), `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer` |
+| `payment_instruction_completed_total` | `paymentCompleted()` | `PaymentOrchestratorImpl`(자행 즉시·예약이체 성공), `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer` |
+| `payment_instruction_failed_total` | `paymentFailed()` | `PaymentOrchestratorImpl`(검증 실패·보상 완료 등 12개 경로), `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer` |
 | `payment_instruction_duration_seconds` | `durationTimer.record()` | `paymentCompleted()` 내부 |
 | `payment_instruction_incomplete` | DB Gauge | `PaymentMetrics` 생성자 (스크레이프 시 DB 조회) |
 | `payment_outbox_pending` | DB Gauge | `PaymentMetrics` 생성자 (스크레이프 시 DB 조회) |
@@ -453,3 +453,5 @@ docker exec ib-kafka bash -c "
 | `payment_kafka_dlq_total` | `dlq(cluster)` | `KftcKafkaConfig` recoverer, `BokKafkaConfig` recoverer |
 | `payment_compensation_total` | `compensation(type)` | `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer`, `OutboxPublisher` |
 | `payment_idempotency_duplicate_total` | `idempotencyDuplicate()` | `PaymentOrchestratorImpl` |
+
+> **참고**: `paymentCompleted()` 는 자행 이체(즉시·예약)와 타행 이체(KFTC/BOK 정산) 모두에서 호출됩니다. `paymentFailed()` 역시 검증 실패·보상 트랜잭션 완료·KFTC/BOK 거절 등 모든 실패 경로를 커버합니다. 이를 통해 이체 성공률(`completed / (completed + failed)`)이 이체 유형에 관계없이 정확하게 계산됩니다.
