@@ -424,10 +424,16 @@ export default function LoanReviewDetailPage() {
                     {advices.map((a: any, i: number) => (
                       <div key={i} className="text-[12px] bg-blue-50 border border-blue-200 rounded px-3 py-2">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold mr-2 ${
-                          a.severityCd === 'HIGH' ? 'bg-red-200 text-red-800' :
+                          a.severityCd === 'CRITICAL' || a.severityCd === 'HIGH' ? 'bg-red-200 text-red-800' :
                           a.severityCd === 'MEDIUM' ? 'bg-orange-200 text-orange-800' :
                           'bg-gray-200 text-gray-700'}`}>{a.severityCd}</span>
-                        <span className="text-blue-900">{a.adviceContent ?? a.content ?? JSON.stringify(a)}</span>
+                        {a.adviceTypeCd && (
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mr-2 bg-blue-200 text-blue-800">{a.adviceTypeCd}</span>
+                        )}
+                        <span className="text-blue-900">{a.adviceBody ?? a.adviceContent ?? a.content ?? '-'}</span>
+                        {(a.model || a.modelVersion) && (
+                          <span className="block mt-1 text-[10px] text-gray-400">{[a.model, a.modelVersion].filter(Boolean).join(' · ')}</span>
+                        )}
                       </div>
                     ))}
                   </div>
