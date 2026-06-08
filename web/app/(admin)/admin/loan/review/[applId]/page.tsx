@@ -6,6 +6,7 @@ import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import { adminReviewApi, loanApplicationApi } from '@/lib/loan-api'
 import { viewAdvisoryReport, ackAdvisoryReport, AckResponseCd } from '@/lib/advisory-api'
+import { getAdminLoanRole } from '@/lib/admin-loan-auth'
 
 const REV_STATUS: Record<string, { text: string; cls: string }> = {
   PENDING_APPROVAL:  { text: '확정 대기',   cls: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
@@ -36,6 +37,9 @@ export default function LoanReviewDetailPage() {
   const [busy, setBusy]       = useState(false)
   const [msg, setMsg]         = useState('')
   const [err, setErr]         = useState('')
+
+  // 어드민 목업 세션 역할 — 버튼 노출 제어용. 하이드레이션 불일치 방지 위해 마운트 후 주입.
+  const [loanRole, setLoanRole] = useState('')
 
   // review form state
   const [revType, setRevType]               = useState('MANUAL')
@@ -87,6 +91,7 @@ export default function LoanReviewDetailPage() {
   }, [numApplId])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { setLoanRole(getAdminLoanRole()) }, [])
 
   function notify(m: string) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
   function fail(m: string)   { setErr(m); setTimeout(() => setErr(''), 4000) }
@@ -106,6 +111,12 @@ export default function LoanReviewDetailPage() {
   const psDone  = !!prescreening
   const ceDone  = !!creditEval
   const dsrDone = !!dsr
+
+  // 역할 기반 버튼 노출 — 서버 인가(loan-service SecurityConfig)와 매트릭스를 맞춘다.
+  //   가심사·신용평가·DSR 실행 → 심사역(DEPUTY)·운영(OPS)
+  //   결정 정정             → 지점장(BRANCH_MANAGER)
+  const canRunReview = loanRole === 'ROLE_DEPUTY_MANAGER' || loanRole === 'ROLE_OPS'
+  const canRevise    = loanRole === 'ROLE_BRANCH_MANAGER'
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -143,9 +154,12 @@ export default function LoanReviewDetailPage() {
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">가심사 미실행</p>
                 )}
-                {!psDone && (
+                {!psDone && canRunReview && (
                   <Btn label="가심사 실행" disabled={busy}
                     onClick={() => act(() => loanApplicationApi.runPrescreening(numApplId), '가심사가 완료되었습니다.')} />
+                )}
+                {!psDone && !canRunReview && (
+                  <p className="text-[12px] text-gray-400">가심사 실행 권한이 없습니다 (심사역·운영).</p>
                 )}
                 {psDone && !psPass && (
                   <p className="text-[12px] text-red-600 mt-1">가심사 거절 — 이후 단계를 진행할 수 없습니다.</p>
@@ -168,7 +182,7 @@ export default function LoanReviewDetailPage() {
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">신용평가 미실행</p>
                 )}
-                {!ceDone && psPass && (
+                {!ceDone && psPass && canRunReview && (
                   <div className="flex flex-wrap gap-3 items-end">
                     <label className="text-[12px] text-gray-600">
                       CB 엔진
@@ -192,6 +206,9 @@ export default function LoanReviewDetailPage() {
                       onClick={() => act(() => loanApplicationApi.runCreditEvaluation(numApplId, { cevalEngine, cevalDecisionCd: cevalDecision }), '신용평가가 완료되었습니다.')} />
                   </div>
                 )}
+                {!ceDone && psPass && !canRunReview && (
+                  <p className="text-[12px] text-gray-400">신용평가 실행 권한이 없습니다 (심사역·운영).</p>
+                )}
                 {!ceDone && !psPass && (
                   <p className="text-[12px] text-gray-400">가심사 통과 후 실행 가능</p>
                 )}
@@ -212,7 +229,7 @@ export default function LoanReviewDetailPage() {
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">DSR 미산정</p>
                 )}
-                {!dsrDone && ceDone && (
+                {!dsrDone && ceDone && canRunReview && (
                   <div className="flex flex-wrap gap-3 items-end">
                     <label className="text-[12px] text-gray-600">
                       연 소득(원) *
@@ -223,6 +240,9 @@ export default function LoanReviewDetailPage() {
                     <Btn label="DSR 실행" disabled={busy || !annualIncome}
                       onClick={() => act(() => loanApplicationApi.runDsr(numApplId, { annualIncomeAmt: parseInt(annualIncome) }), 'DSR 산정이 완료되었습니다.')} />
                   </div>
+                )}
+                {!dsrDone && ceDone && !canRunReview && (
+                  <p className="text-[12px] text-gray-400">DSR 실행 권한이 없습니다 (심사역·운영).</p>
                 )}
                 {!dsrDone && !ceDone && (
                   <p className="text-[12px] text-gray-400">신용평가 완료 후 실행 가능</p>
@@ -360,8 +380,13 @@ export default function LoanReviewDetailPage() {
                   </div>
                 )}
 
-                {/* 결정 정정 (COMPLETED) */}
-                {status === 'COMPLETED' && (
+                {/* 결정 정정 (COMPLETED) — 지점장 전용 */}
+                {status === 'COMPLETED' && !canRevise && (
+                  <div className="mt-2 pt-3 border-t border-gray-100">
+                    <p className="text-[12px] text-gray-400">결정 정정 권한이 없습니다 (지점장).</p>
+                  </div>
+                )}
+                {status === 'COMPLETED' && canRevise && (
                   <div className="mt-2 pt-3 border-t border-gray-100">
                     <p className="text-[12px] text-gray-500 mb-2">결정 정정</p>
                     <div className="flex flex-wrap gap-3 items-end">

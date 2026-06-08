@@ -56,3 +56,22 @@ export function getAdminGatewayHeaders(): Record<string, string> {
     return {}
   }
 }
+
+/**
+ * 현재 어드민 목업 세션의 loan 역할(ROLE_*)을 반환한다.
+ * 어드민 화면 버튼 노출 제어(UX)용 — 서버 인가는 loan-service SecurityConfig가 담당한다.
+ * admin_user 세션이 없으면(또는 SSR) 빈 문자열을 반환해 버튼을 숨긴다(최소권한 기본값).
+ */
+export function getAdminLoanRole(): string {
+  if (typeof window === 'undefined') return ''
+
+  const adminUserJson = localStorage.getItem('admin_user')
+  if (!adminUserJson) return ''
+
+  try {
+    const adminUser = JSON.parse(adminUserJson) as { role?: string }
+    return (ADMIN_ROLE_MAP[adminUser.role ?? ''] ?? FALLBACK).loanRole
+  } catch {
+    return ''
+  }
+}
