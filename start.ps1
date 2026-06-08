@@ -22,7 +22,12 @@ $env:DEPOSIT_DB_PASSWORD      = "deposit"
 $env:LOAN_DB_PORT             = "5434"
 $env:PAYMENT_DB_PORT          = "5435"
 $env:MASTER_DB_PORT           = "5436"
+$env:AI_DB_PORT               = "5437"
 $env:COMMON_DB_PORT           = "5438"
+# doc-agent-db: common-db(5438)/langfuse-db(5439) 호스트 포트 충돌 회피용으로 5440 분리
+$env:DOC_AGENT_DB_PORT        = "5440"
+$env:VAULT_PORT               = "8200"
+$env:MINIO_PORT               = "9000"
 $env:REDIS_HOST               = "localhost"
 $env:SCHEMA_REGISTRY_URL      = "http://localhost:18081"
 # payment-service: 통합 단일 브로커(ib-kafka:9092)로 kftc/bok/internal 3 논리 클러스터 통합
@@ -47,9 +52,11 @@ if (Test-Path $envFile) {
 Write-Host "[1/3] Starting infrastructure..." -ForegroundColor Yellow
 $infra = @(
     "customer-db","deposit-db","loan-db","common-db","payment-db","master-db","ai-db",
+    "doc-agent-db","minio","vault",
     "kafka","schema-registry","redis",
     "prometheus","grafana",
-    "loki","promtail","langfuse-db","langfuse","phoenix"
+    "loki","promtail","langfuse-db","langfuse","phoenix",
+    "elasticsearch"
 )
 docker compose up -d @infra
 if ($LASTEXITCODE -ne 0) {
@@ -85,20 +92,32 @@ Start-Process cmd -ArgumentList "/k gradlew.bat :services:payment-service:bootRu
 Start-Sleep -Seconds 2
 Start-Process cmd -ArgumentList "/k gradlew.bat :services:master-service:bootRun" -WorkingDirectory $root -WindowStyle Normal
 Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:api-gateway:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:auto-loan-review:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:review-ai-gateway:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:doc-agent:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
 Start-Process cmd -ArgumentList "/k npm run dev" -WorkingDirectory "$root\web" -WindowStyle Normal
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " 6 service windows opened (ready in ~30-60s)"
+Write-Host " 10 service windows opened (ready in ~30-90s)"
 Write-Host ""
 Write-Host " Web UI      http://localhost:3001" -ForegroundColor Green
 Write-Host ""
 Write-Host " Swagger:"
-Write-Host "   customer  http://localhost:8081/swagger-ui.html"
-Write-Host "   deposit   http://localhost:8082/swagger-ui.html"
-Write-Host "   loan      http://localhost:8083/swagger-ui.html"
-Write-Host "   payment   http://localhost:8084/swagger-ui.html"
-Write-Host "   master    http://localhost:8085/swagger-ui.html"
+Write-Host "   customer   http://localhost:8081/swagger-ui.html"
+Write-Host "   deposit    http://localhost:8082/swagger-ui.html"
+Write-Host "   loan       http://localhost:8083/swagger-ui.html"
+Write-Host "   payment    http://localhost:8084/swagger-ui.html"
+Write-Host "   master     http://localhost:8085/swagger-ui.html"
+Write-Host "   api-gw     http://localhost:8080/actuator/health"
+Write-Host "   auto-loan  http://localhost:8089/swagger-ui.html"
+Write-Host "   review-ai  http://localhost:8088/swagger-ui.html"
+Write-Host "   doc-agent  http://localhost:8087/swagger-ui.html"
 Write-Host ""
 Write-Host " Grafana     http://localhost:3000  (admin/admin)" -ForegroundColor Green
 Write-Host " Langfuse    http://localhost:3002" -ForegroundColor Green

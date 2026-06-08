@@ -111,9 +111,10 @@ class LoanReviewBiasCheckEventTest extends AbstractLoanIntegrationTest {
         autoRevId = extractData(autoResult).get("revId").asLong();
 
         mockMvc.perform(post("/api/loan-applications/{id}/review/confirm", autoApplId)
+                        .header("X-User-Id", "20330102")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                { "reviewerId":20330102, "confirmRemark":"확정" }
+                                { "confirmRemark":"확정" }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.revStatusCd").value("BIAS_REVIEWING"))

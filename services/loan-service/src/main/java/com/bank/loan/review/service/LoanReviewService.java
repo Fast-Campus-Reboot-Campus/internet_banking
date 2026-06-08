@@ -27,8 +27,8 @@ import com.bank.loan.review.dto.RunReviewRequest;
 import com.bank.loan.review.repository.LoanReviewRepository;
 import com.bank.loan.audit.domain.AccessAuditLog;
 import com.bank.loan.audit.store.BreakGlassGrantStore;
-import com.bank.common.security.BankRole;
 import com.bank.loan.security.LoanActorContext;
+import com.bank.loan.security.LoanRole;
 import com.bank.loan.security.PiiLevel;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -303,9 +303,9 @@ public class LoanReviewService {
         Long actorId = actor.actorId();
 
         // OPS·INTERNAL·ADMIN — 전체 접근 허용
-        if (actor.hasRole(BankRole.OPS)
-                || actor.hasRole(BankRole.INTERNAL)
-                || actor.hasRole(BankRole.ADMIN)) {
+        if (actor.hasRole(LoanRole.OPS)
+                || actor.hasRole(LoanRole.INTERNAL)
+                || actor.hasRole(LoanRole.ADMIN)) {
             return false;
         }
 
@@ -317,20 +317,20 @@ public class LoanReviewService {
         }
 
         // 고객 — 본인 신청 건
-        if (actor.hasRole(BankRole.CUSTOMER)
+        if (actor.hasRole(LoanRole.CUSTOMER)
                 && actorId != null && actorId.equals(application.getCustomerId())) {
             return false;
         }
 
         // 같은 지점 지점장
-        if (actor.hasRole(BankRole.BRANCH_MANAGER)
+        if (actor.hasRole(LoanRole.BRANCH_MANAGER)
                 && actor.branch() != null
                 && actor.branch().equals(application.getBranchId())) {
             return false;
         }
 
         // 본사 담당자 — 상신 건만
-        if (actor.hasRole(BankRole.HQ_REVIEWER) && review.isEscalated()) {
+        if (actor.hasRole(LoanRole.HQ_REVIEWER) && review.isEscalated()) {
             return false;
         }
 

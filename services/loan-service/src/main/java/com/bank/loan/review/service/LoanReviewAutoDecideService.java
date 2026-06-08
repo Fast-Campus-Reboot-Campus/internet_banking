@@ -209,17 +209,18 @@ public class LoanReviewAutoDecideService {
         Long actorId = currentActor.currentActorId();
         boolean approved = review.isApproved();
 
+        // 확정 심사관은 인증 토큰(currentActorId)으로만 식별한다. 요청 바디 값은 받지 않는다.
         // confirm() 이 REVIEWER_DECIDED 로 전이 (reviewerId/reviewedAt 갱신 포함)
-        review.confirm(req.reviewerId(), now);
+        review.confirm(actorId, now);
 
-        checkLogWriter.logConfirm(review.getRevId(), approved, req.reviewerId(), req.confirmRemark());
+        checkLogWriter.logConfirm(review.getRevId(), approved, actorId, req.confirmRemark());
 
         // 심사원 확정 이력
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, review.getRevId(),
                 LoanReview.STATUS_PENDING_APPROVAL, LoanReview.STATUS_REVIEWER_DECIDED,
                 REASON_REVIEW_CONFIRMED,
-                "reviewerId=" + req.reviewerId(),
+                "reviewerId=" + actorId,
                 actorId
         ));
 

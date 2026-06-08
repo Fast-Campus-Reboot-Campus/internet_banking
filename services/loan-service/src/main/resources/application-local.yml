@@ -1,3 +1,12 @@
 crypto:
   # 로컬 개발 전용 AES-256 키. 절대 운영 환경에 사용하지 말 것.
   key-base64: ${CRYPTO_KEY_BASE64:bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM=}
+
+# 로컬에서 프론트가 loan-service를 직접 호출할 때 JWT 직접 파싱용
+# (운영은 Gateway가 X-User-Id/X-User-Role 헤더로 전달하므로 불필요)
+# 토큰 발급처(customer-service)와 동일하게 JWT_SECRET env를 우선 사용해야
+# 발급·검증 시크릿이 어긋나지 않는다. 둘의 default 값도 동일하게 유지할 것.
+jwt:
+  secret: ${JWT_SECRET:dev-secret-key-please-change-in-production-min-32-chars-long}
+  access-token-validity: ${JWT_ACCESS_TOKEN_VALIDITY:600000}
+  refresh-token-validity: ${JWT_REFRESH_TOKEN_VALIDITY:3600000}

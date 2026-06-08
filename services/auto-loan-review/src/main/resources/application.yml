@@ -32,6 +32,9 @@ spring:
     jdbc:
       initialize-schema: always
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -252,13 +255,16 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    elasticsearch:
+      enabled: false  # ES는 ai.rag.enabled=false 시 미사용 — 헬스 지표 비활성화
   metrics:
     tags:
       application: auto-loan-review
       environment: ${SPRING_PROFILES_ACTIVE:local}
 
 # ---- OpenAPI / Swagger UI ----
-# 접속: http://localhost:${AI_APP_PORT:8086}/swagger-ui.html
+# 접속: http://localhost:${AUTO_LOAN_REVIEW_APP_PORT:8089}/swagger-ui.html
 springdoc:
   api-docs:
     path: /v3/api-docs

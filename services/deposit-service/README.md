@@ -1,7 +1,7 @@
 # Deposit Service
 
 작성자: 정혜영  
-수정일: 2026-06-06
+수정일: 2026-06-08
 
 Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, 계약, 거래 내역을 담당하는 백엔드 서비스입니다. 프론트엔드의 예금 상품 조회, 상품 상세, 계좌이체, 이체 결과 조회, 거래내역 조회 화면과 연동됩니다.
 
@@ -27,6 +27,8 @@ Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, �
 | 챗봇 상품 추천 우대금리 표시 | 상품 추천 카드에 우대금리 수치(+X%)와 조건을 함께 표시합니다. `banking_deposit_product_interest_rates` 테이블의 PREFERENTIAL 금리 합산값과 조건을 카드에 노출합니다. |
 | 이체 API 중복 함수 제거 | `web/lib/deposit-api.ts`의 `executeDepositTransfer` 중복 정의를 제거했습니다. |
 | 당행이체 계좌번호 조회 자동화 | `TransactionService.transfer()`에서 INTERNAL 이체 시 `toAccountId`가 null이면 throw 대신 `accountRepository.findByAccountNumber(toAccountNo)`로 계좌를 조회해 ID를 자동 매핑합니다. 타인 당행 계좌 이체 시 프론트가 내부 ID를 알 수 없는 구조적 한계를 백엔드에서 해소합니다. |
+| **챗봇·상담 테이블 소유권 이관 (V5 → V12)** | V5 마이그레이션에 포함됐던 `chatbot_*` · `consultation` 테이블 6개를 deposit-service 관할에서 제거합니다. 해당 테이블의 실제 소유자는 consultation-service이며, 서비스 기동 시 SQLAlchemy `create_all()`로 올바른 스키마로 자동 생성됩니다. V12 마이그레이션에서 기존 deposit-db의 불일치 테이블을 DROP해 충돌을 해소합니다. |
+| **이체 일일 한도 검증** | ERD에 정의된 `daily_withdraw_limit`(하루 금액 한도), `daily_withdraw_count_limit`(하루 횟수 한도)를 이체 실행 시점에 실제로 검증합니다. 한도 초과 시 `BusinessException`을 던지고 이체를 차단합니다. |
 
 ## 백엔드 변경 상세
 
@@ -230,6 +232,49 @@ if (resolvedType == TransferType.INTERNAL && toAccountId == null) {
 ./gradlew :services:deposit-service:build
 ```
 
+## 이체 일일 한도 검증
+
+ERD에 정의된 계좌 이체 한도를 이체 실행 시점에 실제로 검증합니다.
+
+### 한도 항목
+
+| 필드 | DB 컬럼 | 설명 |
+|---|---|---|
+| 하루 금액 한도 | `daily_withdraw_limit` | 당일 출금·이체 합산 금액이 이 값을 초과하면 이체 차단 |
+| 하루 횟수 한도 | `daily_withdraw_count_limit` | 당일 출금·이체 건수가 이 값에 도달하면 이체 차단 |
+
+한도 값이 `null`이면 해당 항목은 무제한으로 처리됩니다.
+
+### 검증 흐름
+
+```
+transfer() 호출
+  → 출금 계좌 조회 (FOR UPDATE 락)
+  → validateDailyTransferLimit()
+      → 오늘 00:00 ~ 24:00 UTC 기준 OUT 방향 거래 합계 금액 조회
+      → 합계 + 이체금액 > daily_withdraw_limit  →  DAILY_TRANSFER_AMOUNT_EXCEEDED 예외
+      → 오늘 OUT 방향 거래 건수 조회
+      → 건수 >= daily_withdraw_count_limit  →  DAILY_TRANSFER_COUNT_EXCEEDED 예외
+  → 잔액 차감 및 거래 기록
+```
+
+### 에러 코드
+
+| 에러 코드 | HTTP 상태 | 메시지 |
+|---|---|---|
+| `DAILY_TRANSFER_AMOUNT_EXCEEDED` | 400 Bad Request | 하루 이체 금액 한도를 초과했습니다. |
+| `DAILY_TRANSFER_COUNT_EXCEEDED` | 400 Bad Request | 하루 이체 횟수 한도를 초과했습니다. |
+
+### 관련 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `src/main/java/com/bank/deposit/service/TransactionService.java` | `validateDailyTransferLimit()` 메서드 추가, `transfer()` 앞단에서 호출 |
+| `src/main/java/com/bank/deposit/repository/TransactionRepository.java` | 당일 OUT 방향 합계 금액·건수 조회 쿼리 추가 |
+| `src/main/java/com/bank/deposit/exception/ErrorCode.java` | `DAILY_TRANSFER_AMOUNT_EXCEEDED`, `DAILY_TRANSFER_COUNT_EXCEEDED` 추가 |
+
+---
+
 ## 챗봇 상품 추천 우대금리 표시
 
 챗봇 상품 추천 카드에 우대금리 수치와 조건을 함께 표시합니다.
@@ -274,7 +319,14 @@ DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback �
 
 백엔드:
 
-- `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java`
+- `services/deposit-service/src/main/resources/db/migration/V5__full_erd_schema.sql` (chatbot·consultation 테이블 제거)
+- `services/deposit-service/src/main/resources/db/migration/V12__drop_chatbot_consultation_tables.sql` (신규)
+- `services/deposit-service/src/main/java/com/bank/deposit/service/TransactionService.java` (일일 한도 검증 추가)
+- `services/deposit-service/src/main/java/com/bank/deposit/repository/TransactionRepository.java` (당일 합계·건수 쿼리 추가)
+- `services/deposit-service/src/main/java/com/bank/deposit/exception/ErrorCode.java` (한도 초과 에러 코드 추가)
+- `services/deposit-service/src/main/resources/db/migration/V13__add_idempotency_key_to_transactions.sql` (신규)
+- `services/deposit-service/src/main/java/com/bank/deposit/domain/entity/Transaction.java` (idempotencyKey 필드 추가)
+- `services/deposit-service/src/main/java/com/bank/deposit/dto/request/TransferRequest.java` (idempotencyKey 필드 추가)
 - `services/deposit-service/src/main/java/com/bank/deposit/controller/ProductController.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/domain/enums/TransactionChannel.java`
 - `services/deposit-service/src/main/java/com/bank/deposit/dto/response/ProductResponse.java`
@@ -299,6 +351,108 @@ DB에 조건 데이터가 없는 상품은 상품명 키워드 기반 fallback �
 - `web/app/(personal)/transfer/inquiry/page.tsx`
 - `web/app/(personal)/inquiry/transactions/page.tsx`
 
+## DB 마이그레이션 구조
+
+### 챗봇·상담 테이블 소유권 정리 (V5 → V12)
+
+**배경**
+
+V5(`V5__full_erd_schema.sql`)는 전체 ERD를 일괄 생성하는 마이그레이션으로, 챗봇·상담 관련 테이블도 포함돼 있었습니다.
+그러나 이 테이블들의 실제 소유자는 **consultation-service**이며, deposit-service Java 코드는 해당 테이블을 직접 참조하지 않습니다.
+V5의 테이블 스키마(컬럼명 `id`)와 consultation-service SQLAlchemy 모델(컬럼명 `node_id` 등)이 달라 consultation-service가 기동 실패하는 문제가 있었습니다.
+
+**해결**
+
+| 마이그레이션 | 처리 내용 |
+|---|---|
+| `V5__full_erd_schema.sql` | `chatbot_scenario`, `chatbot_intent`, `chatbot_node`, `consultation`, `chatbot_consultation`, `chatbot_conversation_history` 6개 테이블 정의 제거 |
+| `V12__drop_chatbot_consultation_tables.sql` | 이미 실행된 deposit-db의 해당 테이블을 FK 순서대로 DROP (IF EXISTS CASCADE) |
+
+**기동 흐름**
+
+```
+deposit-service 기동
+  → Flyway V12 실행: 불일치 chatbot·consultation 테이블 DROP
+  → consultation-service 기동
+  → SQLAlchemy create_all(): 올바른 컬럼명으로 chatbot·consultation 테이블 재생성
+```
+
+**영향 없음 확인**
+
+- deposit-service Java 코드에서 chatbot·consultation 테이블 참조 없음
+- V6~V11 마이그레이션에서 해당 테이블 참조 없음
+- consultation-service는 deposit-db의 `deposit_*` 테이블(상품·계좌·거래)을 직접 조회하므로 DB 분리 불가 — 동일 deposit-db 유지
+
+### 현재 마이그레이션 목록
+
+| 버전 | 내용 |
+|---|---|
+| V1 | 전체 스키마 초기화 |
+| V2 | Postman 시드 데이터 |
+| V3 | 상품 인덱스 추가 |
+| V4 | 상품 금리 제약 추가 |
+| V5 | 전체 ERD 스키마 (chatbot·consultation 제외) |
+| V6 | 약관 신청 관리 테이블 |
+| V7 | 정기적금 시드 데이터 |
+| V8 | 고객 프론트 상품 시드 데이터 |
+| V9 | 계좌 version 컬럼 추가 |
+| V10 | 계좌 날짜·번호 시퀀스 |
+| V11 | 예약이체 스케줄 테이블 |
+| **V12** | **chatbot·consultation 테이블 DROP (consultation-service 소유권 이관)** |
+| **V13** | **`deposit_transactions.idempotency_key` 컬럼 추가 및 부분 UNIQUE 인덱스** |
+
+---
+
+## 이체 중복·누락 방지 (멱등성 키)
+
+네트워크 타임아웃, 재시도, 화면 새로고침 등으로 동일한 이체 요청이 두 번 이상 서버에 도달할 수 있습니다. 클라이언트가 `idempotencyKey`를 포함해 전송하면 동일 키로 이미 완료된 이체를 재처리하지 않고 기존 결과를 반환합니다.
+
+### 작동 방식
+
+```
+POST /transactions/transfer
+  { ..., "idempotencyKey": "uuid-or-any-64-char-string" }
+
+  → transfer() 진입
+  → idempotencyKey 존재 → DB에서 동일 키 조회
+      → 이미 있음 → 기존 Transaction 반환 (이체 재실행 없음)
+      → 없음      → 정상 이체 수행 후 idempotencyKey 저장
+```
+
+- 키가 null이거나 빈 문자열이면 멱등성 검사를 건너뜁니다(기존 동작 유지).
+- 키는 최대 64자이며, `NOT NULL` 행 사이에서만 UNIQUE 제약이 적용됩니다(부분 인덱스).
+
+### 멱등성 키 생성 권장 방식
+
+클라이언트는 이체 시도마다 새 UUID를 생성해 키로 사용합니다. 재시도 시에는 **같은 키**를 그대로 전송합니다.
+
+```ts
+// 프론트엔드 예시
+const idempotencyKey = crypto.randomUUID(); // 처음 시도 시 생성, sessionStorage에 보관
+// 재시도 시에도 동일 키 사용
+```
+
+### 보호하는 시나리오
+
+| 시나리오 | 결과 |
+|---|---|
+| 네트워크 타임아웃 후 재시도 | 두 번째 요청에서 기존 이체 결과 반환 — 중복 출금 없음 |
+| 화면 새로고침으로 이체 페이지 재진입 | 동일 키로 이미 처리됐으면 기존 결과 반환 |
+| 클라이언트 미전송(키 없음) | 멱등성 검사 없이 정상 이체 수행 |
+
+### 관련 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `src/main/resources/db/migration/V13__add_idempotency_key_to_transactions.sql` | `idempotency_key VARCHAR(64) NULL` 컬럼 추가, 부분 UNIQUE 인덱스 생성 |
+| `src/main/java/com/bank/deposit/domain/entity/Transaction.java` | `idempotencyKey` 필드 추가 |
+| `src/main/java/com/bank/deposit/repository/TransactionRepository.java` | `findByIdempotencyKey(String)` 메서드 추가 |
+| `src/main/java/com/bank/deposit/dto/request/TransferRequest.java` | `idempotencyKey` 필드 추가 |
+| `src/main/java/com/bank/deposit/controller/TransactionController.java` | `req.idempotencyKey()` 서비스로 전달 |
+| `src/main/java/com/bank/deposit/service/TransactionService.java` | 이체 시작 시 멱등성 키 조회, OUT 거래 저장 시 키 포함 |
+
+---
+
 ## 담당 범위 확인
 
-이번 커밋에는 customer-service 변경을 포함하지 않습니다. 인증, 고객, 상담 서비스 담당 영역의 파일은 제외하고 deposit-service와 deposit 프론트 연동 파일만 포함합니다.
+이번 커밋에는 customer-service 변경을 포함하지 않습니다. 인증, 고객 서비스 담당 영역의 파일은 제외하고 deposit-service와 deposit 프론트 연동 파일만 포함합니다.

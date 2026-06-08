@@ -67,7 +67,9 @@ const NAV: NavSection[] = [
     // 대출 어드민은 심사·운영·결재 직군이 사용한다.
     bankRoles: ['ROLE_DEPUTY_MANAGER', 'ROLE_OPS', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER'],
     items: [
-      { label: '본심사 목록',    href: '/admin/loan/review' },
+      { label: '계약 모니터링',      href: '/admin/loan/contracts' },
+      { label: '본심사 목록',        href: '/admin/loan/review' },
+      { label: '자동심사 시뮬레이터', href: '/admin/loan/auto-review-sim' },
       { label: '담보 관리',      href: '/admin/loan/collateral' },
       { label: '서류 관리',      href: '/admin/loan/documents' },
       { label: '우대금리 정책',  href: '/admin/loan/rate-policy' },

@@ -1,0 +1,26 @@
+{
+  "name": "case_h1",
+  "description": "보이스피싱 + 머니뮬 + 조직 — 고객 본인이 평소 기기로 신규 '안전계좌'에 송금. device=평소기기라 H2 아님, 수취 네트워크가 조직 링.",
+  "alert": {
+    "id": "ALT-H1",
+    "account": "110-111-1001",
+    "customer_id": "CUST-1001",
+    "tx_context": {
+      "amount": 8000000,
+      "payee": "안전계좌(신규)",
+      "time": "2026-06-07T02:14:00",
+      "channel": "MOBILE"
+    },
+    "anomaly_score": 80.0
+  },
+  "tool_responses": {
+    "get_party": { "life_status": "ALIVE", "guardianship": "NONE", "name_match": true },
+    "get_customer": { "avg_tx_amount": 300000, "usual_channel": "MOBILE", "tenure_years": 9 },
+    "get_auth_events": { "recent_cert_fail": 0, "password_changed_recently": false, "events": [] },
+    "get_device_fingerprint": { "known_device": true, "device_id": "DEV-USUAL-01", "first_seen_days": 800 },
+    "get_fds_history": { "past_detections": 1, "last_pattern": "none" },
+    "get_str_history": { "past_str_reports": 4, "last_report": "2026-03-01" },
+    "get_related_accounts": { "same_device_customers": 11, "organized_ring": true, "linked_str_reports": 4 },
+    "get_aml_history": { "structuring": false, "layering_hops": 1 }
+  }
+}
