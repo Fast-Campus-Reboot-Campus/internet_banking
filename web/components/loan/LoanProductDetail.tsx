@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import CartModal from '@/components/products/CartModal'
-import { api } from '@/lib/api'
 import { loanProductApi, type PreferentialRatePolicy } from '@/lib/loan-api'
 
 const CALC_TABS = ['원리금균등상환', '원금균등상환', '원금만기일시상환']
@@ -65,7 +64,7 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
   useEffect(() => {
     const id = parseInt(prodId, 10)
     Promise.all([
-      api.get(`/api/loan-products/${prodId}`),
+      loanProductApi.get(id),
       loanProductApi.preferentialRates(id).catch(() => ({ data: { data: [] } })),
     ]).then(([prodRes, prefRes]) => {
       setProduct(prodRes.data.data)
@@ -152,7 +151,7 @@ export default function LoanProductDetail({ listHref, listLabel }: Props) {
                 ))}
               </div>
               <div className="flex items-center gap-2 mb-3">
-                <Link href="/loans/apply"
+                <Link href={`/loans/apply?prodId=${product.prodId}`}
                   className="px-5 py-2.5 text-[14px] font-bold text-kb-text bg-kb-primary text-white hover:opacity-85 transition-colors whitespace-nowrap">
                   대출 신청하기
                 </Link>
