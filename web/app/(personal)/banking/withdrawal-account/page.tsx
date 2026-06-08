@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '@/lib/api'
 
-// ── 은행 목록 ────────────────────────────────────────────────
+// ── 은행 목록 (타행만) ───────────────────────────────────────
+// 본행(AXful) 보유계좌는 등록 대상이 아니다. 이체 시 자동으로 출금계좌에 표시된다.
 
 const BANKS = [
-  { code: 'AXFUL', name: 'AXful Bank' },
   { code: '004',   name: 'KB국민은행' },
   { code: '088',   name: '신한은행' },
   { code: '081',   name: '하나은행' },
@@ -23,15 +23,15 @@ const BANKS = [
 ]
 
 const NOTICES_LIST = [
-  '출금계좌 등록 후 등록일 포함 24시간 이내에는 해당 계좌로 이체가 제한될 수 있습니다.',
-  '등록된 출금계좌는 순위 순서대로 이체 시 우선 표시됩니다.',
-  '출금계좌 삭제 후 재등록 시에는 다시 24시간 제한이 적용됩니다.',
+  '본행(AXful) 보유계좌는 등록 없이 이체 시 자동으로 표시됩니다. 이 화면에서는 타행 출금계좌를 등록·관리합니다.',
+  '등록한 타행 계좌는 목록에서 확인하고 삭제할 수 있습니다.',
 ]
 
 const NOTICES_REG = [
+  '본행(AXful) 보유계좌는 등록 대상이 아닙니다. 타행 계좌만 등록할 수 있습니다.',
   '등록할 계좌번호와 예금주명을 정확히 입력해 주세요.',
   '타행 계좌 등록 시 1원 검증이 진행됩니다. (MVP: 검증 모의 처리)',
-  '1인당 최대 10개까지 출금계좌를 등록할 수 있습니다.',
+  '1인당 최대 10개까지 타행 출금계좌를 등록할 수 있습니다.',
 ]
 
 // ── 타입 ─────────────────────────────────────────────────────
@@ -79,11 +79,9 @@ export default function WithdrawalAccountPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError]     = useState('')
   const [deleteDone, setDeleteDone]       = useState(false)
-  const [orderChanged, setOrderChanged]   = useState(false)
-  const [orderSaving, setOrderSaving]     = useState(false)
 
   // ── 등록 탭 상태 ──
-  const [bankCode, setBankCode]     = useState('AXFUL')
+  const [bankCode, setBankCode]     = useState(BANKS[0].code)
   const [accountNo, setAccountNo]   = useState('')
   const [holderName, setHolderName] = useState('')
   const [alias, setAlias]           = useState('')
@@ -107,38 +105,6 @@ export default function WithdrawalAccountPage() {
   }, [])
 
   useEffect(() => { loadAccounts() }, [loadAccounts])
-
-  // ── 순위 변경 (↑ ↓) ──
-  function moveUp(idx: number) {
-    if (idx === 0) return
-    const next = [...accounts]
-    ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
-    setAccounts(next)
-    setOrderChanged(true)
-  }
-
-  function moveDown(idx: number) {
-    if (idx === accounts.length - 1) return
-    const next = [...accounts]
-    ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
-    setAccounts(next)
-    setOrderChanged(true)
-  }
-
-  async function saveOrder() {
-    setOrderSaving(true)
-    try {
-      await api.put('/api/v1/banking/withdrawal-accounts/order', {
-        orderedIds: accounts.map(a => a.withdrawalAccountId),
-      }, { headers: { 'X-Customer-Id': getCustomerId() } })
-      setOrderChanged(false)
-      await loadAccounts()
-    } catch {
-      alert('순위 저장 중 오류가 발생했습니다.')
-    } finally {
-      setOrderSaving(false)
-    }
-  }
 
   // ── 삭제 ──
   async function handleDelete() {
@@ -188,7 +154,7 @@ export default function WithdrawalAccountPage() {
   }
 
   function resetRegForm() {
-    setBankCode('AXFUL'); setAccountNo(''); setHolderName(''); setAlias('')
+    setBankCode(BANKS[0].code); setAccountNo(''); setHolderName(''); setAlias('')
     setRegStep('form'); setRegError(''); setRegResult(null)
   }
 
@@ -205,14 +171,14 @@ export default function WithdrawalAccountPage() {
         <span>›</span>
         <span>계좌관리</span>
         <span>›</span>
-        <span className="font-semibold text-kb-text">출금계좌 등록/삭제/순위변경</span>
+        <span className="font-semibold text-kb-text">타행 출금계좌 등록/삭제</span>
       </div>
 
-      <h1 className="text-[24px] font-bold text-kb-text mb-8">출금계좌 등록/삭제/순위변경</h1>
+      <h1 className="text-[24px] font-bold text-kb-text mb-8">타행 출금계좌 등록/삭제</h1>
 
       {/* 탭 */}
       <div className="flex border-b border-kb-border mb-6">
-        {([['list', '출금계좌 등록현황'], ['register', '출금계좌 신규 등록']] as const).map(([key, label]) => (
+        {([['list', '타행 출금계좌 등록현황'], ['register', '타행 출금계좌 신규 등록']] as const).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`px-6 py-3 text-[14px] whitespace-nowrap transition-colors
               ${tab === key ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
@@ -233,12 +199,12 @@ export default function WithdrawalAccountPage() {
             </div>
           ) : accounts.length === 0 ? (
             <div className="border border-kb-border rounded-xl px-6 py-12 text-center text-[14px] text-kb-text-muted">
-              등록된 출금계좌가 없습니다.
+              등록된 타행 출금계좌가 없습니다.
               <br />
               <button onClick={() => setTab('register')}
                 className="mt-3 inline-block text-[13px] font-semibold hover:underline"
                 style={{ color: KB_PRIMARY }}>
-                출금계좌 신규 등록 →
+                타행 출금계좌 신규 등록 →
               </button>
             </div>
           ) : (
@@ -246,7 +212,7 @@ export default function WithdrawalAccountPage() {
               <table className="w-full text-[13px] border-collapse">
                 <thead>
                   <tr style={{ backgroundColor: KB_PRIMARY }}>
-                    {['순위', '은행', '계좌번호', '예금주', '별칭', '등록일', '순위변경', '삭제'].map(h => (
+                    {['No.', '은행', '계좌번호', '예금주', '별칭', '등록일', '삭제'].map(h => (
                       <th key={h} className="px-4 py-3 text-center font-semibold text-white border-l border-white/20 first:border-l-0 whitespace-nowrap">
                         {h}
                       </th>
@@ -256,24 +222,12 @@ export default function WithdrawalAccountPage() {
                 <tbody className="divide-y divide-kb-border">
                   {accounts.map((acc, idx) => (
                     <tr key={acc.withdrawalAccountId} className="hover:bg-kb-primary-surface transition-colors">
-                      <td className="px-4 py-3 text-center font-bold text-kb-primary">{idx + 1}</td>
+                      <td className="px-4 py-3 text-center text-kb-text-muted">{idx + 1}</td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">{acc.bankName}</td>
                       <td className="px-4 py-3 text-center font-mono tracking-wider">{acc.accountNumber}</td>
                       <td className="px-4 py-3 text-center">{acc.accountHolderName ?? '-'}</td>
                       <td className="px-4 py-3 text-center text-kb-text-muted">{acc.accountAlias ?? '-'}</td>
                       <td className="px-4 py-3 text-center text-kb-text-muted whitespace-nowrap">{acc.registeredAt}</td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button onClick={() => moveUp(idx)} disabled={idx === 0}
-                            className="w-7 h-7 border border-kb-border rounded hover:bg-kb-primary-bg disabled:opacity-30 flex items-center justify-center text-kb-text transition-colors">
-                            ↑
-                          </button>
-                          <button onClick={() => moveDown(idx)} disabled={idx === accounts.length - 1}
-                            className="w-7 h-7 border border-kb-border rounded hover:bg-kb-primary-bg disabled:opacity-30 flex items-center justify-center text-kb-text transition-colors">
-                            ↓
-                          </button>
-                        </div>
-                      </td>
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => { setDeleteId(acc.withdrawalAccountId); setDeleteDone(false); setDeleteError('') }}
@@ -285,18 +239,6 @@ export default function WithdrawalAccountPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-
-          {/* 순위 저장 버튼 */}
-          {orderChanged && (
-            <div className="flex items-center gap-3">
-              <button onClick={saveOrder} disabled={orderSaving}
-                className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity"
-                style={{ backgroundColor: KB_PRIMARY }}>
-                {orderSaving ? '저장 중...' : '순위 저장'}
-              </button>
-              <p className="text-[12px] text-kb-text-muted">순위를 변경했습니다. 저장 버튼을 눌러 적용하세요.</p>
             </div>
           )}
         </div>

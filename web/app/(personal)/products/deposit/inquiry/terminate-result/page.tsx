@@ -1,5 +1,5 @@
 'use client'
-import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import { useState } from 'react'
 import DepositSidebar from '@/components/products/DepositSidebar'
@@ -91,7 +91,7 @@ export default function TerminateResultPage() {
                   <button key={i}
                     onClick={() => setSearched(false)}
                     className="border rounded-lg px-3 py-1 text-[12px] font-medium transition-colors hover:bg-kb-primary-bg"
-                    style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                    style={{ borderColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                     {b}
                   </button>
                 ))}
@@ -149,7 +149,7 @@ export default function TerminateResultPage() {
                     <td className="px-4 py-3.5 text-right font-semibold pr-5" style={{ color: KB_PRIMARY }}>{row.amount}원</td>
                     <td className="px-4 py-3.5 text-center">
                       <button className="px-4 py-1 text-[12px] font-medium rounded-lg border transition-colors hover:bg-kb-primary-bg"
-                        style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>조회</button>
+                        style={{ borderColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>조회</button>
                     </td>
                   </tr>
                 )) : (

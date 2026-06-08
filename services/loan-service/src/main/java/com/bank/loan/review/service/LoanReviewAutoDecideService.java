@@ -239,20 +239,23 @@ public class LoanReviewAutoDecideService {
                     LoanReview.STATUS_REVIEWER_DECIDED, LoanReview.STATUS_COMPLETED,
                     REASON_REVIEW_CONFIRMED, null, actorId
             ));
+            // bias 검증이 꺼진 경로에서만 심사관 확정으로 신청을 최종 전이한다.
+            // bias 검증이 켜진 경우 approver-approve(4-eye) 단계에서 신청을 확정하므로
+            // 여기서 markApproved/Rejected 를 호출하면 안 된다.
+            String applBefore = application.currentStatus();
+            if (approved) {
+                application.markApproved();
+            } else {
+                application.markRejected();
+            }
+            statusHistoryPublisher.publish(StatusChangeEvent.of(
+                    DOMAIN_CD, TARGET_APPLICATION, applId,
+                    applBefore, application.currentStatus(),
+                    approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
+                    "confirm, revId=" + review.getRevId(),
+                    actorId
+            ));
         }
-        String applBefore = application.currentStatus();
-        if (approved) {
-            application.markApproved();
-        } else {
-            application.markRejected();
-        }
-        statusHistoryPublisher.publish(StatusChangeEvent.of(
-                DOMAIN_CD, TARGET_APPLICATION, applId,
-                applBefore, application.currentStatus(),
-                approved ? REASON_REVIEW_APPROVED : REASON_REVIEW_REJECTED,
-                "confirm, revId=" + review.getRevId(),
-                actorId
-        ));
 
         return LoanReviewResponse.of(review);
     }

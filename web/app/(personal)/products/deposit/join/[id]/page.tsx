@@ -1,12 +1,13 @@
 'use client'
-import { KB_MINT } from '@/lib/theme'
+import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DepositSidebar from '@/components/products/DepositSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
-import { createDepositContract, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import { createDepositContract, getCurrentDepositCustomerId, fetchDepositAccountViewModels, DepositViewAccount } from '@/lib/deposit-api'
+import { formatNumber } from '@/lib/mock-data'
 import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
 const PRODUCT_NAMES: Record<string, string> = {
@@ -134,7 +135,7 @@ function AccItem({ title, required, checked, onCheck, children, defaultOpen = fa
             type="checkbox"
             checked={!!checked}
             onChange={e => onCheck(e.target.checked)}
-            className="w-4 h-4 flex-shrink-0 accent-kb-mint cursor-pointer"
+            className="w-4 h-4 flex-shrink-0 accent-kb-primary cursor-pointer"
           />
         )}
         <button
@@ -142,10 +143,10 @@ function AccItem({ title, required, checked, onCheck, children, defaultOpen = fa
           className="flex items-center justify-between flex-1 hover:opacity-80 transition-opacity text-left">
           <span className="flex items-center gap-2 text-[13px]">
             <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 flex-shrink-0">
-              <circle cx="10" cy="10" r="9" stroke="#5BC9A8" strokeWidth="1.5"/>
-              <polyline points="6,10 9,13 14,7" stroke="#5BC9A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="10" cy="10" r="9" stroke="#0D5C47" strokeWidth="1.5"/>
+              <polyline points="6,10 9,13 14,7" stroke="#0D5C47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            {required && <span className="text-[11px] font-bold text-kb-mint border border-kb-mint px-1.5 py-0.5 rounded-sm">필수</span>}
+            {required && <span className="text-[11px] font-bold text-kb-primary border border-kb-primary px-1.5 py-0.5 rounded-sm">필수</span>}
             <span className="font-semibold text-kb-text">{title}</span>
           </span>
           <span className="text-kb-text-muted text-xs ml-2">{open ? '∧' : '›'}</span>
@@ -161,8 +162,8 @@ function SectionHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center gap-2 bg-[#F5F5F5] border border-kb-border px-4 py-3 mb-0">
       <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 flex-shrink-0">
-        <circle cx="10" cy="10" r="9" stroke="#5BC9A8" strokeWidth="1.5"/>
-        <polyline points="6,10 9,13 14,7" stroke="#5BC9A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="10" cy="10" r="9" stroke="#0D5C47" strokeWidth="1.5"/>
+        <polyline points="6,10 9,13 14,7" stroke="#0D5C47" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
       <span className="text-[13px] font-bold text-kb-text">{title}</span>
     </div>
@@ -244,6 +245,26 @@ export default function DepositJoinPage() {
   const [mouseInput, setMouseInput] = useState(false)
   const [mouseConfirmPw, setMouseConfirmPw] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  /* ─── 출금계좌(funding) — 본인 입출금 계좌 실데이터 연동 ─── */
+  const [withdrawAccounts, setWithdrawAccounts] = useState<DepositViewAccount[]>([])
+  const [withdrawAccount, setWithdrawAccount] = useState('')
+
+  useEffect(() => {
+    let active = true
+    fetchDepositAccountViewModels(getCurrentDepositCustomerId())
+      .then(accs => {
+        if (!active) return
+        const transferable = accs.filter(a => a.type === '입출금')
+        setWithdrawAccounts(transferable)
+        if (transferable.length > 0) {
+          setWithdrawAccount(prev => prev || transferable[0].id)
+          setTransferAccount(prev => prev || transferable[0].id)
+        }
+      })
+      .catch(() => { if (active) setWithdrawAccounts([]) })
+    return () => { active = false }
+  }, [])
 
   const STEP_LABELS = ['약관동의', '정보입력', '정보확인']
 
@@ -346,12 +367,12 @@ export default function DepositJoinPage() {
             <div className="flex gap-1">
               {STEP_LABELS.map((s, i) => (
                 <button key={s}
-                  className={`px-4 py-1.5 text-[12px] transition-colors ${
+                  className={`px-4 py-1.5 text-[12px] rounded-lg transition-colors ${
                     i + 1 === step
                       ? 'font-bold text-white'
                       : 'text-kb-text-body border border-kb-border bg-white'
                   }`}
-                  style={i + 1 === step ? { backgroundColor: KB_MINT } : {}}>
+                  style={i + 1 === step ? { backgroundColor: KB_PRIMARY } : {}}>
                   {i + 1}. {s}
                 </button>
               ))}
@@ -363,13 +384,13 @@ export default function DepositJoinPage() {
             <div className="space-y-0">
 
               {/* 전체 동의 */}
-              <div className="border border-kb-border bg-kb-primary-bg px-5 py-4 mb-4 flex items-center gap-3">
+              <div className="border border-kb-border rounded-xl bg-kb-primary-bg px-5 py-4 mb-4 flex items-center gap-3">
                 <input
                   type="checkbox"
                   id="agreeAll"
                   checked={allRequiredChecked}
                   onChange={e => checkAll(e.target.checked)}
-                  className="w-5 h-5 accent-kb-mint cursor-pointer flex-shrink-0"
+                  className="w-5 h-5 accent-kb-primary cursor-pointer flex-shrink-0"
                 />
                 <label htmlFor="agreeAll" className="text-[14px] font-bold text-kb-text cursor-pointer">
                   아래 약관 및 필수 항목에 전체 동의합니다.
@@ -377,7 +398,7 @@ export default function DepositJoinPage() {
               </div>
 
               {/* 약관 및 상품설명서 */}
-              <div className="border border-kb-border mb-4">
+              <div className="border border-kb-border rounded-xl overflow-hidden mb-4">
                 <SectionHeader title="약관 및 상품설명서" />
                 <div>
                   <AccItem title="약관 열람">
@@ -393,7 +414,7 @@ export default function DepositJoinPage() {
               </div>
 
               {/* 확인 및 안내사항 */}
-              <div className="border border-kb-border mb-4">
+              <div className="border border-kb-border rounded-xl overflow-hidden mb-4">
                 <SectionHeader title="확인 및 안내사항" />
                 <AccItem title="불법·탈법 자금거래 금지 설명 확인" required
                   checked={termChecks.illegal} onCheck={v => checkTerm('illegal', v)}>
@@ -406,7 +427,7 @@ export default function DepositJoinPage() {
               </div>
 
               {/* 금융상품의 중요사항 안내 */}
-              <div className="border border-kb-border mb-4">
+              <div className="border border-kb-border rounded-xl overflow-hidden mb-4">
                 <SectionHeader title="금융상품의 중요사항 안내" />
                 <AccItem title="우선설명 사항 확인" required
                   checked={termChecks.priority} onCheck={v => checkTerm('priority', v)}>
@@ -434,10 +455,10 @@ export default function DepositJoinPage() {
               </div>
 
               {/* 최종 동의 */}
-              <div className="border border-kb-border p-4 mb-6">
+              <div className="border border-kb-border rounded-xl p-4 mb-6">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input type="checkbox" checked={termChecks.final} onChange={e => checkTerm('final', e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-kb-mint" />
+                    className="mt-0.5 w-4 h-4 accent-kb-primary" />
                   <div>
                     <p className="text-[13px] font-semibold text-kb-text">본인은 위 예금상품의 약관과 상품설명서에 대해 중요사항을 충분히 이해하고 본 상품에 가입함을 확인합니다. <span className="text-[#E05555]">(필수)</span></p>
                     <p className="text-[12px] text-[#E05555] mt-1">※ 설명내용을 제대로 이해하지 못하였음에도 이해했다는 확인을 하는 경우, 추후 권리구제가 어려울 수 있습니다.</p>
@@ -447,13 +468,13 @@ export default function DepositJoinPage() {
 
               <div className="flex justify-center gap-2">
                 <Link href={`/products/deposit/${id}`}
-                  className="border border-kb-border px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
+                  className="border border-kb-border rounded-xl px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
                   이전
                 </Link>
                 <button onClick={handleStep1Next}
                   className={`px-10 py-2.5 text-[13px] font-bold transition-colors ${
                     allRequiredChecked
-                      ? 'bg-kb-yellow text-kb-text hover:bg-kb-yellow-dark'
+                      ? 'bg-kb-primary text-white rounded-xl hover:opacity-85'
                       : 'bg-kb-border text-kb-text-muted cursor-not-allowed'
                   }`}>
                   다음
@@ -465,13 +486,13 @@ export default function DepositJoinPage() {
           {/* ══════════ STEP 2: 정보입력 ══════════ */}
           {step === 2 && (
             <div>
-              <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-4">정보입력</p>
+              <p className="text-[14px] font-bold text-kb-primary border-b-2 border-kb-primary inline-block pb-1 mb-4">정보입력</p>
 
-              <div className="border border-kb-border px-5 py-2 mb-6 space-y-0">
+              <div className="border border-kb-border rounded-xl px-5 py-2 mb-6 space-y-0">
                 {/* 군인 인증 - 장병내일준비적금 전용 */}
                 {id === 'axful-soldier' && (
                   <>
-                    <div className="bg-kb-primary-bg border border-kb-mint px-4 py-3 mb-3 text-[12px] text-kb-text-body rounded">
+                    <div className="bg-kb-primary-bg border border-kb-primary-border px-4 py-3 mb-3 text-[12px] text-kb-text-body rounded">
                       <p className="font-semibold text-[#2D6A4F] mb-1">현역 복무 중인 장병만 가입 가능합니다.</p>
                       <p>· 군번 및 복무 정보는 병무청 데이터와 대조하여 확인됩니다.</p>
                       <p>· 허위 정보 입력 시 가입이 취소될 수 있습니다.</p>
@@ -481,7 +502,7 @@ export default function DepositJoinPage() {
                         {['육군', '해군', '공군', '해병대', '해양경찰'].map(branch => (
                           <label key={branch} className="flex items-center gap-2 text-[13px] cursor-pointer">
                             <input type="radio" name="militaryBranch" checked={militaryBranch === branch}
-                              onChange={() => setMilitaryBranch(branch)} className="accent-kb-mint" />
+                              onChange={() => setMilitaryBranch(branch)} className="accent-kb-primary" />
                             {branch}
                           </label>
                         ))}
@@ -490,16 +511,16 @@ export default function DepositJoinPage() {
                     <FormRow label="군번">
                       <input type="text" value={militaryId} onChange={e => setMilitaryId(e.target.value)}
                         placeholder="예: 20-12345678"
-                        className="border border-kb-border px-3 py-1.5 text-[13px] w-48 outline-none" />
+                        className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] w-48 outline-none" />
                       <p className="text-[12px] text-kb-text-muted mt-1">군번은 군 식별번호입니다.</p>
                     </FormRow>
                     <FormRow label="입대일">
                       <input type="date" value={enlistDate} onChange={e => setEnlistDate(e.target.value)}
-                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none" />
+                        className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none" />
                     </FormRow>
                     <FormRow label="전역예정일">
                       <input type="date" value={dischargeDate} onChange={e => setDischargeDate(e.target.value)}
-                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none" />
+                        className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none" />
                       <p className="text-[12px] text-kb-text-muted mt-1">* 전역예정일 기준으로 만기가 설정됩니다.</p>
                     </FormRow>
                   </>
@@ -514,7 +535,7 @@ export default function DepositJoinPage() {
                       /* 기간 고정 상품 */
                       <>
                         <input type="text" value={period} readOnly
-                          className="border border-kb-border px-3 py-1.5 text-[13px] w-20 outline-none bg-[#F5F5F5] text-center" />
+                          className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] w-20 outline-none bg-[#F5F5F5] text-center" />
                         <span className="text-[13px]">개월 (고정)</span>
                       </>
                     ) : (
@@ -522,7 +543,7 @@ export default function DepositJoinPage() {
                       <>
                         <input type="text" value={period} onChange={e => setPeriod(e.target.value.replace(/[^0-9]/g, ''))}
                           placeholder="기간"
-                          className="border border-kb-border px-3 py-1.5 text-[13px] w-20 outline-none" />
+                          className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] w-20 outline-none" />
                         <span className="text-[13px]">개월</span>
                         {(isSavings
                           ? (periodRange.max <= 12
@@ -532,9 +553,9 @@ export default function DepositJoinPage() {
                         ).map(m => (
                           <button key={m}
                             onClick={() => { setPeriod(String(m)); setPeriodPreset(String(m)) }}
-                            className={`px-4 py-1.5 text-[12px] border transition-colors ${
+                            className={`px-4 py-1.5 text-[12px] border rounded-lg transition-colors ${
                               periodPreset === String(m)
-                                ? 'border-kb-mint text-kb-mint font-bold bg-white'
+                                ? 'border-kb-primary text-kb-primary font-bold bg-white'
                                 : 'border-kb-border text-kb-text-body hover:bg-kb-beige-light'
                             }`}>
                             {m}개월
@@ -553,13 +574,13 @@ export default function DepositJoinPage() {
                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="autoTransfer" value="yes"
                           checked={autoTransfer === 'yes'}
-                          onChange={() => setAutoTransfer('yes')} className="accent-kb-mint" />
+                          onChange={() => setAutoTransfer('yes')} className="accent-kb-primary" />
                         신청
                       </label>
                       <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="autoTransfer" value="no"
                           checked={autoTransfer === 'no'}
-                          onChange={() => setAutoTransfer('no')} className="accent-kb-mint" />
+                          onChange={() => setAutoTransfer('no')} className="accent-kb-primary" />
                         미신청
                       </label>
                     </div>
@@ -577,11 +598,11 @@ export default function DepositJoinPage() {
                     </p>
                     <input type="text" value={amount} onChange={e => setAmount(e.target.value)}
                       placeholder="0"
-                      className="border border-kb-border px-3 py-1.5 text-[13px] w-32 outline-none text-right" />
+                      className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] w-32 outline-none text-right" />
                     <span className="text-[13px]">원</span>
                     {(isSavings ? [1, 3, 5, 10] : isChecking ? [1, 3, 5, 10, 20] : [1000, 500, 300, 100]).map(v => (
                       <button key={v} onClick={() => addAmount(v)}
-                        className="border border-kb-border px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
+                        className="border border-kb-border rounded-lg px-3 py-1.5 text-[12px] text-kb-text-body hover:bg-kb-beige-light">
                         {(isSavings || isChecking) ? `${v}만` : (v >= 1000 ? `${v / 100}천만` : `${v}만`)}
                       </button>
                     ))}
@@ -594,7 +615,7 @@ export default function DepositJoinPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-[13px]">매월</span>
                       <select value={transferDay} onChange={e => setTransferDay(e.target.value)}
-                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white w-24">
+                        className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white w-24">
                         <option value="">선택</option>
                         <option value="1">1일</option>
                         <option value="2">2일</option>
@@ -638,16 +659,17 @@ export default function DepositJoinPage() {
                 {isRegularSavings && autoTransfer === 'yes' && (
                   <FormRow label="자동이체 출금계좌">
                     <div className="flex items-center gap-2 mb-1">
-                      <select className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white">
+                      <select className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white">
                         <option>AX풀뱅크</option>
                       </select>
                       <select value={transferAccount} onChange={e => setTransferAccount(e.target.value)}
-                        className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white flex-1 max-w-[280px]">
-                        <option value="">계좌 선택</option>
-                        <option value="acc1">531089-04-274618 (AX풀뱅크 입출금)</option>
+                        className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white flex-1 max-w-[280px]">
+                        {withdrawAccounts.length === 0
+                          ? <option value="">출금 가능한 계좌가 없습니다</option>
+                          : withdrawAccounts.map(a => <option key={a.id} value={a.id}>{a.number} ({a.name})</option>)}
                       </select>
                     </div>
-                    <p className="text-[12px]">출금가능금액 <span className="text-[#E05555] font-bold">1,007,807</span>원</p>
+                    <p className="text-[12px]">출금가능금액 <span className="text-[#E05555] font-bold">{formatNumber(withdrawAccounts.find(a => a.id === transferAccount)?.availableBalance ?? 0)}</span>원</p>
                   </FormRow>
                 )}
 
@@ -657,7 +679,7 @@ export default function DepositJoinPage() {
                     {([['coupon', 'AXful금융쿠폰(0)'], ['point', '포인트리'], ['none', '사용안함']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="coupon" checked={couponType === val}
-                          onChange={() => setCouponType(val)} className="accent-kb-mint" />
+                          onChange={() => setCouponType(val)} className="accent-kb-primary" />
                         {label}
                       </label>
                     ))}
@@ -669,7 +691,7 @@ export default function DepositJoinPage() {
                   <div className="flex items-center gap-3">
                     <label className="flex items-center gap-2 text-[13px] cursor-pointer">
                       <input type="checkbox" checked={taxExempt} onChange={e => setTaxExempt(e.target.checked)}
-                        className="w-4 h-4 accent-kb-mint" />
+                        className="w-4 h-4 accent-kb-primary" />
                       비과세종합저축 적용
                     </label>
                     <button className="text-[12px] text-kb-blue hover:underline">자세히보기 ›</button>
@@ -679,14 +701,17 @@ export default function DepositJoinPage() {
                 {/* 출금계좌 */}
                 <FormRow label="출금계좌번호">
                   <div className="flex items-center gap-2 mb-1">
-                    <select className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white">
+                    <select className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white">
                       <option>AX풀뱅크</option>
                     </select>
-                    <select className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white flex-1 max-w-[280px]">
-                      <option>531089-04-274618(AX풀뱅크)</option>
+                    <select value={withdrawAccount} onChange={e => setWithdrawAccount(e.target.value)}
+                      className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white flex-1 max-w-[280px]">
+                      {withdrawAccounts.length === 0
+                        ? <option value="">출금 가능한 계좌가 없습니다</option>
+                        : withdrawAccounts.map(a => <option key={a.id} value={a.id}>{a.number} ({a.name})</option>)}
                     </select>
                   </div>
-                  <p className="text-[12px]">출금가능금액 <span className="text-[#E05555] font-bold">1,007,807</span>원</p>
+                  <p className="text-[12px]">출금가능금액 <span className="text-[#E05555] font-bold">{formatNumber(withdrawAccounts.find(a => a.id === withdrawAccount)?.availableBalance ?? 0)}</span>원</p>
                 </FormRow>
 
                 {/* 비밀번호 */}
@@ -695,7 +720,7 @@ export default function DepositJoinPage() {
                     {([['same', '출금계좌와 동일하게 설정'], ['new', '신규 설정']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="pw" checked={passwordType === val}
-                          onChange={() => setPasswordType(val)} className="accent-kb-mint" />
+                          onChange={() => setPasswordType(val)} className="accent-kb-primary" />
                         {label}
                       </label>
                     ))}
@@ -706,7 +731,7 @@ export default function DepositJoinPage() {
                 {!isChecking && (
                   <FormRow label="만기 해지방법">
                     <select value={maturity} onChange={e => setMaturity(e.target.value)}
-                      className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white w-60">
+                      className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white w-60">
                       {MATURITY_OPTIONS.map(o => <option key={o}>{o}</option>)}
                     </select>
                     <p className="text-[12px] text-kb-text-muted mt-1">* 만기 해지방법은 만기일 전까지 변경할 수 있습니다.</p>
@@ -720,7 +745,7 @@ export default function DepositJoinPage() {
                       {([['yes', '예'], ['no', '아니오']] as const).map(([val, label]) => (
                         <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                           <input type="radio" name="lms" checked={lms === val}
-                            onChange={() => setLms(val)} className="accent-kb-mint" />
+                            onChange={() => setLms(val)} className="accent-kb-primary" />
                           {label}
                         </label>
                       ))}
@@ -731,7 +756,7 @@ export default function DepositJoinPage() {
 
                 {/* 권유직원 */}
                 <FormRow label="권유직원선택">
-                  <select className="border border-kb-border px-3 py-1.5 text-[13px] outline-none bg-white w-48">
+                  <select className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white w-48">
                     <option>권유직원없음</option>
                   </select>
                 </FormRow>
@@ -742,7 +767,7 @@ export default function DepositJoinPage() {
                     {([['email', '이메일주소로 받기'], ['lms', '문자메시지(LMS) 받기']] as const).map(([val, label]) => (
                       <label key={val} className="flex items-center gap-2 text-[13px] cursor-pointer">
                         <input type="radio" name="doc" checked={docMethod === val}
-                          onChange={() => setDocMethod(val)} className="accent-kb-mint" />
+                          onChange={() => setDocMethod(val)} className="accent-kb-primary" />
                         {label}
                       </label>
                     ))}
@@ -752,7 +777,7 @@ export default function DepositJoinPage() {
               </div>
 
               {/* 안내 박스 */}
-              <div className="border border-kb-border bg-[#FAFAFA] px-4 py-3 mb-6 text-[12px] text-kb-text-body space-y-1">
+              <div className="border border-kb-border rounded-xl bg-[#FAFAFA] px-4 py-3 mb-6 text-[12px] text-kb-text-body space-y-1">
                 {[
                   '본 상품을 인터넷/AXful뱅킹으로 해지할 경우 휴대전화의 인증을 통해 해지가능합니다. 인증 후 본 상품에 가입합니다.',
                   '최신전화 휴대전화는 인증이 되지 않습니다.',
@@ -765,14 +790,14 @@ export default function DepositJoinPage() {
 
               <div className="flex justify-center gap-2">
                 <button onClick={() => setStep(1)}
-                  className="border border-kb-border px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
+                  className="border border-kb-border rounded-xl px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
                   이전
                 </button>
                 <button onClick={handleStep2Next}
-                  className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark">
+                  className="bg-kb-primary px-10 py-2.5 text-[13px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity">
                   다음
                 </button>
-                <button className="border border-kb-border px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
+                <button className="border border-kb-border rounded-xl px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
                   임시저장
                 </button>
               </div>
@@ -782,7 +807,7 @@ export default function DepositJoinPage() {
           {/* ══════════ STEP 3: 정보확인 ══════════ */}
           {step === 3 && (
             <div>
-              <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-4">정보 확인</p>
+              <p className="text-[14px] font-bold text-kb-primary border-b-2 border-kb-primary inline-block pb-1 mb-4">정보 확인</p>
 
               <table className="w-full border-collapse text-[13px] border-t-2 border-kb-text mb-3">
                 <tbody>
@@ -799,7 +824,7 @@ export default function DepositJoinPage() {
                       { label: '자동이체 여부', value: autoTransfer === 'yes' ? '신청' : '미신청' },
                       ...(autoTransfer === 'yes' ? [
                         { label: '자동이체일', value: `매월 ${transferDay}일` },
-                        { label: '자동이체 출금계좌', value: 'AX풀뱅크 531089-04-274618' },
+                        { label: '자동이체 출금계좌', value: `AX풀뱅크 ${withdrawAccounts.find(a => a.id === transferAccount)?.number ?? '-'}` },
                       ] : []),
                     ] : []),
                     { label: isFreeStyleSavings ? '납입방식' : isRegularSavings ? '월 이체금액' : isChecking ? '초기 입금금액' : '가입금액',
@@ -807,7 +832,7 @@ export default function DepositJoinPage() {
                     ...(!isChecking ? [{ label: '이자지급방법', value: isSavings ? '만기일시지급식' : '만기일시지급식' }] : []),
                     { label: '적용금리', value: PRODUCT_RATES[id] ?? (isChecking ? '연 0.1%' : '연 2.4%') },
                     { label: '적용과세', value: taxExempt ? '비과세' : '일반' },
-                    { label: '출금계좌', value: 'AX풀뱅크 531089-04-274618' },
+                    { label: '출금계좌', value: `AX풀뱅크 ${withdrawAccounts.find(a => a.id === withdrawAccount)?.number ?? '-'}` },
                     ...(!isChecking ? [{ label: '상품만기알림(LMS) 서비스 신청', value: lms === 'yes' ? '신청' : '미신청' }] : []),
                     { label: '연계·제류서비스', value: '해당사항 없음' },
                   ].map(row => (
@@ -826,17 +851,13 @@ export default function DepositJoinPage() {
                 <p>※ 가입 후에는 &apos;계약서류&apos; 관련 약관을 통해 상품설명문서를 확인할 수 있습니다.</p>
               </div>
 
-              {/* 계좌 비밀번호 확인 */}
+              {/* 예금계좌 비밀번호 설정 */}
               <div className="border border-t-2 border-kb-text pt-0">
-                <p className="text-[14px] font-bold text-kb-mint border-b-2 border-kb-mint inline-block pb-1 mb-3">공규계좌 및 비밀번호 확인</p>
+                <p className="text-[14px] font-bold text-kb-primary border-b-2 border-kb-primary inline-block pb-1 mb-3">예금계좌 비밀번호 설정</p>
                 <table className="w-full border-collapse text-[13px]">
                   <tbody>
                     <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text w-[120px]">계좌번호</td>
-                      <td className="border border-kb-border px-4 py-3 text-kb-text-body">531089-04-274618</td>
-                    </tr>
-                    <tr>
-                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text">계좌 비밀번호</td>
+                      <td className="bg-kb-beige-light border border-kb-border px-4 py-3 font-semibold text-kb-text w-[150px] whitespace-nowrap">비밀번호 (4자리)</td>
                       <td className="border border-kb-border px-4 py-3">
                         <div className="flex flex-col gap-2">
                           {mouseInput ? (
@@ -848,7 +869,7 @@ export default function DepositJoinPage() {
                               onChange={e => setConfirmPw(e.target.value)}
                               maxLength={4}
                               placeholder="4자리 입력"
-                              className="border border-kb-border px-3 py-1.5 text-[13px] w-28 outline-none"
+                              className="border border-kb-border rounded-lg px-3 py-1.5 text-[13px] w-28 outline-none"
                             />
                           )}
                           <label className="flex items-center gap-1.5 text-[12px] cursor-pointer w-fit">
@@ -864,11 +885,11 @@ export default function DepositJoinPage() {
 
               <div className="flex justify-center gap-2 mt-6">
                 <button onClick={() => setStep(2)}
-                  className="border border-kb-border px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
+                  className="border border-kb-border rounded-xl px-10 py-2.5 text-[13px] text-kb-text-body hover:bg-kb-beige-light">
                   이전
                 </button>
                 <button onClick={handleFinalConfirm} disabled={submitting}
-                  className="bg-kb-yellow px-10 py-2.5 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="bg-kb-primary px-10 py-2.5 text-[13px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed">
                   {submitting ? '처리 중...' : '가입완료'}
                 </button>
               </div>

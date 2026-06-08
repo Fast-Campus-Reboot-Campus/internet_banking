@@ -5,19 +5,19 @@ import Link from 'next/link'
 
 const SLIDES = [
   {
-    badge: '다온 기업금융',
-    title: '기업에 답이 필요할 때,\n다온은행과 함께 해결해볼까요?',
-    desc: '기업의 모든 순간, 다온이 있다.\n다온 기업금융 서비스를 소개합니다.',
+    badge: '다온 개인금융',
+    title: '당신의 일상에 든든하게,\n다온은행이 함께합니다',
+    desc: '예금부터 대출, 자산관리까지\n다온 개인금융 서비스를 소개합니다.',
   },
   {
-    badge: '비대면전용 기업대출상품',
-    title: '은행방문이 필요없는\n개인사업자대출',
-    desc: '다온 소상공인 신용대출을 소개합니다!',
+    badge: '비대면전용 신용대출',
+    title: '은행방문이 필요없는\n간편 신용대출',
+    desc: '다온 직장인 신용대출을 소개합니다!',
   },
   {
-    badge: '다온 셀러론',
-    title: '온라인 셀러를 위한\n쉽고 빠른 선정산 서비스',
-    desc: '셀러는 은행에게 판매대금을 선정산 받고\n제휴 마켓은 은행에 대출금을 상환하는 서비스!',
+    badge: '다온 첫거래 우대',
+    title: '첫 거래 고객님께 드리는\n특별한 금리 혜택',
+    desc: '예적금 우대금리와 수수료 면제까지\n첫 거래 고객 전용 혜택을 누려보세요!',
   },
 ]
 
@@ -101,7 +101,7 @@ export default function DaonHeroCarousel() {
           style={{ width: '400px', height: '330px', background: 'linear-gradient(135deg, #1B3A6B 0%, #384d84 60%, #5a73a8 100%)' }}>
           <div className="text-center text-white">
             <p className="text-[64px] font-extrabold tracking-tight leading-none">DAON</p>
-            <p className="text-[18px] font-medium tracking-[0.3em] mt-2 text-white/80">BUSINESS BANK</p>
+            <p className="text-[18px] font-medium tracking-[0.3em] mt-2 text-white/80">PERSONAL BANK</p>
             <div className="mt-6 mx-auto w-16 h-1 rounded-full bg-white/50" />
           </div>
         </div>

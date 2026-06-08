@@ -117,18 +117,18 @@ export default function LoanStatusPage() {
                           <div className="flex items-center justify-center gap-1 flex-wrap">
                             {canSubmitDocs && (
                               <Link href={`/loans/apply/${appl.applId}/documents`}
-                                className="px-3 py-1 text-[11px] border border-kb-primary-border text-kb-text hover:bg-kb-primary-bg">
+                                className="px-3 py-1 text-[11px] border border-kb-primary-border rounded-lg text-kb-text hover:bg-kb-primary-bg">
                                 서류제출
                               </Link>
                             )}
                             {canSign && (
                               <Link href={`/products/loan/status/sign?applId=${appl.applId}`}
-                                className="px-3 py-1 text-[11px] bg-kb-primary text-kb-text font-bold hover:brightness-95">
+                                className="px-3 py-1 text-[11px] bg-kb-primary text-white rounded-lg font-bold hover:opacity-85">
                                 전자서명
                               </Link>
                             )}
                             <Link href={`/products/loan/status/spouse?applId=${appl.applId}`}
-                              className="px-3 py-1 text-[11px] border border-kb-primary-border text-kb-text hover:bg-kb-primary-bg">
+                              className="px-3 py-1 text-[11px] border border-kb-primary-border rounded-lg text-kb-text hover:bg-kb-primary-bg">
                               배우자동의
                             </Link>
                             {CANCELABLE.includes(statusCd) && (

@@ -11,14 +11,11 @@ import com.bank.customer.fds.domain.FdsDetection;
 import com.bank.customer.fds.service.FdsService;
 import com.bank.customer.history.domain.CertificateUse;
 import com.bank.customer.history.repository.CertificateUseRepository;
-import com.bank.customer.login.config.EmployeeDirectoryProperties;
 import com.bank.customer.login.dto.LoginResponse;
+import com.bank.customer.login.service.AuthEventService;
 import com.bank.customer.support.CustomerErrorCode;
-import com.bank.common.security.jwt.JwtProvider;
-import com.bank.common.security.jwt.JwtProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,42 +23,38 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CertLoginService {
 
-    private static final String RT_KEY_PREFIX = "RT:";
-
     private final CertificateRepository     certificateRepository;
     private final CredentialRepository      credentialRepository;
     private final CustomerRepository        customerRepository;
     private final CertificateUseRepository  certificateUseRepository;
     private final PasswordEncoder           passwordEncoder;
-    private final JwtProvider               jwtProvider;
-    private final JwtProperties             jwtProperties;
-    private final StringRedisTemplate       redisTemplate;
-    private final EmployeeDirectoryProperties employeeDirectory;
     private final FdsService                fdsService;
+    private final AuthEventService          authEventService;
 
     /**
      * 인증서 로그인.
-     * PIN 검증은 MVP 단계에서 credential.passwordHash 로 위임한다.
-     * 성공/실패 모두 certificate_use 이력에 기록한다.
+     * PIN 검증은 MVP 단계에서 certificate.certPinHash(없으면 credential.passwordHash)로 위임한다.
+     *
+     * <p>인증수단 고유 이력 {@code certificate_use} 와 {@code CERT_LOGIN} FDS 는 이 서비스가 직접 남기고,
+     * 공통 후처리(로그인 시도 이력·토큰·세션·{@code LOGIN_ATTEMPT} FDS)는 {@link AuthEventService} 에 위임한다.
+     * attempt 의 식별자에는 로그인ID가 없으므로 인증서 일련번호를 기록한다.
      */
-    @SuppressWarnings("null")
     @Transactional(noRollbackFor = BusinessException.class)
-    public LoginResponse certLogin(CertLoginRequest request, String ip) {
+    public LoginResponse certLogin(CertLoginRequest request, String ip, String userAgent) {
 
-        Certificate cert = certificateRepository
-                .findByCertificateSerialNumberAndDeletedAtIsNull(request.certSerialNumber())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_030));
-
+        Certificate cert = null;
         try {
+            cert = certificateRepository
+                    .findByCertificateSerialNumberAndDeletedAtIsNull(request.certSerialNumber())
+                    .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_030));
+
             if (cert.isLocked()) {
                 throw new BusinessException(CustomerErrorCode.CUST_034);
             }
@@ -108,34 +101,24 @@ public class CertLoginService {
             }
 
             cert.recordLoginSuccess();
-            CertificateUse use = saveCertUse(cert, ip, CertificateUse.RESULT_SUCCESS, null);
-            // 성공 경로에서도 FDS 평가 — BLOCK 발동해도 로그인은 막지 않고 로그만 남긴다(모니터링)
-            evaluateFdsSilently(cert.getCustomerId(), use.getCertificateUseId());
+            saveCertUse(cert, ip, CertificateUse.RESULT_SUCCESS, null);
 
-            var emp    = employeeDirectory.findById(customer.getCustomerId());
-            var roles  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::roles).orElse(List.of("ROLE_CUSTOMER"));
-            var branch = emp.map(EmployeeDirectoryProperties.EmployeeEntry::branch).orElse(null);
-            var grade  = emp.map(EmployeeDirectoryProperties.EmployeeEntry::grade).orElse(null);
-
-            String accessToken  = jwtProvider.generateAccessToken(
-                    customer.getCustomerId(), customer.getEmail(), roles, branch, grade);
-            String refreshToken = jwtProvider.generateRefreshToken(customer.getCustomerId());
-
-            redisTemplate.opsForValue().set(
-                    RT_KEY_PREFIX + customer.getCustomerId(),
-                    sha256(refreshToken),
-                    Duration.ofMillis(jwtProperties.refreshTokenValidity()));
-
-            return new LoginResponse(customer.getCustomerId(), accessToken, refreshToken);
+            // 공통 후처리: 로그인 시도 이력 + 토큰 발급 + 세션 + LOGIN_ATTEMPT FDS(silent)
+            return authEventService.onLoginSuccess(
+                    customer, request.certSerialNumber(), ip, userAgent, AuthEventService.CHANNEL_WEB);
 
         } catch (BusinessException e) {
-            // PIN 실패 이외의 실패(만료, 폐기, 잠금 선제 확인)는 여기서 이력 저장
-            if (cert.getCertificateStatusCode() != null) {
+            // 인증서 고유 실패 이력(만료·폐기 등). PIN 실패는 위에서 이미 저장했으므로 resolveFailResultCode 가 null 반환.
+            if (cert != null && cert.getCertificateStatusCode() != null) {
                 String resultCode = resolveFailResultCode(e);
                 if (resultCode != null) {
                     saveCertUse(cert, ip, resultCode, e.getErrorCode().getCode());
                 }
             }
+            // 공통 로그인 시도 이력. 인증서 고유 FDS(CERT_LOGIN)는 위에서 평가하므로 LOGIN_ATTEMPT 는 중복 평가하지 않는다.
+            Long customerId = (cert != null) ? cert.getCustomerId() : null;
+            authEventService.onLoginFailure(request.certSerialNumber(), customerId, ip, userAgent,
+                    AuthEventService.CHANNEL_WEB, e.getErrorCode().getCode(), false);
             throw e;
         }
     }
@@ -157,15 +140,6 @@ public class CertLoginService {
                 .requestChannelCode(CertificateUse.CHANNEL_WEB)
                 .usedAt(OffsetDateTime.now())
                 .build());
-    }
-
-    /** FDS 평가 — 성공 경로용. BLOCK 룰이 발동해도 로그인 자체는 막지 않고 로그만 남긴다. */
-    private void evaluateFdsSilently(Long customerId, Long referenceId) {
-        try {
-            fdsService.evaluate(customerId, FdsDetection.EVENT_CERT_LOGIN, referenceId);
-        } catch (BusinessException e) {
-            log.warn("FDS BLOCK 발동 (인증서 로그인 성공 경로): customerId={}", customerId);
-        }
     }
 
     /** BusinessException 코드에서 certificate_use 결과 코드 매핑. 이미 saveCertUse를 호출한 경우 null 반환. */

@@ -9,7 +9,7 @@ import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회']
 
-type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string }
+type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string; status?: string }
 type InquiryAccount = Pick<DepositViewAccount, 'id' | 'apiAccountId' | 'number' | 'name'>
 
 export default function TransferInquiryPage() {
@@ -52,6 +52,7 @@ export default function TransferInquiryPage() {
             receiver: t.counterpartyName || t.transactionSummary || '-',
             amount: Number(t.amount),
             memo: t.transactionMemo || '',
+            status: t.status,
           }))
         setApiResults(rows)
       } catch {}
@@ -270,7 +271,7 @@ export default function TransferInquiryPage() {
                       <th className="px-2 py-2 text-center w-8" style={{ borderBottom: '2px solid #0D5C47' }}>
                         <input type="checkbox" checked={allChecked} onChange={e => toggleAll(e.target.checked)} className="w-4 h-4" />
                       </th>
-                      {['이체일시', '입금은행', '입금계좌번호', '받는분', '이체금액', '출금통장표시내용'].map(h => (
+                      {['이체일시', '입금은행', '입금계좌번호', '받는분', '이체금액', '출금통장표시내용', '이체유무'].map(h => (
                         <th key={h} className="px-3 py-2 text-center font-semibold text-[12px] whitespace-nowrap"
                           style={{ borderBottom: '2px solid #0D5C47', color: KB_PRIMARY }}>
                           {h}
@@ -281,7 +282,7 @@ export default function TransferInquiryPage() {
                   <tbody>
                     {displayResults.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-3 py-8 text-center text-[13px] text-kb-text-muted">
+                        <td colSpan={8} className="px-3 py-8 text-center text-[13px] text-kb-text-muted">
                           조회된 이체 내역이 없습니다.
                         </td>
                       </tr>
@@ -296,6 +297,11 @@ export default function TransferInquiryPage() {
                         <td className="px-3 py-3 text-center">{row.receiver}</td>
                         <td className="px-3 py-3 text-right pr-4 font-semibold" style={{ color: KB_PRIMARY }}>{formatNumber(row.amount)}</td>
                         <td className="px-3 py-3 text-center text-kb-text-muted">{row.memo}</td>
+                        <td className="px-3 py-3 text-center">
+                          {row.status === 'CANCELED'
+                            ? <span className="font-medium text-kb-red">취소</span>
+                            : <span className="font-medium" style={{ color: KB_PRIMARY }}>정상</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

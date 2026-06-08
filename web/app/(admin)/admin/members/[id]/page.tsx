@@ -1,16 +1,45 @@
 'use client'
-import { use } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
-import { MOCK_MEMBERS } from '@/lib/admin-mock-data'
+import {
+  getCustomerDetail, CustomerDetail, STATUS_LABEL,
+  makeDormant, suspendCustomer, reactivateCustomer, closeCustomer,
+  fmtYmd, fmtDate, fmtDateTime, errMsg,
+} from '@/lib/admin-customer-api'
+
+const STATUS_COLOR: Record<string, string> = {
+  '활성': 'bg-green-100 text-green-700',
+  '휴면': 'bg-gray-100 text-gray-500',
+  '정지': 'bg-red-100 text-red-700',
+  '탈퇴': 'bg-gray-100 text-gray-400',
+}
 
 export default function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const member = MOCK_MEMBERS.find(m => m.id === id) ?? {
-    id, name: '알 수 없음', birthDate: '-', phone: '-',
-    memberType: '-', status: '활성' as const, riskLevel: '저' as const,
-    lastLogin: '-', joinedAt: '-',
+  const customerId = Number(id)
+  const [m, setM] = useState<CustomerDetail | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    setError(null)
+    getCustomerDetail(customerId).then(setM).catch(e => setError(errMsg(e, '회원 상세를 불러오지 못했습니다.')))
+  }, [customerId])
+
+  useEffect(() => { load() }, [load])
+
+  async function act(fn: () => Promise<void>, ok: string) {
+    setBusy(true); setMsg(null); setError(null)
+    try { await fn(); setMsg(ok); setReason(''); load() }
+    catch (e) { setError(errMsg(e, '상태 변경에 실패했습니다.')) }
+    finally { setBusy(false) }
   }
+
+  const status = m?.customerStatusCode
+  const label = status ? (STATUS_LABEL[status] ?? status) : '-'
 
   return (
     <div className="flex min-h-screen bg-kb-beige-light">
@@ -21,119 +50,80 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="px-6 py-5 max-w-4xl">
           <div className="flex items-center justify-between mb-5">
-            <h1 className="text-lg font-bold text-gray-800">회원 상세 — {member.id}</h1>
+            <h1 className="text-lg font-bold text-gray-800">회원 상세 — {customerId}</h1>
             <Link href="/admin/members" className="text-xs border border-gray-300 px-3 py-1.5 rounded text-gray-600 hover:bg-gray-50">← 목록으로</Link>
           </div>
 
-          {/* 기본 정보 */}
-          <div className="bg-white border border-kb-border rounded-lg mb-4 shadow-sm">
-            <div className="px-4 py-3 border-b border-gray-100 bg-kb-beige-light">
-              <h2 className="text-sm font-semibold text-gray-700">기본 정보</h2>
-            </div>
-            <div className="grid grid-cols-3 gap-0 divide-x divide-y divide-gray-100">
-              {[
-                ['고객번호', member.id],
-                ['이름', member.name],
-                ['생년월일', member.birthDate],
-                ['휴대폰', member.phone],
-                ['회원구분', member.memberType],
-                ['가입일', member.joinedAt],
-              ].map(([label, value]) => (
-                <div key={label} className="px-4 py-3">
-                  <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-                  <p className="text-sm font-medium text-gray-800">{value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          {error && <div className="mb-4 bg-red-50 border border-red-200 rounded px-4 py-2.5 text-xs text-red-700">{error}</div>}
+          {msg && <div className="mb-4 bg-green-50 border border-green-200 rounded px-4 py-2.5 text-xs text-green-700">{msg}</div>}
 
-          {/* 상태 및 위험 */}
-          <div className="bg-white border border-kb-border rounded-lg mb-4 shadow-sm">
-            <div className="px-4 py-3 border-b border-gray-100 bg-kb-beige-light">
-              <h2 className="text-sm font-semibold text-gray-700">상태 / 위험등급</h2>
-            </div>
-            <div className="grid grid-cols-3 gap-0 divide-x divide-y divide-gray-100">
-              <div className="px-4 py-3">
-                <p className="text-xs text-gray-400 mb-0.5">회원 상태</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  member.status === '활성' ? 'bg-green-100 text-green-700' :
-                  member.status === '정지' ? 'bg-red-100 text-red-700' :
-                  'bg-gray-100 text-gray-500'
-                }`}>{member.status}</span>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-gray-400 mb-0.5">위험등급</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  member.riskLevel === '저' ? 'bg-green-100 text-green-700' :
-                  member.riskLevel === '중' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-red-100 text-red-700'
-                }`}>{member.riskLevel}</span>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs text-gray-400 mb-0.5">최근 로그인</p>
-                <p className="text-sm font-medium text-gray-800">{member.lastLogin}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* 계좌 현황 */}
-          <div className="bg-white border border-kb-border rounded-lg mb-4 shadow-sm">
-            <div className="px-4 py-3 border-b border-gray-100 bg-kb-beige-light">
-              <h2 className="text-sm font-semibold text-gray-700">보유 계좌</h2>
-            </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-kb-beige-light border-b border-kb-border text-xs text-kb-text-muted">
-                  {['계좌번호','상품명','잔액','개설일','상태'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left font-medium">{h}</th>
+          {!m ? (
+            <p className="text-sm text-gray-400">불러오는 중…</p>
+          ) : (
+            <>
+              {/* 기본 정보 */}
+              <div className="bg-white border border-kb-border rounded-lg mb-4 shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 bg-kb-beige-light"><h2 className="text-sm font-semibold text-gray-700">기본 정보</h2></div>
+                <div className="grid grid-cols-3 gap-0 divide-x divide-y divide-gray-100">
+                  {[
+                    ['고객번호', String(m.customerId)],
+                    ['이름', m.partyName],
+                    ['생년월일', fmtYmd(m.birthDate)],
+                    ['성별', m.genderCode === 'M' ? '남' : m.genderCode === 'F' ? '여' : '-'],
+                    ['국적', m.nationalityCode ?? '-'],
+                    ['PEP', m.pep == null ? '-' : (m.pep ? '예' : '아니오')],
+                    ['휴대폰', m.phone ?? '-'],
+                    ['이메일', m.email ?? '-'],
+                    ['가입일', fmtDate(m.joinedAt)],
+                    ['최초가입일', fmtYmd(m.firstJoinDate)],
+                    ['가입채널', m.joinChannelCode ?? '-'],
+                    ['최근거래', fmtDateTime(m.lastTransactionAt)],
+                  ].map(([k, v]) => (
+                    <div key={k} className="px-4 py-3"><p className="text-xs text-gray-400 mb-0.5">{k}</p><p className="text-sm font-medium text-gray-800">{v}</p></div>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                <tr>
-                  <td className="px-4 py-2.5 font-mono text-xs text-gray-600">012-34-5678901</td>
-                  <td className="px-4 py-2.5">KB스타★통장</td>
-                  <td className="px-4 py-2.5 text-right font-medium">12,500,000원</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-400">{member.joinedAt}</td>
-                  <td className="px-4 py-2.5"><span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">정상</span></td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 font-mono text-xs text-gray-600">012-34-5678902</td>
-                  <td className="px-4 py-2.5">KB플러스저축예금</td>
-                  <td className="px-4 py-2.5 text-right font-medium">5,200,000원</td>
-                  <td className="px-4 py-2.5 text-xs text-gray-400">2022-11-15</td>
-                  <td className="px-4 py-2.5"><span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full">정상</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* 동의 이력 요약 */}
-          <div className="bg-white border border-kb-border rounded-lg mb-4 shadow-sm">
-            <div className="px-4 py-3 border-b border-gray-100 bg-kb-beige-light">
-              <h2 className="text-sm font-semibold text-gray-700">동의 현황</h2>
-            </div>
-            <div className="grid grid-cols-4 divide-x divide-gray-100">
-              {[
-                { label: '전자금융거래 기본약관', value: '동의', color: 'text-green-600' },
-                { label: '개인정보 수집·이용', value: '동의', color: 'text-green-600' },
-                { label: '[은행] 마케팅', value: '미동의', color: 'text-gray-400' },
-                { label: '[계열사] 마케팅', value: '미동의', color: 'text-gray-400' },
-              ].map(item => (
-                <div key={item.label} className="px-4 py-3 text-center">
-                  <p className="text-xs text-gray-400 mb-1">{item.label}</p>
-                  <p className={`text-sm font-medium ${item.color}`}>{item.value}</p>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          {/* 액션 버튼 */}
-          <div className="flex gap-2 justify-end">
-            <button className="px-4 py-2 border border-gray-300 text-sm rounded text-gray-600">동의이력 조회</button>
-            <button className="px-4 py-2 border border-orange-400 text-sm rounded text-orange-600">상태 변경</button>
-            <button className="px-4 py-2 bg-kb-yellow text-white text-sm font-bold rounded hover:bg-kb-yellow-dark transition-colors">EDD 접수</button>
-          </div>
+              {/* 상태 / 등급 */}
+              <div className="bg-white border border-kb-border rounded-lg mb-4 shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 bg-kb-beige-light"><h2 className="text-sm font-semibold text-gray-700">상태 / 등급</h2></div>
+                <div className="grid grid-cols-4 gap-0 divide-x divide-gray-100">
+                  <div className="px-4 py-3"><p className="text-xs text-gray-400 mb-0.5">회원 상태</p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[label] ?? 'bg-gray-100 text-gray-500'}`}>{label}</span></div>
+                  <div className="px-4 py-3"><p className="text-xs text-gray-400 mb-0.5">고객 등급</p><p className="text-sm font-medium text-gray-800">{m.customerGradeCode ?? '-'}</p></div>
+                  <div className="px-4 py-3"><p className="text-xs text-gray-400 mb-0.5">신용등급</p><p className="text-sm font-medium text-gray-800">{m.creditRatingCode ?? '-'}</p></div>
+                  <div className="px-4 py-3"><p className="text-xs text-gray-400 mb-0.5">Party 상태</p><p className="text-sm font-medium text-gray-800">{m.partyStatusCode ?? '-'}</p></div>
+                </div>
+              </div>
+
+              {/* 상태 변경 */}
+              <div className="bg-white border border-kb-border rounded-lg mb-4 shadow-sm">
+                <div className="px-4 py-3 border-b border-gray-100 bg-kb-beige-light"><h2 className="text-sm font-semibold text-gray-700">상태 변경</h2></div>
+                <div className="p-4">
+                  <input value={reason} onChange={e => setReason(e.target.value)} placeholder="변경 사유 (예: 이상거래 감지, 고객 요청)"
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-3" />
+                  <div className="flex gap-2 flex-wrap">
+                    {status === 'ACTIVE' && (
+                      <button onClick={() => act(() => makeDormant(customerId, reason || undefined), '휴면 전환되었습니다.')} disabled={busy}
+                        className="px-3 py-2 border border-gray-300 text-sm rounded text-gray-700 hover:bg-gray-50 disabled:opacity-50">휴면 전환</button>
+                    )}
+                    {(status === 'ACTIVE' || status === 'DORMANT') && (
+                      <button onClick={() => act(() => suspendCustomer(customerId, reason || undefined), '정지 처리되었습니다.')} disabled={busy}
+                        className="px-3 py-2 border border-red-400 text-sm rounded text-red-600 hover:bg-red-50 disabled:opacity-50">정지</button>
+                    )}
+                    {(status === 'DORMANT' || status === 'SUSPENDED') && (
+                      <button onClick={() => act(() => reactivateCustomer(customerId, reason || undefined), '활성 복귀되었습니다.')} disabled={busy}
+                        className="px-3 py-2 border border-green-500 text-sm rounded text-green-700 hover:bg-green-50 disabled:opacity-50">활성 복귀</button>
+                    )}
+                    {status !== 'CLOSED' && (
+                      <button onClick={() => act(() => closeCustomer(customerId, { closeReasonCode: 'CUST_REQ', reasonDetail: reason || undefined }), '해지(탈퇴) 처리되었습니다.')} disabled={busy}
+                        className="px-3 py-2 bg-red-500 text-white text-sm font-bold rounded hover:bg-red-600 disabled:opacity-50">해지(탈퇴)</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>

@@ -17,5 +17,6 @@ public record TransferRequest(
         String counterpartyBankName,
         String counterpartyName,
         TransactionChannel channelType,
-        String transactionMemo
+        String transactionMemo,
+        String idempotencyKey
 ) {}

@@ -20,6 +20,9 @@ import java.util.List;
 @Transactional
 public class WithdrawalAccountService {
 
+    /** 본행(AXful) 은행코드. 본행 보유계좌는 이체 시 자동 노출되므로 출금계좌 등록 대상이 아니다. */
+    private static final String HOME_BANK_CODE = "AXFUL";
+
     private final WithdrawalAccountRepository withdrawalAccountRepository;
 
     @Transactional(readOnly = true)
@@ -32,6 +35,9 @@ public class WithdrawalAccountService {
     }
 
     public WithdrawalAccountResponse register(Long customerId, RegisterWithdrawalAccountRequest request) {
+        if (HOME_BANK_CODE.equalsIgnoreCase(request.bankCode())) {
+            throw new BusinessException(CustomerErrorCode.CUST_052);
+        }
         if (withdrawalAccountRepository.existsByCustomerIdAndAccountNumberAndDeletedAtIsNull(
                 customerId, request.accountNumber())) {
             throw new BusinessException(CustomerErrorCode.CUST_051);

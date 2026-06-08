@@ -24,9 +24,10 @@ import java.time.format.DateTimeFormatter;
 @Builder
 public class Customer extends BaseEntity {
 
-    public static final String STATUS_ACTIVE  = "ACTIVE";
-    public static final String STATUS_DORMANT = "DORMANT";
-    public static final String STATUS_CLOSED  = "CLOSED";
+    public static final String STATUS_ACTIVE    = "ACTIVE";
+    public static final String STATUS_DORMANT   = "DORMANT";
+    public static final String STATUS_SUSPENDED = "SUSPENDED";
+    public static final String STATUS_CLOSED    = "CLOSED";
 
     public static final String GRADE_NORMAL = "NORMAL";
     public static final String GRADE_VIP    = "VIP";
@@ -111,6 +112,9 @@ public class Customer extends BaseEntity {
     @Column(name = "dormant_at")
     private OffsetDateTime dormantAt;
 
+    @Column(name = "suspended_at")
+    private OffsetDateTime suspendedAt;
+
     @Column(name = "closed_at")
     private OffsetDateTime closedAt;
 
@@ -151,6 +155,12 @@ public class Customer extends BaseEntity {
         this.dormantAt          = dormantAt;
     }
 
+    /** 정지 처리(위험·규제 등에 의한 계정 동결). 해제는 {@link #reactivate()}. */
+    public void suspend(OffsetDateTime suspendedAt) {
+        this.customerStatusCode = STATUS_SUSPENDED;
+        this.suspendedAt        = suspendedAt;
+    }
+
     /** 해지 처리. 개인정보 보유기간 = 해지일 + 5년. */
     public void close(OffsetDateTime closedAt, String closeReasonCode) {
         this.customerStatusCode = STATUS_CLOSED;
@@ -159,9 +169,11 @@ public class Customer extends BaseEntity {
         this.privacyExpiryDate  = closedAt.plusYears(5).format(DATE_FMT);
     }
 
+    /** 휴면·정지 해제 → 활성 복귀. 해당 시점 컬럼을 함께 비운다. */
     public void reactivate() {
         this.customerStatusCode = STATUS_ACTIVE;
         this.dormantAt          = null;
+        this.suspendedAt        = null;
     }
 
     public void updateGrade(String newGradeCode) {
@@ -188,6 +200,10 @@ public class Customer extends BaseEntity {
 
     public boolean isDormant() {
         return STATUS_DORMANT.equals(customerStatusCode);
+    }
+
+    public boolean isSuspended() {
+        return STATUS_SUSPENDED.equals(customerStatusCode);
     }
 
     public boolean isClosed() {

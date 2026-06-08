@@ -1,12 +1,12 @@
 package com.bank.customer.config;
 
+import com.bank.common.security.BankRole;
 import com.bank.common.security.jwt.JwtProvider;
-import com.bank.customer.security.CustomerRole;
 import com.bank.customer.security.GatewayHeaderAuthFilter;
 import com.bank.customer.security.JwtGatewayHeaderFallbackFilter;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.lang.Nullable;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -26,24 +26,20 @@ import java.util.List;
  * JWT 검증은 api-gateway 에서 수행하고, 검증된 사용자 정보는 X-User-* 헤더로 전파된다.
  *
  * <p>customer-service 는 게이트웨이 헤더를 {@link GatewayHeaderAuthFilter} 로 SecurityContext 에
- * 올린 뒤, 직원 전용 {@code /api/v1/internal/**} 만 역할로 보호한다(고영향 관리 API 방어선).
- * 그 외 경로는 게이트웨이 1차 검증 + 내부망 신뢰로 permitAll 을 유지한다.
+ * 올린 뒤, 직원 전용 {@code /api/v1/internal/**} 를 <em>직무별</em>로 보호한다. 프론트
+ * RoleGate/admin-auth.ts 는 메뉴 표시 통제(presentation)일 뿐 API 직호출로 우회되므로,
+ * 컴플라이언스·감사·회원 상태전이 등 고영향 엔드포인트는 여기서 {@link BankRole} 직무 그룹으로
+ * 게이팅한다(어휘는 프론트 admin-auth.ts 와 동일 단일 소스). 그 외 경로는 게이트웨이 1차
+ * 검증 + 내부망 신뢰로 permitAll 을 유지한다.
+ *
+ * <p>매처는 구체 경로 우선이라 순서가 중요하다(리터럴 access-logs/join-stats 를 와일드카드보다 먼저).
  */
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(EmployeeDirectoryProperties.class)
 public class SecurityConfig {
 
-    /** 직원 역할(고객 제외) — /internal 관리 API 접근 허용 대상 */
-    private static final String[] EMPLOYEE_ROLES = {
-            CustomerRole.TELLER.spring(),
-            CustomerRole.DEPUTY_MANAGER.spring(),
-            CustomerRole.BRANCH_MANAGER.spring(),
-            CustomerRole.HQ_REVIEWER.spring(),
-            CustomerRole.COMPLIANCE.spring(),
-            CustomerRole.OPS.spring(),
-            CustomerRole.ADMIN.spring(),
-    };
+    /** 직원 역할(고객 제외) — /internal 관리 API 접근 허용 대상 (단일 소스: {@link BankRole#EMPLOYEE_ROLES}) */
+    private static final String[] EMPLOYEE_ROLES = BankRole.employeeRolesForHasRole();
 
     @Bean
     public GatewayHeaderAuthFilter gatewayHeaderAuthFilter() {
@@ -69,7 +65,22 @@ public class SecurityConfig {
 
         http
             .authorizeHttpRequests(auth -> auth
-                    // 직원 전용 관리 API — 등급/신용/FDS 룰 등 고영향. 직원 역할 필요
+                    // 감사 접근로그 조회 — 감사/심사/지점장/창구 (AUDIT_VIEW). 리터럴이라 customers/** 보다 먼저.
+                    .requestMatchers(HttpMethod.GET, "/api/v1/internal/customers/access-logs")
+                            .hasAnyRole(BankRole.rolesForHasRole(BankRole.AUDIT_VIEW_ROLES))
+                    // 가입 통계 대시보드 — 컴플라이언스/리스크 (JOIN_STATS). 리터럴이라 customers/** 보다 먼저.
+                    .requestMatchers(HttpMethod.GET, "/api/v1/internal/customers/join-stats")
+                            .hasAnyRole(BankRole.rolesForHasRole(BankRole.JOIN_STATS_ROLES))
+                    // 고객 조회·상세·회원 라이프사이클(등급·신용·정지·해지·재활성화·접근기록) — 고객 데이터 열람 직군
+                    .requestMatchers("/api/v1/internal/customers/**")
+                            .hasAnyRole(BankRole.rolesForHasRole(BankRole.CUSTOMER_VIEW_ROLES))
+                    // KYC·AML·제재·세무·관계/대리인 심사 — 컴플라이언스 데스크
+                    .requestMatchers("/api/v1/internal/compliance/**", "/api/v1/internal/party/**")
+                            .hasAnyRole(BankRole.rolesForHasRole(BankRole.COMPLIANCE_DESK_ROLES))
+                    // FDS 룰·탐지·사고 — 리스크/컴플라이언스/운영
+                    .requestMatchers("/api/v1/internal/fds/**")
+                            .hasAnyRole(BankRole.rolesForHasRole(BankRole.FDS_ROLES))
+                    // 그 외 직원 전용 관리 API — 최소한 직원 역할(코어 화이트리스트) 필요
                     .requestMatchers("/api/v1/internal/**").hasAnyRole(EMPLOYEE_ROLES)
                     // 그 외 — 게이트웨이 1차 검증 + 내부망 신뢰
                     .anyRequest().permitAll());

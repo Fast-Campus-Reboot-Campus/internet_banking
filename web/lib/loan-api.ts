@@ -441,6 +441,44 @@ export const adminReviewApi = {
 
   getAdvisoryReports: (revId: number) =>
     api.get<any>(`/api/loan-reviews/${revId}/advisory-reports`),
+
+  // 본사 상신 건 목록 (ROLE_HQ_REVIEWER) — Page 응답(content/totalElements 등)
+  listEscalated: (page = 0, size = 20) =>
+    api.get<any>('/api/loan-reviews/escalated', { params: { page, size } }),
+
+  // 이상거래 본사 상신 (ROLE_BRANCH_MANAGER)
+  escalateToHq: (applId: number, body: { escalateReason: string }) =>
+    api.post<any>(`/api/loan-applications/${applId}/review/escalate-to-hq`, body),
+};
+
+// ─── 어드민 - EOD 배치 (ROLE_OPS) ────────────────────────────
+// 응답은 ApiResponse 래핑 → res.data.data. baseDate/from/to 는 YYYYMMDD.
+export const eodApi = {
+  run: (baseDate: string) =>
+    api.post<any>('/api/internal/eod/run', null, { params: { baseDate } }),
+
+  restart: (baseDate: string) =>
+    api.post<any>('/api/internal/eod/restart', null, { params: { baseDate } }),
+
+  history: (from?: string, to?: string) =>
+    api.get<any>('/api/internal/eod/history', { params: { from, to } }),
+};
+
+// ─── 어드민 - 감사로그 (ROLE_COMPLIANCE) ──────────────────────
+// 컨트롤러가 List 를 그대로 반환(ApiResponse 미사용) → res.data 가 곧 배열.
+export const auditApi = {
+  listBreakGlass: (actorId?: number) =>
+    api.get<any>('/api/audit/break-glass', { params: { actorId } }),
+
+  listByTarget: (targetType: string, targetId: number) =>
+    api.get<any>('/api/audit/access-logs', { params: { targetType, targetId } }),
+};
+
+// ─── 어드민 - break-glass 긴급 접근 (CUSTOMER 제외 전 직원) ────
+// ResponseEntity<BreakGlassResponse> 반환(ApiResponse 미사용) → res.data 가 곧 응답.
+export const breakGlassApi = {
+  request: (body: { applId: number; reason: string }) =>
+    api.post<any>('/api/break-glass', body),
 };
 
 // ─── 어드민 - 담보·서류·우대금리 ─────────────────────────────

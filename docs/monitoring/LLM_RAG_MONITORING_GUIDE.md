@@ -66,16 +66,24 @@ Grafana는 서비스의 **인프라 상태**(HTTP 응답시간, JVM 메모리, D
 
 | 도구 | 역할 | 주요 확인 사항 |
 |------|------|--------------|
-| **Grafana** | 인프라 메트릭 | HTTP 응답시간, JVM, DB, LLM 초당 오류율 |
+| **Grafana** | 인프라 메트릭 | HTTP 응답시간, JVM, DB 커넥션 등 서비스 상태 |
 | **Langfuse** | LLM 호출 추적 | 프롬프트/응답 내용, 토큰 비용, 품질 평가 |
 | **Arize Phoenix** | LLM/RAG 스팬 시각화 | 입력→검색→생성 파이프라인 흐름 |
 
+> **LLM 관련 지표(토큰 수, 비용, RAG 검색 미스 등)는 Grafana가 아닌 Langfuse에서 확인합니다.**
+>
+> Grafana에 LLM 전용 대시보드(`auto-loan-review-llm.json`, `llm-overview.json`)를 만들어뒀었지만, 아래 이유로 현재는 비활성화 상태입니다.
+> - LLM 트레이싱(프롬프트 내용, 토큰 사용, 비용 추적)은 이 목적에 특화된 Langfuse가 훨씬 적합
+> - 챗봇과 ML 심사는 각자 전용 Grafana 대시보드가 있어 중복
+>
+> 나중에 필요하다면 `infra/grafana/disabled_dashboards/` 폴더에서 파일을 꺼내 provisioning 폴더로 옮기면 즉시 복원됩니다.
+
 ### 서비스별 연결 현황
 
-| 서비스 | Grafana | Langfuse | Phoenix |
-|--------|---------|----------|---------|
-| consultation-service | ✅ | ✅ | ✅ (별도 프로젝트) |
-| auto-loan-review | ✅ | ✅ | ❌ |
+| 서비스 | Grafana (인프라) | Langfuse | Phoenix |
+|--------|----------------|----------|---------|
+| consultation-service | ✅ 챗봇 대시보드 | ✅ | ✅ (별도 프로젝트) |
+| auto-loan-review | ✅ ML 심사 대시보드 | ✅ | ❌ |
 
 > **Phoenix는 consultation-service(Python)에서만 사용합니다.** Java 생태계의 Phoenix 지원이 아직 미성숙하여, auto-loan-review는 Langfuse로 LLM 모니터링을 커버합니다.
 

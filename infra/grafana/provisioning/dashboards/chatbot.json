@@ -23,11 +23,11 @@
       "id": 1,
       "title": "활성 세션 수",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "chatbot_active_sessions",
           "legendFormat": "활성 세션",
           "refId": "A"
@@ -58,11 +58,11 @@
       "id": 2,
       "title": "세션 시작 (건/분)",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_session_total[1m])) * 60",
           "legendFormat": "세션/분",
           "refId": "A"
@@ -85,12 +85,12 @@
       "id": 3,
       "title": "상담사 이관율",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
-          "expr": "sum(rate(chatbot_handoff_total[5m])) / (sum(rate(chatbot_message_total[5m])) + 0.001) * 100",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(chatbot_handoff_total) / (sum(chatbot_session_total) + 0.001) * 100",
           "legendFormat": "이관율 %",
           "refId": "A"
         }
@@ -122,11 +122,11 @@
       "id": 4,
       "title": "평균 만족도",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(chatbot_satisfaction_score_sum) / (sum(chatbot_satisfaction_score_count) + 0.001)",
           "legendFormat": "평균 만족도",
           "refId": "A"
@@ -160,11 +160,11 @@
       "id": 5,
       "title": "메시지 처리 방식별 추이",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 4, "w": 14, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_message_total[1m])) by (process_method)",
           "legendFormat": "{{process_method}}",
           "refId": "A"
@@ -186,12 +186,12 @@
       "id": 6,
       "title": "메시지 처리 방식 분포 (1h)",
       "type": "piechart",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 14, "y": 4, "w": 10, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
-          "expr": "sum(increase(chatbot_message_total[1h])) by (process_method)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum(increase(chatbot_message_total[1h])) by (process_method) > 0",
           "legendFormat": "{{process_method}}",
           "refId": "A"
         }
@@ -212,17 +212,17 @@
       "id": 7,
       "title": "LLM 응답 시간 P50 / P95",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 12, "w": 14, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "histogram_quantile(0.5, sum(rate(chatbot_llm_duration_seconds_bucket[5m])) by (method, le))",
           "legendFormat": "P50 {{method}}",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "histogram_quantile(0.95, sum(rate(chatbot_llm_duration_seconds_bucket[5m])) by (method, le))",
           "legendFormat": "P95 {{method}}",
           "refId": "B"
@@ -253,11 +253,11 @@
       "id": 8,
       "title": "LLM 오류율",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 14, "y": 12, "w": 5, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_llm_error_total[5m])) / (sum(rate(chatbot_llm_duration_seconds_count[5m])) + 0.001) * 100",
           "legendFormat": "LLM 오류율",
           "refId": "A"
@@ -291,11 +291,11 @@
       "id": 9,
       "title": "LLM 오류 발생 추이",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 19, "y": 12, "w": 5, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_llm_error_total[1m])) by (method)",
           "legendFormat": "{{method}}",
           "refId": "A"
@@ -317,11 +317,11 @@
       "id": 10,
       "title": "Kafka 이벤트 발행률 (topic / status)",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_kafka_publish_total[1m])) by (topic, status)",
           "legendFormat": "{{topic}} / {{status}}",
           "refId": "A"
@@ -343,11 +343,11 @@
       "id": 11,
       "title": "Kafka 이벤트 소비율 (event_type / status)",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_kafka_consume_total[1m])) by (event_type, status)",
           "legendFormat": "{{event_type}} / {{status}}",
           "refId": "A"
@@ -369,11 +369,11 @@
       "id": 12,
       "title": "HTTP 요청률 (endpoint별)",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 28, "w": 8, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(http_request_duration_seconds_count{job=\"consultation-service\"}[1m])) by (handler)",
           "legendFormat": "{{handler}}",
           "refId": "A"
@@ -395,11 +395,11 @@
       "id": 13,
       "title": "HTTP 응답 시간 P95 (endpoint별)",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 8, "y": 28, "w": 8, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"consultation-service\"}[5m])) by (handler, le))",
           "legendFormat": "P95 {{handler}}",
           "refId": "A"
@@ -421,11 +421,11 @@
       "id": 14,
       "title": "HTTP 5xx 오류율",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 16, "y": 28, "w": 8, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(http_request_duration_seconds_count{job=\"consultation-service\", status_code=~\"5..\"}[1m])) by (handler)",
           "legendFormat": "5xx {{handler}}",
           "refId": "A"
@@ -447,17 +447,17 @@
       "id": 15,
       "title": "세션 종료 추이",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 36, "w": 12, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_session_ended_total[1m])) * 60",
           "legendFormat": "종료 세션/분",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_session_total[1m])) * 60",
           "legendFormat": "시작 세션/분",
           "refId": "B"
@@ -479,11 +479,11 @@
       "id": 16,
       "title": "만족도 점수 분포 (1h 누적)",
       "type": "bargauge",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 12, "y": 36, "w": 12, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(increase(chatbot_satisfaction_score_bucket{le!=\"+Inf\"}[1h])) by (le)",
           "legendFormat": "≤ {{le}}점",
           "refId": "A"
@@ -504,23 +504,22 @@
           "min": 0
         }
       }
-    }
-  ],
+    },
     {
       "id": 17,
       "title": "LLM 토큰 사용량 추이 (입력 / 출력)",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 0, "y": 44, "w": 14, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_llm_prompt_tokens_sum[1m])) by (method)",
           "legendFormat": "입력 {{method}}",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_llm_completion_tokens_sum[1m])) by (method)",
           "legendFormat": "출력 {{method}}",
           "refId": "B"
@@ -542,17 +541,17 @@
       "id": 18,
       "title": "LLM 평균 토큰 / 호출",
       "type": "stat",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 14, "y": 44, "w": 5, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_llm_prompt_tokens_sum[5m])) / sum(rate(chatbot_llm_prompt_tokens_count[5m]))",
           "legendFormat": "평균 입력 토큰",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum(rate(chatbot_llm_completion_tokens_sum[5m])) / sum(rate(chatbot_llm_completion_tokens_count[5m]))",
           "legendFormat": "평균 출력 토큰",
           "refId": "B"
@@ -577,11 +576,11 @@
       "id": 19,
       "title": "Fallback 응답 추이 (LLM 없이 이관 안내)",
       "type": "timeseries",
-      "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
       "gridPos": {"x": 19, "y": 44, "w": 5, "h": 8},
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "bfmta2uf2mebka"},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "rate(chatbot_fallback_total[1m])",
           "legendFormat": "fallback",
           "refId": "A"

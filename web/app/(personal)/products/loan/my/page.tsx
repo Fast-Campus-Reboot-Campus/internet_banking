@@ -1,5 +1,5 @@
 'use client'
-import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -265,7 +265,7 @@ export default function MyLoanPage() {
                         ].map(({ label, href }) => (
                           <Link key={label} href={`${href}?cntrId=${c.cntrId}`}
                             className="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition-colors hover:bg-kb-primary-bg"
-                            style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                            style={{ borderColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                             {label}
                           </Link>
                         ))}

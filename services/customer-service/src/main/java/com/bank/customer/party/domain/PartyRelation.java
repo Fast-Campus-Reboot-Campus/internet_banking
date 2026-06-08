@@ -32,6 +32,11 @@ public class PartyRelation extends BaseEntity {
     public static final String TYPE_PARENT         = "PARENT";         // 부모
     public static final String TYPE_GUARANTOR      = "GUARANTOR";      // 보증인
 
+    /** 검토 상태 코드 (대리인 위임장 검토 큐) */
+    public static final String REVIEW_PENDING  = "PENDING";
+    public static final String REVIEW_APPROVED = "APPROVED";
+    public static final String REVIEW_REJECTED = "REJECTED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "relation_id")
@@ -69,10 +74,26 @@ public class PartyRelation extends BaseEntity {
     @Column(name = "relation_end_reason_code", length = 20)
     private String relationEndReasonCode;
 
+    /** 대리인 위임장 검토 상태. NULL이면 검토 대상 아님(시드·자동 관계). */
+    @Column(name = "relation_review_status_code", length = 20)
+    private String relationReviewStatusCode;
+
     public boolean isActive() { return relationEndDate == null; }
+
+    public boolean isReviewPending() { return REVIEW_PENDING.equals(relationReviewStatusCode); }
 
     public void end(String endDate, String reasonCode) {
         this.relationEndDate       = endDate;
         this.relationEndReasonCode = reasonCode;
+    }
+
+    /** 위임장 검토 승인. */
+    public void approveReview() {
+        this.relationReviewStatusCode = REVIEW_APPROVED;
+    }
+
+    /** 위임장 검토 거절(위조 의심 등). */
+    public void rejectReview() {
+        this.relationReviewStatusCode = REVIEW_REJECTED;
     }
 }

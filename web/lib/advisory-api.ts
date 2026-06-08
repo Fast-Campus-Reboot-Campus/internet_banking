@@ -8,13 +8,12 @@ const advisoryApi = axios.create({
 
 advisoryApi.interceptors.request.use((config) => {
   if (typeof window === 'undefined') return config
-  // /admin 화면에선 admin 신원(게이트웨이 헤더) 우선, 그 외엔 개인 JWT
-  const adminHeaders = getAdminGatewayHeaders()
-  if (Object.keys(adminHeaders).length > 0) {
-    Object.assign(config.headers, adminHeaders)
+  const token = localStorage.getItem('accessToken')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   } else {
-    const token = localStorage.getItem('accessToken')
-    if (token) config.headers.Authorization = `Bearer ${token}`
+    // 어드민 목업 세션 → 게이트웨이 헤더 폴백
+    Object.assign(config.headers, getAdminGatewayHeaders())
   }
   return config
 })
