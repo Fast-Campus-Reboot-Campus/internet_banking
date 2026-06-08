@@ -15,6 +15,10 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092
 
+# 테스트 전용 더미 AES-256 키(32바이트 Base64) — CryptoService 빈 초기화용
+crypto:
+  key-base64: bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM=
+
 doc-agent:
   storage:
     endpoint: http://localhost:9000
