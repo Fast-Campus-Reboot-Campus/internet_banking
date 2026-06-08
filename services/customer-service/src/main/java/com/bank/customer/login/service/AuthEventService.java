@@ -1,6 +1,7 @@
 package com.bank.customer.login.service;
 
 import com.bank.common.security.BankRole;
+import com.bank.common.security.Sha256;
 import com.bank.common.security.jwt.JwtProperties;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.web.BusinessException;
@@ -18,9 +19,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -141,7 +139,7 @@ public class AuthEventService {
     private void storeRefreshToken(Long customerId, String refreshToken) {
         redisTemplate.opsForValue().set(
                 RT_KEY_PREFIX + customerId,
-                sha256(refreshToken),
+                Sha256.hex(refreshToken),
                 Duration.ofMillis(jwtProperties.refreshTokenValidity()));
     }
 
@@ -151,18 +149,6 @@ public class AuthEventService {
             fdsService.evaluate(customerId, FdsDetection.EVENT_LOGIN_ATTEMPT, referenceId);
         } catch (BusinessException e) {
             log.warn("FDS BLOCK 발동 (로그인 성공 경로): customerId={}", customerId);
-        }
-    }
-
-    private static String sha256(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hash) hex.append(String.format("%02x", b));
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
         }
     }
 }

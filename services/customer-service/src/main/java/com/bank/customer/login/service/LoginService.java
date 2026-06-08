@@ -1,5 +1,6 @@
 package com.bank.customer.login.service;
 
+import com.bank.common.security.Sha256;
 import com.bank.common.security.jwt.JwtClaims;
 import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.security.jwt.TokenType;
@@ -19,10 +20,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 /**
  * 아이디/비밀번호 로그인. 인증 검증만 담당하고, 성공/실패 후처리(이력·토큰·세션·FDS)는
@@ -111,7 +108,7 @@ public class LoginService {
         String key      = RT_KEY_PREFIX + customerId;
         String stored   = redisTemplate.opsForValue().get(key);
 
-        if (stored == null || !stored.equals(sha256(request.refreshToken()))) {
+        if (stored == null || !stored.equals(Sha256.hex(request.refreshToken()))) {
             redisTemplate.delete(key);
             throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
         }
@@ -123,17 +120,5 @@ public class LoginService {
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
 
         return authEventService.reissueTokens(customer);
-    }
-
-    private static String sha256(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hash) hex.append(String.format("%02x", b));
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
     }
 }
