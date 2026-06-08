@@ -646,10 +646,13 @@ get_party:               decisive   사망·후견 → 즉시 fail-closed
 
 **3단계 로드맵**
 
-1. **1순위 — `get_auth_events` 단일 실연결 (가성비 최고, = Stage 7).**
+1. **1순위 — `get_auth_events` 단일 실연결 (가성비 최고, = Stage 7).** ✅ **구현됨(토글).**
    `CERT_FAIL_BLOCK` 은 H2(계정탈취)를 가르는 *핵심 판단 도구*라, 흔한 baseline 조회가 아니라
    **흥미로운 판단에 실제로 쓰이는 🟢**. customer 도 🟢지만 baseline 이라 덜 인상적. auth_events 하나면
    "우리 인증보안계가 에이전트 도구로 실제 작동"이 증명된다.
+   구현: customer-service `GET /api/v1/internal/auth/{customerId}/events`(직원 역할 보호,
+   `CertificateUseRepository.countCertFailuresByCustomerSince` 재사용) + `tools.py` 토글
+   (`TRIAGE_REAL_TOOLS=get_auth_events` + `TRIAGE_BACKEND_URL`). 미설정 시 목.
 2. **2순위(선택) — `get_party`(사망) + `get_customer`.** 사망은 fail-closed 트리거라 의미 있고,
    `END_REASON` 읽기 엔드포인트만 추가하면 되니 🟡 중간. 여력 될 때만.
 3. **목 유지(지금 만들지 말 것) — 🔴 5종 + 후견.** STR·AML 서브시스템, 수취망 그래프, device 서비스는

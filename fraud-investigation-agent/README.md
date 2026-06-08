@@ -147,7 +147,7 @@ pytest                                     # 전체 테스트
 
 | 도구 | 백엔드 자산 | PoC 처리 |
 |---|---|---|
-| `get_auth_events` | 인증보안계 `CERT_FAIL_BLOCK` (실재) | **실연결** — 계정탈취(H2) 판별 |
+| `get_auth_events` | 인증보안계 `CERT_FAIL_BLOCK` (실재) | **실연결 구현(토글)** — 계정탈취(H2) 판별 |
 | `get_customer` | 본인 도메인 customer (실재) | 실연결 / 목 |
 | `get_party`(사망) | party `END_REASON` 등 (실재) | 읽기 추가 후 실연결 / 목 |
 | `get_party`(후견) · `get_fds_history` · `get_device_fingerprint` · `get_str_history` · `get_aml_history` · `get_related_accounts` | 미구현 또는 부재 | 목 (인터페이스는 실 스키마 기반) |

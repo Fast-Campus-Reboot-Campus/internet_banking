@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from .models import (
@@ -36,6 +37,42 @@ def load_case(name: str) -> Case:
 def _resp(case: Case, tool: str) -> dict:
     """케이스에서 해당 도구의 목 응답을 꺼낸다 (없으면 빈 dict)."""
     return dict(case.tool_responses.get(tool, {}))
+
+
+# --------------------------------------------------------------------------- #
+# 실연결 토글 — get_auth_events 만 customer-service 실 백엔드 호출 가능 (Stage 7)
+#   활성: TRIAGE_REAL_TOOLS 에 "get_auth_events" 포함 + TRIAGE_BACKEND_URL 설정
+#   인증: TRIAGE_INTERNAL_TOKEN (직원 JWT) 을 Bearer 로 전달 (/internal 은 직원 역할 보호)
+# 그 외 도구는 항상 목 (§16-9 경계). 응답 dict 형태는 목과 동일해 그래프 로직 불변.
+# --------------------------------------------------------------------------- #
+def _tool_is_real(tool: str) -> bool:
+    real = {t.strip() for t in os.getenv("TRIAGE_REAL_TOOLS", "").split(",") if t.strip()}
+    return tool in real and bool(os.getenv("TRIAGE_BACKEND_URL"))
+
+
+def _fetch_auth_events_real(customer_id: str) -> dict:
+    """customer-service 내부 API 호출 → 목과 동일한 dict 형태로 매핑."""
+    import httpx  # 지연 import (실연결 시에만 필요)
+
+    base = os.environ["TRIAGE_BACKEND_URL"].rstrip("/")
+    headers = {}
+    token = os.getenv("TRIAGE_INTERNAL_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    resp = httpx.get(
+        f"{base}/api/v1/internal/auth/{customer_id}/events",
+        headers=headers,
+        timeout=5.0,
+    )
+    resp.raise_for_status()
+    body = resp.json()
+    data = body.get("data", body)  # ApiResponse 는 {data: ...} 로 감쌈
+    return {
+        "recent_cert_fail": data.get("recentCertFail", 0),
+        "password_changed_recently": data.get("passwordChangedRecently", False),
+        "events": [],
+        "_source": "real",
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -88,8 +125,11 @@ def get_customer(case: Case, customer_id: str) -> ToolResult:
 # 3. get_auth_events — 인증보안계(CERT_FAIL_BLOCK). 인증 실패·비번 변경(→H2)
 # --------------------------------------------------------------------------- #
 def get_auth_events(case: Case, customer_id: str) -> ToolResult:
-    # 실서비스: GET /internal/auth/{customer_id}/events
-    data = _resp(case, "get_auth_events")
+    # 실연결 가능(Stage 7): GET /api/v1/internal/auth/{customerId}/events (customer-service)
+    if _tool_is_real("get_auth_events"):
+        data = _fetch_auth_events_real(customer_id)
+    else:
+        data = _resp(case, "get_auth_events")
     cert_fail = data.get("recent_cert_fail", 0)
     pw_changed = data.get("password_changed_recently", False)
     flags = []
