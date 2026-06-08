@@ -35,6 +35,8 @@ public class HumanReviewController {
                description = "humanReviewStatus=PENDING 인 제출 건 목록. 운영자 검토 큐.")
     @GetMapping("/queue")
     public ResponseEntity<List<Map<String, Object>>> queue() {
+        // TODO: PENDING 전체를 한 번에 반환한다. 데모 단계라 무방하나
+        //       운영에서 건수가 늘면 Pageable 을 받아 페이지 단위로 반환하도록 전환 필요.
         List<Map<String, Object>> items = submissionRepo
             .findByHumanReviewStatus(HumanReviewStatus.PENDING, Sort.by(Sort.Direction.ASC, "createdAt"))
             .stream()
