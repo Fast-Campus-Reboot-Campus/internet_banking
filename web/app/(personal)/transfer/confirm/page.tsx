@@ -64,7 +64,7 @@ export default function TransferConfirmPage() {
               const idempotencyKey = newIdempotencyKey()
               const result = await createInstantTransfer(
                 {
-                  senderAccountId: String(data.fromAccountId),
+                  senderAccountId: data.fromNumber,
                   receiverBankCode: bankCode,
                   receiverAccountNo: data.toAccount,
                   receiverHolderName: data.receiverName,
@@ -81,8 +81,10 @@ export default function TransferConfirmPage() {
                 }
               )
               sessionStorage.setItem('paymentResult', JSON.stringify({
-                status: 'COMPLETED',
+                status: result.status,
                 txNo: result.transactionNo,
+                piId: result.paymentInstructionId,
+                failureCategory: result.failureCategory,
               }))
             } else {
               const result = await executeDepositTransfer(getCurrentDepositCustomerId(), {

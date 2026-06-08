@@ -87,6 +87,7 @@ export const MOCK_BANKS = [
   { code: 'HS',  name: 'HSBC' },
   { code: 'BN',  name: 'BNP파리바' },
   { code: 'JP',  name: 'JP모간체이스' },
+  { code: 'DAON', name: '다온' },
 ]
 
 export function formatNumber(n: number) {

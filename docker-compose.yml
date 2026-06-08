@@ -91,6 +91,23 @@ services:
       timeout: 5s
       retries: 5
 
+  payment-db-b:
+    image: postgres:16-alpine
+    container_name: ib-payment-db-b
+    environment:
+      POSTGRES_DB: payment_b
+      POSTGRES_USER: payment
+      POSTGRES_PASSWORD: payment
+    ports:
+      - "5440:5432"
+    volumes:
+      - payment-db-b-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment -d payment_b"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   master-db:
     image: postgres:16-alpine
     container_name: ib-master-db
@@ -325,6 +342,46 @@ services:
       - C:/logs/internet-banking:/logs
     depends_on:
       payment-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  payment-service-b:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: ib-payment-service-b
+    ports:
+      - "8180:8084"
+    environment:
+      PAYMENT_APP_PORT: 8084
+      BANK_CODE: "B"
+      SPRING_PROFILES_ACTIVE: "mock"
+      PAYMENT_DB_HOST: payment-db-b
+      PAYMENT_DB_PORT: 5432
+      PAYMENT_DB_NAME: payment_b
+      PAYMENT_DB_USER: payment
+      PAYMENT_DB_PASSWORD: payment
+      KFTC_KAFKA_BOOTSTRAP: kafka:29092
+      BOK_KAFKA_BOOTSTRAP: kafka:29092
+      INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
+      KFTC_CONSUMER_GROUP: payment-kftc-b
+      BOK_CONSUMER_GROUP: payment-bok-b
+      INTERNAL_CONSUMER_GROUP: payment-internal-b
+      SPRING_KAFKA_LISTENER_MISSING_TOPICS_FATAL: "false"
+      LOG_DIR: /logs
+      DEPOSIT_ACCOUNT_URL: http://deposit-service:8082
+      DEPOSIT_BALANCE_URL: http://deposit-service:8082
+    volumes:
+      - C:/logs/internet-banking:/logs
+    depends_on:
+      payment-db-b:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -900,6 +957,7 @@ volumes:
   loan-db-data:
   common-db-data:
   payment-db-data:
+  payment-db-b-data:
   master-db-data:
 
   ai-db-data:

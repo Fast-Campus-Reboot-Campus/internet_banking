@@ -1,21 +1,26 @@
 package com.bank.payment.api;
 
 import com.bank.payment.api.dto.CancelScheduledRequest;
+import com.bank.payment.api.dto.InboundPaymentResponse;
 import com.bank.payment.api.dto.OperatorCancelRequest;
 import com.bank.payment.api.dto.PaymentRequest;
 import com.bank.payment.api.dto.PaymentResponse;
 import com.bank.payment.api.dto.ScheduledPaymentRequest;
+import com.bank.payment.domain.mapper.PaymentInstructionMapper;
 import com.bank.payment.domain.service.PaymentCommand;
 import com.bank.payment.domain.service.PaymentOrchestrator;
 import com.bank.payment.domain.service.PaymentResult;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Optional;
 
 import java.time.LocalDateTime;
@@ -31,9 +36,12 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentOrchestrator paymentOrchestrator;
+    private final PaymentInstructionMapper paymentInstructionMapper;
 
-    public PaymentController(PaymentOrchestrator paymentOrchestrator) {
+    public PaymentController(PaymentOrchestrator paymentOrchestrator,
+                             PaymentInstructionMapper paymentInstructionMapper) {
         this.paymentOrchestrator = paymentOrchestrator;
+        this.paymentInstructionMapper = paymentInstructionMapper;
     }
 
     @PostMapping
@@ -173,5 +181,32 @@ public class PaymentController {
                 result.completedAt(),
                 result.failureCategory()
         ));
+    }
+
+    /**
+     * 수신계좌 기준 입금(COMPLETED) 내역 조회. GET /api/v1/payments/inbound?receiverAccountNo=
+     * 다온 화면 전용. 인증: anyRequest().permitAll() → 헤더 불필요.
+     */
+    @GetMapping("/inbound")
+    public ResponseEntity<List<InboundPaymentResponse>> getInboundPayments(
+            @RequestParam String receiverAccountNo) {
+
+        List<InboundPaymentResponse> result = paymentInstructionMapper
+                .selectByReceiverAccountNo(receiverAccountNo)
+                .stream()
+                .map(pi -> new InboundPaymentResponse(
+                        pi.getPaymentInstructionId(),
+                        pi.getTransactionNo(),
+                        pi.getTransferAmount(),
+                        pi.getStatus(),
+                        pi.getRequestedAt(),
+                        pi.getCompletedAt(),
+                        pi.getSenderAccountNoSnap(),
+                        pi.getReceiverPassbookSenderDisplay(),
+                        pi.getReceiverMemo()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(result);
     }
 }
