@@ -23,15 +23,7 @@ const NAV: SidebarItem[] = [
   },
   {
     label: '대출진행현황',
-    expandable: true,
-    children: [
-      { label: '진행현황조회/실행/예약', href: '/products/loan/status' },
-      { label: '사후서류제출',           href: '/products/loan/status/docs' },
-      { label: '배우자정보제공동의',     href: '/products/loan/status/spouse' },
-      { label: '세대원정보제공동의',     href: '/products/loan/status/household' },
-      { label: '제3자담보정보제공동의',   href: '/products/loan/status/collateral' },
-      { label: '부동산담보대출 전자서명', href: '/products/loan/status/sign' },
-    ],
+    href: '/products/loan/status',
   },
   {
     label: '대출관리',
