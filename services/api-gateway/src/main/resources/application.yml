@@ -31,11 +31,15 @@ spring:
       # allowedOriginPatterns("localhost:*") 로 더 넓으나 위 origin 들에 대해선
       # 동일한 구체값을 반영하므로 병합이 안전하다(2026-06 검증).
       #
+      # Allow-Origin/Credentials 외에 Allow-Methods/Allow-Headers/Max-Age 도
+      # OPTIONS preflight 응답에서 동일하게 중복되므로 함께 병합한다(브라우저는
+      # 관대하나 일관성을 위해 정리).
+      #
       # TODO(기술부채): 근본 해법은 CORS 를 게이트웨이에서 단독 처리하고 각 서비스의
       # SecurityConfig/CorsConfig 의 CORS 설정을 제거하는 것이다. 서비스가 추가될
       # 때마다 동일한 이중부착 패턴이 반복되므로, 각 도메인 담당과 협의해 후속 정리 권장.
       default-filters:
-        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Allow-Methods Access-Control-Allow-Headers Access-Control-Max-Age, RETAIN_UNIQUE
       routes:
         # 인증 공개 엔드포인트 (JWT 검증 없음)
         - id: auth-public
