@@ -758,7 +758,9 @@ services:
       dockerfile: Dockerfile
     container_name: ib-kafka-connect
     ports:
-      - "${KAFKA_CONNECT_PORT:-8083}:8083"
+      # 호스트 8083은 loan-service 정규 포트(LOAN_APP_PORT)와 충돌 → Connect는 18083으로 게시
+      # (컨테이너 내부 CONNECT_REST_PORT/내부 통신은 8083 그대로)
+      - "${KAFKA_CONNECT_PORT:-18083}:8083"
     environment:
       CONNECT_BOOTSTRAP_SERVERS: kafka:29092
       CONNECT_REST_PORT: 8083
