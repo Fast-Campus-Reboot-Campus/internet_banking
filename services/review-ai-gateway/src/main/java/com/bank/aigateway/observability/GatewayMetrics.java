@@ -20,6 +20,7 @@ public class GatewayMetrics {
     public void recordAnalysisDuration(Timer.Sample sample, String analysisType) {
         sample.stop(Timer.builder("aigateway.analysis.duration")
                 .tag("type", analysisType)
+                .publishPercentileHistogram()
                 .register(registry));
     }
 

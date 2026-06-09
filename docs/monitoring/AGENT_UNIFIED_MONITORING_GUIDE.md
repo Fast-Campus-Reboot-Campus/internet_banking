@@ -8,7 +8,7 @@
 
 ## 이 가이드는 무엇인가요?
 
-이 프로젝트에는 AI 에이전트가 4종 있습니다. 에이전트는 일반 서비스와 다르게 **서비스가 살아있어도 내부적으로 제대로 동작하지 않는 경우**가 발생할 수 있습니다.
+이 프로젝트에는 AI 에이전트가 3종 있습니다. 에이전트는 일반 서비스와 다르게 **서비스가 살아있어도 내부적으로 제대로 동작하지 않는 경우**가 발생할 수 있습니다.
 
 예를 들어:
 - 서비스는 UP인데 LLM 호출이 계속 실패하고 있다
@@ -47,20 +47,19 @@
 ```
 고객 대출 신청
   → auto-loan-review  (대출 심사 에이전트)
-      → ai-service    (RAG 정책 검색)
-      → LLM 호출      (심사 요약 생성)
+      → RAG 검색       (정책 코퍼스 — Elasticsearch 또는 인라인)
+      → LLM 호출       (심사 요약 / 거절 사유 생성)
 
 감사 신호 발생
   → review-ai-gateway (감사 분석 에이전트, Claude tool-use)
-      → ai-service    (RAG 정책 검색)
-      → ai-service    (유사 사례 조회)
+      → LLM 호출       (편향 탐지 / 규정 준수 분석)
 
 고객 상담 요청
   → consultation-service (챗봇 상담 에이전트)
       → LLM 호출          (답변 생성)
 ```
 
-**핵심**: ai-service(RAG)가 느려지면 auto-loan-review와 review-ai-gateway 모두 영향을 받습니다. 공통 인프라 섹션을 함께 확인하세요.
+> **ai-service 제외 이유**: 코드는 존재하지만 메인 `docker-compose.yml`에 통합되지 않아 Prometheus가 메트릭을 수집할 수 없습니다. 담당 팀원이 docker-compose를 통합하면 대시보드 섹션을 추가할 수 있습니다.
 
 ---
 
@@ -68,11 +67,10 @@
 
 | 섹션 | 내용 |
 |------|------|
-| 전체 요약 | 에이전트 4종 UP/DOWN 상태 |
+| 전체 요약 | 에이전트 3종 UP/DOWN 상태 |
 | auto-loan-review | 실행 횟수, 지연시간, 폴백, 하드 실패, 불일치 |
 | review-ai-gateway | 분석 건수, 소요 시간, 결과 분포, 턴 초과 폴백 |
 | consultation-service | 활성 세션, LLM 응답시간/오류, 이관률, 폴백 |
-| 공통 인프라 | RAG 검색 지연시간/미스, ML 추론 응답시간/오류 |
 
 ---
 
@@ -113,6 +111,7 @@
 - **BIAS_DETECTION** — 심사관 편향 탐지 분석
 - **COMPLIANCE_VERIFICATION** — 규정 준수 검증 분석
 - **conclusion** — 분석 결과: `BIAS_SUSPECTED` / `NO_BIAS_DETECTED` / `VIOLATION_SUSPECTED` / `COMPLIANT` / `INSUFFICIENT_DATA`
+- **턴 (turn)** — LLM이 도구를 호출하고 결과를 받는 한 번의 사이클. Claude가 여러 도구를 쓸수록 턴이 늘어난다.
 - **턴 초과 폴백** — Claude가 최대 5턴 내에 결론을 내리지 못해 `INSUFFICIENT_DATA`를 반환한 경우
 
 | 패널 | 정상 | 주의 |
@@ -121,6 +120,8 @@
 | 분석 소요 시간 p95 | 30초 이하 | 60초 이상 → LLM 응답 지연 확인 |
 | 분석 결과 분포 | 결과 고르게 분포 | INSUFFICIENT_DATA 급증 → 턴 초과 확인 |
 | 턴 초과 폴백 | 0 | 발생 시 → 도구 응답 지연 또는 LLM 문제 |
+
+> **턴 초과 폴백이 항상 0으로 표시되는 경우**: 실제 LLM이 연결되지 않은 상태(Mock/Stub 응답)에서는 항상 1턴에 완료되므로 정상적으로 0입니다. 실제 Claude API가 연결되고 복잡한 감사 요청이 들어올 때만 값이 올라갑니다.
 
 ---
 
@@ -140,21 +141,6 @@
 | 폴백 횟수 | 0에 가까움 | 증가 → LLM 호출 실패 원인 확인 |
 
 ---
-
-### 공통 인프라 — ai-service (RAG + ML)
-
-여러 에이전트가 공통으로 사용하는 서비스입니다. 여기서 문제가 생기면 auto-loan-review와 review-ai-gateway 모두 영향을 받습니다.
-
-**용어:**
-- **RAG 검색 미스** — 벡터 검색 결과가 없는 경우 (정책 코퍼스에 관련 내용이 없거나 검색 실패)
-- **ML 추론** — 대출 승인/거절 확률을 계산하는 ML 모델 호출
-
-| 패널 | 정상 | 주의 |
-|------|------|------|
-| RAG 검색 지연시간 p95 | 500ms 이하 | 2초 이상 → 벡터 DB 또는 ai-service 부하 확인 |
-| RAG 검색 미스 횟수 | 낮게 유지 | 급증 → 코퍼스 업데이트 또는 검색 로직 점검 |
-| ML 추론 응답시간 p95 | 1초 이하 | 5초 이상 → inference-server 상태 확인 |
-| ML 추론 오류 횟수 | 0 | 발생 시 → inference-server 연결 확인 |
 
 ---
 
@@ -195,44 +181,69 @@
 
 > 이 섹션은 에이전트 모니터링 대시보드가 실제 데이터로 동작하는지 검증하기 위한 테스트 환경 구성 방법을 설명합니다.
 
-### 현재 상태 (2026-06-02 기준)
+### 현재 상태 (2026-06-08 기준)
 
-에이전트 모니터링 코드(대시보드, alert, 가이드)는 완성됐지만 실제 데이터로 테스트를 진행하지 못했습니다. 이유는 아래와 같습니다.
+| 에이전트 | 메트릭 수집 코드 | 실제 데이터 | 비고 |
+|----------|----------------|------------|------|
+| review-ai-gateway | ✅ 구현 완료 | ✅ API 테스트로 검증 완료 | `POST /internal/audit/analyze` 로 확인 |
+| auto-loan-review | ✅ 구현 완료 (`AgentMetricsRecorder`) | ❌ 실제 대출 심사 요청 없음 | loan-service에서 심사 이벤트 발생 시 자동 수집 |
+| consultation-service | ✅ 구현 완료 (`metrics.py`) | ✅ 챗봇 API 테스트로 검증 완료 | 별도 가이드 참고 |
 
-**이유 1 — 에이전트 서비스들이 단독 실행 구조가 아님**
+### review-ai-gateway 테스트 방법
 
-auto-loan-review, review-ai-gateway, ai-service는 Dockerfile만 있고 docker-compose 설정이 없습니다. `docker compose up` 한 번으로 전체를 실행하는 구조가 아직 갖춰지지 않은 상태입니다.
+review-ai-gateway는 `docker compose up` 후 아래 요청으로 즉시 테스트할 수 있습니다.
 
-**이유 2 — 서비스 간 의존성이 복잡함**
+```bash
+# 편향 탐지 분석 요청
+python -c "
+import urllib.request, json, sys
+sys.stdout.reconfigure(encoding='utf-8')
 
-에이전트 서비스들은 단독으로 실행할 수 없고, 다른 서비스들이 먼저 실행되어 있어야 합니다.
+data = {
+    'analysisType': 'BIAS_DETECTION',
+    'revId': 1,
+    'reviewerId': 1,
+    'reviewOpinionText': '테스트 요청',
+    'signals': [{
+        'ruleCd': 'TEST_RULE',
+        'severityCd': 'HIGH',
+        'signalMetric': 'approval_rate',
+        'observedValue': 0.42,
+        'thresholdValue': 0.65
+    }],
+    'ragChunks': None
+}
+body = json.dumps(data).encode('utf-8')
+req = urllib.request.Request(
+    'http://localhost:8088/internal/audit/analyze',
+    data=body,
+    headers={'Content-Type': 'application/json'},
+    method='POST'
+)
+with urllib.request.urlopen(req) as r:
+    print(json.dumps(json.loads(r.read()), ensure_ascii=False, indent=2))
+"
+```
+
+요청 후 `http://localhost:8088/actuator/prometheus` 에서 `aigateway_` 로 시작하는 메트릭이 증가했는지 확인합니다.
+
+> **주의**: 현재 LLM이 실제 연결되지 않은 Mock/Stub 상태에서는 응답이 1턴에 완료됩니다. 따라서 `aigateway_loop_timeout_total`(턴 초과 폴백 수)은 항상 0입니다. 실제 Claude API 연결 시 복잡한 요청에서 값이 올라갑니다.
+
+### auto-loan-review 테스트 방법
+
+auto-loan-review는 loan-service에서 발생하는 심사 이벤트를 Kafka로 수신해 처리합니다. 직접 API를 호출하는 구조가 아니라 별도 테스트 환경이 필요합니다.
 
 ```
-auto-loan-review 실행하려면
-  → loan-service, inference-server, Kafka 필요
-
-review-ai-gateway 실행하려면
-  → ai-service, loan-service, advisory-service, Kafka 필요
+테스트 순서:
+1. docker compose up -d (메인 스택 기동)
+2. loan-service에 대출 신청 API 호출 → Kafka 이벤트 발생
+3. auto-loan-review가 이벤트를 수신해 에이전트 실행
+4. http://localhost:8086/actuator/prometheus 에서 ai_agent_* 메트릭 확인
 ```
 
-결국 프로젝트 전체를 띄워야 테스트가 가능합니다.
+### 아직 해결되지 않은 구조적 제약
 
-**이유 3 — consultation-service는 별도 협의 필요**
-
-consultation-service는 자체 docker-compose를 가지고 있어 메인 인프라와 포트 충돌이 발생합니다. 담당 팀원과 협의 후 메인 docker-compose로 통합해야 합니다.
-
-### 테스트 진행 순서
-
-테스트를 진행하려면 아래 순서로 선행 작업이 필요합니다.
-
-| 순서 | 작업 | 담당 |
-|------|------|------|
-| 1 | 서비스 전체를 메인 `docker-compose.yml` 하나로 통합 | 팀 전체 협의 |
-| 2 | consultation-service 담당자와 docker-compose 통합 협의 | 담당 팀원 |
-| 3 | `docker compose up` 으로 전체 서비스 실행 확인 | — |
-| 4 | 에이전트 서비스에 실제 API 요청 발송 | — |
-| 5 | 대시보드 패널에 데이터가 표시되는지 확인 | — |
-| 6 | Alert 발동 시나리오 테스트 (폴백률, 하드 실패 등) | — |
+**consultation-service**는 자체 docker-compose를 가지고 있어 메인 docker-compose와 포트 충돌이 발생할 수 있습니다. 담당 팀원과 협의 후 메인 docker-compose로 통합해야 합니다.
 
 ---
 

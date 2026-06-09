@@ -24,16 +24,19 @@ export const PAYMENT_BANK_CODE_MAP: Record<string, string> = {
   SF:  '064', SM:  '045', CU:  '048', DZ:  '055',
   BA:  '060', CCB: '067', ICB: '062', BOC: '063',
   HS:  '054', BN:  '061', JP:  '057',
+  DAON: '088',
 }
 
 export type InstantTransferPayload = {
   senderAccountId: string
   receiverBankCode: string
   receiverAccountNo: string
-  expectedReceiverName: string
+  receiverHolderName: string
   transferAmount: number
-  authTokenNo: string
   channel: string
+  receiverMemo?: string
+  senderMemo?: string
+  receiverPassbookSenderDisplay?: string
 }
 
 export type TransferRequestHeaders = {

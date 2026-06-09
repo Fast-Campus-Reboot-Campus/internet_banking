@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { formatNumber } from '@/lib/mock-data'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 import { executeDepositTransfer, getCurrentDepositCustomerId } from '@/lib/deposit-api'
+import { createInstantTransfer, newIdempotencyKey, newAuthToken, PAYMENT_BANK_CODE_MAP } from '@/lib/payment-api'
 
 type PendingTransfer = {
   fromAccountId?: number
@@ -56,21 +57,52 @@ export default function TransferConfirmPage() {
           setShowCertModal(false)
           try {
             if (!data.fromAccountId) throw new Error('출금계좌 정보가 없습니다.')
-            const result = await executeDepositTransfer(getCurrentDepositCustomerId(), {
-              fromAccountId: data.fromAccountId,
-              toAccountId: data.toAccountId,
-              toAccountNo: data.toAccount,
-              amount: data.amount,
-              transferType: data.transferType ?? (data.toAccountId ? 'INTERNAL' : 'EXTERNAL'),
-              counterpartyBankCode: data.toBankCode,
-              counterpartyBankName: data.toBank,
-              counterpartyName: data.receiverName,
-              transactionMemo: '인터넷 이체',
-            })
-            sessionStorage.setItem('paymentResult', JSON.stringify({
-              status: 'COMPLETED',
-              txNo: String(result.transactionId ?? Date.now()),
-            }))
+            if (data.transferType === 'EXTERNAL') {
+              const bankCode = PAYMENT_BANK_CODE_MAP[data.toBankCode]
+              if (!bankCode) throw new Error(`지원하지 않는 은행 코드: ${data.toBankCode}`)
+              const authToken = newAuthToken()
+              const idempotencyKey = newIdempotencyKey()
+              const result = await createInstantTransfer(
+                {
+                  senderAccountId: data.fromNumber,
+                  receiverBankCode: bankCode,
+                  receiverAccountNo: data.toAccount,
+                  receiverHolderName: data.receiverName,
+                  transferAmount: data.amount,
+                  channel: 'MOBILE',
+                  senderMemo: '인터넷 이체',
+                },
+                {
+                  userId: getCurrentDepositCustomerId(),
+                  authTokenId: authToken,
+                  idempotencyKey,
+                  channel: 'MOBILE',
+                  requestId: idempotencyKey,
+                }
+              )
+              sessionStorage.setItem('paymentResult', JSON.stringify({
+                status: result.status,
+                txNo: result.transactionNo,
+                piId: result.paymentInstructionId,
+                failureCategory: result.failureCategory,
+              }))
+            } else {
+              const result = await executeDepositTransfer(getCurrentDepositCustomerId(), {
+                fromAccountId: data.fromAccountId,
+                toAccountId: data.toAccountId,
+                toAccountNo: data.toAccount,
+                amount: data.amount,
+                transferType: data.transferType ?? (data.toAccountId ? 'INTERNAL' : 'EXTERNAL'),
+                counterpartyBankCode: data.toBankCode,
+                counterpartyBankName: data.toBank,
+                counterpartyName: data.receiverName,
+                transactionMemo: '인터넷 이체',
+              })
+              sessionStorage.setItem('paymentResult', JSON.stringify({
+                status: 'COMPLETED',
+                txNo: String(result.transactionId ?? Date.now()),
+              }))
+            }
           } catch (e: unknown) {
             const err = e as { response?: { data?: { error?: string; message?: string } }; message?: string }
             sessionStorage.setItem('paymentResult', JSON.stringify({
