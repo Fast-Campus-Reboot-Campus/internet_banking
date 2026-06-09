@@ -91,7 +91,9 @@ internet_banking/
 - 예금·적금·청약·입출금 상품 조회 (유형별 필터링, 판매 상태 기준)
 - 상품별 기본금리·우대금리·가입기간·가입금액 조건 관리
 - 가입 대상 그룹(연령·직군 등) 연동 — `GET /products` 응답에 `targetGroups[]` 포함 (`targetGroupId`, `targetGroupName`, `minAge`, `maxAge`)
-- 상품 slug와 productId 매핑은 항상 API 이름 응답 기준으로 동적 조회 (하드코딩 제거)
+- 상품 `savingType` 필드(`REGULAR` / `FREE`)로 정기적금·자유적금 탭 분류
+- 상품 slug는 항상 `product-{productId}` 패턴으로 생성 — 상품명 하드코딩 맵(`PRODUCT_NAME_TO_SLUG`) 제거, DB 상품명 변경 시 조용한 오동작 방지
+- `getDepositSlugByProductId(productId)` — `productName` 파라미터 제거됨. 상세 페이지 라우팅이 필요한 경우 `productId`를 직접 쿼리 파라미터로 전달할 것
 
 ### 계약 관리
 
@@ -372,6 +374,15 @@ GET /products/deposit/inquiry/terminate?accountId={accountId}
 
 비로그인 상태에서 위 기능 실행 시 로그인 안내 메시지를 표시하고 로그인 완료 후 재실행한다.
 
+### 상품 추천 채점 — 백엔드 단일화 원칙
+
+`CASH_FLOW_RECOMMEND` 실행 시 채점 로직은 **consultation-service 백엔드(`_rank_products()`)에서만** 수행한다.
+
+- 채점 모델: 재정 적합도 40점·ROI 30점·유동성 20점·부가혜택 10점 (100점 만점)
+- DB에서 직접 집계한 거래 데이터 기반으로 점수를 계산해 프론트에 최종 순위만 반환
+- 프론트(ChatbotWidget)는 백엔드 결과를 **표시**하는 역할에 집중하며, 브라우저에서 거래 데이터를 재집계하거나 직접 채점하지 않음
+- 채점 기준 변경은 백엔드 한 곳에서만 관리 → 프론트·백 결과 불일치 방지
+
 ### 챗봇 토큰 검증
 
 챗봇 위젯 열기(`onOpen`) 시 `/api/v1/customers/me`로 토큰 유효성을 검증한다.
@@ -535,6 +546,7 @@ Flyway로 스키마를 관리하며 서비스 기동 시 자동 적용된다.
 | V12 | 이체 일일 한도 컬럼 추가 |
 | V13 | `deposit_transactions.idempotency_key` 컬럼 + 부분 유니크 인덱스 |
 | V14 | `deposit_target_groups.min_age` / `max_age` 컬럼 추가. 청년고객 19~34세, 국군장병 18~27세로 초기값 설정 |
+| V15 | employee01 테스트 계좌 시드 데이터 추가 |
 
 > 서비스 재기동 없이 컬럼이 추가된 경우 Hibernate가 SELECT 시 해당 컬럼을 포함해 500 오류가 발생한다. DB에 직접 DDL을 실행하거나 서비스를 재기동한다.
 
