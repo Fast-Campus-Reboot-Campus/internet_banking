@@ -21,6 +21,9 @@ import jakarta.validation.constraints.Size;
  *
  * REJECTED 로 정정 시 rejectReasonCd 권장.
  * revisitReasonCd 는 정정 사유(예: APPEAL / ERROR_CORRECTION / NEW_EVIDENCE) — 감사 추적용 필수.
+ *
+ * 정정 행위자(심사관)는 요청 바디로 받지 않는다 — 인증 토큰의 currentActorId 로만 식별한다.
+ * (요청 바디 reviewerId 를 신뢰하면 4-eye 를 위조로 우회할 수 있어 제거됨)
  */
 public record ReviseReviewRequest(
 
@@ -33,8 +36,6 @@ public record ReviseReviewRequest(
         @Size(max = 50) String rejectReasonCd,
         @Size(max = 500) String revRemark,
 
-        @NotBlank @Size(max = 50) String revisitReasonCd,
-
-        Long reviewerId
+        @NotBlank @Size(max = 50) String revisitReasonCd
 ) {
 }

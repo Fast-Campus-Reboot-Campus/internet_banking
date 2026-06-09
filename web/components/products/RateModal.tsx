@@ -63,7 +63,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
             ].map(cat => (
               <button key={cat.label}
                 className={`flex flex-col items-center gap-1 text-[13px] pb-1 ${
-                  cat.active ? 'text-kb-mint border-b-2 border-kb-mint font-bold' : 'text-kb-text-muted hover:text-kb-text'
+                  cat.active ? 'text-kb-primary border-b-2 border-kb-primary font-bold' : 'text-kb-text-muted hover:text-kb-text'
                 }`}>
                 <span className="text-lg">{cat.icon}</span>
                 {cat.label}
@@ -78,7 +78,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
                 onClick={() => setSubTab(tab)}
                 className={`flex-shrink-0 px-4 py-2.5 text-[12px] border-r border-kb-border transition-colors ${
                   subTab === tab
-                    ? 'border-b-2 border-kb-mint font-bold text-kb-text bg-white'
+                    ? 'border-b-2 border-kb-primary font-bold text-kb-text bg-white'
                     : 'text-kb-text-muted hover:text-kb-text bg-[#fafafa]'
                 }`}>
                 {tab}
@@ -119,7 +119,7 @@ export default function RateModal({ productName, rates, onClose }: Props) {
               <button key={rt}
                 onClick={() => setRateType(rt)}
                 className={`text-[13px] flex items-center gap-0.5 ${
-                  rateType === rt ? 'text-kb-mint font-bold' : 'text-kb-text-muted hover:text-kb-text'
+                  rateType === rt ? 'text-kb-primary font-bold' : 'text-kb-text-muted hover:text-kb-text'
                 }`}>
                 <span className="text-[10px]">▶</span>{rt}
               </button>

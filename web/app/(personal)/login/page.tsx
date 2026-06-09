@@ -817,6 +817,7 @@ function IdLoginTab() {
     try {
       const { data } = await api.post('/api/v1/auth/login', { loginId, password })
       await persistLoginState(data.data)
+
       window.location.href = '/'
     } catch (err: unknown) {
       const axiosErr = err as { code?: string; message?: string; response?: { data?: { message?: string } } }

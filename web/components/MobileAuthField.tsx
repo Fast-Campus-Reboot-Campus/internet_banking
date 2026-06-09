@@ -15,15 +15,17 @@ const OTP_SECONDS = 180
 
 type Props = {
   purpose: MobileAuthPurpose
-  /** 검증 성공 시 호출. 인증된 전화번호(01012345678)를 전달한다. */
-  onVerified: (phoneNumber: string) => void
+  /** 주민번호 기반 본인확인이 필요한 경우(가입) 성명·주민번호 13자리를 전달한다. */
+  identity?: { name: string; rrn: string }
+  /** 검증 성공 시 호출. 인증된 전화번호와 verificationId(주민번호 본인확인 시)를 전달한다. */
+  onVerified: (phoneNumber: string, verificationId?: number | null) => void
 }
 
 /**
  * 휴대폰 본인인증 위젯 — 인증번호 발송 → 입력 → 검증.
  * MVP 백엔드는 실제 SMS 대신 서버 로그로 인증번호를 출력한다.
  */
-export default function MobileAuthField({ purpose, onVerified }: Props) {
+export default function MobileAuthField({ purpose, identity, onVerified }: Props) {
   const [carrier, setCarrier] = useState<string>(TELECOM_CARRIERS[0].code)
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
@@ -85,13 +87,20 @@ export default function MobileAuthField({ purpose, onVerified }: Props) {
       setError('인증번호가 만료되었습니다. 다시 발송해주세요.')
       return
     }
+    if (identity && (!identity.name.trim() || !/^\d{13}$/.test(identity.rrn))) {
+      setError('성명과 주민등록번호를 먼저 정확히 입력해주세요.')
+      return
+    }
     setError('')
     setLoading(true)
     try {
-      await verifyMobileAuth({ phoneNumber: phoneDigits, purposeCode: purpose, code })
+      const verificationId = await verifyMobileAuth({
+        phoneNumber: phoneDigits, purposeCode: purpose, code,
+        name: identity?.name, rrn: identity?.rrn,
+      })
       setVerified(true)
       if (timerRef.current) clearInterval(timerRef.current)
-      onVerified(phoneDigits)
+      onVerified(phoneDigits, verificationId)
     } catch (err) {
       setError(authErrorMessage(err, '인증번호가 올바르지 않습니다.'))
     } finally {

@@ -1,36 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { fetchInboundPayments, InboundPayment } from '@/lib/other-bank-api'
 
-/* ── 다온은행 데모 목데이터 (KB 사이트와 분리된 독립 데이터) ── */
+/* ── 다온은행 계좌 정보 (mock) ── */
 const DAON_ACCOUNT = {
   number: '880-21-0457-118',
-  name: '다온 기업자유예금',
+  name: '다온 주거래 입출금통장',
   holder: '김민준',
   createdAt: '2025.11.03',
   balance: 8_120_000,
   availableBalance: 8_120_000,
 }
-
-type DaonTx = {
-  id: string
-  datetime: string
-  description: string
-  sender?: string
-  amount: number
-  balance: number
-  branch?: string
-  highlight?: boolean
-}
-
-const DAON_TX: DaonTx[] = [
-  { id: 'd1', datetime: '2026.06.04 14:22', description: '타행이체 입금', sender: 'AX풀뱅크 홍길동', amount: 500_000, balance: 8_120_000, branch: '인터넷', highlight: true },
-  { id: 'd2', datetime: '2026.06.03 10:11', description: '카드결제대금', amount: -1_240_000, balance: 7_620_000, branch: '인터넷' },
-  { id: 'd3', datetime: '2026.06.02 09:30', description: '거래처 입금', sender: '(주)한빛상사', amount: 3_300_000, balance: 8_860_000, branch: '인터넷' },
-  { id: 'd4', datetime: '2026.06.01 00:05', description: '자동이체-임대료', amount: -1_500_000, balance: 5_560_000, branch: '인터넷' },
-  { id: 'd5', datetime: '2026.05.29 16:40', description: '급여이체', amount: -2_800_000, balance: 7_060_000, branch: '인터넷' },
-]
 
 const DATE_PRESETS = ['1개월', '3개월', '6개월', '1년', '직접입력']
 const TX_TYPE_OPTS = ['전체', '입금', '출금']
@@ -39,18 +21,46 @@ function formatNumber(n: number) {
   return n.toLocaleString('ko-KR')
 }
 
+function formatDatetime(iso: string | null): string {
+  if (!iso) return '-'
+  // "2026-06-08T14:22:00" → "2026.06.08 14:22"
+  return iso.replace('T', ' ').slice(0, 16).replace(/-/g, '.')
+}
+
+function senderLabel(tx: InboundPayment): string {
+  const display = tx.receiverPassbookSenderDisplay
+  if (display && display !== 'null') return display
+  return tx.senderAccountNoSnap || '타행 계좌'
+}
+
+function bannerSenderLabel(tx: InboundPayment): string {
+  const acct = tx.senderAccountNoSnap
+  return acct ? `타행 ${acct}` : '타행 계좌'
+}
+
 export default function DaonAccountsPage() {
   const [datePreset, setDatePreset] = useState('1개월')
   const [txType, setTxType] = useState('전체')
   const [balanceVisible, setBalanceVisible] = useState(true)
   const [keyword, setKeyword] = useState('')
+  const [inboundList, setInboundList] = useState<InboundPayment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const latestDeposit = DAON_TX.find(t => t.highlight)
+  useEffect(() => {
+    fetchInboundPayments(DAON_ACCOUNT.number)
+      .then(data => setInboundList(data))
+      .catch(() => setError('입금내역을 불러오지 못했습니다.'))
+      .finally(() => setLoading(false))
+  }, [])
 
-  const filteredTx = DAON_TX.filter(tx => {
-    if (txType === '입금' && tx.amount <= 0) return false
-    if (txType === '출금' && tx.amount >= 0) return false
-    if (keyword && !tx.description.includes(keyword)) return false
+  const latestDeposit = inboundList[0] ?? null
+
+  const filteredTx = inboundList.filter(tx => {
+    // API는 COMPLETED(입금)만 반환 — 출금 필터 시 전체 빈 목록
+    if (txType === '출금') return false
+    const label = `타행이체 입금 ${senderLabel(tx)}`
+    if (keyword && !label.includes(keyword)) return false
     return true
   })
 
@@ -58,7 +68,7 @@ export default function DaonAccountsPage() {
     <div className="max-w-kb-container mx-auto px-6 py-4 pb-16">
       {/* 브레드크럼 */}
       <div className="flex justify-end mb-4 text-[12px] text-kb-text-muted gap-1">
-        <span>기업뱅킹</span><span>&gt;</span>
+        <span>개인뱅킹</span><span>&gt;</span>
         <span>조회</span><span>&gt;</span>
         <span className="hover:underline">계좌조회</span>
         <span>&gt;</span>
@@ -66,7 +76,7 @@ export default function DaonAccountsPage() {
       </div>
 
       {/* 타행 입금 도착 배너 */}
-      {latestDeposit && (
+      {!loading && latestDeposit && (
         <div className="rounded-xl px-6 py-4 mb-5 flex items-center justify-between"
           style={{ background: 'linear-gradient(135deg, #1B3A6B 0%, #384d84 100%)' }}>
           <div className="flex items-center gap-4">
@@ -74,13 +84,13 @@ export default function DaonAccountsPage() {
             <div className="text-white">
               <p className="text-[13px] text-white/80">타행 입금이 도착했어요</p>
               <p className="text-[16px] font-bold">
-                {latestDeposit.sender} → {DAON_ACCOUNT.holder}님
+                {bannerSenderLabel(latestDeposit)} → {DAON_ACCOUNT.holder}님
               </p>
             </div>
           </div>
           <div className="text-right text-white">
-            <p className="text-[22px] font-extrabold">+{formatNumber(latestDeposit.amount)}원</p>
-            <p className="text-[12px] text-white/70">{latestDeposit.datetime}</p>
+            <p className="text-[22px] font-extrabold">+{formatNumber(latestDeposit.transferAmount)}원</p>
+            <p className="text-[12px] text-white/70">{formatDatetime(latestDeposit.completedAt)}</p>
           </div>
         </div>
       )}
@@ -190,71 +200,75 @@ export default function DaonAccountsPage() {
         </div>
       </div>
 
-      {/* 거래 건수 요약 */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-[12px] text-kb-text-muted">
-          총 <span className="font-bold text-kb-text">{filteredTx.length}</span>건
-        </p>
-        <div className="flex gap-3 text-[12px] text-kb-text-muted">
-          <span>
-            입금합계{' '}
-            <span className="font-medium text-kb-blue">
-              {formatNumber(filteredTx.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0))}원
-            </span>
-          </span>
-          <span>
-            출금합계{' '}
-            <span className="font-medium text-kb-red">
-              {formatNumber(Math.abs(filteredTx.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)))}원
-            </span>
-          </span>
-        </div>
-      </div>
+      {/* 로딩 / 에러 */}
+      {loading && (
+        <p className="text-center text-[13px] text-kb-text-muted py-8">입금내역을 불러오는 중...</p>
+      )}
+      {error && (
+        <p className="text-center text-[13px] text-kb-red py-8">{error}</p>
+      )}
 
-      {/* 거래내역 테이블 */}
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr className="bg-kb-beige-light border-t-2 border-kb-text">
-            <th className="border border-kb-border px-4 py-2 text-left font-semibold text-kb-text">날짜/시간</th>
-            <th className="border border-kb-border px-4 py-2 text-left font-semibold text-kb-text">내용</th>
-            <th className="border border-kb-border px-4 py-2 text-right font-semibold text-kb-text">출금금액</th>
-            <th className="border border-kb-border px-4 py-2 text-right font-semibold text-kb-text">입금금액</th>
-            <th className="border border-kb-border px-4 py-2 text-right font-semibold text-kb-text">잔액</th>
-            <th className="border border-kb-border px-4 py-2 text-center font-semibold text-kb-text">거래점</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredTx.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="border border-kb-border px-4 py-8 text-center text-kb-text-muted">
-                조회된 거래내역이 없습니다.
-              </td>
-            </tr>
-          ) : (
-            filteredTx.map(tx => (
-              <tr key={tx.id} className="transition-colors" style={tx.highlight ? { backgroundColor: '#eef2fb' } : {}}>
-                <td className="border border-kb-border px-4 py-2.5 text-kb-text-muted whitespace-nowrap">{tx.datetime}</td>
-                <td className="border border-kb-border px-4 py-2.5 text-kb-text-body">
-                  <p className={tx.highlight ? 'font-bold' : ''}>{tx.description}</p>
-                  {tx.sender && <p className="text-[11px] text-kb-text-muted">{tx.sender}</p>}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-right text-kb-red font-medium">
-                  {tx.amount < 0 ? formatNumber(Math.abs(tx.amount)) : '-'}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-right text-kb-blue font-medium">
-                  {tx.amount > 0 ? formatNumber(tx.amount) : '-'}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-right text-kb-text">
-                  {formatNumber(tx.balance)}
-                </td>
-                <td className="border border-kb-border px-4 py-2.5 text-center text-kb-text-muted">
-                  {tx.branch ?? '-'}
-                </td>
+      {!loading && !error && (
+        <>
+          {/* 거래 건수 요약 */}
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[12px] text-kb-text-muted">
+              총 <span className="font-bold text-kb-text">{filteredTx.length}</span>건
+            </p>
+            <div className="flex gap-3 text-[12px] text-kb-text-muted">
+              <span>
+                입금합계{' '}
+                <span className="font-medium text-kb-blue">
+                  {formatNumber(filteredTx.reduce((s, t) => s + t.transferAmount, 0))}원
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {/* 거래내역 테이블 */}
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="bg-kb-beige-light border-t-2 border-kb-text">
+                <th className="border border-kb-border px-4 py-2 text-left font-semibold text-kb-text">날짜/시간</th>
+                <th className="border border-kb-border px-4 py-2 text-left font-semibold text-kb-text">내용</th>
+                <th className="border border-kb-border px-4 py-2 text-right font-semibold text-kb-text">입금금액</th>
+                <th className="border border-kb-border px-4 py-2 text-center font-semibold text-kb-text">거래점</th>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {filteredTx.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="border border-kb-border px-4 py-8 text-center text-kb-text-muted">
+                    조회된 거래내역이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                filteredTx.map((tx, idx) => (
+                  <tr key={tx.paymentInstructionId}
+                    className="transition-colors"
+                    style={idx === 0 ? { backgroundColor: '#eef2fb' } : {}}>
+                    <td className="border border-kb-border px-4 py-2.5 text-kb-text-muted whitespace-nowrap">
+                      {formatDatetime(tx.completedAt)}
+                    </td>
+                    <td className="border border-kb-border px-4 py-2.5 text-kb-text-body">
+                      <p className={idx === 0 ? 'font-bold' : ''}>타행이체 입금</p>
+                      {senderLabel(tx) && (
+                        <p className="text-[11px] text-kb-text-muted">{senderLabel(tx)}</p>
+                      )}
+                    </td>
+                    <td className="border border-kb-border px-4 py-2.5 text-right text-kb-blue font-medium">
+                      {formatNumber(tx.transferAmount)}
+                    </td>
+                    <td className="border border-kb-border px-4 py-2.5 text-center text-kb-text-muted">
+                      인터넷
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
 
       <div className="mt-4 flex justify-center">
         <Link href="/other-bank" className="border border-kb-border px-8 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light transition-colors">

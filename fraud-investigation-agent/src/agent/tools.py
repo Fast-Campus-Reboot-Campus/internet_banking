@@ -42,7 +42,12 @@ def _resp(case: Case, tool: str) -> dict:
 # --------------------------------------------------------------------------- #
 # 실연결 토글 — get_auth_events 만 customer-service 실 백엔드 호출 가능 (Stage 7)
 #   활성: TRIAGE_REAL_TOOLS 에 "get_auth_events" 포함 + TRIAGE_BACKEND_URL 설정
-#   인증: TRIAGE_INTERNAL_TOKEN (직원 JWT) 을 Bearer 로 전달 (/internal 은 직원 역할 보호)
+#   인증(둘 중 택1):
+#     · 게이트웨이 헤더(로컬 직접호출): TRIAGE_USER_ID + TRIAGE_USER_ROLE 를
+#       X-User-Id / X-User-Role 로 전달. customer-service 는 JWT 를 직접 검증하지 않고
+#       GatewayHeaderAuthFilter 로 이 헤더를 신뢰한다(게이트웨이가 단일 검증 지점).
+#       /internal/auth/** 는 직원 역할(ROLE_*) 필요 → ROLE_HQ_RISK 등.
+#     · Bearer(게이트웨이 경유): TRIAGE_INTERNAL_TOKEN (직원 JWT) → Authorization.
 # 그 외 도구는 항상 목 (§16-9 경계). 응답 dict 형태는 목과 동일해 그래프 로직 불변.
 # --------------------------------------------------------------------------- #
 def _tool_is_real(tool: str) -> bool:
@@ -50,18 +55,27 @@ def _tool_is_real(tool: str) -> bool:
     return tool in real and bool(os.getenv("TRIAGE_BACKEND_URL"))
 
 
+def _internal_headers() -> dict:
+    """직원 인증 헤더 구성 — 게이트웨이 헤더(로컬) 우선, Bearer(게이트웨이 경유) 보강."""
+    headers: dict = {}
+    user_id = os.getenv("TRIAGE_USER_ID")
+    if user_id:
+        headers["X-User-Id"] = user_id
+        headers["X-User-Role"] = os.getenv("TRIAGE_USER_ROLE", "ROLE_HQ_RISK")
+    token = os.getenv("TRIAGE_INTERNAL_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def _fetch_auth_events_real(customer_id: str) -> dict:
     """customer-service 내부 API 호출 → 목과 동일한 dict 형태로 매핑."""
     import httpx  # 지연 import (실연결 시에만 필요)
 
     base = os.environ["TRIAGE_BACKEND_URL"].rstrip("/")
-    headers = {}
-    token = os.getenv("TRIAGE_INTERNAL_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
     resp = httpx.get(
         f"{base}/api/v1/internal/auth/{customer_id}/events",
-        headers=headers,
+        headers=_internal_headers(),
         timeout=5.0,
     )
     resp.raise_for_status()

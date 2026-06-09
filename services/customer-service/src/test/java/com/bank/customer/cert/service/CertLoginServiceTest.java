@@ -1,7 +1,5 @@
 package com.bank.customer.cert.service;
 
-import com.bank.common.security.jwt.JwtProperties;
-import com.bank.common.security.jwt.JwtProvider;
 import com.bank.common.web.BusinessException;
 import com.bank.customer.cert.domain.Certificate;
 import com.bank.customer.cert.dto.CertLoginRequest;
@@ -12,7 +10,7 @@ import com.bank.customer.fds.domain.FdsDetection;
 import com.bank.customer.fds.service.FdsService;
 import com.bank.customer.history.domain.CertificateUse;
 import com.bank.customer.history.repository.CertificateUseRepository;
-import com.bank.customer.login.config.EmployeeDirectoryProperties;
+import com.bank.customer.login.service.AuthEventService;
 import com.bank.customer.support.CustomerErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +20,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -51,11 +48,8 @@ class CertLoginServiceTest {
     @Mock CustomerRepository          customerRepository;
     @Mock CertificateUseRepository    certificateUseRepository;
     @Mock PasswordEncoder             passwordEncoder;
-    @Mock JwtProvider                 jwtProvider;
-    @Mock JwtProperties               jwtProperties;
-    @Mock StringRedisTemplate         redisTemplate;
-    @Mock EmployeeDirectoryProperties employeeDirectory;
     @Mock FdsService                  fdsService;
+    @Mock AuthEventService            authEventService;
 
     private CertLoginService certLoginService;
 
@@ -66,8 +60,7 @@ class CertLoginServiceTest {
         // @RequiredArgsConstructor 필드 순서대로 직접 주입
         certLoginService = new CertLoginService(
                 certificateRepository, credentialRepository, customerRepository,
-                certificateUseRepository, passwordEncoder, jwtProvider, jwtProperties,
-                redisTemplate, employeeDirectory, fdsService);
+                certificateUseRepository, passwordEncoder, fdsService, authEventService);
 
         // saveCertUse 가 referenceId 로 사용하는 id 보장
         CertificateUse savedUse = mock(CertificateUse.class);
@@ -101,7 +94,7 @@ class CertLoginServiceTest {
         given(passwordEncoder.matches(eq("wrong-pin"), any())).willReturn(false);
 
         // BLOCK 미발동(evaluate no-op) → 기본 PIN 실패 코드(CUST_033)
-        assertThatThrownBy(() -> certLoginService.certLogin(request(), "127.0.0.1"))
+        assertThatThrownBy(() -> certLoginService.certLogin(request(), "127.0.0.1", "JUnit"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(CustomerErrorCode.CUST_033));
@@ -122,7 +115,7 @@ class CertLoginServiceTest {
         doThrow(new BusinessException(CustomerErrorCode.CUST_060))
                 .when(fdsService).evaluate(anyLong(), eq(FdsDetection.EVENT_CERT_LOGIN), anyLong());
 
-        assertThatThrownBy(() -> certLoginService.certLogin(request(), "127.0.0.1"))
+        assertThatThrownBy(() -> certLoginService.certLogin(request(), "127.0.0.1", "JUnit"))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
                         .isEqualTo(CustomerErrorCode.CUST_060));

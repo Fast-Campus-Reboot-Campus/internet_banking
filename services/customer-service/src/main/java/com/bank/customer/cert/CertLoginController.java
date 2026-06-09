@@ -24,7 +24,9 @@ public class CertLoginController {
     public ResponseEntity<ApiResponse<LoginResponse>> certLogin(
             @Valid @RequestBody CertLoginRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(ApiResponse.ok(certLoginService.certLogin(request, extractIp(httpRequest))));
+        String ip = extractIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+        return ResponseEntity.ok(ApiResponse.ok(certLoginService.certLogin(request, ip, userAgent)));
     }
 
     private String extractIp(HttpServletRequest request) {

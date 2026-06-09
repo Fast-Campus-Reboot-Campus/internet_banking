@@ -102,6 +102,12 @@ ai:
     base-url: ${LOAN_SERVICE_BASE_URL:http://localhost:8083}
     internal-token: ${INTERNAL_SERVICE_TOKEN:local-internal-token}
 
+  # ---- 점수 산출 엔진 ----
+  # heuristic (기본): 인프로세스 규칙 기반 — inference-server 불필요
+  # inference        : inference-server(:8090) HTTP 호출 — 모델 아티팩트 배포 시 사용
+  scoring:
+    engine: ${AI_SCORING_ENGINE:heuristic}
+
   inference:
     base-url: ${AI_INFERENCE_BASE_URL:http://localhost:8090}
 

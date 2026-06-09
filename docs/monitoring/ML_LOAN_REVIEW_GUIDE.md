@@ -6,19 +6,13 @@
 
 > **⚠️ 현재 대시보드 상태 (2026-06-08 기준)**
 >
-> 이 대시보드의 대부분 패널이 **No data** 상태입니다. 이유는 다음과 같습니다.
+> 이 대시보드의 **모든 패널이 No data** 상태이며, 이 상태는 지속될 예정입니다.
 >
-> **왜 데이터가 없나요?**
-> 대출 자동 심사는 두 단계로 이루어집니다.
-> 1. `auto-loan-review` 서비스가 심사 요청을 받아 전처리
-> 2. `inference-server`(ML 모델 서버)에 예측을 요청하고 APPROVE/REJECT/CONDITIONAL 결과를 받음
+> **이유**: 프로젝트에서 `inference-server`(별도 ML 모델 서버)를 사용하지 않기로 결정했습니다. 이 대시보드의 `review_*` 메트릭은 inference-server 응답 결과를 기반으로 기록되는 구조이기 때문에, inference-server 없이는 데이터가 수집되지 않습니다.
 >
-> 현재 `inference-server`가 실행되지 않고 있기 때문에, 심사 자체가 이루어지지 않아 대부분의 지표가 기록되지 않습니다.
+> **앞으로 방향**: 대시보드 내용을 `auto-loan-review`의 실제 에이전트 메트릭(`ai.agent.*`, `AgentMetricsRecorder` 기반)으로 교체할 예정입니다. 에이전트 전체 현황은 **Agent Unified Monitoring** 대시보드에서 확인할 수 있습니다.
 >
-> **왜 inference-server가 실행되지 않나요?**
-> ML 모델은 2026년 5월에 학습된 것으로 문서에 기록되어 있지만(`docs/ai/MODEL_CARDS.md`), 학습된 모델 파일이 GitHub 저장소에 올라와 있지 않아 서버를 띄울 수 없는 상태입니다. ML 담당 팀원에게 모델 파일 공유를 요청해야 합니다.
->
-> **지금 수집되는 지표**: 추론 오류 건수(`review_inference_error_total`)만 수집 중입니다. 나머지 지표는 inference-server가 연결되면 자동으로 수집되기 시작합니다.
+> **지금 볼 수 있는 것**: `http://localhost:3000` → Dashboards → **Agent Unified Monitoring** → `auto-loan-review` 섹션
 
 ---
 

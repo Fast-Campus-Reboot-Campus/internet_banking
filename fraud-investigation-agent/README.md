@@ -131,6 +131,23 @@ pytest                                     # 전체 테스트
 사용 가능한 케이스: `case_h1`(보이스피싱 조직) · `case_h2`(계정탈취) · `case_h5`(정상)
 · `case_death`(사망계좌 → 조사 중 fail-closed 즉시 종료).
 
+## 어드민 콘솔 연동 (HTTP API)
+
+CLI 와 **동일한 조사 루프**를 FastAPI 사이드카로 노출해 Next.js 어드민 콘솔
+(`web/admin`)이 호출한다. 같은 빌딩블록을 같은 순서로 돌리고 rich 렌더링 대신
+구조화 JSON(단계별 분포·도구·이유·게이트 + 권고)을 돌려준다.
+
+```bash
+pip install -r requirements.txt          # fastapi · uvicorn 포함
+python scripts/serve.py                  # 기본 0.0.0.0:8090 (FRAUD_AGENT_PORT 로 변경)
+```
+
+엔드포인트: `GET /api/cases`(조사 큐) · `POST /api/investigate`(트레이스+권고) ·
+`POST /api/approve`(HITL 승인 + RBAC → 동작 실행, 목). 프론트는
+`web/admin/fraud` 페이지에서 `NEXT_PUBLIC_FRAUD_AGENT_URL`(기본 `http://localhost:8090`)로
+이 서버를 가리킨다 — 큐 선택 → 단계별 트레이스/분포 막대 → 권고 → 분석가 승인까지
+한 화면에서. 동작은 여전히 **HITL 승인 + RBAC(FRAUD_OFFICER) 통과 시에만** 실행(목).
+
 ## 기술 스택
 
 | 계층 | 선택 | 근거 |
@@ -157,7 +174,7 @@ pytest                                     # 전체 테스트
 
 ## 현재 상태
 
-- **완료**: 설계 전체(2축 가설·도구 매트릭스·혼합형 도구선택·종료조건·루프), 책임 등급표, ① 트리아지 데모 UI(작동).
+- **완료**: 설계 전체(2축 가설·도구 매트릭스·혼합형 도구선택·종료조건·루프), 책임 등급표, ① 트리아지 데모 UI(작동), ② 조사 루프(Python+LangGraph) + CLI 러너 + **어드민 콘솔 연동(FastAPI 사이드카 → `web/admin/fraud`)**.
 - **진행 예정 (2주 PoC)**: ② 조사 루프를 실제 Python+LangGraph로 — 가설 수립 → Matrix+LLM 도구 선택 → 도구 실행 → 증거 반영 → 게이트 재계획 → 권고. AXful 자산은 Tool로, LLM·외부 연동은 목. CLI 러너로 H1 추적 시연.
 - **v2**: 엄밀한 기대정보이득 도구선택(현재 LLM 휴리스틱+매트릭스), 분석가 피드백 학습, LangGraph 체크포인터, 과거 유사사건 검색(이때 벡터 정당).
 

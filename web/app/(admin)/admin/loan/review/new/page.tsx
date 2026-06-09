@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import { adminReviewApi } from '@/lib/loan-api'
+import { useAdminRoles } from '@/components/admin/RoleGate'
+import { hasAnyRole, BankRole } from '@/lib/admin-auth'
 
 export default function AdminReviewNewPage() {
   const router = useRouter()
@@ -13,6 +15,10 @@ export default function AdminReviewNewPage() {
   const [revDecision, setRevDecision] = useState('APPROVED')
   const [busy, setBusy]             = useState(false)
   const [err, setErr]               = useState('')
+
+  // 심사 실행 권한: 수동=심사역(DEPUTY)·운영(OPS), 자동=운영(OPS). (ROLE_ADMIN 항상 통과)
+  const roles  = useAdminRoles()
+  const canRun = hasAnyRole(roles, BankRole.DEPUTY_MANAGER, BankRole.OPS)
 
   async function submit() {
     if (!applId) return
@@ -70,10 +76,16 @@ export default function AdminReviewNewPage() {
                 className="flex-1 text-center py-2.5 border border-gray-300 text-[13px] rounded hover:bg-gray-50">
                 취소
               </Link>
-              <button onClick={submit} disabled={busy || !applId}
-                className="flex-1 py-2.5 bg-[#1B3A6B] text-white text-[13px] rounded hover:opacity-90 disabled:opacity-50">
-                {busy ? '처리 중...' : '심사 시작'}
-              </button>
+              {canRun ? (
+                <button onClick={submit} disabled={busy || !applId}
+                  className="flex-1 py-2.5 bg-[#1B3A6B] text-white text-[13px] rounded hover:opacity-90 disabled:opacity-50">
+                  {busy ? '처리 중...' : '심사 시작'}
+                </button>
+              ) : (
+                <span className="flex-1 py-2.5 text-center text-[12px] text-gray-400 border border-gray-200 rounded">
+                  심사 실행 권한 없음 (심사역·운영팀 전용)
+                </span>
+              )}
             </div>
           </div>
         </div>

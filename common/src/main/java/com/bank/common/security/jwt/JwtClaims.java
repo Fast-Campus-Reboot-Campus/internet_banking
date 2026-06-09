@@ -7,6 +7,7 @@ public record JwtClaims(
         String email,
         List<String> roles,
         TokenType tokenType,
-        String branch,   // nullable: 직원이면 지점 코드, 고객이면 null
-        String grade     // nullable: 직원이면 직급 코드, 고객이면 null
+        String branch,    // nullable: 직원이면 지점 코드, 고객이면 null
+        String grade,     // nullable: 직원이면 직급 코드, 고객이면 null
+        Long employeeId   // nullable: 직원이면 employee_id, 고객이면 null
 ) {}

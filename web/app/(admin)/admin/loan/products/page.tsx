@@ -14,14 +14,14 @@ const LOAN_TYPE_LABEL: Record<string, string> = {
 }
 
 const STATUS_CLS: Record<string, string> = {
-  ON_SALE: 'bg-green-100 text-green-700 border-green-300',
-  SUSPENDED: 'bg-gray-100 text-gray-500 border-gray-300',
+  ACTIVE: 'bg-green-100 text-green-700 border-green-300',
+  DRAFT: 'bg-yellow-100 text-yellow-700 border-yellow-300',
   DISCONTINUED: 'bg-gray-100 text-gray-500 border-gray-300',
 }
 
 function statusBadge(status: string) {
   const cls = STATUS_CLS[status] ?? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-  const label = status === 'ON_SALE' ? '판매중' : status === 'SUSPENDED' ? '중단' : status === 'DISCONTINUED' ? '종료' : status
+  const label = status === 'ACTIVE' ? '판매중' : status === 'DRAFT' ? '준비중' : status === 'DISCONTINUED' ? '종료' : status
   return (
     <span className={`text-[11px] px-2 py-0.5 rounded border ${cls}`}>{label}</span>
   )
@@ -165,7 +165,7 @@ export default function AdminLoanProductsPage() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    {['prodId', '상품명', '유형', '금리(min~max)', '한도(max)', '상태', '처리'].map(h => (
+                    {['prodId', '상품명', '유형', '기준금리', '한도(max)', '상태', '처리'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs text-gray-600 font-semibold">{h}</th>
                     ))}
                   </tr>
@@ -177,7 +177,7 @@ export default function AdminLoanProductsPage() {
                       <td className="px-4 py-3 font-medium text-gray-800">{p.prodName}</td>
                       <td className="px-4 py-3 text-gray-600">{LOAN_TYPE_LABEL[p.loanTypeCd] ?? p.loanTypeCd}</td>
                       <td className="px-4 py-3 text-gray-600">
-                        {(p.minRateBps / 100).toFixed(2)}% ~ {(p.maxRateBps / 100).toFixed(2)}%
+                        {Number.isFinite(p.baseRateBps) ? `${(p.baseRateBps / 100).toFixed(2)}%` : '-'}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {p.maxAmount >= 100_000_000
@@ -186,7 +186,7 @@ export default function AdminLoanProductsPage() {
                       </td>
                       <td className="px-4 py-3">{statusBadge(p.prodStatusCd)}</td>
                       <td className="px-4 py-3">
-                        {p.prodStatusCd === 'ON_SALE' && (
+                        {p.prodStatusCd === 'ACTIVE' && (
                           <button
                             onClick={() => handleDiscontinue(p.prodId)}
                             disabled={busy}

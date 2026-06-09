@@ -2,6 +2,7 @@ package com.bank.customer.register.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -16,19 +17,12 @@ public record RegisterRequest(
         @Size(min = 8, max = 30)
         String password,
 
-        @NotBlank
-        @Size(max = 100)
-        String name,
-
-        /** YYYYMMDD */
-        @NotBlank
-        @Pattern(regexp = "^\\d{8}$", message = "생년월일은 YYYYMMDD 8자리 숫자입니다.")
-        String birthDate,
-
-        /** M / F / U */
-        @NotBlank
-        @Pattern(regexp = "^[MFU]$", message = "성별코드는 M, F, U 중 하나입니다.")
-        String genderCode,
+        /**
+         * 휴대폰+주민번호 본인확인(/mobile-auth/verify) 결과 id.
+         * 이름·생년월일·성별·CI·주민번호는 클라이언트가 아니라 이 검증 이력이 권위 소스다.
+         */
+        @NotNull
+        Long verificationId,
 
         @Pattern(regexp = "^\\d{10,11}$", message = "전화번호는 10~11자리 숫자입니다.")
         String phone,

@@ -74,8 +74,9 @@ public class RuleEngineService {
 
         // 메트릭 기록
         String decisionLabel = trackToDecisionLabel(decision.track());
+        Duration elapsed = Duration.ofNanos(System.nanoTime() - startNs);
         reviewMetrics.recordDecision(decisionLabel, inference.modelVersion());
-        reviewMetrics.recordDuration(Duration.ofNanos(System.nanoTime() - startNs), inference.modelVersion());
+        reviewMetrics.recordDuration(elapsed, inference.modelVersion());
         reviewMetrics.recordScore(inference.score(), decisionLabel);
         recordInputMetrics(req);
 

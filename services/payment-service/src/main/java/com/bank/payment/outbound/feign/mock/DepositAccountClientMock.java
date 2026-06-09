@@ -30,6 +30,9 @@ public class DepositAccountClientMock implements DepositAccountClient {
     // F5 계좌: 변학도 88880000 (txStep4 분개 INSERT 실패 트리거용 — deposit까지 성공, 분개에서만 실패)
     private static final String F5_FAIL_RECEIVER = "88880000";
 
+    // 다온(B은행) 시연용 수취인 계좌: 김민준 (other-bank 화면 고정 계좌번호)
+    private static final String DAON_RECEIVER = "880-21-0457-118";
+
     // IN-03 계좌: 사고신고/FROZEN (수신 거절 트리거용)
     private static final String IN03_FROZEN_RECEIVER = "99987654321";
 
@@ -60,6 +63,7 @@ public class DepositAccountClientMock implements DepositAccountClient {
     static final Long FRAUD_RECEIVER_ID   = 6L;
     static final Long HOLDER_MISMATCH_ID  = 7L;
     static final Long F8_FAIL_RECEIVER_ID = 8L;
+    static final Long DAON_RECEIVER_ID    = 10L;
     static final Long DEFAULT_ID          = 99L;
 
     // 테스트 전용: 동적 CLOSED 상태 (closeAccount/openAccount/resetAllClosed 으로 제어)
@@ -145,6 +149,7 @@ public class DepositAccountClientMock implements DepositAccountClient {
             case FRAUD_RECEIVER      -> FRAUD_RECEIVER_ID;
             case HOLDER_MISMATCH_RECEIVER -> HOLDER_MISMATCH_ID;
             case F8_FAIL_RECEIVER    -> F8_FAIL_RECEIVER_ID;
+            case DAON_RECEIVER       -> DAON_RECEIVER_ID;
             default                  -> DEFAULT_ID;
         };
     }

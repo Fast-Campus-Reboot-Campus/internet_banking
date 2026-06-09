@@ -89,10 +89,14 @@ public class SecurityConfig {
                         "/api/loan-products/*/preferential-rate-policies"
                 ).permitAll()
 
-                // 운영자 계약 모니터링 — ROLE_OPS
+                // 운영자 계약 모니터링(읽기 전용) — 운영/본사/지점 직원 역할 허용 (CUSTOMER·INTERNAL 제외)
                 .requestMatchers(HttpMethod.GET,
                         "/api/admin/loan-contracts"
-                ).hasRole(LoanRole.OPS.spring())
+                ).hasAnyRole(
+                        LoanRole.OPS.spring(), LoanRole.ADMIN.spring(),
+                        LoanRole.HQ_REVIEWER.spring(), LoanRole.COMPLIANCE.spring(),
+                        LoanRole.BRANCH_MANAGER.spring(), LoanRole.DEPUTY_MANAGER.spring()
+                )
 
                 // 운영팀 전용 내부 엔드포인트 — ROLE_OPS
                 .requestMatchers(HttpMethod.POST,
@@ -102,9 +106,11 @@ public class SecurityConfig {
                         "/api/internal/eod/**"
                 ).hasRole(LoanRole.OPS.spring())
 
-                // advisory 내부 RAG 관리 — 운영자/관리자도 접근 가능 (문서 등록·인덱싱)
+                // advisory 내부 RAG 관리(문서 등록·인덱싱) — 본사 AI 공통 자산이므로
+                // advisory 조회 권한(HQ 계열)과 동일하게 허용 + 서비스 간 INTERNAL
                 .requestMatchers("/api/internal/advisory/**").hasAnyRole(
-                        LoanRole.ADMIN.spring(), LoanRole.OPS.spring(), LoanRole.INTERNAL.spring()
+                        LoanRole.ADMIN.spring(), LoanRole.OPS.spring(), LoanRole.INTERNAL.spring(),
+                        LoanRole.HQ_REVIEWER.spring(), LoanRole.COMPLIANCE.spring()
                 )
 
                 // 서비스 간 내부 엔드포인트 — ROLE_INTERNAL (X-Internal-Token)
@@ -134,6 +140,19 @@ public class SecurityConfig {
                         "/api/loan-applications/*/review/confirm",
                         "/api/loan-applications/*/review/acknowledge-bias"
                 ).hasAnyRole(LoanRole.DEPUTY_MANAGER.spring(), LoanRole.OPS.spring())
+
+                // 신용평가·DSR 실행 — 직원 전용 (DEPUTY·OPS)
+                // (가심사 POST /prescreening 은 고객 한도조회와 같은 엔드포인트라 규칙 미적용)
+                .requestMatchers(HttpMethod.POST,
+                        "/api/loan-applications/*/credit-evaluation",
+                        "/api/loan-applications/*/dsr-calculation"
+                ).hasAnyRole(LoanRole.DEPUTY_MANAGER.spring(), LoanRole.OPS.spring())
+
+                // 결정 정정(PATCH) — 최종 결재권자만 (BRANCH_MANAGER)
+                // 경로가 /review 로 같아도 위 POST 규칙은 POST 한정이라 PATCH 는 별도 규칙 필요
+                .requestMatchers(HttpMethod.PATCH,
+                        "/api/loan-applications/*/review"
+                ).hasRole(LoanRole.BRANCH_MANAGER.spring())
 
                 // 승인자 최종 결재 — ROLE_BRANCH_MANAGER
                 .requestMatchers(HttpMethod.POST,

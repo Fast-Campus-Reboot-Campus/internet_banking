@@ -179,6 +179,34 @@ class LoanDocumentDocAgentFlowTest extends AbstractLoanIntegrationTest {
                                 assertThat(doc.getDocStatusCd()).isEqualTo("REJECTED")));
     }
 
+    // ─── 35) doc-agent 장애 → 검증 보류(PENDING) 강등, 업로드는 성공 ────────────
+
+    @Test @Order(35)
+    void doc_agent_장애시_서류_PENDING_보류_되고_업로드는_성공() throws Exception {
+        // doc-agent 가 5xx 를 반복 반환 → 클라이언트 재시도(3회) 소진 → DocAgentException.
+        // upload() 는 이를 잡아 트랜잭션을 롤백하지 않고 검증만 보류(PENDING)로 강등한다.
+        DOC_AGENT_MOCK.stubFor(WireMock.post(urlEqualTo("/api/documents/submit"))
+                .willReturn(aResponse().withStatus(500)));
+
+        MvcResult result = mockMvc.perform(multipart("/api/loan-applications/{applId}/documents", applId)
+                        .file(pdfFile())
+                        .param("docTypeCd", "EMPLOYMENT_CERT"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.docStatusCd").value("UPLOADED"))
+                .andExpect(jsonPath("$.data.verifyResultCd").value("PENDING"))
+                .andReturn();
+
+        long docId = extractData(result).get("docId").asLong();
+
+        assertThat(documentRepository.findByDocIdAndDeletedAtIsNull(docId))
+                .hasValueSatisfying(doc -> {
+                    assertThat(doc.getDocStatusCd()).isEqualTo("UPLOADED");
+                    assertThat(doc.getVerifyResultCd()).isEqualTo("PENDING");
+                    // doc-agent 미응답이므로 submissionId(=doc_url) 는 보존되지 않는다.
+                    assertThat(doc.getDocUrl()).isNull();
+                });
+    }
+
     // ─── 40) Kafka doc-agent.fraud.audit FRAUD_CONFIRMED ────────────────────
 
     @Test @Order(40)

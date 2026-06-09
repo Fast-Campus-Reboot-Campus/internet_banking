@@ -1,5 +1,5 @@
 'use client'
-import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
@@ -465,7 +465,7 @@ export default function DepositListPage() {
                       </span>
                       {product.isNew && (
                         <span className="text-[11px] rounded px-1.5 py-0.5 font-bold text-white"
-                          style={{ backgroundColor: KB_MINT }}>NEW</span>
+                          style={{ backgroundColor: KB_PRIMARY }}>NEW</span>
                       )}
                     </div>
                     <Link href={`/products/deposit/${product.id}`}
@@ -491,7 +491,7 @@ export default function DepositListPage() {
                       🛒
                     </button>
                     <button className="border rounded-lg px-4 py-1.5 text-[13px] font-medium hover:bg-kb-primary-bg transition-colors"
-                      style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                      style={{ borderColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                       비교하기
                     </button>
                     {product.canApply && (

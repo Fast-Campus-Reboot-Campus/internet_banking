@@ -202,6 +202,24 @@
            AND version              = #{version}
     </update>
 
+    <!-- 수신계좌 기준 입금(COMPLETED) 내역 조회. 다온 화면 전용. SELECT * 금지. -->
+    <select id="selectByReceiverAccountNo" resultType="com.bank.payment.domain.PaymentInstruction">
+        SELECT
+            payment_instruction_id,
+            transaction_no,
+            transfer_amount,
+            status,
+            requested_at,
+            completed_at,
+            sender_account_no_snap,
+            receiver_passbook_sender_display,
+            receiver_memo
+        FROM payment_instruction
+        WHERE receiver_account_no = #{receiverAccountNo}
+          AND status = 'COMPLETED'
+        ORDER BY completed_at DESC
+    </select>
+
     <!-- AUTHORIZED→SCHEDULED 전이. is_scheduled=true + scheduled_execution_at 세팅. 낙관락 포함. -->
     <update id="updateScheduled">
         UPDATE payment_instruction

@@ -4,11 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-type DaonLoginTab = '공동금융인증서' | 'daon인증서'
+type DaonLoginTab = '공동금융인증서' | 'daon인증서' | '간편로그인'
 
 export default function DaonLoginPage() {
   const router = useRouter()
   const [tab, setTab] = useState<DaonLoginTab>('공동금융인증서')
+  const [userId, setUserId] = useState('')
+  const [password, setPassword] = useState('')
 
   function handleLogin() {
     // 데모: 인증 절차 생략하고 바로 계좌조회로 이동
@@ -39,6 +41,9 @@ export default function DaonLoginPage() {
               <DaonTabButton active={tab === 'daon인증서'} onClick={() => setTab('daon인증서')}>
                 <DaonShieldIcon />
                 다온인증서
+              </DaonTabButton>
+              <DaonTabButton active={tab === '간편로그인'} onClick={() => setTab('간편로그인')}>
+                간편로그인
               </DaonTabButton>
             </div>
 
@@ -86,17 +91,54 @@ export default function DaonLoginPage() {
                 <div className="flex flex-col items-center gap-5 py-10 px-10">
                   <p className="text-base text-kb-text-body font-medium flex items-center gap-1.5">
                     <DaonShieldIcon size={18} />
-                    다온인증서(기업)
+                    다온인증서로 간편하게 로그인하세요
                   </p>
                   <button
                     onClick={handleLogin}
                     className="w-full max-w-[360px] py-3.5 text-base font-bold text-white transition-all hover:brightness-110"
                     style={{ backgroundColor: '#1B3A6B' }}
                   >
-                    다온인증서(기업) 로그인
+                    다온인증서 로그인
                   </button>
-                  <Link href="#" className="text-sm text-kb-blue hover:underline">다온인증서(기업) 발급</Link>
+                  <Link href="#" className="text-sm text-kb-blue hover:underline">다온인증서 발급</Link>
                 </div>
+              )}
+
+              {tab === '간편로그인' && (
+                <form
+                  onSubmit={(e) => { e.preventDefault(); handleLogin() }}
+                  className="flex flex-col items-center gap-3 py-10 px-10"
+                >
+                  <p className="text-base text-kb-text-body font-medium self-center mb-1">아이디 로그인</p>
+                  <input
+                    type="text"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    placeholder="아이디"
+                    className="w-full max-w-[360px] border border-kb-border px-4 py-3 text-base focus:outline-none focus:border-kb-text"
+                  />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="비밀번호"
+                    className="w-full max-w-[360px] border border-kb-border px-4 py-3 text-base focus:outline-none focus:border-kb-text"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full max-w-[360px] py-3.5 text-base font-bold text-white transition-all hover:brightness-110"
+                    style={{ backgroundColor: '#1B3A6B' }}
+                  >
+                    로그인
+                  </button>
+                  <div className="flex items-center gap-3 text-sm text-kb-blue">
+                    <Link href="#" className="hover:underline">아이디 찾기</Link>
+                    <span className="text-kb-border">|</span>
+                    <Link href="#" className="hover:underline">비밀번호 찾기</Link>
+                    <span className="text-kb-border">|</span>
+                    <Link href="#" className="hover:underline">회원가입</Link>
+                  </div>
+                </form>
               )}
             </div>
 

@@ -36,8 +36,12 @@ public class QrLoginController {
     /** 모바일: QR 승인 (loginId + password로 인증 후 QR 토큰 APPROVED 전환) */
     @PostMapping("/approve")
     public ResponseEntity<ApiResponse<Void>> approve(
-            @Valid @RequestBody QrApproveRequest request) {
-        qrLoginService.approve(request);
+            @Valid @RequestBody QrApproveRequest request,
+            HttpServletRequest req) {
+        String ip = req.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank()) ip = req.getRemoteAddr();
+        String userAgent = req.getHeader("User-Agent");
+        qrLoginService.approve(request, ip, userAgent);
         return ResponseEntity.ok(ApiResponse.ok());
     }
 }

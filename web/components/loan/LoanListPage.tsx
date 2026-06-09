@@ -55,7 +55,7 @@ export default function LoanListPage({ loanTypeCd, pageTitle, activeHref }: Prop
     try {
       const { data: res } = await loanProductApi.list({
         loanTypeCd,
-        prodStatusCd: 'ON_SALE',
+        prodStatusCd: 'ACTIVE',
         page,
         size: 10,
       })

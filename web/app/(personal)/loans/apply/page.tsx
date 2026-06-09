@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { api } from '@/lib/api'
-import { creditScorePreviewApi, bpsToRate as bpsToRateUtil } from '@/lib/loan-api'
+import { loanProductApi, loanApplicationApi, creditScorePreviewApi, bpsToRate as bpsToRateUtil } from '@/lib/loan-api'
 
 const PURPOSES = ['생활비', '교육비', '의료비', '주택구입', '전세자금', '사업자금', '부채상환', '기타']
 const PURPOSE_CD: Record<string, string> = {
@@ -55,8 +54,17 @@ export default function LoanApplyPage() {
   const [previewError, setPreviewError] = useState('')
 
   useEffect(() => {
-    api.get('/api/loan-products', { params: { prodStatusCd: 'ON_SALE', size: 20 } })
-      .then(({ data: res }) => setProducts(res.data?.items ?? []))
+    loanProductApi.list({ prodStatusCd: 'ACTIVE', size: 20 })
+      .then(({ data: res }) => {
+        const items: Product[] = res.data?.items ?? []
+        setProducts(items)
+        // 상품 상세에서 넘어온 경우 해당 상품을 미리 선택
+        const preselect = new URLSearchParams(window.location.search).get('prodId')
+        if (preselect) {
+          const pid = parseInt(preselect, 10)
+          if (items.some(p => p.prodId === pid)) setSelectedProdId(pid)
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -73,7 +81,7 @@ export default function LoanApplyPage() {
     const customerId = parseInt(localStorage.getItem('customerId') ?? '1', 10)
     const requestedAmount = parseInt(amount.replace(/,/g, ''), 10)
     try {
-      const { data: res } = await api.post('/api/loan-applications', {
+      const { data: res } = await loanApplicationApi.create({
         customerId,
         prodId: selectedProdId,
         channelCd: 'INTERNET',
