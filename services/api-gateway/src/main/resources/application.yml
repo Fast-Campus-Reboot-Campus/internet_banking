@@ -22,6 +22,11 @@ spring:
               - "*"
             allowCredentials: true
             maxAge: 3600
+      # 다운스트림(customer-service 등)도 자체 CORS 헤더를 붙여
+      # Access-Control-Allow-Origin 이 중복되면 브라우저가 거부한다.
+      # 중복 CORS 헤더를 유일값으로 합쳐 브라우저 CORS 차단을 방지.
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       routes:
         # 인증 공개 엔드포인트 (JWT 검증 없음)
         - id: auth-public
