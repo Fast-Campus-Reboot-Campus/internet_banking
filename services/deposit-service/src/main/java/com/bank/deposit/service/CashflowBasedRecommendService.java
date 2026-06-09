@@ -39,8 +39,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CashflowBasedRecommendService {
 
-    private static final int CUSTOMER_BIRTH_YEAR = 1990;
-    private static final int YOUTH_MAX_AGE = 34;
     private static final int LOW_TRANSACTION_COUNT = 5;
     private static final int HIGH_TRANSACTION_COUNT = 10;
     private static final BigDecimal SAVINGS_GROWTH_WEIGHT = new BigDecimal("1.30");
@@ -159,7 +157,6 @@ public class CashflowBasedRecommendService {
         List<Product> candidates = productRepository.findByProductStatus(ProductStatus.SELLING).stream()
                 .filter(p -> p.getProductType() == ProductType.DEPOSIT)
                 .filter(p -> !isSpecialTargetProduct(p))
-                .filter(p -> !(isYouthProduct(p) && getCustomerAge() > YOUTH_MAX_AGE))
                 .filter(p -> isJoinAmountAvailable(p, currentBalance))
                 .toList();
 
@@ -202,9 +199,6 @@ public class CashflowBasedRecommendService {
         if (isSpecialTargetProduct(product)) {
             return false;
         }
-        if (isYouthProduct(product) && getCustomerAge() > YOUTH_MAX_AGE) {
-            return false;
-        }
 
         BigDecimal availableAmount = product.getProductType() == ProductType.DEPOSIT
                 ? currentBalance
@@ -217,19 +211,10 @@ public class CashflowBasedRecommendService {
         return text.contains("군인") || text.contains("장병") || text.contains("군무원");
     }
 
-    private boolean isYouthProduct(Product product) {
-        String text = searchableText(product);
-        return text.contains("youth") || text.contains("young") || text.contains("청년");
-    }
-
     private String searchableText(Product product) {
         return ((product.getProductName() == null ? "" : product.getProductName()) + " "
                 + (product.getDescription() == null ? "" : product.getDescription()))
                 .toLowerCase(Locale.ROOT);
-    }
-
-    private int getCustomerAge() {
-        return OffsetDateTime.now(clock).getYear() - CUSTOMER_BIRTH_YEAR;
     }
 
     private boolean isJoinAmountAvailable(Product product, BigDecimal amount) {
