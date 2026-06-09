@@ -127,10 +127,6 @@ export default function LoanStatusPage() {
                                 전자서명
                               </Link>
                             )}
-                            <Link href={`/products/loan/status/spouse?applId=${appl.applId}`}
-                              className="px-3 py-1 text-[11px] border border-kb-primary-border rounded-lg text-kb-text hover:bg-kb-primary-bg">
-                              배우자동의
-                            </Link>
                             {CANCELABLE.includes(statusCd) && (
                               <button onClick={() => handleCancel(appl.applId)}
                                 disabled={canceling === appl.applId}
