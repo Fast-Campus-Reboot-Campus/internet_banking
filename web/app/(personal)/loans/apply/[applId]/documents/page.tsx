@@ -159,10 +159,6 @@ export default function LoanDocumentsPage() {
       </div>
 
       <div className="flex justify-center gap-3">
-        <Link href={`/loans/apply/result?applId=${applId}`}
-          className="px-14 py-3 border border-kb-primary-border text-[14px] text-kb-text hover:bg-kb-primary-bg transition-colors">
-          결과 확인
-        </Link>
         <button
           onClick={() => router.push(`/loans/apply/result?applId=${applId}`)}
           className="px-14 py-3 bg-kb-primary text-[14px] font-bold text-kb-text hover:brightness-95 transition-all"
