@@ -372,8 +372,8 @@ class TestDataStructure:
         result = cashflow_service.execute_feature(
             FEATURE, ChatbotFeatureExecuteRequest(customer_no=CUST_SALARY)
         )
-        # cashflow_db에 SELLING 상품 4개
-        assert result.data[0]["product_count"] == 4
+        # cashflow_db에 SELLING 상품 4개 중 '청약' 1개 제외 -> 3개
+        assert result.data[0]["product_count"] == 3
 
     def test_monthly_tx_count_positive_for_active_customer(self, cashflow_service):
         result = cashflow_service.execute_feature(
@@ -381,11 +381,34 @@ class TestDataStructure:
         )
         assert float(result.data[0]["monthly_tx_count"]) > 0
 
-    def test_data_length_is_one(self, cashflow_service):
+    def test_data_length_is_at_least_one(self, cashflow_service):
         result = cashflow_service.execute_feature(
             FEATURE, ChatbotFeatureExecuteRequest(customer_no=CUST_SALARY)
         )
-        assert len(result.data) == 1
+        # 요약(1) + 추천상품(최대 3)
+        assert len(result.data) >= 1
+
+class TestAccumulateTypeDiversity:
+    """저축 성장형 고객에 대한 Diversity Rule 검증."""
+
+    def test_includes_at_least_one_savings_in_top3(self, cashflow_service):
+        # CUST_SALARY는 저축 성장형 (잔액 8M < 연간 저축 24M)
+        result = cashflow_service.execute_feature(
+            FEATURE, ChatbotFeatureExecuteRequest(customer_no=CUST_SALARY)
+        )
+        recommended_types = [p["product_type"] for p in result.data if p.get("row_type") == "recommended_product"]
+        assert "SAVINGS" in recommended_types, "저축 성장형 고객 추천에는 최소 1개의 적금이 포함되어야 함"
+
+    def test_shows_adjusted_score_for_savings(self, cashflow_service):
+        result = cashflow_service.execute_feature(
+            FEATURE, ChatbotFeatureExecuteRequest(customer_no=CUST_SALARY)
+        )
+        savings_item = next(p for p in result.data if p.get("row_type") == "recommended_product" and p["product_type"] == "SAVINGS")
+        
+        # 가중치가 적용되었으므로 raw_score와 score(total_score)가 다를 가능성이 높음 (또는 score >= raw_score)
+        assert savings_item["score"] >= savings_item["raw_score"]
+        if savings_item["raw_score"] > 0:
+            assert savings_item["score"] == pytest.approx(min(100.0, savings_item["raw_score"] * 1.3), 0.1)
 
 
 # ── S13. intent 자동 분류 ─────────────────────────────────────────────────────

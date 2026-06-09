@@ -133,12 +133,12 @@ def db() -> Session:
                 transaction_type TEXT,
                 transaction_status TEXT,
                 amount NUMERIC,
-                created_at TEXT
-            )
+                transaction_at TEXT,
+                created_at TEXT)
         """))
         conn.execute(text("""
             INSERT INTO deposit_transactions VALUES
-            (1, 'TX-001', 1, 'TRANSFER', 'COMPLETED', 10000, '2026-05-21')
+            (1, 'TX-001', 1, 'TRANSFER', 'COMPLETED', 10000, '2026-05-21', '2026-05-21')
         """))
         conn.execute(text("""
             CREATE TABLE employees (
@@ -258,6 +258,7 @@ def _create_empty_deposit_tables(conn) -> None:
             transaction_type TEXT,
             transaction_status TEXT,
             amount NUMERIC,
+            transaction_at TEXT,
             created_at TEXT)""",
         """CREATE TABLE employees (
             employee_id TEXT PRIMARY KEY,
@@ -367,10 +368,10 @@ def rich_db() -> Session:
         # ── 거래: CUST001 3건(계좌1), CUST002 1건 ─────────────────────────────
         conn.execute(text("""
             INSERT INTO deposit_transactions VALUES
-            (1,'TX-001',1,'TRANSFER','COMPLETED',10000,'2026-05-01'),
-            (2,'TX-002',1,'TRANSFER','PENDING',50000,'2026-05-10'),
-            (3,'TX-003',2,'DEPOSIT','COMPLETED',100000,'2026-05-15'),
-            (4,'TX-004',3,'TRANSFER','COMPLETED',20000,'2026-05-20')
+            (1,'TX-001',1,'TRANSFER','COMPLETED',10000,'2026-05-01','2026-05-01'),
+            (2,'TX-002',1,'TRANSFER','PENDING',50000,'2026-05-10','2026-05-10'),
+            (3,'TX-003',2,'DEPOSIT','COMPLETED',100000,'2026-05-15','2026-05-15'),
+            (4,'TX-004',3,'TRANSFER','COMPLETED',20000,'2026-05-20','2026-05-20')
         """))
 
     session = Session(engine)
@@ -455,31 +456,31 @@ def cashflow_db() -> Session:
         # ── 거래: CUST_SALARY (급여 3M 입금 3회 + 고정지출 2회) ───────────────
         conn.execute(text("""
             INSERT INTO deposit_transactions VALUES
-            (101,'CF-TX-101',10,'DEPOSIT','COMPLETED',3000000,'2026-03-25'),
-            (102,'CF-TX-102',10,'DEPOSIT','COMPLETED',3000000,'2026-04-25'),
-            (103,'CF-TX-103',10,'DEPOSIT','COMPLETED',3000000,'2026-05-25'),
-            (104,'CF-TX-104',10,'WITHDRAWAL','COMPLETED',800000,'2026-03-01'),
-            (105,'CF-TX-105',10,'WITHDRAWAL','COMPLETED',800000,'2026-04-01'),
-            (106,'CF-TX-106',10,'WITHDRAWAL','COMPLETED',800000,'2026-05-01'),
-            (107,'CF-TX-107',10,'TRANSFER','COMPLETED',200000,'2026-03-15'),
-            (108,'CF-TX-108',10,'TRANSFER','COMPLETED',200000,'2026-04-15')
+            (101,'CF-TX-101',10,'DEPOSIT','COMPLETED',3000000,'2026-03-25','2026-03-25'),
+            (102,'CF-TX-102',10,'DEPOSIT','COMPLETED',3000000,'2026-04-25','2026-04-25'),
+            (103,'CF-TX-103',10,'DEPOSIT','COMPLETED',3000000,'2026-05-25','2026-05-25'),
+            (104,'CF-TX-104',10,'WITHDRAWAL','COMPLETED',800000,'2026-03-01','2026-03-01'),
+            (105,'CF-TX-105',10,'WITHDRAWAL','COMPLETED',800000,'2026-04-01','2026-04-01'),
+            (106,'CF-TX-106',10,'WITHDRAWAL','COMPLETED',800000,'2026-05-01','2026-05-01'),
+            (107,'CF-TX-107',10,'TRANSFER','COMPLETED',200000,'2026-03-15','2026-03-15'),
+            (108,'CF-TX-108',10,'TRANSFER','COMPLETED',200000,'2026-04-15','2026-04-15')
         """))
 
         # ── 거래: CUST_SURPLUS (대형 예금 이동) ──────────────────────────────
         conn.execute(text("""
             INSERT INTO deposit_transactions VALUES
-            (201,'CF-TX-201',20,'DEPOSIT','COMPLETED',20000000,'2026-01-05'),
-            (202,'CF-TX-202',20,'DEPOSIT','COMPLETED',15000000,'2026-02-10'),
-            (203,'CF-TX-203',20,'WITHDRAWAL','COMPLETED',5000000,'2026-03-20')
+            (201,'CF-TX-201',20,'DEPOSIT','COMPLETED',20000000,'2026-01-05','2026-01-05'),
+            (202,'CF-TX-202',20,'DEPOSIT','COMPLETED',15000000,'2026-02-10','2026-02-10'),
+            (203,'CF-TX-203',20,'WITHDRAWAL','COMPLETED',5000000,'2026-03-20','2026-03-20')
         """))
 
         # ── 거래: CUST_TIGHT (지출 > 입금) ───────────────────────────────────
         conn.execute(text("""
             INSERT INTO deposit_transactions VALUES
-            (301,'CF-TX-301',30,'DEPOSIT','COMPLETED',500000,'2026-03-25'),
-            (302,'CF-TX-302',30,'WITHDRAWAL','COMPLETED',700000,'2026-03-01'),
-            (303,'CF-TX-303',30,'WITHDRAWAL','COMPLETED',700000,'2026-04-01'),
-            (304,'CF-TX-304',30,'WITHDRAWAL','COMPLETED',700000,'2026-05-01')
+            (301,'CF-TX-301',30,'DEPOSIT','COMPLETED',500000,'2026-03-25','2026-03-25'),
+            (302,'CF-TX-302',30,'WITHDRAWAL','COMPLETED',700000,'2026-03-01','2026-03-01'),
+            (303,'CF-TX-303',30,'WITHDRAWAL','COMPLETED',700000,'2026-04-01','2026-04-01'),
+            (304,'CF-TX-304',30,'WITHDRAWAL','COMPLETED',700000,'2026-05-01','2026-05-01')
         """))
 
         # ── 거래: CUST_NODATA (없음) ─────────────────────────────────────────

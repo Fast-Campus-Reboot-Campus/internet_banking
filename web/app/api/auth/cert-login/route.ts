@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const MOCK_CERTS = [
-  { cert_id: 'cert_1', customer_id: 1, pin: '123456', name: '홍길동', email: 'test@axful.com' },
+  { cert_id: 'cert_1', customer_id: 9001, pin: '123456', name: '홍길동', email: 'test@axful.com' },
 ]
 
 export async function POST(req: NextRequest) {

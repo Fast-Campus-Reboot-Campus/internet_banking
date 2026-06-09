@@ -1103,18 +1103,6 @@ export default function ChatbotWidget() {
         return
       }
 
-      if (featureCode === 'CASH_FLOW_RECOMMEND') {
-        const cid = customerNo.trim() || getCurrentDepositCustomerId()
-        const answer = await answerCashflowRecommend(cid, userText)
-        const result = buildFeatureResult('CASH_FLOW_RECOMMEND', answer, [])
-        if (replaceMessages) {
-          setMessages((current) => [...current, addFeatureResult(result)])
-        } else {
-          pushMessages([addFeatureResult(result)])
-        }
-        return
-      }
-
       if (featureCode === 'MY_PRODUCTS') {
         const cid = customerNo.trim() || getCurrentDepositCustomerId()
         const apiAccounts = await fetchDepositAccountViewModels(cid)
@@ -1151,7 +1139,14 @@ export default function ChatbotWidget() {
         product_type: (featureCode as string) === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
-      if (replaceMessages) {
+      if (featureCode === 'CASH_FLOW_RECOMMEND') {
+        saveRecommendContext(result)
+        setMessages(prev => [
+          ...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'),
+          addFeatureResult(result),
+        ])
+        window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
+      } else if (replaceMessages) {
         setMessages((current) => [...current, addFeatureResult(result)])
       } else {
         pushMessages([addFeatureResult(result)])
@@ -2086,12 +2081,13 @@ export default function ChatbotWidget() {
                             const cid = customerNo.trim() || getCurrentDepositCustomerId()
                             pushMessages([{ id: messageId('user'), role: 'user', text: '전체 상품 추천 요청' }])
                             try {
-                              const result = await executeDepositProductSearch({
-                                customerId: cid,
-                                period: Number(snap.period) || undefined,
-                                amount: parseAmount(snap.amount),
+                              const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
+                                customer_no: cid,
+                                query: '전체 상품 추천',
                               })
-                              pushProductSearchResult(result)
+                              saveRecommendContext(result)
+                              setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
+                              window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
                             } catch {
                               pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
                             } finally {
@@ -2121,14 +2117,13 @@ export default function ChatbotWidget() {
                           const cid = customerNo.trim() || getCurrentDepositCustomerId()
                           pushMessages([{ id: messageId('user'), role: 'user', text: '목돈 굴리기 - 예금 추천 요청' }])
                           try {
-                            const result = await executeDepositProductSearch({
-                              customerId: cid,
-                              period: Number(snap.period) || undefined,
-                              amount: parseAmount(snap.amount),
-                              productType: 'DEPOSIT',
-                              purpose: 'lump_sum',
+                            const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
+                              customer_no: cid,
+                              query: '목돈 굴리기 예금 추천',
                             })
-                            pushProductSearchResult(result)
+                            saveRecommendContext(result)
+                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
+                            window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
                           } catch {
                             pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
                           } finally { setLoading(false) }
@@ -2146,14 +2141,13 @@ export default function ChatbotWidget() {
                           const cid = customerNo.trim() || getCurrentDepositCustomerId()
                           pushMessages([{ id: messageId('user'), role: 'user', text: '매달 저축 - 적금 추천 요청' }])
                           try {
-                            const result = await executeDepositProductSearch({
-                              customerId: cid,
-                              period: Number(snap.period) || undefined,
-                              amount: parseAmount(snap.amount),
-                              productType: 'SAVINGS',
-                              purpose: 'monthly',
+                            const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
+                              customer_no: cid,
+                              query: '매달 저축 적금 추천',
                             })
-                            pushProductSearchResult(result)
+                            saveRecommendContext(result)
+                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
+                            window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
                           } catch {
                             pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
                           } finally { setLoading(false) }

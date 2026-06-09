@@ -137,7 +137,7 @@ class FeatureExecutorBase:
             SELECT transaction_type, amount
               FROM deposit_transactions
              WHERE account_id IN :account_ids
-               AND transaction_status = 'COMPLETED'
+               AND status = 'SUCCESS'
                AND transaction_at >= :cutoff
             """,
             {"account_ids": account_ids, "cutoff": cutoff},
@@ -155,7 +155,7 @@ class FeatureExecutorBase:
         inflow  = sum(float(r["amount"] or 0) for r in tx_rows if r["transaction_type"] == "DEPOSIT")
         outflow = sum(
             float(r["amount"] or 0) for r in tx_rows
-            if r["transaction_type"] in ("WITHDRAWAL", "TRANSFER")
+            if r["transaction_type"] in ("WITHDRAW", "TRANSFER")
         )
         return {
             "total_balance":    total_balance,
