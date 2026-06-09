@@ -26,6 +26,11 @@ $env:AI_DB_PORT               = "5437"
 $env:COMMON_DB_PORT           = "5438"
 # doc-agent-db: common-db(5438)/langfuse-db(5439) 호스트 포트 충돌 회피용으로 5440 분리
 $env:DOC_AGENT_DB_PORT        = "5440"
+# 호스트 bootRun 모드: loan-service의 서비스 간 base-url 기본값이 도커 네트워크 호스트명이라
+# 호스트 실행 시 이름이 풀리지 않는다. 두 서비스 모두 도커가 아닌 호스트 bootRun으로 뜨고
+# 각자 server.port(auto-loan-review 8089, doc-agent 8087)로 listen 하므로 localhost로 오버라이드한다.
+$env:AUTO_REVIEW_BASE_URL     = "http://localhost:8089"
+$env:DOC_AGENT_BASE_URL       = "http://localhost:8087"
 $env:VAULT_PORT               = "8200"
 $env:MINIO_PORT               = "9000"
 $env:REDIS_HOST               = "localhost"
