@@ -226,33 +226,68 @@ doc-agent 는 독립 서비스로 직접 검증 가능(port 8087).
 
 | 역할 | 로그인 ID | 이름/직책 | customerId | 비밀번호 | 로그인 화면 |
 |---|---|---|---|---|---|
-| 신청 고객 | `user01` | 일반 고객 | 9111 | (고객 데모 비번)¹ | `/login` (개인) |
+| 신청 고객 | `user01`~`user10` | 일반 고객 | 9111~ | `Test1234!` | `/login` (개인) |
 | 심사원(DEPUTY) | `deputy01` | 심사대리·부지점장(수동심사) | 9010 | `Employee1234!` | `/admin/login` |
 | 승인자(BRANCH_MANAGER) | `employee01` | 박상우·지점장(최종결재) | 9001 | `Employee1234!` | `/admin/login` |
 | 운영(OPS) | `ops01` | 운영담당(자동심사·EOD) | 9011 | `Employee1234!` | `/admin/login` |
 | 본사심사(HQ_REVIEWER) | `review01` | 이심사 | 9004 | `Employee1234!` | `/admin/login` |
 | 감사(COMPLIANCE) | `audit01` | 김감사 | 9003 | `Employee1234!` | `/admin/login` |
 
-¹ `user01`(9111)은 런타임 생성 계정이라 시드에 비번이 정의돼 있지 않다. 데모 고객 비번을 모르면
-`/join` 회원가입으로 신규 고객을 만들어 그 계정으로 진행한다. (4-eye 핵심인 심사·승인 단계는 위 직원 데모 계정으로 100% 재현 가능)
+¹ 고객 데모 계정 `user01`~`user10`은 비밀번호 `Test1234!`로 로그인한다(런타임 생성 계정이라 DB 마이그레이션 시드에는 없음).
+필요하면 `/join` 회원가입으로 신규 고객을 만들어 진행해도 된다. (4-eye 핵심인 심사·승인 단계는 위 직원 데모 계정으로 100% 재현 가능)
 
 ### 10.2 테스트 케이스
 
+흐름 순서: **고객 신청(user01)** → **직원 심사(deputy01)** → **승인자 결재(employee01)** → 정정/상신 → AI/관리 화면.
+4-eye 때문에 25번 승인은 반드시 deputy01과 **다른 계정 employee01**로 진행한다(같은 계정이면 27번처럼 거부).
+
 | No | 화면(경로) | 로그인 계정 | 구분 | 테스트 케이스 | 사전조건 | 입력·동작(클릭) | 기대결과 |
 |---|---|---|---|---|---|---|---|
-| 1 | `/loans/apply` | user01(고객) | 정상 | 대출 신청 | 고객 로그인 | 상품 9003 선택, 금액/기간 입력 → **신청** | applId 발급, status=SUBMITTED |
-| 2 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 가심사 | status=SUBMITTED | **[가심사 실행]** | PRESCREENED, 한도3천만/380bps, CB=REVIEW·DSR=PASS 자동 |
-| 3 | `/loans/apply/{applId}/identity-verification` | user01(고객) | 정상 | 본인확인 | status=PRESCREENED | 휴대폰 입력 → **본인확인** | IDV PASS (본심사 선행 필수) |
-| 4 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 본심사 진입 | IDV 완료 | 결정=승인 → **본심사 실행** | status=BIAS_REVIEWING |
-| 5 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 편향 확인 | BIAS_REVIEWING(편향 콜백 수신) | **편향 확인(acknowledge)** | status=PENDING_APPROVER |
-| 6 | `/admin/loan/review/{applId}` | **employee01(승인자)** | 정상 | 승인자 결재(4-eye) | PENDING_APPROVER, 승인자≠심사원 | **승인자 결재** | status=COMPLETED, APPROVED |
-| 7 | `/products/loan/status` 또는 admin 심사화면 | user01 또는 deputy01 | 정상 | 최종 상태 | 위 완료 | 진행현황 조회 | APPROVED 표시 |
-| 8 | `/admin/loan/review/{applId}` | (비로그인) | 권한 | 미인증 접근 | 로그아웃 상태 | URL 직접 접근 | 로그인 화면 리다이렉트/접근 차단 |
-| 9 | `/admin/loan/review/{applId}` | audit01(감사) | 권한 | 역할 불일치 | 감사 권한 로그인 | 본심사 실행 시도 | 버튼 미노출(권한 없음 안내) |
-| 10 | `/admin/loan/review/{applId}` | 심사=승인 동일인 | 권한 | 4-eye 위반 | 심사원이 곧 승인자 | 동일 계정으로 승인자 결재 | 거부(승인자=심사원 금지) |
-| 11 | `/admin/loan/review/{applId}` (편향 단계) | deputy01 | 정상 | 편향검증 라운드트립 | LLM mock 기본 | 4번 수행 후 편향 영역 확인 | 편향검토중·severity=NONE (gateway 동작 확인) |
-| 12 | `/admin/loan/auto-review-sim` | deputy01/ops01 | 정상 | 자동심사 평가(auto-review) | 서비스 기동 | 평가 입력 → **평가 실행** | track=TRACK_1 등 결과 표시(서비스 UP) |
-| 13 | `/admin/loan/documents` | review01/ops01 | 정상 | 문서 큐/관리(doc-agent) | 시드 존재 | 화면 조회 | 문서 목록 표시(서비스 UP) |
+| 1 | `/products/loan` | user01(고객) | 정상 | 대출 상품 목록 진입 | 고객 로그인 | 개인뱅킹>대출 메뉴 클릭 | 상품 카드 목록, 상품별 금리·한도 표시 |
+| 2 | `/loans/apply` | user01(고객) | 정상 | 한도조회(미리보기) | 상품·금액 입력 | 금액 입력 후 **[한도조회]** | 신용점수·예상한도·예상금리·등급 표시(DB 미적재) |
+| 3 | `/loans/apply` | user01(고객) | 검증 | 필수값 미입력 차단 | - | 상품/금액/목적/고용형태/동의 중 일부 누락 | **[대출 신청하기]** 버튼 비활성(회색) |
+| 4 | `/loans/apply` | user01(고객) | 정상 | 대출 신청 제출 | 상품 9003·금액·기간·목적·고용형태+동의 | **[대출 신청하기]** | 신청 생성(SUBMITTED), applId 발급, 본인확인 화면 이동 |
+| 5 | `/loans/apply/{applId}/identity-verification` | user01(고객) | 검증 | 휴대폰 형식 오류 | 신청 직후 | 10자리 미만 입력 후 **[본인확인]** | "휴대폰 번호를 올바르게…" 에러 |
+| 6 | `/loans/apply/{applId}/identity-verification` | user01(고객) | 정상 | 본인확인(PASS stub) | 신청 직후 | 인증방법 선택+휴대폰 입력+**[본인확인]** | "본인확인 완료"·마스킹 번호, [신청 결과 확인] 노출 (본심사 선행 필수) |
+| 7 | `/loans/apply/result?applId=` | user01(고객) | 정상 | 접수 직후 상태 | 본인확인 완료·심사 전 | **[신청 결과 확인]** | 상태=접수완료, 심사 진행현황 영역 표시 |
+| 8 | `/admin/login` | - | 정상 | 직원 로그인 | - | deputy01 + Employee1234! + **[로그인]** | 대시보드 이동, 콘솔 진입 (데모칩 클릭=자동입력) |
+| 9 | `/admin/login` | user01(고객) | 권한 | 고객 계정 콘솔 차단 | - | 고객 계정으로 로그인 | "관리자 콘솔 접근 권한이 없는 계정" 에러 |
+| 10 | `/admin/loan/review` | deputy01(심사원) | 정상 | 본심사 목록·탭 조회 | - | 확정대기/승인자대기 탭 전환 | 상태별 건 목록·건수 표시 |
+| 11 | `/admin/loan/review` | deputy01(심사원) | 정상 | 심사 상세 진입 | 목록에 건 존재 | 행의 **[상세]** 클릭 | 해당 신청 심사 상세 화면 이동 |
+| 12 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 1단계 가심사 실행 | 신청 SUBMITTED | **[가심사 실행]** | PRESCREENED, 예상한도/금리·CB·DSR 자동생성 (관측치: 한도3천만/380bps, CB=REVIEW·DSR=PASS) |
+| 13 | `/admin/loan/review/{applId}` | deputy01(심사원) | 예외 | SUBMITTED 아닌데 가심사 | 이미 가심사됨/다른 상태 | 가심사 영역 확인 | 실행 버튼 대신 안내 문구 표시 |
+| 14 | `/admin/loan/review/{applId}` | audit01(감사) | 권한 | 가심사 권한 없음 | - | 가심사 영역 확인 | "가심사 실행 권한이 없습니다(심사역·운영)" |
+| 15 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 2단계 신용평가 APPROVE | 가심사 PASS | CB엔진 KCB+결정 APPROVE+**[신용평가 실행]** | 신용평가 완료, 결정/점수/등급/PD 표시 |
+| 16 | `/admin/loan/review/{applId}` | deputy01(심사원) | 분기 | 신용평가 REVIEW/REJECT | 가심사 PASS | 결정 REVIEW/REJECT 선택 후 실행 | 해당 결정 적재(REJECT는 본심사 거절로 이어짐) |
+| 17 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 3단계 DSR 산정 PASS | 신용평가 완료 | 연소득 입력+**[DSR 실행]** | DSR PASS·비율 표시(연소득 필수) |
+| 18 | `/admin/loan/review/{applId}` | deputy01(심사원) | 분기 | DSR FAIL | 신용평가 완료 | 한도 초과 소득/부채 조건 | DSR FAIL 표시(본심사 거절 유도) |
+| 19 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 4단계 본심사 시작(수동) | DSR 완료·IDV 완료 | 유형 수동+결정 승인+**[본심사 시작]** | 심사 생성, 상태=편향검토중(BIAS_REVIEWING) (DSR 완료 전 버튼 비활성) |
+| 20 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 자동 결정 | DSR 완료 | **[자동 결정]** | 확정 대기(PENDING_APPROVAL) 권고 적재(CB.REVIEW면 수동권유 메시지) |
+| 21 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 심사 확정(권고) | 상태 PENDING_APPROVAL | 비고(선택)+**[심사 확정]** | 완료(COMPLETED) 전이 |
+| 22 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 편향 인지 처리 | BIAS_REVIEWING·severity≠BLOCKED | **[편향 인지 처리]** | 승인자 대기(PENDING_APPROVER) 전이(편향 콜백 severity=NONE 수신 후) |
+| 23 | `/admin/loan/review/{applId}` | deputy01(심사원) | 분기 | 편향 BLOCKED 오버라이드 | severity=BLOCKED | 오버라이드 사유 입력+**[편향 오버라이드]** | 오버라이드 처리, 진행 가능(사유 필수) |
+| 24 | `/admin/loan/review/{applId}` | deputy01(심사원) | 정상 | 체크 로그 추가 | 심사 존재 | 체크항목·결과 선택+**[체크 추가]** | 체크 로그에 행 추가 |
+| 25 | `/admin/loan/review/{applId}` | **employee01(승인자)** | 정상 | 승인자 최종 승인(4-eye) | PENDING_APPROVER·심사자와 다른 계정 | **[승인]** | 승인 완료 → 신청 APPROVED (반드시 deputy01과 다른 계정) |
+| 26 | `/admin/loan/review/{applId}` | employee01(승인자) | 정상 | 승인자 반려 | PENDING_APPROVER | **[반려]** | 반려 처리 → 신청 REJECTED |
+| 27 | `/admin/loan/review/{applId}` | deputy01(심사원) | 권한 | 4-eye 위반(동일인 승인) | 심사자=로그인 직원 동일 | 승인자 대기에서 **[승인]** | 거부(승인자=심사원 금지) 에러 |
+| 28 | `/admin/loan/review/{applId}` | employee01(지점장) | 정상 | 결정 정정 | 상태 COMPLETED | 결정/금액/금리·정정사유 입력+**[정정 저장]** | 결정 정정 반영, 체크로그 기록(약정 진입 후 불가) |
+| 29 | `/admin/loan/review/{applId}` | deputy01(심사원) | 권한 | 정정 권한 없음 | 상태 COMPLETED | 정정 영역 확인 | "결정 정정 권한이 없습니다(지점장)" |
+| 30 | `/admin/loan/review/{applId}` | employee01(지점장) | 정상 | 본사 상신(이상거래) | 진행중 건 | **[상신]** 동작 | ESCALATED_TO_HQ 처리 |
+| 31 | `/admin/loan/review` | review01(본사심사) | 권한 | 상신 건 탭 조회 | HQ 심사 권한 | **[상신 건]** 탭 확인 | 상신 탭 노출·목록 조회(타 역할은 탭 숨김) |
+| 32 | `/admin/loan/review` | deputy01(심사원) | 정상 | 통계 조회 | - | 통계 탭, 기간 입력+**[조회]** | 결정유형·상태·거절사유별 집계 표시 |
+| 33 | `/loans/apply/result?applId=` | user01(고객) | 정상 | 승인 결과 표시 | 직원 심사 APPROVED 후 | 결과 화면 재방문 | "대출 승인" 배너·상태=승인·AI 트랙 배지 |
+| 34 | `/loans/apply/result?applId=` | user01(고객) | 정상 | 거절 결과·사유 표시 | 직원 심사 REJECTED 후 | 결과 화면 재방문 | "대출 거절" 배너+거절 사유 안내 |
+| 35 | `/loans/apply/result?applId=` | user01(고객) | 정상 | 상태 변경 이력 | 상태 전이 발생 | 결과 화면 하단 확인 | 상태 변경 이력 테이블(이전→변경) 표시 |
+| 36 | `/loans/apply/{applId}/collateral` | user01(고객) | 정상 | 담보 등록 | 신청 비거절 | **[담보 등록]**→입력 | 담보 등록됨(담보대출 상품) |
+| 37 | `/loans/apply/{applId}/guarantor` | user01(고객) | 정상 | 보증인 동의 | 신청 비거절 | **[보증인 동의]**→입력 | 보증 약정 등록 |
+| 38 | `/loans/apply/{applId}/documents` | user01(고객) | 정상 | 서류 제출 | 신청 비거절 | **[서류 제출]**→파일 업로드 | 검증 결과(통과/재제출/보류) 표시(doc-agent 연계) |
+| 39 | `/products/loan/status` | user01(고객) | 정상 | 진행현황 조회 | 신청 존재 | 대출>진행현황조회 진입 | 신청 건 진행 상태 표시 |
+| 40 | `/products/loan/my` | user01(고객) | 정상 | 내 대출/계약 조회 | 계약 존재 | 대출>내 대출 진입 | 보유 대출·계약 목록 표시 |
+| 41 | `/admin/loan/auto-review-sim` | ops01(운영) | 정상 | 자동심사 평가(auto-review) | 서비스 기동 | 평가 입력값+**[평가 실행]** | track=TRACK_1/PD/결정 등 결과 표시(서비스 UP) |
+| 42 | `/admin/loan/documents` | review01/ops01 | 정상 | 문서 큐 관리(doc-agent) | 시드 존재 | 화면 조회 | 휴먼리뷰 큐 목록(위조점수·legal_hold) 표시(서비스 UP) |
+| 43 | `/admin/loan/identity` | deputy01/ops01 | 정상 | 본인확인 관리 조회 | IDV 데이터 존재 | 화면 조회 | IDV 내역 표시 |
+| 44 | `/admin/loan/contracts` | ops01(운영) | 정상 | 계약 목록 조회 | 계약 존재 | 화면 조회 | 계약 목록 표시 |
+| 45 | `/admin/loan/credit-report` | ops01(운영) | 정상 | 신용정보 신고 조회 | 신고 데이터 존재 | 화면 조회 | 신용정보 신고 내역 표시 |
 
 > 치환 규칙: **대상서비스/엔드포인트 → 화면 경로**, **X-User-Id 숫자 → 로그인 계정**, **입력값 → 화면 클릭 동작**.
 > 순수 health 체크(서비스 기동 확인)는 해당 화면이 정상 동작하면 "UP"으로 갈음한다(프론트에 health 전용 화면 없음).
