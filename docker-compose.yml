@@ -99,7 +99,8 @@ services:
       POSTGRES_USER: payment
       POSTGRES_PASSWORD: payment
     ports:
-      - "5440:5432"
+      # doc-agent-db가 5440을 쓰므로(start.ps1 DOC_AGENT_DB_PORT) 충돌 회피용 5441
+      - "${PAYMENT_DB_B_PORT:-5441}:5432"
     volumes:
       - payment-db-b-data:/var/lib/postgresql/data
     healthcheck:
@@ -702,7 +703,8 @@ services:
       POSTGRES_USER: ${DOC_AGENT_DB_USER:-docagent}
       POSTGRES_PASSWORD: ${DOC_AGENT_DB_PASSWORD:-docagent}
     ports:
-      - "${DOC_AGENT_DB_PORT:-5438}:5432"
+      # 5438은 common-db가 사용 → doc-agent-db는 5440 (start.ps1 DOC_AGENT_DB_PORT와 일치)
+      - "${DOC_AGENT_DB_PORT:-5440}:5432"
     volumes:
       - doc-agent-db-data:/var/lib/postgresql/data
     healthcheck:
