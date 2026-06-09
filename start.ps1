@@ -63,14 +63,22 @@ $env:CONSULTATION_OPENAI_MODEL   = "gpt-4o-mini"
 # 1. Start infra containers only (skip Docker-build app services)
 Write-Host "[1/3] Starting infrastructure..." -ForegroundColor Yellow
 $infra = @(
-    "customer-db","deposit-db","loan-db","common-db","payment-db","master-db","ai-db",
-    "doc-agent-db","minio","vault",
-    "kafka","schema-registry","redis",
-    "prometheus","grafana",
-    "loki","promtail","langfuse-db","langfuse","phoenix",
-    "elasticsearch"
+    # Databases
+    "customer-db","deposit-db","loan-db","common-db",
+    "payment-db","payment-db-b","master-db","ai-db",
+    "doc-agent-db","langfuse-db",
+    # Messaging / streaming (Kafka 전체: 브로커 + 레지스트리 + Connect + exporter)
+    "kafka","schema-registry","kafka-connect","kafka-connect-init",
+    "kafka-exporter-kftc","kafka-exporter-bok","kafka-exporter-internal",
+    # Cache / storage / secrets / search
+    "redis","minio","vault","elasticsearch",
+    # Monitoring / observability
+    "prometheus","grafana","alertmanager","blackbox-exporter",
+    "loki","promtail","langfuse","phoenix","kibana"
 )
-docker compose up -d @infra
+# doc-agent-db/minio/vault 는 profile "doc", kafka-connect·elasticsearch·kibana 등은 profile "rag" 소속이라
+# 프로파일을 활성화해야 떠다. (프로파일 미지정 시 이름을 명시해도 의존성 해석이 어긋날 수 있어 명시적으로 켠다)
+docker compose --profile doc --profile rag up -d @infra
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] docker compose failed" -ForegroundColor Red
     Read-Host "Press Enter to exit"
