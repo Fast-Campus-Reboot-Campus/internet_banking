@@ -21,6 +21,7 @@ $env:DEPOSIT_DB_PORT          = "5433"
 $env:DEPOSIT_DB_PASSWORD      = "deposit"
 $env:LOAN_DB_PORT             = "5434"
 $env:PAYMENT_DB_PORT          = "5435"
+$env:PAYMENT_DB_B_PORT        = "5441"
 $env:MASTER_DB_PORT           = "5436"
 $env:AI_DB_PORT               = "5437"
 $env:COMMON_DB_PORT           = "5438"
@@ -59,6 +60,13 @@ $env:CONSULTATION_DATABASE_URL   = "postgresql+psycopg://deposit:deposit@localho
 $env:CONSULTATION_KAFKA_ENABLED  = "false"
 $env:CONSULTATION_OPENAI_API_KEY = $env:OPENAI_API_KEY
 $env:CONSULTATION_OPENAI_MODEL   = "gpt-4o-mini"
+
+# alertmanager.yml 은 gitignore 대상(.sample 복사 컨벤션). 없으면 Docker가 빈 디렉터리를
+# 만들어 마운트가 깨지므로, bind-mount 전에 sample에서 실제 파일을 보장한다.
+$amConf   = Join-Path $root "infra\alertmanager\alertmanager.yml"
+$amSample = Join-Path $root "infra\alertmanager\alertmanager.yml.sample"
+if ((Test-Path $amConf -PathType Container) ) { Remove-Item -Recurse -Force $amConf }
+if (-not (Test-Path $amConf) -and (Test-Path $amSample)) { Copy-Item $amSample $amConf }
 
 # 1. Start infra containers only (skip Docker-build app services)
 Write-Host "[1/3] Starting infrastructure..." -ForegroundColor Yellow
