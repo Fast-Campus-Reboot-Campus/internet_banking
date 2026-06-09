@@ -1049,7 +1049,6 @@ const PAGE_META: Record<string, SlugMeta> = {
   payment:        { title: '이자/월부금입금',                     breadcrumb: '이자/월부금입금' },
   repay:          { title: '대출금상환',                         breadcrumb: '대출금상환' },
   withdraw:       { title: '대출계약철회 예상조회/완제',            breadcrumb: '대출계약철회', description: '대출계약 철회 처리합니다.' },
-  limit:          { title: '대출한도변경/해지',                   breadcrumb: '대출한도변경/해지', description: '한도형 대출의 한도를 변경하거나 해지합니다.' },
   extend:         { title: '기한연장',                           breadcrumb: '기한연장', description: '대출 만기일을 연장합니다.' },
   'rate-cut':     { title: '개인대출 금리인하요구권',              breadcrumb: '금리인하요구권' },
   closed:         { title: '해지계좌조회',                       breadcrumb: '해지계좌조회', description: '해지된 대출 계좌 내역을 조회합니다.' },
@@ -1159,15 +1158,6 @@ function PageContent({ slug, contracts, selectedId, setSelectedId }: {
             </div>
           )
         }} />
-    case 'limit':
-      return (
-        <div className="max-w-lg border border-kb-primary-border rounded-xl overflow-hidden">
-          <div className="flex border-t border-kb-primary-border">
-            <div className="w-48 px-4 py-3 bg-[#F5F5F5] text-[13px] font-medium">한도변경</div>
-            <div className="px-4 py-3 text-[13px] text-kb-text-muted">백엔드 API 개발 예정</div>
-          </div>
-        </div>
-      )
     default:
       return <p className="text-[15px] text-kb-text-muted py-20 text-center">페이지를 찾을 수 없습니다.</p>
   }
