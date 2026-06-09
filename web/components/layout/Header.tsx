@@ -160,9 +160,11 @@ export default function Header() {
   const isLoggedIn = user !== null
 
   useEffect(() => {
-    // sessionExpiry가 없거나 만료된 경우 토큰도 함께 제거 — 재방문 시 자동 로그인 방지
+    // sessionExpiry 체크: 만료됐으면 로그아웃, 없으면 토큰 있을 때 세션 복원
     const expiry = localStorage.getItem('sessionExpiry')
-    if (!expiry || parseInt(expiry, 10) <= Date.now()) {
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+    if (expiry && parseInt(expiry, 10) <= Date.now()) {
+      // 명시적으로 만료된 세션만 강제 로그아웃
       localStorage.removeItem('accessToken')
       localStorage.removeItem('access_token')
       localStorage.removeItem('refreshToken')
@@ -172,6 +174,10 @@ export default function Header() {
       setAuthed(false)
       setUser(null)
       return
+    }
+    if (!expiry && token) {
+      // sessionExpiry 없지만 토큰 있으면 30분 세션 복원 (로그인 중 페이지 이동 대응)
+      localStorage.setItem('sessionExpiry', String(Date.now() + 30 * 60 * 1000))
     }
     setAuthed(!!(localStorage.getItem('accessToken') || localStorage.getItem('access_token')))
     if (pathname.startsWith('/logout')) {
