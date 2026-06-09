@@ -26,6 +26,13 @@ depositApi.interceptors.request.use((config) => {
 export type DepositProductType = 'DEPOSIT' | 'SAVINGS' | 'SUBSCRIPTION'
 export type SavingType = 'REGULAR' | 'FREE'
 
+export type DepositProductTargetGroup = {
+  targetGroupId: number
+  targetGroupName: string
+  minAge?: number | null
+  maxAge?: number | null
+}
+
 export type DepositProduct = {
   productId: number
   productType: DepositProductType
@@ -38,6 +45,7 @@ export type DepositProduct = {
   minPeriodMonth?: number
   maxPeriodMonth?: number
   productStatus?: string
+  targetGroups?: DepositProductTargetGroup[]
 }
 
 export type DepositInterestRate = {
@@ -142,31 +150,29 @@ export type CreateDepositContractInput = {
   taxExempt?: boolean
 }
 
-const PRODUCT_ID_BY_SLUG: Record<string, number> = {
-  'axful-regular': 6,
-  'axful-super': 7,
-  regular: 8,
-  'axful-youth': 9,
-  'axful-free': 10,
-  'axful-dollar': 11,
-  'axful-green': 12,
-  'axful-soldier': 13,
-  'axful-star-savings': 14,
-  'housing-savings': 15,
-  'youth-housing': 16,
-  'axful-sok': 17,
-  election: 18,
-  'axful-living': 19,
-  'axful-gs': 20,
-  'monimo-daily': 21,
-  'axful-moim': 22,
-  'axful-star-account': 23,
-  'axful-wallet': 24,
-  'axful-free-account': 25,
-  'axful-youth-account': 26,
-  'axful-work': 9004,
-  'axful-dream': 9005,
-  'axful-together': 9006,
+// 하드코딩 ID는 환경마다 시퀀스가 달라 오동작 유발 — resolveProductId에서 항상 API 조회
+const PRODUCT_ID_BY_SLUG: Record<string, number> = {}
+
+// 상품명 → slug 역조회 (API 상품을 slug로 매핑할 때 사용)
+const PRODUCT_NAME_TO_SLUG: Record<string, string> = {
+  'AXful 정기예금': 'axful-regular',
+  'AXful 수퍼정기예금(개인)': 'axful-super',
+  '일반정기예금': 'regular',
+  'AXful 청년도약계좌': 'axful-youth',
+  'AXful 내맘대로적금': 'axful-free',
+  'AXful 달러자적금': 'axful-dollar',
+  'AXful 맑은하늘적금': 'axful-green',
+  'AXful 특★한 적금': 'axful-star-savings',
+  'AXful 장병내일준비적금': 'axful-soldier',
+  'AXful 직장인우대적금': 'axful-work',
+  'AXful 꿈적금': 'axful-dream',
+  'AXful 함께적금': 'axful-together',
+  'AXful 자유입출금통장': 'axful-free-account',
+  'AXful 청년우대통장': 'axful-youth-account',
+  'AXful 쏙머니통장': 'axful-sok',
+  '모니모 AXful 매일이자 통장': 'monimo-daily',
+  '주택청약종합저축': 'housing-savings',
+  '청년 주택드림 청약통장': 'youth-housing',
 }
 
 const SLUG_BY_PRODUCT_ID = Object.fromEntries(
@@ -179,6 +185,8 @@ const CHECKING_PRODUCT_SLUGS = new Set([
   'axful-wallet',
   'axful-free-account',
   'axful-youth-account',
+  'axful-sok',
+  'monimo-daily',
 ])
 
 const SAVING_TYPE_BY_SLUG: Record<string, SavingType> = {
@@ -253,8 +261,10 @@ export function getDepositProductIdBySlug(slug: string) {
   return PRODUCT_ID_BY_SLUG[slug]
 }
 
-export function getDepositSlugByProductId(productId: number) {
-  return SLUG_BY_PRODUCT_ID[productId] || `product-${productId}`
+export function getDepositSlugByProductId(productId: number, productName?: string) {
+  if (SLUG_BY_PRODUCT_ID[productId]) return SLUG_BY_PRODUCT_ID[productId]
+  if (productName && PRODUCT_NAME_TO_SLUG[productName]) return PRODUCT_NAME_TO_SLUG[productName]
+  return `product-${productId}`
 }
 
 export function toDepositProductCard(product: DepositProduct) {
@@ -268,7 +278,7 @@ export function toDepositProductCard(product: DepositProduct) {
       : undefined
 
   return {
-    id: getDepositSlugByProductId(product.productId),
+    id: getDepositSlugByProductId(product.productId, product.productName),
     name: product.productName,
     channel: '인터넷·스타뱅킹',
     desc: product.description,
@@ -362,12 +372,15 @@ function accountTypeLabel(account: DepositAccount, product?: DepositProduct): Ac
   if (product && CHECKING_PRODUCT_SLUGS.has(getDepositSlugByProductId(product.productId))) return '입출금'
   if (product?.productName?.includes('통장')) return '입출금'
   if (account.accountAlias?.includes('통장')) return '입출금'
+  // contracts/products 조회 실패 시 isWithdrawable로 폴백
+  if (account.isWithdrawable ?? account.withdrawable) return '입출금'
   return '예금'
 }
 
 function fallbackName(account: DepositAccount) {
   if (account.accountType === 'SAVINGS') return '가입 적금'
   if (account.accountType === 'SUBSCRIPTION') return '가입 청약'
+  if (account.isWithdrawable ?? account.withdrawable) return '가입 통장'
   return '가입 예금'
 }
 
