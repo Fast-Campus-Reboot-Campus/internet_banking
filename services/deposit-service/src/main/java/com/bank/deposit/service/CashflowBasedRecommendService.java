@@ -18,6 +18,7 @@ import com.bank.deposit.repository.ProductInterestRateRepository;
 import com.bank.deposit.repository.ProductRepository;
 import com.bank.deposit.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -41,17 +43,23 @@ public class CashflowBasedRecommendService {
 
     private static final int LOW_TRANSACTION_COUNT = 5;
     private static final int HIGH_TRANSACTION_COUNT = 10;
+    /** 저축 성장형 고객의 적금 상품 totalScore 보정 배율 */
     private static final BigDecimal SAVINGS_GROWTH_WEIGHT = new BigDecimal("1.30");
-    private static final BigDecimal FINANCIAL_FIT_MAX = new BigDecimal("40");
-    private static final BigDecimal EXPECTED_RETURN_MAX = new BigDecimal("30");
-    private static final BigDecimal LIQUIDITY_MAX = new BigDecimal("20");
-    private static final BigDecimal BENEFIT_MAX = new BigDecimal("10");
+    private static final BigDecimal TOTAL_SCORE_MAX      = new BigDecimal("100");
+    private static final BigDecimal FINANCIAL_FIT_MAX    = new BigDecimal("40");
+    private static final BigDecimal EXPECTED_RETURN_MAX  = new BigDecimal("30");
+    private static final BigDecimal LIQUIDITY_MAX        = new BigDecimal("20");
+    private static final BigDecimal BENEFIT_MAX          = new BigDecimal("10");
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
     private final ProductRepository productRepository;
     private final ProductInterestRateRepository productInterestRateRepository;
     private final Clock clock;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // public entry point
+    // ──────────────────────────────────────────────────────────────────────────
 
     public ProductRecommendResponse recommend(String customerId, int periodMonth) {
         Assert.isTrue(periodMonth >= 1, "periodMonth must be greater than or equal to 1.");
@@ -67,7 +75,7 @@ public class CashflowBasedRecommendService {
             return emptyResult(customerId, periodMonth);
         }
 
-        OffsetDateTime endAt = OffsetDateTime.now(clock);
+        OffsetDateTime endAt   = OffsetDateTime.now(clock);
         OffsetDateTime startAt = endAt.minusMonths(periodMonth);
         List<Transaction> transactions = transactionRepository
                 .findByAccountIdInAndTransactionAtBetweenAndStatus(
@@ -77,9 +85,9 @@ public class CashflowBasedRecommendService {
             return emptyResult(customerId, periodMonth);
         }
 
-        BigDecimal totalInflow = sumByDirection(transactions, DirectionType.IN);
+        BigDecimal totalInflow  = sumByDirection(transactions, DirectionType.IN);
         BigDecimal totalOutflow = sumByDirection(transactions, DirectionType.OUT);
-        BigDecimal netCashFlow = totalInflow.subtract(totalOutflow);
+        BigDecimal netCashFlow  = totalInflow.subtract(totalOutflow);
         BigDecimal monthlySavings = netCashFlow.divide(
                 BigDecimal.valueOf(periodMonth), 0, RoundingMode.DOWN);
 
@@ -90,6 +98,10 @@ public class CashflowBasedRecommendService {
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        boolean savingsGrowth = isSavingsGrowthType(currentBalance, monthlySavings);
+        log.info("[추천] customerId={} periodMonth={} currentBalance={} monthlySavings={} savingsGrowthType={}",
+                customerId, periodMonth, currentBalance, monthlySavings, savingsGrowth);
+
         if (monthlySavings.compareTo(BigDecimal.ZERO) <= 0) {
             return balanceFallbackRecommend(customerId, periodMonth, cashFlow, currentBalance, transactions.size());
         }
@@ -98,25 +110,26 @@ public class CashflowBasedRecommendService {
                 .filter(product -> isRecommendable(product, currentBalance, monthlySavings))
                 .toList();
 
+        log.info("[추천] 후보 상품 {}건 (DEPOSIT={}, SAVINGS={})",
+                candidates.size(),
+                candidates.stream().filter(p -> p.getProductType() == ProductType.DEPOSIT).count(),
+                candidates.stream().filter(p -> p.getProductType() == ProductType.SAVINGS).count());
+
         if (candidates.isEmpty()) {
             return new ProductRecommendResponse(customerId, periodMonth, cashFlow, List.of());
         }
 
         List<Long> productIds = candidates.stream().map(Product::getProductId).toList();
         List<ProductInterestRate> activeRates = productInterestRateRepository
-                .findByProductIdInAndIsActive(productIds, true)
-                .stream()
-                .toList();
+                .findByProductIdInAndIsActive(productIds, true);
         Map<Long, BigDecimal> bestRateMap = calculateBestRateMap(candidates, activeRates);
 
         List<ScoredProduct> scoredProducts = candidates.stream()
                 .map(product -> scoreProduct(
-                        product,
-                        currentBalance,
-                        monthlySavings,
-                        transactions.size(),
-                        periodMonth,
-                        bestRateMap.getOrDefault(product.getProductId(), product.getBaseInterestRate())))
+                        product, currentBalance, monthlySavings,
+                        transactions.size(), periodMonth,
+                        bestRateMap.getOrDefault(product.getProductId(), product.getBaseInterestRate()),
+                        savingsGrowth))
                 .toList();
 
         BigDecimal maxExpectedReturn = scoredProducts.stream()
@@ -125,16 +138,26 @@ public class CashflowBasedRecommendService {
                 .orElse(BigDecimal.ZERO);
 
         List<RecommendedProduct> recommendations = scoredProducts.stream()
-                .map(scored -> scored.withExpectedReturnScore(
-                        normalizedExpectedReturnScore(scored.expectedReturn(), maxExpectedReturn)))
+                .map(s -> s.withExpectedReturnScore(
+                        normalizedExpectedReturnScore(s.expectedReturn(), maxExpectedReturn)))
                 .map(ScoredProduct::withTotalScore)
-                .sorted(Comparator.comparing(ScoredProduct::totalScore).reversed())
+                .peek(s -> log.info(
+                        "[후보] {} ({}) rawScore={} adjustedScore={}",
+                        s.product().getProductName(),
+                        s.product().getProductType(),
+                        formatScore(s.rawTotalScore()),
+                        formatScore(s.adjustedTotalScore())))
+                .sorted(Comparator.comparing(ScoredProduct::adjustedTotalScore).reversed())
                 .limit(5)
                 .map(this::toRecommended)
                 .toList();
 
         return new ProductRecommendResponse(customerId, periodMonth, cashFlow, recommendations);
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // helpers
+    // ──────────────────────────────────────────────────────────────────────────
 
     private BigDecimal sumByDirection(List<Transaction> transactions, DirectionType direction) {
         return transactions.stream()
@@ -173,7 +196,8 @@ public class CashflowBasedRecommendService {
                 .map(product -> scoreProduct(
                         product, currentBalance, BigDecimal.ZERO,
                         transactionCount, periodMonth,
-                        bestRateMap.getOrDefault(product.getProductId(), product.getBaseInterestRate())))
+                        bestRateMap.getOrDefault(product.getProductId(), product.getBaseInterestRate()),
+                        false))
                 .toList();
 
         BigDecimal maxExpectedReturn = scoredProducts.stream()
@@ -182,9 +206,10 @@ public class CashflowBasedRecommendService {
                 .orElse(BigDecimal.ZERO);
 
         List<RecommendedProduct> recommendations = scoredProducts.stream()
-                .map(s -> s.withExpectedReturnScore(normalizedExpectedReturnScore(s.expectedReturn(), maxExpectedReturn)))
+                .map(s -> s.withExpectedReturnScore(
+                        normalizedExpectedReturnScore(s.expectedReturn(), maxExpectedReturn)))
                 .map(ScoredProduct::withTotalScore)
-                .sorted(Comparator.comparing(ScoredProduct::totalScore).reversed())
+                .sorted(Comparator.comparing(ScoredProduct::adjustedTotalScore).reversed())
                 .limit(5)
                 .map(this::toRecommended)
                 .toList();
@@ -193,16 +218,10 @@ public class CashflowBasedRecommendService {
     }
 
     private boolean isRecommendable(Product product, BigDecimal currentBalance, BigDecimal monthlySavings) {
-        if (product.getProductType() == ProductType.SUBSCRIPTION) {
-            return false;
-        }
-        if (isSpecialTargetProduct(product)) {
-            return false;
-        }
-
+        if (product.getProductType() == ProductType.SUBSCRIPTION) return false;
+        if (isSpecialTargetProduct(product)) return false;
         BigDecimal availableAmount = product.getProductType() == ProductType.DEPOSIT
-                ? currentBalance
-                : monthlySavings;
+                ? currentBalance : monthlySavings;
         return isJoinAmountAvailable(product, availableAmount);
     }
 
@@ -220,62 +239,60 @@ public class CashflowBasedRecommendService {
     private boolean isJoinAmountAvailable(Product product, BigDecimal amount) {
         BigDecimal minAmount = product.getMinJoinAmount();
         BigDecimal maxAmount = product.getMaxJoinAmount();
-        if (minAmount != null && amount.compareTo(minAmount) < 0) {
-            return false;
-        }
+        if (minAmount != null && amount.compareTo(minAmount) < 0) return false;
         return maxAmount == null || amount.compareTo(maxAmount) <= 0;
     }
 
     private Map<Long, BigDecimal> calculateBestRateMap(List<Product> products, List<ProductInterestRate> activeRates) {
         Map<Long, BigDecimal> baseRateMap = activeRates.stream()
-                .filter(rate -> rate.getRateType() == RateType.BASE || rate.getRateType() == RateType.PERIOD_BASE)
+                .filter(r -> r.getRateType() == RateType.BASE || r.getRateType() == RateType.PERIOD_BASE)
                 .collect(Collectors.toMap(
                         ProductInterestRate::getProductId,
                         ProductInterestRate::getRate,
-                        BigDecimal::max
-                ));
+                        BigDecimal::max));
         Map<Long, BigDecimal> preferentialRateMap = activeRates.stream()
-                .filter(rate -> rate.getRateType() == RateType.PREFERENTIAL)
+                .filter(r -> r.getRateType() == RateType.PREFERENTIAL)
                 .collect(Collectors.toMap(
                         ProductInterestRate::getProductId,
                         ProductInterestRate::getRate,
-                        BigDecimal::add
-                ));
-
+                        BigDecimal::add));
         return products.stream()
                 .collect(Collectors.toMap(
                         Product::getProductId,
                         product -> baseRateMap
                                 .getOrDefault(product.getProductId(), product.getBaseInterestRate())
-                                .add(preferentialRateMap.getOrDefault(product.getProductId(), BigDecimal.ZERO))
-                ));
+                                .add(preferentialRateMap.getOrDefault(product.getProductId(), BigDecimal.ZERO))));
     }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // scoring
+    // ──────────────────────────────────────────────────────────────────────────
 
     private ScoredProduct scoreProduct(Product product,
                                        BigDecimal currentBalance,
                                        BigDecimal monthlySavings,
                                        int transactionCount,
                                        int periodMonth,
-                                       BigDecimal bestRate) {
+                                       BigDecimal bestRate,
+                                       boolean savingsGrowth) {
         BigDecimal financialFitScore = calculateFinancialFitScore(product, currentBalance, monthlySavings);
-        BigDecimal expectedReturn = calculateExpectedReturn(product, currentBalance, monthlySavings, periodMonth, bestRate);
-        BigDecimal liquidityScore = calculateLiquidityScore(product, transactionCount);
-        BigDecimal benefitScore = calculateBenefitScore(product);
+        BigDecimal expectedReturn    = calculateExpectedReturn(product, currentBalance, monthlySavings, periodMonth, bestRate);
+        BigDecimal liquidityScore    = calculateLiquidityScore(product, transactionCount);
+        BigDecimal benefitScore      = calculateBenefitScore(product);
 
         return new ScoredProduct(
-                product,
-                bestRate,
-                monthlySavings,
-                expectedReturn,
-                financialFitScore,
-                BigDecimal.ZERO,
-                liquidityScore,
-                benefitScore,
-                BigDecimal.ZERO
-        );
+                product, bestRate, monthlySavings, expectedReturn,
+                financialFitScore, BigDecimal.ZERO, liquidityScore, benefitScore,
+                BigDecimal.ZERO, BigDecimal.ZERO, savingsGrowth);
     }
 
-    private BigDecimal calculateFinancialFitScore(Product product, BigDecimal currentBalance, BigDecimal monthlySavings) {
+    /**
+     * 재정 적합도 점수 (0~40점, cap 유지).
+     * 가중치는 totalScore 단계에서 적용하므로 여기서는 순수 비율만 계산.
+     */
+    private BigDecimal calculateFinancialFitScore(Product product,
+                                                  BigDecimal currentBalance,
+                                                  BigDecimal monthlySavings) {
         BigDecimal minJoinAmount = positiveOrOne(product.getMinJoinAmount());
         BigDecimal fitRatio;
         if (product.getProductType() == ProductType.DEPOSIT) {
@@ -283,14 +300,10 @@ public class CashflowBasedRecommendService {
         } else {
             fitRatio = monthlySavings.divide(minJoinAmount.multiply(BigDecimal.valueOf(2)), 4, RoundingMode.HALF_UP);
         }
-
         BigDecimal score = cap(fitRatio, BigDecimal.valueOf(5))
                 .divide(BigDecimal.valueOf(5), 4, RoundingMode.HALF_UP)
                 .multiply(FINANCIAL_FIT_MAX);
-        if (isSavingsGrowthType(currentBalance, monthlySavings) && product.getProductType() == ProductType.SAVINGS) {
-            score = score.multiply(SAVINGS_GROWTH_WEIGHT);
-        }
-        return cap(score, FINANCIAL_FIT_MAX);
+        return cap(score, FINANCIAL_FIT_MAX);   // 40점 cap 유지
     }
 
     private boolean isSavingsGrowthType(BigDecimal currentBalance, BigDecimal monthlySavings) {
@@ -304,6 +317,7 @@ public class CashflowBasedRecommendService {
                                                BigDecimal bestRate) {
         int period = resolvePeriodMonth(product, requestedPeriodMonth);
         BigDecimal yearlyRate = bestRate.divide(BigDecimal.valueOf(100), 8, RoundingMode.HALF_UP);
+
         if (product.getProductType() == ProductType.DEPOSIT) {
             return currentBalance
                     .multiply(yearlyRate)
@@ -311,6 +325,7 @@ public class CashflowBasedRecommendService {
                     .divide(BigDecimal.valueOf(12), 0, RoundingMode.DOWN);
         }
 
+        // 적금: 매월 적립 방식 (복리 근사)
         BigDecimal accumulatedWeightedMonths = BigDecimal.valueOf((long) period * (period + 1))
                 .divide(BigDecimal.valueOf(2), 4, RoundingMode.HALF_UP);
         return monthlySavings
@@ -328,9 +343,7 @@ public class CashflowBasedRecommendService {
     }
 
     private BigDecimal normalizedExpectedReturnScore(BigDecimal expectedReturn, BigDecimal maxExpectedReturn) {
-        if (maxExpectedReturn.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
-        }
+        if (maxExpectedReturn.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
         return expectedReturn
                 .divide(maxExpectedReturn, 4, RoundingMode.HALF_UP)
                 .multiply(EXPECTED_RETURN_MAX);
@@ -365,40 +378,62 @@ public class CashflowBasedRecommendService {
         return cap(score, BENEFIT_MAX);
     }
 
-    private RecommendedProduct toRecommended(ScoredProduct scoredProduct) {
-        Product product = scoredProduct.product();
+    // ──────────────────────────────────────────────────────────────────────────
+    // response mapping
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private RecommendedProduct toRecommended(ScoredProduct sp) {
+        Product product = sp.product();
         String monthlySavingsText = NumberFormat.getNumberInstance(Locale.KOREA)
-                .format(scoredProduct.monthlySavings()) + "원";
+                .format(sp.monthlySavings()) + "원";
+
+        boolean adjusted = sp.savingsGrowthProfile()
+                && product.getProductType() == ProductType.SAVINGS;
+
+        String profileLabel = sp.savingsGrowthProfile() ? "저축 성장형" : "목돈 운용형";
+
+        String scoreBreakdown;
+        if (adjusted) {
+            scoreBreakdown = String.format(
+                    "원점수 %s점 → 보정 후 %s점(적금 가중치 %.0f%% 반영)",
+                    formatScore(sp.rawTotalScore()),
+                    formatScore(sp.adjustedTotalScore()),
+                    SAVINGS_GROWTH_WEIGHT.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100)));
+        } else {
+            scoreBreakdown = String.format("총점 %s점", formatScore(sp.adjustedTotalScore()));
+        }
+
         String reason = String.format(
-                "저축 성장형 진단: 월 평균 저축 여력(%s)과 현재 잔액을 함께 반영했습니다. " +
-                        "총점 %s점(재정 %s, 수익 %s, 유동성 %s, 혜택 %s). %s%% 금리 기준 추천.",
+                "%s 진단: 월 평균 저축 여력(%s)과 현재 잔액을 함께 반영했습니다. " +
+                        "%s (재정 %s / 수익 %s / 유동성 %s / 혜택 %s). %s%% 금리 기준 추천.",
+                profileLabel,
                 monthlySavingsText,
-                formatScore(scoredProduct.totalScore()),
-                formatScore(scoredProduct.financialFitScore()),
-                formatScore(scoredProduct.expectedReturnScore()),
-                formatScore(scoredProduct.liquidityScore()),
-                formatScore(scoredProduct.benefitScore()),
-                scoredProduct.bestRate().toPlainString());
+                scoreBreakdown,
+                formatScore(sp.financialFitScore()),
+                formatScore(sp.expectedReturnScore()),
+                formatScore(sp.liquidityScore()),
+                formatScore(sp.benefitScore()),
+                sp.bestRate().toPlainString());
 
         return new RecommendedProduct(
                 product.getProductId(),
                 product.getProductName(),
                 product.getProductType().name(),
                 product.getBaseInterestRate(),
-                scoredProduct.bestRate(),
+                sp.bestRate(),
                 product.getMinJoinAmount(),
                 product.getMaxJoinAmount(),
                 product.getMinPeriodMonth(),
                 product.getMaxPeriodMonth(),
-                reason
-        );
+                reason);
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // utilities
+    // ──────────────────────────────────────────────────────────────────────────
+
     private BigDecimal positiveOrOne(BigDecimal value) {
-        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ONE;
-        }
-        return value;
+        return (value == null || value.compareTo(BigDecimal.ZERO) <= 0) ? BigDecimal.ONE : value;
     }
 
     private BigDecimal cap(BigDecimal value, BigDecimal max) {
@@ -415,6 +450,15 @@ public class CashflowBasedRecommendService {
         return new ProductRecommendResponse(customerId, periodMonth, zero, List.of());
     }
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // inner record
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * @param rawTotalScore      4개 컴포넌트 합산 원점수 (≤ 100)
+     * @param adjustedTotalScore 저축 성장형+적금이면 rawTotal×1.3 (≤ 100), 그 외 rawTotal과 동일
+     * @param savingsGrowthProfile 저축 성장형 고객 여부
+     */
     private record ScoredProduct(
             Product product,
             BigDecimal bestRate,
@@ -424,34 +468,32 @@ public class CashflowBasedRecommendService {
             BigDecimal expectedReturnScore,
             BigDecimal liquidityScore,
             BigDecimal benefitScore,
-            BigDecimal totalScore
+            BigDecimal rawTotalScore,
+            BigDecimal adjustedTotalScore,
+            boolean savingsGrowthProfile
     ) {
         private ScoredProduct withExpectedReturnScore(BigDecimal score) {
-            return new ScoredProduct(
-                    product,
-                    bestRate,
-                    monthlySavings,
-                    expectedReturn,
-                    financialFitScore,
-                    score,
-                    liquidityScore,
-                    benefitScore,
-                    totalScore
-            );
+            return new ScoredProduct(product, bestRate, monthlySavings, expectedReturn,
+                    financialFitScore, score, liquidityScore, benefitScore,
+                    rawTotalScore, adjustedTotalScore, savingsGrowthProfile);
         }
 
         private ScoredProduct withTotalScore() {
-            return new ScoredProduct(
-                    product,
-                    bestRate,
-                    monthlySavings,
-                    expectedReturn,
-                    financialFitScore,
-                    expectedReturnScore,
-                    liquidityScore,
-                    benefitScore,
-                    financialFitScore.add(expectedReturnScore).add(liquidityScore).add(benefitScore)
-            );
+            BigDecimal raw = financialFitScore
+                    .add(expectedReturnScore)
+                    .add(liquidityScore)
+                    .add(benefitScore);
+
+            // 100점 체계 유지: 컴포넌트 합은 max 100점이므로 raw 자체는 cap 불필요
+            BigDecimal adjusted = (savingsGrowthProfile
+                    && product.getProductType() == ProductType.SAVINGS)
+                    ? raw.multiply(SAVINGS_GROWTH_WEIGHT)
+                            .min(new BigDecimal("100"))   // 100점 초과 방지
+                    : raw;
+
+            return new ScoredProduct(product, bestRate, monthlySavings, expectedReturn,
+                    financialFitScore, expectedReturnScore, liquidityScore, benefitScore,
+                    raw, adjusted, savingsGrowthProfile);
         }
     }
 }

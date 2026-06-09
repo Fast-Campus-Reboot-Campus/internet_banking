@@ -626,24 +626,21 @@ export default function ChatbotWidget() {
       if (EXCLUDE.some(k => nd.includes(k))) return false
 
       // 1순위: DB targetGroups의 minAge/maxAge로 나이 체크
-      if (customerAge !== null && p.targetGroups && p.targetGroups.length > 0) {
-        const ageRestricted = p.targetGroups.some(tg => tg.minAge != null || tg.maxAge != null)
-        if (ageRestricted) {
-          // 나이 제한 있는 그룹 중 하나라도 고객이 속하면 통과
-          const eligible = p.targetGroups.some(tg => {
-            if (tg.minAge == null && tg.maxAge == null) return true // 제한 없는 그룹
-            const okMin = tg.minAge == null || customerAge! >= tg.minAge
-            const okMax = tg.maxAge == null || customerAge! <= tg.maxAge
-            return okMin && okMax
-          })
-          if (!eligible) return false
-        }
-      } else if (customerAge !== null) {
-        // 2순위: targetGroups 데이터 없을 때 키워드 fallback
-        if (YOUTH_KEYWORDS.some(k => nd.includes(k)) && customerAge > 34) return false
-      } else {
-        // 나이 모를 때는 키워드 fallback만
-        if (YOUTH_KEYWORDS.some(k => nd.includes(k))) return false
+      const hasAgeRestriction = p.targetGroups?.some(tg => tg.minAge != null || tg.maxAge != null) ?? false
+      if (customerAge !== null && hasAgeRestriction) {
+        // 나이 제한 있는 그룹 중 하나라도 고객이 속하면 통과
+        const eligible = p.targetGroups!.some(tg => {
+          if (tg.minAge == null && tg.maxAge == null) return true // 제한 없는 그룹
+          const okMin = tg.minAge == null || customerAge! >= tg.minAge
+          const okMax = tg.maxAge == null || customerAge! <= tg.maxAge
+          return okMin && okMax
+        })
+        if (!eligible) return false
+      }
+      // 2순위: 키워드 fallback — DB 나이 제한 없거나 나이 조회 실패 시 항상 적용
+      if (YOUTH_KEYWORDS.some(k => nd.includes(k))) {
+        if (customerAge === null) return false        // 나이 모르면 청년 상품 전체 제외
+        if (!hasAgeRestriction && customerAge > 34) return false  // DB 제한 없는데 키워드 있으면 나이로 판단
       }
 
       const minAmt = Number(p.minJoinAmount ?? 0)
