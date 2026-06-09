@@ -245,6 +245,7 @@ public class ProductService {
     private Map<Long, List<ProductResponse.TargetGroupInfo>> fetchTargetGroupInfos(Collection<Long> productIds) {
         if (productIds.isEmpty()) return Map.of();
         List<ProductTargetGroup> mappings = targetGroupMappingRepository.findByIdProductIdIn(productIds);
+        if (mappings.isEmpty()) return Map.of();
         Set<Long> tgIds = mappings.stream().map(m -> m.getId().getTargetGroupId()).collect(Collectors.toSet());
         Map<Long, TargetGroup> tgById = targetGroupRepository.findByTargetGroupIdIn(tgIds).stream()
                 .collect(Collectors.toMap(TargetGroup::getTargetGroupId, tg -> tg));

@@ -10,6 +10,7 @@ import com.bank.deposit.repository.ProductRepository;
 import com.bank.deposit.repository.ProductSpecialTermRepository;
 import com.bank.deposit.repository.ProductTargetGroupRepository;
 import com.bank.deposit.repository.SavingsProductRepository;
+import com.bank.deposit.repository.TargetGroupRepository;
 import com.bank.deposit.repository.SubscriptionProductRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,6 +54,9 @@ class ProductServiceTest {
 
     @Mock
     private ProductTargetGroupRepository targetGroupMappingRepository;
+
+    @Mock
+    private TargetGroupRepository targetGroupRepository;
 
     @Mock
     private ProductInterestRateRepository interestRateRepository;
