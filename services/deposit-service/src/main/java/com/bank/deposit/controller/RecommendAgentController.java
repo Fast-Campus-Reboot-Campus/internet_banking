@@ -29,8 +29,9 @@ public class RecommendAgentController {
     public ProductRecommendResponse recommend(
             @RequestHeader(value = AuthenticatedCustomerValidator.CUSTOMER_ID_HEADER, required = false) String authenticatedCustomerId,
             @RequestParam String customerId,
-            @RequestParam(defaultValue = "3") @Min(1) int periodMonth) {
+            @RequestParam(defaultValue = "3") @Min(1) int periodMonth,
+            @RequestParam(required = false) Integer birthYear) {
         customerValidator.validate(authenticatedCustomerId, customerId);
-        return cashflowBasedRecommendService.recommend(customerId, periodMonth);
+        return cashflowBasedRecommendService.recommend(customerId, periodMonth, birthYear);
     }
 }

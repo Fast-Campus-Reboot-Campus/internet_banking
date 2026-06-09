@@ -319,10 +319,10 @@ export async function terminateDepositContract(contractId: number, reason = 'ONL
   return data
 }
 
-export async function fetchDepositRecommendAgent(customerId: string, periodMonth = 3) {
+export async function fetchDepositRecommendAgent(customerId: string, periodMonth = 3, birthYear?: number) {
   const normalizedCustomerId = normalizeDepositCustomerId(customerId)
   const { data } = await depositApi.get<DepositRecommendResponse>('/products/recommend-agent', {
-    params: { customerId: normalizedCustomerId, periodMonth },
+    params: { customerId: normalizedCustomerId, periodMonth, ...(birthYear != null && { birthYear }) },
     headers: headers(normalizedCustomerId),
   })
   return data

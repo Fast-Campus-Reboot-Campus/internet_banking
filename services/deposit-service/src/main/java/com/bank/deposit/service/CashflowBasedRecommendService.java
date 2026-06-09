@@ -13,9 +13,13 @@ import com.bank.deposit.domain.enums.TransactionStatus;
 import com.bank.deposit.dto.response.CashFlowSummary;
 import com.bank.deposit.dto.response.ProductRecommendResponse;
 import com.bank.deposit.dto.response.RecommendedProduct;
+import com.bank.deposit.domain.entity.ProductTargetGroup;
+import com.bank.deposit.domain.entity.TargetGroup;
 import com.bank.deposit.repository.AccountRepository;
 import com.bank.deposit.repository.ProductInterestRateRepository;
 import com.bank.deposit.repository.ProductRepository;
+import com.bank.deposit.repository.ProductTargetGroupRepository;
+import com.bank.deposit.repository.TargetGroupRepository;
 import com.bank.deposit.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,12 +31,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -55,13 +61,15 @@ public class CashflowBasedRecommendService {
     private final TransactionRepository transactionRepository;
     private final ProductRepository productRepository;
     private final ProductInterestRateRepository productInterestRateRepository;
+    private final ProductTargetGroupRepository productTargetGroupRepository;
+    private final TargetGroupRepository targetGroupRepository;
     private final Clock clock;
 
     // ──────────────────────────────────────────────────────────────────────────
     // public entry point
     // ──────────────────────────────────────────────────────────────────────────
 
-    public ProductRecommendResponse recommend(String customerId, int periodMonth) {
+    public ProductRecommendResponse recommend(String customerId, int periodMonth, Integer birthYear) {
         Assert.isTrue(periodMonth >= 1, "periodMonth must be greater than or equal to 1.");
 
         List<Account> activeAccounts = accountRepository.findByCustomerId(customerId).stream()
@@ -102,12 +110,18 @@ public class CashflowBasedRecommendService {
         log.info("[추천] customerId={} periodMonth={} currentBalance={} monthlySavings={} savingsGrowthType={}",
                 customerId, periodMonth, currentBalance, monthlySavings, savingsGrowth);
 
+        Integer customerAge = resolveCustomerAge(birthYear);
+        Map<Long, List<TargetGroup>> targetGroupsByProductId = loadTargetGroups(
+                productRepository.findByProductStatus(ProductStatus.SELLING).stream()
+                        .map(Product::getProductId).toList());
+
         if (monthlySavings.compareTo(BigDecimal.ZERO) <= 0) {
-            return balanceFallbackRecommend(customerId, periodMonth, cashFlow, currentBalance, transactions.size());
+            return balanceFallbackRecommend(customerId, periodMonth, cashFlow, currentBalance, transactions.size(), customerAge, targetGroupsByProductId);
         }
 
         List<Product> candidates = productRepository.findByProductStatus(ProductStatus.SELLING).stream()
                 .filter(product -> isRecommendable(product, currentBalance, monthlySavings))
+                .filter(product -> isAgeEligible(product, customerAge, targetGroupsByProductId))
                 .toList();
 
         log.info("[추천] 후보 상품 {}건 (DEPOSIT={}, SAVINGS={})",
@@ -172,7 +186,9 @@ public class CashflowBasedRecommendService {
     private ProductRecommendResponse balanceFallbackRecommend(String customerId, int periodMonth,
                                                               CashFlowSummary cashFlow,
                                                               BigDecimal currentBalance,
-                                                              int transactionCount) {
+                                                              int transactionCount,
+                                                              Integer customerAge,
+                                                              Map<Long, List<TargetGroup>> targetGroupsByProductId) {
         if (currentBalance.compareTo(BigDecimal.ZERO) <= 0) {
             return new ProductRecommendResponse(customerId, periodMonth, cashFlow, List.of(), FALLBACK_REASON);
         }
@@ -181,6 +197,7 @@ public class CashflowBasedRecommendService {
                 .filter(p -> p.getProductType() == ProductType.DEPOSIT)
                 .filter(p -> !isSpecialTargetProduct(p))
                 .filter(p -> isJoinAmountAvailable(p, currentBalance))
+                .filter(p -> isAgeEligible(p, customerAge, targetGroupsByProductId))
                 .toList();
 
         if (candidates.isEmpty()) {
@@ -228,6 +245,66 @@ public class CashflowBasedRecommendService {
     private boolean isSpecialTargetProduct(Product product) {
         String text = searchableText(product);
         return text.contains("군인") || text.contains("장병") || text.contains("군무원");
+    }
+
+    /** birthYear → 만 나이 (현재 연도 기준). null이면 null 반환 (필터 생략). */
+    private Integer resolveCustomerAge(Integer birthYear) {
+        if (birthYear == null) return null;
+        return LocalDate.now(clock).getYear() - birthYear;
+    }
+
+    /**
+     * 상품 ID 목록에 대한 TargetGroup 맵을 로드한다.
+     * ProductTargetGroup(중간 테이블) → TargetGroup 조인 처리.
+     */
+    private Map<Long, List<TargetGroup>> loadTargetGroups(List<Long> productIds) {
+        if (productIds.isEmpty()) return Map.of();
+
+        List<ProductTargetGroup> mappings = productTargetGroupRepository.findByIdProductIdIn(productIds);
+        if (mappings.isEmpty()) return Map.of();
+
+        Set<Long> targetGroupIds = mappings.stream()
+                .map(ptg -> ptg.getId().getTargetGroupId())
+                .collect(Collectors.toSet());
+
+        Map<Long, TargetGroup> tgById = targetGroupRepository.findByTargetGroupIdIn(targetGroupIds).stream()
+                .collect(Collectors.toMap(TargetGroup::getTargetGroupId, tg -> tg));
+
+        return mappings.stream()
+                .filter(ptg -> tgById.containsKey(ptg.getId().getTargetGroupId()))
+                .collect(Collectors.groupingBy(
+                        ptg -> ptg.getId().getProductId(),
+                        Collectors.mapping(ptg -> tgById.get(ptg.getId().getTargetGroupId()), Collectors.toList())));
+    }
+
+    /**
+     * 나이 제한 충족 여부 판단.
+     * <ul>
+     *   <li>customerAge == null → 고객 나이 미확인, 필터 생략 (graceful degradation)</li>
+     *   <li>상품에 TargetGroup이 없거나 모든 TG가 나이 제한 없음 → 통과</li>
+     *   <li>하나 이상의 TG 나이 범위에 포함되면 통과, 모두 불만족 → 제외</li>
+     * </ul>
+     */
+    private boolean isAgeEligible(Product product, Integer customerAge,
+                                   Map<Long, List<TargetGroup>> targetGroupsByProductId) {
+        if (customerAge == null) return true;
+
+        List<TargetGroup> groups = targetGroupsByProductId.get(product.getProductId());
+        if (groups == null || groups.isEmpty()) return true;
+
+        // TargetGroup이 있지만 나이 제한이 없는 그룹만 있는 경우에도 통과
+        boolean hasAgeRestriction = groups.stream()
+                .anyMatch(tg -> tg.getMinAge() != null || tg.getMaxAge() != null);
+        if (!hasAgeRestriction) return true;
+
+        // 나이 제한 있는 TG 중 하나라도 범위에 포함되면 가입 가능
+        return groups.stream()
+                .filter(tg -> tg.getMinAge() != null || tg.getMaxAge() != null)
+                .anyMatch(tg -> {
+                    boolean minOk = tg.getMinAge() == null || customerAge >= tg.getMinAge();
+                    boolean maxOk = tg.getMaxAge() == null || customerAge <= tg.getMaxAge();
+                    return minOk && maxOk;
+                });
     }
 
     private String searchableText(Product product) {
