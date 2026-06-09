@@ -340,9 +340,17 @@ export default function TransferAccountPage() {
                         onChange={e => setAmount(e.target.value.replace(/,/g,''))}
                         placeholder="0"
                         className={inputCls + " w-52 text-right"}
-                        style={inputStyle} />
+                        style={{
+                          ...inputStyle,
+                          borderColor: fromAcc && (parseInt(amount.replace(/,/g,''))||0) > fromAcc.availableBalance ? '#EF4444' : inputStyle.borderColor,
+                        }} />
                       <span className="text-[13px] text-kb-text-muted">원</span>
                     </div>
+                    {fromAcc && (parseInt(amount.replace(/,/g,''))||0) > fromAcc.availableBalance && (
+                      <p className="mt-1 text-[12px] text-red-500">
+                        출금가능금액({formatNumber(fromAcc.availableBalance)}원)을 초과했습니다.
+                      </p>
+                    )}
                   </td>
                 </tr>
                 <tr>
