@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import CartModal from '@/components/products/CartModal'
 import DepositSidebar from '@/components/products/DepositSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
-import { fetchDepositProducts, getDepositSlugByProductId, toDepositProductCard } from '@/lib/deposit-api'
+import { fetchDepositProducts, toDepositProductCard } from '@/lib/deposit-api'
 
 type Product = {
   id: string
@@ -287,11 +287,10 @@ export default function DepositListPage() {
 
         products.forEach(product => {
           const card = toDepositProductCard(product)
-          const slug = getDepositSlugByProductId(product.productId, product.productName)
           if (product.productType === 'SUBSCRIPTION') {
             next['주택청약']?.push(card)
           } else if (product.productType === 'SAVINGS') {
-            if (['axful-soldier', 'axful-work', 'axful-dream', 'axful-together'].includes(slug)) {
+            if (product.savingType === 'REGULAR') {
               next['정기적금']?.push(card)
             } else {
               next['자유적금']?.push(card)
