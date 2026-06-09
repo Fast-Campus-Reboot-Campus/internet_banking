@@ -42,7 +42,7 @@ export default function AdminNotificationPage() {
     setLoading(true)
     try {
       const { data: res } = await notificationOutboxApi.list({ size: 30 })
-      setList(res.data ?? res ?? [])
+      setList(res.data?.items ?? [])
     } catch { fail('목록을 불러오지 못했습니다.') }
     finally { setLoading(false) }
   }, [])
@@ -135,9 +135,9 @@ export default function AdminNotificationPage() {
               <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-[13px]">
                 {[
                   ['outboxId', detail.outboxId],
-                  ['유형(notifTypeCd)', detail.notifTypeCd],
-                  ['수신자(recipientId)', detail.recipientId],
-                  ['상태', <StatusBadge key="s" status={detail.statusCd} />],
+                  ['유형(eventTypeCd)', detail.eventTypeCd],
+                  ['수신자(referenceId)', detail.referenceId],
+                  ['상태', <StatusBadge key="s" status={detail.status} />],
                   ['발송일시', formatDt(detail.sentAt)],
                   ['생성일시', formatDt(detail.createdAt)],
                 ].map(([label, value]) => (
@@ -147,7 +147,7 @@ export default function AdminNotificationPage() {
                   </div>
                 ))}
               </dl>
-              {detail.statusCd === 'FAILED' && (
+              {detail.status === 'FAILED' && (
                 <div className="mt-4">
                   <button
                     onClick={() => handleRetry(detail.outboxId)}
@@ -181,12 +181,12 @@ export default function AdminNotificationPage() {
                     {list.map((r: any) => (
                       <tr key={r.outboxId} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-gray-400 text-xs">{r.outboxId}</td>
-                        <td className="px-4 py-3 text-gray-600">{r.notifTypeCd}</td>
-                        <td className="px-4 py-3 text-gray-700">{r.recipientId}</td>
-                        <td className="px-4 py-3"><StatusBadge status={r.statusCd} /></td>
+                        <td className="px-4 py-3 text-gray-600">{r.eventTypeCd}</td>
+                        <td className="px-4 py-3 text-gray-700">{r.referenceId}</td>
+                        <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{formatDt(r.sentAt)}</td>
                         <td className="px-4 py-3">
-                          {r.statusCd === 'FAILED' && (
+                          {r.status === 'FAILED' && (
                             <button
                               onClick={() => handleRetry(r.outboxId)}
                               disabled={busy === r.outboxId}

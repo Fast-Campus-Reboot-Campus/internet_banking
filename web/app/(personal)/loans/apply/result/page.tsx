@@ -3,8 +3,7 @@
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
-import { api } from '@/lib/api'
-import { bpsToRate, loanMiscApi } from '@/lib/loan-api'
+import { bpsToRate, loanApplicationApi, loanMiscApi } from '@/lib/loan-api'
 
 const STATUS_LABEL: Record<string, string> = {
   SUBMITTED: '접수완료', PRESCREENED: '가심사완료', REVIEWING: '심사중',
@@ -40,14 +39,14 @@ function LoanResultContent() {
 
   useEffect(() => {
     if (!applId) return
-    api.get(`/api/loan-applications/${applId}/journey`)
+    loanApplicationApi.journey(parseInt(applId, 10))
       .then(({ data: res }) => setJourney(res.data))
       .catch(() => setError('신청 정보를 불러오지 못했습니다.'))
       .finally(() => setLoading(false))
     loanMiscApi.getStatusHistory('LOAN_APPLICATION', parseInt(applId, 10))
       .then(({ data: res }) => setHistory(res.data?.items ?? []))
       .catch(() => {})
-    api.get(`/api/loan-applications/${applId}/review`)
+    loanApplicationApi.getReview(parseInt(applId, 10))
       .then(({ data: res }) => setReview(res.data))
       .catch(() => {})
   }, [applId])

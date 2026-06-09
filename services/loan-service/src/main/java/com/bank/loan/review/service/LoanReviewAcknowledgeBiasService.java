@@ -98,14 +98,15 @@ public class LoanReviewAcknowledgeBiasService {
             throw new BusinessException(LoanErrorCode.LOAN_200);
         }
 
-        review.biasOverride(req.overrideBy(), req.overrideReason(), OffsetDateTime.now());
+        // 우회 승인자는 인증 토큰(currentActorId)으로만 식별한다. 요청 바디 값은 받지 않는다.
+        review.biasOverride(actorId, req.overrideReason(), OffsetDateTime.now());
 
         statusHistoryPublisher.publish(StatusChangeEvent.of(
                 DOMAIN_CD, TARGET_REVIEW, revId,
                 LoanReview.STATUS_BIAS_REVIEWING, LoanReview.STATUS_BIAS_REVIEWING,
                 REASON_BIAS_OVR,
-                "overrideBy=" + req.overrideBy(),
-                currentActor.currentActorId()
+                "overrideBy=" + actorId,
+                actorId
         ));
 
         return LoanReviewResponse.of(review);

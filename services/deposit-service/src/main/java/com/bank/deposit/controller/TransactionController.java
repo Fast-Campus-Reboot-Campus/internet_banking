@@ -54,7 +54,7 @@ public class TransactionController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(transactionService.transfer(req.fromAccountId(), req.toAccountId(), req.toAccountNo(),
                         req.amount(), req.transferType(), req.counterpartyBankCode(), req.counterpartyBankName(),
-                        req.counterpartyName(), req.channelType(), req.transactionMemo()));
+                        req.counterpartyName(), req.channelType(), req.transactionMemo(), req.idempotencyKey()));
     }
 
     @PostMapping("/savings-payment")

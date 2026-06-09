@@ -69,6 +69,7 @@ public class AgentMetricsRecorder {
         Timer.builder("ai.agent.latency.seconds")
                 .tag(AgentMetricsTags.TRACK, track.name())
                 .tag(AgentMetricsTags.OUTCOME, outcome.name())
+                .publishPercentileHistogram()
                 .register(registry)
                 .record(duration);
     }

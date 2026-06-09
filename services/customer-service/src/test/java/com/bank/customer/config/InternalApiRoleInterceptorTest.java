@@ -34,6 +34,16 @@ class InternalApiRoleInterceptorTest {
     }
 
     @Test
+    @DisplayName("본사 직급(COMPLIANCE 등)도 통과한다 — SecurityConfig 와 화이트리스트 일치")
+    void hqRole_passes() {
+        assertThat(interceptor.preHandle(requestWithRole("ROLE_COMPLIANCE"), response, new Object())).isTrue();
+        assertThat(interceptor.preHandle(requestWithRole("ROLE_HQ_RISK"), response, new Object())).isTrue();
+        assertThat(interceptor.preHandle(requestWithRole("ROLE_HQ_REVIEWER"), response, new Object())).isTrue();
+        assertThat(interceptor.preHandle(requestWithRole("ROLE_HQ_MARKETING"), response, new Object())).isTrue();
+        assertThat(interceptor.preHandle(requestWithRole("ROLE_OPS"), response, new Object())).isTrue();
+    }
+
+    @Test
     @DisplayName("여러 역할 중 직원 역할이 포함되면 통과한다")
     void mixedRolesWithEmployee_passes() {
         boolean result = interceptor.preHandle(

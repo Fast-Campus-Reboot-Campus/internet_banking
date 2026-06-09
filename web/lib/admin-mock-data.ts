@@ -1,87 +1,18 @@
-// ─── 역할 정의 ────────────────────────────────────────────────────────────────
-
-export type AdminRole =
-  | 'ROLE_HQ_AUDIT'
-  | 'ROLE_HQ_REVIEW'
-  | 'ROLE_HQ_RISK'
-  | 'ROLE_HQ_MARKETING'
-  | 'ROLE_PRIMARY_OWNER'
-  | 'ROLE_BRANCH_STAFF'
-  | 'ROLE_OTHER_BRANCH'
+// ─── 관리자 콘솔 신원 ──────────────────────────────────────────────────────────
+// 역할 어휘는 BankRole(JWT, admin_roles)로 단일화했다. 표시 라벨·접근정책(마스킹/감사조회/
+// 사유필요/타지점)은 lib/admin-auth.ts 참조. (구 AdminRole·ROLE_LABELS·applyMasking 등 제거)
+// 데모 직원 계정 목록은 admin-demo-accounts.ts 로 분리(운영 번들 제외, DEMO_MODE 동적 import).
 
 export interface AdminUser {
-  id: string
+  /** 백엔드 직원 계정 loginId */
+  loginId: string
+  /** 표시 이름 (데모는 큐레이션, 비데모는 loginId) */
   name: string
-  role: AdminRole
-  branchId: string
+  /** 소속 지점 코드 (JWT branch) */
+  branchCode: string
+  /** 소속 지점명 (표시용) */
   branchName: string
 }
-
-export const ADMIN_ACCOUNTS: AdminUser[] = [
-  { id: 'A001', name: '김감사',   role: 'ROLE_HQ_AUDIT',      branchId: 'HQ',   branchName: '본사 감사부' },
-  { id: 'A002', name: '이심사',   role: 'ROLE_HQ_REVIEW',     branchId: 'HQ',   branchName: '본사 심사부' },
-  { id: 'A003', name: '박리스크', role: 'ROLE_HQ_RISK',       branchId: 'HQ',   branchName: '본사 리스크관리부' },
-  { id: 'A004', name: '최마케팅', role: 'ROLE_HQ_MARKETING',  branchId: 'HQ',   branchName: '본사 마케팅/기획부' },
-  { id: 'A005', name: '정담당',   role: 'ROLE_PRIMARY_OWNER', branchId: 'B001', branchName: '강남지점' },
-  { id: 'A006', name: '한직원',   role: 'ROLE_BRANCH_STAFF',  branchId: 'B001', branchName: '강남지점' },
-  { id: 'A007', name: '오타지점', role: 'ROLE_OTHER_BRANCH',  branchId: 'B002', branchName: '종로지점' },
-]
-
-export const ROLE_LABELS: Record<AdminRole, string> = {
-  ROLE_HQ_AUDIT:      '감사부 (본사)',
-  ROLE_HQ_REVIEW:     '심사부 (본사)',
-  ROLE_HQ_RISK:       '리스크관리부 (본사)',
-  ROLE_HQ_MARKETING:  '마케팅/기획부 (본사)',
-  ROLE_PRIMARY_OWNER: '담당 직원 (지점)',
-  ROLE_BRANCH_STAFF:  '지점 직원 (동일지점)',
-  ROLE_OTHER_BRANCH:  '타 지점 직원',
-}
-
-// ─── 고객 (기존) ──────────────────────────────────────────────────────────────
-
-export interface CustomerRecord {
-  id: string; name: string; ssn: string; phone: string
-  accountNumber: string; balance: number; branchId: string; branchName: string
-  primaryOwnerId: string; riskScore: number; joinedAt: string
-}
-export interface AuditLog {
-  id: string; accessorId: string; accessorName: string; accessorRole: AdminRole
-  targetCustomerId: string; targetCustomerName: string; action: string
-  reason: string | null; accessedAt: string; branchId: string
-}
-
-export const MOCK_CUSTOMERS: CustomerRecord[] = [
-  { id:'C001', name:'홍길동', ssn:'901010-1234567', phone:'010-1234-5678', accountNumber:'123-456-789012', balance:12500000, branchId:'B001', branchName:'강남지점', primaryOwnerId:'A005', riskScore:32, joinedAt:'2019-03-15' },
-  { id:'C002', name:'김영희', ssn:'850520-2345678', phone:'010-2345-6789', accountNumber:'234-567-890123', balance:87300000, branchId:'B001', branchName:'강남지점', primaryOwnerId:'A005', riskScore:15, joinedAt:'2020-07-22' },
-  { id:'C003', name:'이철수', ssn:'780303-1456789', phone:'010-3456-7890', accountNumber:'345-678-901234', balance:3200000,  branchId:'B001', branchName:'강남지점', primaryOwnerId:'A005', riskScore:68, joinedAt:'2021-01-10' },
-  { id:'C004', name:'박지은', ssn:'950815-2567890', phone:'010-4567-8901', accountNumber:'456-789-012345', balance:45000000, branchId:'B002', branchName:'종로지점', primaryOwnerId:'A007', riskScore:22, joinedAt:'2018-11-30' },
-  { id:'C005', name:'최준호', ssn:'001224-3678901', phone:'010-5678-9012', accountNumber:'567-890-123456', balance:920000,   branchId:'B002', branchName:'종로지점', primaryOwnerId:'A007', riskScore:81, joinedAt:'2023-05-01' },
-  { id:'C006', name:'정미래', ssn:'880912-2789012', phone:'010-6789-0123', accountNumber:'678-901-234567', balance:230000000, branchId:'B001', branchName:'강남지점', primaryOwnerId:'A005', riskScore:9, joinedAt:'2017-06-14' },
-]
-export const MOCK_AUDIT_LOGS: AuditLog[] = [
-  { id:'L001', accessorId:'A005', accessorName:'정담당',   accessorRole:'ROLE_PRIMARY_OWNER', targetCustomerId:'C001', targetCustomerName:'홍길동', action:'고객 상세 조회',   reason:null,              accessedAt:'2026-05-25 09:12:34', branchId:'B001' },
-  { id:'L002', accessorId:'A006', accessorName:'한직원',   accessorRole:'ROLE_BRANCH_STAFF',  targetCustomerId:'C002', targetCustomerName:'김영희', action:'자산 현황 조회',   reason:'대출 상담 요청',  accessedAt:'2026-05-25 09:45:11', branchId:'B001' },
-  { id:'L003', accessorId:'A001', accessorName:'김감사',   accessorRole:'ROLE_HQ_AUDIT',      targetCustomerId:'C005', targetCustomerName:'최준호', action:'거래내역 전체 조회', reason:null,            accessedAt:'2026-05-25 10:03:22', branchId:'HQ'   },
-  { id:'L004', accessorId:'A006', accessorName:'한직원',   accessorRole:'ROLE_BRANCH_STAFF',  targetCustomerId:'C003', targetCustomerName:'이철수', action:'상담 이력 조회',   reason:'이체 오류 민원',  accessedAt:'2026-05-25 10:30:55', branchId:'B001' },
-  { id:'L005', accessorId:'A002', accessorName:'이심사',   accessorRole:'ROLE_HQ_REVIEW',     targetCustomerId:'C005', targetCustomerName:'최준호', action:'대출 신청 심사',   reason:null,              accessedAt:'2026-05-25 11:15:08', branchId:'HQ'   },
-  { id:'L006', accessorId:'A005', accessorName:'정담당',   accessorRole:'ROLE_PRIMARY_OWNER', targetCustomerId:'C006', targetCustomerName:'정미래', action:'고객 상세 조회',   reason:null,              accessedAt:'2026-05-25 11:48:33', branchId:'B001' },
-  { id:'L007', accessorId:'A003', accessorName:'박리스크', accessorRole:'ROLE_HQ_RISK',       targetCustomerId:'C005', targetCustomerName:'최준호', action:'리스크 스코어 조회', reason:null,            accessedAt:'2026-05-25 13:22:17', branchId:'HQ'   },
-]
-
-// ─── 마스킹 유틸 ──────────────────────────────────────────────────────────────
-
-export function applyMasking(customer: CustomerRecord, role: AdminRole) {
-  switch (role) {
-    case 'ROLE_HQ_AUDIT': case 'ROLE_PRIMARY_OWNER': return { ...customer }
-    case 'ROLE_HQ_REVIEW':    return { ...customer, ssn: customer.ssn.slice(0,7)+'-*******', phone: customer.phone.slice(0,9)+'****' }
-    case 'ROLE_HQ_RISK':      return { ...customer, name: customer.name[0]+'*'.repeat(customer.name.length-1), ssn:'******-*******', phone:customer.phone.slice(0,4)+'-****-****', accountNumber:customer.accountNumber.slice(0,4)+'-***-******' }
-    case 'ROLE_HQ_MARKETING': return { ...customer, name: customer.name[0]+'*'.repeat(customer.name.length-1), ssn:'******-*******', phone:'010-****-****', accountNumber:'***-***-******' }
-    case 'ROLE_BRANCH_STAFF': return { ...customer, ssn:'******-*******' }
-    case 'ROLE_OTHER_BRANCH': return null
-  }
-}
-export function canViewAuditLog(role: AdminRole) { return ['ROLE_HQ_AUDIT','ROLE_HQ_REVIEW','ROLE_PRIMARY_OWNER','ROLE_BRANCH_STAFF'].includes(role) }
-export function requiresReason(role: AdminRole)  { return role === 'ROLE_BRANCH_STAFF' }
 
 // ─── A-C-001 제재대상 스크리닝 ────────────────────────────────────────────────
 

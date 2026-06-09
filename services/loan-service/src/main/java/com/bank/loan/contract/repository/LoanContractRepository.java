@@ -1,6 +1,7 @@
 package com.bank.loan.contract.repository;
 
 import com.bank.loan.contract.domain.LoanContract;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -19,6 +20,21 @@ public interface LoanContractRepository extends JpaRepository<LoanContract, Long
     List<LoanContract> findByCntrStatusCdAndDeletedAtIsNullOrderByCntrIdAsc(String cntrStatusCd);
 
     List<LoanContract> findByCustomerIdAndDeletedAtIsNullOrderByCntrIdDesc(Long customerId);
+
+    /** 운영자용 전체 계약 목록 — 상태·시작일 범위 선택 필터, 최신순. */
+    @Query("""
+            SELECT c FROM LoanContract c
+            WHERE c.deletedAt IS NULL
+              AND (:statusCd IS NULL OR c.cntrStatusCd = :statusCd)
+              AND (:dateFrom IS NULL OR c.cntrStartDate >= :dateFrom)
+              AND (:dateTo   IS NULL OR c.cntrStartDate <= :dateTo)
+            ORDER BY c.cntrId DESC
+            """)
+    Page<LoanContract> findForAdmin(
+            @Param("statusCd") String statusCd,
+            @Param("dateFrom") String dateFrom,
+            @Param("dateTo") String dateTo,
+            Pageable pageable);
 
     /** common_db 미동기화 활성/종결 계약 — 백필 배치 핫패스. */
     List<LoanContract> findByContractIdIsNullAndCntrStatusCdInAndDeletedAtIsNullOrderByCntrIdAsc(

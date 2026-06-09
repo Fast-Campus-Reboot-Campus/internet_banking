@@ -329,7 +329,7 @@ export default function LoanMainPage() {
         {/* ===== 대출 계산기 ===== */}
         <div className="mb-8">
           <h3 className="text-[17px] font-bold text-kb-text mb-4">대출 계산기</h3>
-          <div className="border border-kb-primary-border">
+          <div className="border border-kb-primary-border rounded-xl">
 
             {/* 수평 탭 */}
             <div className="flex border-b border-kb-primary-border">
@@ -349,7 +349,7 @@ export default function LoanMainPage() {
                     </span>
                   </button>
                   {termTooltip === i && (
-                    <div className="absolute left-0 top-full z-20 bg-white border border-kb-primary-border shadow-md p-3 w-64 text-[12px] text-kb-text-body leading-relaxed">
+                    <div className="absolute left-0 top-full z-20 bg-white border border-kb-primary-border rounded-lg shadow-md p-3 w-64 text-[12px] text-kb-text-body leading-relaxed">
                       <button
                         onClick={() => setTermTooltip(null)}
                         className="absolute top-2 right-2 text-kb-text-muted hover:text-kb-text leading-none text-[14px]">
@@ -408,7 +408,7 @@ export default function LoanMainPage() {
                   <div className="flex gap-1">
                     {AMT_BTNS.map(b => (
                       <button key={b} onClick={() => handleAmtBtn(b)}
-                        className="border border-kb-primary-border px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
+                        className="border border-kb-primary-border rounded-lg px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
                     ))}
                   </div>
                 )}
@@ -416,7 +416,7 @@ export default function LoanMainPage() {
                   <div className="flex gap-1">
                     {YEAR_BTNS.map(b => (
                       <button key={b} onClick={() => handleYearBtn(b)}
-                        className="border border-kb-primary-border px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
+                        className="border border-kb-primary-border rounded-lg px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
                     ))}
                   </div>
                 )}
@@ -424,7 +424,7 @@ export default function LoanMainPage() {
                   <div className="flex gap-1">
                     {RATE_BTNS.map(b => (
                       <button key={b} onClick={() => handleRateBtn(b)}
-                        className="border border-kb-primary-border px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
+                        className="border border-kb-primary-border rounded-lg px-3 py-1 text-[11px] text-kb-text-body hover:bg-kb-primary-bg">{b}</button>
                     ))}
                   </div>
                 )}
@@ -438,7 +438,7 @@ export default function LoanMainPage() {
                 </p>
                 <button
                   onClick={() => { setPrincipal(''); setYears(''); setRate(''); setCalcResult(null) }}
-                  className="border border-kb-primary-border px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-primary-bg">
+                  className="border border-kb-primary-border rounded-lg px-4 py-1 text-[12px] text-kb-text-body hover:bg-kb-primary-bg">
                   다시하기
                 </button>
               </div>
@@ -451,7 +451,7 @@ export default function LoanMainPage() {
                   상환 예정 금액은 <span className="font-bold text-kb-text">{CALC_TABS[calcTab]}</span> 기준 매월 약{' '}
                   <span className="font-bold text-kb-text">{fmtN(calcResult.total)}원</span>이에요.
                 </p>
-                <div className="mx-6 mb-2 border border-kb-primary-border">
+                <div className="mx-6 mb-2 border border-kb-primary-border rounded-xl overflow-hidden">
                   <div className="bg-kb-primary-bg px-4 py-2 border-b border-kb-primary-border flex items-center justify-between">
                     <p className="text-[13px] font-bold text-kb-text">상환예정금액</p>
                     <p className="text-[11px] text-kb-text-muted">대출계산결과</p>
@@ -477,7 +477,7 @@ export default function LoanMainPage() {
 
         {/* ===== 하단 안내 ===== */}
         <div className="flex gap-4">
-          <div className="flex-1 border border-kb-primary-border p-6">
+          <div className="flex-1 border border-kb-primary-border rounded-xl p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">이용시간 안내</p>
             <div className="text-[13px] space-y-2">
               <p className="flex items-baseline gap-4">
@@ -492,14 +492,14 @@ export default function LoanMainPage() {
               </p>
             </div>
           </div>
-          <div className="flex-1 border border-kb-primary-border p-6">
+          <div className="flex-1 border border-kb-primary-border rounded-xl p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">대출가이드</p>
             <div className="text-[13px] space-y-2">
               <Link href="/products/loan/manage/rate" className="block text-kb-text-body hover:underline">· 가계대출금리</Link>
               <Link href="/products/loan/manage/rate-detail" className="block text-kb-text-body hover:underline">· 금리산정내역서</Link>
             </div>
           </div>
-          <div className="flex-1 border border-kb-primary-border p-6">
+          <div className="flex-1 border border-kb-primary-border rounded-xl p-6">
             <p className="text-[15px] font-bold text-kb-text mb-4">KB부동산</p>
             <div className="text-[13px] space-y-2">
               <Link href="/products/loan/credit" className="block text-kb-text-body hover:underline">· 신용대출 상품 보기</Link>

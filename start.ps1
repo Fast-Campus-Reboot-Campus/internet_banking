@@ -21,8 +21,19 @@ $env:DEPOSIT_DB_PORT          = "5433"
 $env:DEPOSIT_DB_PASSWORD      = "deposit"
 $env:LOAN_DB_PORT             = "5434"
 $env:PAYMENT_DB_PORT          = "5435"
+$env:PAYMENT_DB_B_PORT        = "5441"
 $env:MASTER_DB_PORT           = "5436"
+$env:AI_DB_PORT               = "5437"
 $env:COMMON_DB_PORT           = "5438"
+# doc-agent-db: common-db(5438)/langfuse-db(5439) 호스트 포트 충돌 회피용으로 5440 분리
+$env:DOC_AGENT_DB_PORT        = "5440"
+# 호스트 bootRun 모드: loan-service의 서비스 간 base-url 기본값이 도커 네트워크 호스트명이라
+# 호스트 실행 시 이름이 풀리지 않는다. 두 서비스 모두 도커가 아닌 호스트 bootRun으로 뜨고
+# 각자 server.port(auto-loan-review 8089, doc-agent 8087)로 listen 하므로 localhost로 오버라이드한다.
+$env:AUTO_REVIEW_BASE_URL     = "http://localhost:8089"
+$env:DOC_AGENT_BASE_URL       = "http://localhost:8087"
+$env:VAULT_PORT               = "8200"
+$env:MINIO_PORT               = "9000"
 $env:REDIS_HOST               = "localhost"
 $env:SCHEMA_REGISTRY_URL      = "http://localhost:18081"
 # payment-service: 통합 단일 브로커(ib-kafka:9092)로 kftc/bok/internal 3 논리 클러스터 통합
@@ -43,15 +54,40 @@ if (Test-Path $envFile) {
     }
 }
 
+# consultation-service (FastAPI 챗봇) 환경변수
+# env_prefix="CONSULTATION_" 이므로 OpenAI 키는 prefix 형태로 브리지한다.
+$env:CONSULTATION_DATABASE_URL   = "postgresql+psycopg://deposit:deposit@localhost:5433/deposit_db"
+$env:CONSULTATION_KAFKA_ENABLED  = "false"
+$env:CONSULTATION_OPENAI_API_KEY = $env:OPENAI_API_KEY
+$env:CONSULTATION_OPENAI_MODEL   = "gpt-4o-mini"
+
+# alertmanager.yml 은 gitignore 대상(.sample 복사 컨벤션). 없으면 Docker가 빈 디렉터리를
+# 만들어 마운트가 깨지므로, bind-mount 전에 sample에서 실제 파일을 보장한다.
+$amConf   = Join-Path $root "infra\alertmanager\alertmanager.yml"
+$amSample = Join-Path $root "infra\alertmanager\alertmanager.yml.sample"
+if ((Test-Path $amConf -PathType Container) ) { Remove-Item -Recurse -Force $amConf }
+if (-not (Test-Path $amConf) -and (Test-Path $amSample)) { Copy-Item $amSample $amConf }
+
 # 1. Start infra containers only (skip Docker-build app services)
 Write-Host "[1/3] Starting infrastructure..." -ForegroundColor Yellow
 $infra = @(
-    "customer-db","deposit-db","loan-db","common-db","payment-db","master-db","ai-db",
-    "kafka","schema-registry","redis",
-    "prometheus","grafana",
-    "loki","promtail","langfuse-db","langfuse","phoenix"
+    # Databases
+    "customer-db","deposit-db","loan-db","common-db",
+    "payment-db","payment-db-b","master-db","ai-db",
+    "doc-agent-db","langfuse-db",
+    # Messaging / streaming (Kafka 전체: 브로커 + 레지스트리 + Connect + exporter)
+    # payment-topic-init: kafka healthy 후 결제계 18개 토픽 선생성(원샷). 앱 bootRun 전에 토픽 보장.
+    "kafka","payment-topic-init","schema-registry","kafka-connect","kafka-connect-init",
+    "kafka-exporter-kftc","kafka-exporter-bok","kafka-exporter-internal",
+    # Cache / storage / secrets / search
+    "redis","minio","vault","elasticsearch",
+    # Monitoring / observability
+    "prometheus","grafana","alertmanager","blackbox-exporter",
+    "loki","promtail","langfuse","phoenix","kibana"
 )
-docker compose up -d @infra
+# doc-agent-db/minio/vault 는 profile "doc", kafka-connect·elasticsearch·kibana 등은 profile "rag" 소속이라
+# 프로파일을 활성화해야 떠다. (프로파일 미지정 시 이름을 명시해도 의존성 해석이 어긋날 수 있어 명시적으로 켠다)
+docker compose --profile doc --profile rag up -d @infra
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] docker compose failed" -ForegroundColor Red
     Read-Host "Press Enter to exit"
@@ -85,20 +121,46 @@ Start-Process cmd -ArgumentList "/k gradlew.bat :services:payment-service:bootRu
 Start-Sleep -Seconds 2
 Start-Process cmd -ArgumentList "/k gradlew.bat :services:master-service:bootRun" -WorkingDirectory $root -WindowStyle Normal
 Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:api-gateway:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:auto-loan-review:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:review-ai-gateway:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
+Start-Process cmd -ArgumentList "/k gradlew.bat :services:doc-agent:bootRun" -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
+
+# consultation-service (FastAPI, 8090) — venv 자동 구성 후 기동
+$consultDir    = Join-Path $root "services\consultation-service"
+$consultVenvPy = Join-Path $consultDir ".venv\Scripts\python.exe"
+if (-not (Test-Path $consultVenvPy)) {
+    Write-Host "  consultation-service: venv 생성 + 의존성 설치 (최초 1회, 수 분 소요)..." -ForegroundColor Yellow
+    python -m venv (Join-Path $consultDir ".venv")
+    & $consultVenvPy -m pip install --upgrade pip -q
+    & $consultVenvPy -m pip install -r (Join-Path $consultDir "requirements.txt") -q
+}
+Start-Process cmd -ArgumentList "/k `"$consultVenvPy`" -m uvicorn app.main:app --host 0.0.0.0 --port 8090 --log-level info" -WorkingDirectory $consultDir -WindowStyle Normal
+Start-Sleep -Seconds 2
+
 Start-Process cmd -ArgumentList "/k npm run dev" -WorkingDirectory "$root\web" -WindowStyle Normal
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " 6 service windows opened (ready in ~30-60s)"
+Write-Host " 11 service windows opened (ready in ~30-90s)"
 Write-Host ""
 Write-Host " Web UI      http://localhost:3001" -ForegroundColor Green
 Write-Host ""
 Write-Host " Swagger:"
-Write-Host "   customer  http://localhost:8081/swagger-ui.html"
-Write-Host "   deposit   http://localhost:8082/swagger-ui.html"
-Write-Host "   loan      http://localhost:8083/swagger-ui.html"
-Write-Host "   payment   http://localhost:8084/swagger-ui.html"
-Write-Host "   master    http://localhost:8085/swagger-ui.html"
+Write-Host "   customer   http://localhost:8081/swagger-ui.html"
+Write-Host "   deposit    http://localhost:8082/swagger-ui.html"
+Write-Host "   loan       http://localhost:8083/swagger-ui.html"
+Write-Host "   payment    http://localhost:8084/swagger-ui.html"
+Write-Host "   master     http://localhost:8085/swagger-ui.html"
+Write-Host "   api-gw     http://localhost:8080/actuator/health"
+Write-Host "   auto-loan  http://localhost:8089/swagger-ui.html"
+Write-Host "   review-ai  http://localhost:8088/swagger-ui.html"
+Write-Host "   doc-agent  http://localhost:8087/swagger-ui.html"
+Write-Host "   chatbot    http://localhost:8090/docs  (consultation-service)"
 Write-Host ""
 Write-Host " Grafana     http://localhost:3000  (admin/admin)" -ForegroundColor Green
 Write-Host " Langfuse    http://localhost:3002" -ForegroundColor Green

@@ -89,3 +89,7 @@ logging:
     name: ${LOG_DIR:/logs}/payment-service.log
   level:
     root: INFO
+
+app:
+  cors:
+    enabled: ${APP_CORS_ENABLED:false}

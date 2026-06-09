@@ -189,7 +189,7 @@ groups:
       - alert: ReviewResponseTimeSlow
         expr: |
           histogram_quantile(0.95,
-            sum(rate(review_duration_seconds_bucket{application="ai-service"}[5m])) by (le)
+            sum(rate(review_duration_seconds_bucket{application="auto-loan-review"}[5m])) by (le)
           ) > 3
         for: 3m
         labels:
@@ -200,9 +200,9 @@ groups:
 
       - alert: ReviewInferenceErrorHigh
         expr: |
-          sum(rate(review_inference_error_total{application="ai-service"}[5m]))
+          sum(rate(review_inference_error_total{application="auto-loan-review"}[5m]))
           /
-          (sum(rate(review_decision_total{application="ai-service"}[5m])) + sum(rate(review_inference_error_total{application="ai-service"}[5m])) + 0.001)
+          (sum(rate(review_decision_total{application="auto-loan-review"}[5m])) + sum(rate(review_inference_error_total{application="auto-loan-review"}[5m])) + 0.001)
           > 0.05
         for: 2m
         labels:
@@ -213,9 +213,9 @@ groups:
 
       - alert: ReviewRejectRateHigh
         expr: |
-          sum(rate(review_decision_total{application="ai-service", decision="REJECT"}[10m]))
+          sum(rate(review_decision_total{application="auto-loan-review", decision="REJECT"}[10m]))
           /
-          sum(rate(review_decision_total{application="ai-service"}[10m]))
+          sum(rate(review_decision_total{application="auto-loan-review"}[10m]))
           > 0.70
         for: 5m
         labels:
@@ -226,7 +226,7 @@ groups:
 
       - alert: ReviewInputMissingHigh
         expr: |
-          sum(increase(review_input_missing_total{application="ai-service"}[5m])) > 10
+          sum(increase(review_input_missing_total{application="auto-loan-review"}[5m])) > 10
         for: 0m
         labels:
           severity: warning
@@ -236,7 +236,7 @@ groups:
 
       - alert: ReviewInputOutlierHigh
         expr: |
-          sum(increase(review_input_outlier_total{application="ai-service"}[5m])) > 10
+          sum(increase(review_input_outlier_total{application="auto-loan-review"}[5m])) > 10
         for: 0m
         labels:
           severity: warning

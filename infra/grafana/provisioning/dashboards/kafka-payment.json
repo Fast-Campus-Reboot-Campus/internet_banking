@@ -58,7 +58,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background" },
       "targets": [
         {
-          "expr": "sum(kafka_consumergroup_lag) by (consumergroup)",
+          "expr": "clamp_min(sum(kafka_consumergroup_lag) by (consumergroup), 0)",
           "legendFormat": "{{consumergroup}}"
         }
       ],

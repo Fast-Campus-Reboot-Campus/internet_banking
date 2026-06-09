@@ -17,14 +17,14 @@ export default function CartModal({ productName, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div className="bg-white shadow-2xl" style={{ width: 420 }}>
+      <div className="bg-white shadow-2xl rounded-xl overflow-hidden" style={{ width: 420 }}>
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3 bg-kb-yellow">
-          <span className="text-[16px] font-bold text-kb-text">장바구니 담기</span>
-          <span className="text-[13px] font-bold text-kb-text flex items-center gap-1">
+        <div className="flex items-center justify-between px-5 py-3 bg-kb-primary">
+          <span className="text-[16px] font-bold text-white">장바구니 담기</span>
+          <span className="text-[13px] font-bold text-white flex items-center gap-1">
             <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4" stroke="currentColor" strokeWidth="2">
-              <path d="M10 2L3 7v6c0 4 2.5 7 7 8 4.5-1 7-4 7-8V7L10 2z" fill="#1A1A1A" stroke="none"/>
+              <path d="M10 2L3 7v6c0 4 2.5 7 7 8 4.5-1 7-4 7-8V7L10 2z" fill="#FFFFFF" stroke="none"/>
             </svg>
             AXful Bank
           </span>
@@ -67,13 +67,13 @@ export default function CartModal({ productName, onClose }: Props) {
         <div className="flex justify-center gap-2 py-3">
           <button
             onClick={handleConfirm}
-            className="bg-kb-yellow px-7 py-2 text-[13px] font-bold text-kb-text hover:bg-kb-yellow-dark transition-colors"
+            className="bg-kb-primary px-7 py-2 text-[13px] font-bold text-white rounded-xl hover:opacity-85 transition-opacity"
           >
             확인
           </button>
           <button
             onClick={onClose}
-            className="border border-kb-border px-7 py-2 text-[13px] text-kb-text-body hover:bg-kb-beige-light transition-colors"
+            className="border border-kb-primary-border px-7 py-2 text-[13px] text-kb-text-body rounded-xl hover:bg-kb-primary-bg transition-colors"
           >
             취소
           </button>

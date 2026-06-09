@@ -6,6 +6,8 @@ import com.bank.loan.product.preferential.domain.PreferentialRatePolicy;
 import com.bank.loan.product.preferential.dto.CreatePreferentialRatePolicyRequest;
 import com.bank.loan.product.preferential.dto.PreferentialRatePolicyResponse;
 import com.bank.loan.product.preferential.repository.PreferentialRatePolicyRepository;
+
+import java.util.List;
 import com.bank.loan.product.repository.LoanProductRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -46,5 +48,13 @@ public class PreferentialRatePolicyService {
                 .build());
 
         return PreferentialRatePolicyResponse.of(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PreferentialRatePolicyResponse> list(Long prodId) {
+        return policyRepository.findAllByProdIdAndDeletedAtIsNullOrderByPolicyIdAsc(prodId)
+                .stream()
+                .map(PreferentialRatePolicyResponse::of)
+                .toList();
     }
 }

@@ -15,7 +15,7 @@
 | loan-service | 8083 | `LOAN_APP_PORT` | Spring Boot |
 | payment-service | 8084 | `PAYMENT_APP_PORT` | Spring Boot |
 | master-service | 8085 | `MASTER_APP_PORT` | Spring Boot |
-| auto-loan-review | 8086 | `AI_APP_PORT` | Spring Boot, 대출 자동 심사 에이전트 |
+| auto-loan-review | 8089 | `AUTO_LOAN_REVIEW_APP_PORT` | Spring Boot, 대출 자동 심사 에이전트 |
 | consultation-service | 8087 | `CONSULTATION_APP_PORT` | Python FastAPI, 챗봇 상담 |
 | review-ai-gateway | 8088 | `AIGATEWAY_APP_PORT` | Spring Boot, 감사 분석 에이전트 |
 | inference-server | 8090 | — | Python, auto-loan-review에서 호출 (별도 기동) |
@@ -109,7 +109,7 @@
 | loan-service | 8083 | `/actuator/prometheus` |
 | payment-service | 8084 | `/actuator/prometheus` |
 | master-service | 8085 | `/actuator/prometheus` |
-| auto-loan-review | 8086 | `/actuator/prometheus` |
+| auto-loan-review | 8089 | `/actuator/prometheus` |
 | consultation-service | 8087 | `/metrics` |
 | review-ai-gateway | 8088 | `/actuator/prometheus` |
 | windows-exporter | 9182 | 기본 |

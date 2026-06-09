@@ -1,11 +1,11 @@
 'use client'
-import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
-import { api } from '@/lib/api'
+import { loanContractApi, getCustomerId } from '@/lib/loan-api'
 
 type LoanContract = {
   cntrId: number
@@ -73,8 +73,10 @@ export default function MyLoanPage() {
   const [error, setError]         = useState('')
 
   useEffect(() => {
-    api.get('/api/loan-contracts')
-      .then(res => setContracts(res.data.data?.items ?? []))
+    const cid = getCustomerId()
+    if (!cid) { setLoading(false); return }
+    loanContractApi.list({ customerId: cid, size: 50 })
+      .then(({ data: res }) => setContracts(res.data?.items ?? []))
       .catch(() => setError('대출 계약 정보를 불러오지 못했습니다.'))
       .finally(() => setLoading(false))
   }, [])
@@ -265,7 +267,7 @@ export default function MyLoanPage() {
                         ].map(({ label, href }) => (
                           <Link key={label} href={`${href}?cntrId=${c.cntrId}`}
                             className="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition-colors hover:bg-kb-primary-bg"
-                            style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                            style={{ borderColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                             {label}
                           </Link>
                         ))}

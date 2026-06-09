@@ -17,10 +17,7 @@ const NAV: SidebarItem[] = [
   },
   {
     label: '대출진행현황',
-    expandable: true,
-    children: [
-      { label: '진행현황조회/실행/예약', href: '/products/loan/status' },
-    ],
+    href: '/products/loan/status',
   },
   { label: '🔒 인증센터', href: '/cert' },
 ]

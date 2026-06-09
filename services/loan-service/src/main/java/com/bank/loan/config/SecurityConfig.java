@@ -1,12 +1,15 @@
 package com.bank.loan.config;
 
+import com.bank.common.security.jwt.JwtProvider;
 import com.bank.loan.security.GatewayHeaderAuthFilter;
 import com.bank.loan.security.InternalTokenFilter;
+import com.bank.loan.security.JwtFallbackAuthFilter;
 import com.bank.loan.security.LoanRole;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.lang.Nullable;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -14,6 +17,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.List;
 
 /**
  * loan-service Spring Security 설정.
@@ -50,14 +57,23 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           InternalTokenFilter internalTokenFilter) throws Exception {
+                                           InternalTokenFilter internalTokenFilter,
+                                           @Nullable JwtProvider jwtProvider) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .addFilterBefore(gatewayHeaderAuthFilter(), UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(internalTokenFilter, GatewayHeaderAuthFilter.class)
+            .addFilterAfter(internalTokenFilter, GatewayHeaderAuthFilter.class);
+
+        // jwt.secret이 설정된 경우(로컬 개발)에만 JWT 직접 파싱 폴백 필터 등록
+        if (jwtProvider != null) {
+            http.addFilterAfter(new JwtFallbackAuthFilter(jwtProvider), InternalTokenFilter.class);
+        }
+
+        http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                         "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
@@ -66,6 +82,22 @@ public class SecurityConfig {
                         "/actuator/health", "/actuator/info", "/actuator/prometheus"
                 ).permitAll()
 
+                // 대출 상품 목록·상세·우대금리 조회 — 비로그인 공개
+                .requestMatchers(HttpMethod.GET,
+                        "/api/loan-products",
+                        "/api/loan-products/*",
+                        "/api/loan-products/*/preferential-rate-policies"
+                ).permitAll()
+
+                // 운영자 계약 모니터링(읽기 전용) — 운영/본사/지점 직원 역할 허용 (CUSTOMER·INTERNAL 제외)
+                .requestMatchers(HttpMethod.GET,
+                        "/api/admin/loan-contracts"
+                ).hasAnyRole(
+                        LoanRole.OPS.spring(), LoanRole.ADMIN.spring(),
+                        LoanRole.HQ_REVIEWER.spring(), LoanRole.COMPLIANCE.spring(),
+                        LoanRole.BRANCH_MANAGER.spring(), LoanRole.DEPUTY_MANAGER.spring()
+                )
+
                 // 운영팀 전용 내부 엔드포인트 — ROLE_OPS
                 .requestMatchers(HttpMethod.POST,
                         "/api/internal/loan-reviews/*/bias-ops-note"
@@ -73,6 +105,13 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/api/internal/eod/**"
                 ).hasRole(LoanRole.OPS.spring())
+
+                // advisory 내부 RAG 관리(문서 등록·인덱싱) — 본사 AI 공통 자산이므로
+                // advisory 조회 권한(HQ 계열)과 동일하게 허용 + 서비스 간 INTERNAL
+                .requestMatchers("/api/internal/advisory/**").hasAnyRole(
+                        LoanRole.ADMIN.spring(), LoanRole.OPS.spring(), LoanRole.INTERNAL.spring(),
+                        LoanRole.HQ_REVIEWER.spring(), LoanRole.COMPLIANCE.spring()
+                )
 
                 // 서비스 간 내부 엔드포인트 — ROLE_INTERNAL (X-Internal-Token)
                 .requestMatchers("/api/internal/**").hasRole(LoanRole.INTERNAL.spring())
@@ -102,6 +141,19 @@ public class SecurityConfig {
                         "/api/loan-applications/*/review/acknowledge-bias"
                 ).hasAnyRole(LoanRole.DEPUTY_MANAGER.spring(), LoanRole.OPS.spring())
 
+                // 신용평가·DSR 실행 — 직원 전용 (DEPUTY·OPS)
+                // (가심사 POST /prescreening 은 고객 한도조회와 같은 엔드포인트라 규칙 미적용)
+                .requestMatchers(HttpMethod.POST,
+                        "/api/loan-applications/*/credit-evaluation",
+                        "/api/loan-applications/*/dsr-calculation"
+                ).hasAnyRole(LoanRole.DEPUTY_MANAGER.spring(), LoanRole.OPS.spring())
+
+                // 결정 정정(PATCH) — 최종 결재권자만 (BRANCH_MANAGER)
+                // 경로가 /review 로 같아도 위 POST 규칙은 POST 한정이라 PATCH 는 별도 규칙 필요
+                .requestMatchers(HttpMethod.PATCH,
+                        "/api/loan-applications/*/review"
+                ).hasRole(LoanRole.BRANCH_MANAGER.spring())
+
                 // 승인자 최종 결재 — ROLE_BRANCH_MANAGER
                 .requestMatchers(HttpMethod.POST,
                         "/api/loan-applications/*/review/approver-approve"
@@ -119,9 +171,28 @@ public class SecurityConfig {
                 // 감사로그 조회 — COMPLIANCE 전용
                 .requestMatchers("/api/audit/**").hasRole(LoanRole.COMPLIANCE.spring())
 
+                // advisory 자문규칙·감사·통계·리포트 — HQ 계열 역할
+                .requestMatchers("/api/advisory/**").hasAnyRole(
+                        LoanRole.HQ_REVIEWER.spring(), LoanRole.COMPLIANCE.spring(),
+                        LoanRole.OPS.spring(), LoanRole.ADMIN.spring()
+                )
+
                 .anyRequest().authenticated()
             );
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }

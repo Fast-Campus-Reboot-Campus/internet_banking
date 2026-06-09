@@ -11,8 +11,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
+import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -22,17 +24,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * EsIndexAdminService testcontainers 통합 테스트 — E1-6.
  *
- * <p>ES 8.15.0 단일 노드 컨테이너 (xpack.security=false) 를 띄운 뒤
+ * <p>nori 플러그인 포함 ES 8.15.0 단일 노드 컨테이너 (xpack.security=false) 를 띄운 뒤
  * 인덱스 생성·alias 생성·alias swap 흐름을 검증.
+ * (kb_*_v1 매핑이 korean_nori 분석기를 사용하므로 nori 플러그인이 필수)
  */
 @Testcontainers
 class EsIndexAdminServiceTest {
 
     @Container
-    static ElasticsearchContainer esContainer =
-            new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:8.15.0")
-                    .withEnv("xpack.security.enabled", "false")
-                    .withStartupTimeout(Duration.ofMinutes(3));
+    static ElasticsearchContainer esContainer = noriContainer();
+
+    private static ElasticsearchContainer noriContainer() {
+        var image = new ImageFromDockerfile("es-nori-test:8.15.0", false)
+                .withDockerfileFromBuilder(b -> b
+                        .from("docker.elastic.co/elasticsearch/elasticsearch:8.15.0")
+                        .run("bin/elasticsearch-plugin install --batch analysis-nori")
+                        .build());
+        return new ElasticsearchContainer(
+                DockerImageName.parse(image.get())
+                        .asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch"))
+                .withEnv("xpack.security.enabled", "false")
+                .withEnv("ES_JAVA_OPTS", "-Xms512m -Xmx512m")   // Docker Desktop 메모리 제약 — ES OOM(exit 137) 방지
+                .withStartupTimeout(Duration.ofMinutes(5));
+    }
 
     private static ElasticsearchClient esClient;
     private static EsIndexAdminService adminService;

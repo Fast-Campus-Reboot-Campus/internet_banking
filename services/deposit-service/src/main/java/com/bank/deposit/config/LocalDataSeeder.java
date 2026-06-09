@@ -35,6 +35,7 @@ public class LocalDataSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if (productRepository.count() > 0) {
             seedDemoCustomerAccounts();
+            seedDemoLoginAccounts();
             return;
         }
 
@@ -526,6 +527,7 @@ public class LocalDataSeeder implements ApplicationRunner {
         productTargetGroupRepository.save(ProductTargetGroup.builder().id(new ProductTargetGroupId(youthAccount.getProductId(), youth.getTargetGroupId())).build());
 
         seedDemoCustomerAccounts();
+        seedDemoLoginAccounts();
     }
 
     private void seedDemoCustomerAccounts() {
@@ -573,6 +575,97 @@ public class LocalDataSeeder implements ApplicationRunner {
                  '001', 1200000, 1200000, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
                  false, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0)
                 on conflict (account_number) do nothing
+                """);
+    }
+
+    /**
+     * 데모 로그인 계정(user01~10·직원·관리자, customer_id 9001~9120)용 입출금 계좌·잔액 시드.
+     * <p>상품 카탈로그(banking_product_id=1)가 깔린 뒤 실행되어야 FK 제약을 위반하지 않으므로,
+     * Flyway 마이그레이션이 아니라 상품 시딩 이후의 이 런타임 시더에서 처리한다.
+     * local 프로파일에서만 동작하며, ON CONFLICT DO NOTHING / GREATEST 로 멱등하다.
+     */
+    private void seedDemoLoginAccounts() {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from deposit_accounts where customer_id = ?",
+                Integer.class,
+                "9111");
+        if (count != null && count > 0) {
+            return;
+        }
+
+        // 1) 계약(deposit_contracts): 5001~5026 계정별 기본 계좌 / 5201~5203 자가이체용 보조 계좌
+        jdbcTemplate.update("""
+                insert into deposit_contracts (
+                    contract_id, contract_number, customer_id, banking_product_id,
+                    is_monthly_payment, join_amount, contract_interest_rate, total_preferential_rate,
+                    final_interest_rate, tax_benefit_type, applied_tax_rate, contract_period_month,
+                    started_at, maturity_at, is_auto_renewal, auto_transfer_enabled, contract_status,
+                    join_channel, is_proxy_joined, is_power_of_attorney_verified,
+                    created_at, updated_at, consecutive_miss_count)
+                select v.contract_id, v.contract_number, v.customer_id, 1,
+                       false, 50000000, 0.10, 0.00, 0.10, 'GENERAL', 15.40, 12,
+                       current_date, current_date + interval '12 months', false, false, 'ACTIVE',
+                       'WEB', false, false, now(), now(), 0
+                from (values
+                    (5001, 'SEED-9001-DEP',  '9001'), (5002, 'SEED-9002-DEP',  '9002'),
+                    (5003, 'SEED-9003-DEP',  '9003'), (5004, 'SEED-9004-DEP',  '9004'),
+                    (5005, 'SEED-9005-DEP',  '9005'), (5006, 'SEED-9006-DEP',  '9006'),
+                    (5007, 'SEED-9007-DEP',  '9007'), (5008, 'SEED-9008-DEP',  '9008'),
+                    (5009, 'SEED-9009-DEP',  '9009'), (5010, 'SEED-9010-DEP',  '9010'),
+                    (5011, 'SEED-9011-DEP',  '9011'), (5012, 'SEED-9101-DEP',  '9101'),
+                    (5013, 'SEED-9102-DEP',  '9102'), (5014, 'SEED-9103-DEP',  '9103'),
+                    (5015, 'SEED-9104-DEP',  '9104'), (5016, 'SEED-9105-DEP',  '9105'),
+                    (5017, 'SEED-9111-DEP',  '9111'), (5018, 'SEED-9112-DEP',  '9112'),
+                    (5019, 'SEED-9113-DEP',  '9113'), (5020, 'SEED-9114-DEP',  '9114'),
+                    (5021, 'SEED-9115-DEP',  '9115'), (5022, 'SEED-9116-DEP',  '9116'),
+                    (5023, 'SEED-9117-DEP',  '9117'), (5024, 'SEED-9118-DEP',  '9118'),
+                    (5025, 'SEED-9119-DEP',  '9119'), (5026, 'SEED-9120-DEP',  '9120'),
+                    (5201, 'SEED-9111-DEP2', '9111'), (5202, 'SEED-9112-DEP2', '9112'),
+                    (5203, 'SEED-9113-DEP2', '9113')
+                ) as v(contract_id, contract_number, customer_id)
+                on conflict (contract_id) do nothing
+                """);
+
+        // 2) 계좌(deposit_accounts): 기본 5천만원 / 보조 3천만원, account_password 는 데모 공용 bcrypt 해시
+        jdbcTemplate.update("""
+                insert into deposit_accounts (
+                    account_number, customer_id, contract_id, account_type, bank_code,
+                    balance, currency, account_password,
+                    is_withdrawable, is_online_banking_enabled, is_mobile_banking_enabled, is_phone_banking_enabled,
+                    account_status, opened_at, created_at, created_by)
+                select v.account_number, v.customer_id, v.contract_id, 'DEPOSIT', '001',
+                       v.balance, 'KRW', '$2a$10$hTp1Rac9BsYw/6ZzFl..IeTX048JgErR1o.F7GzTM5PuSPLgNTYjG',
+                       true, true, true, true,
+                       'ACTIVE', current_date, now(), 'seed-v14'
+                from (values
+                    ('001-2000-0000001', '9001', 5001, 50000000), ('001-2000-0000002', '9002', 5002, 50000000),
+                    ('001-2000-0000003', '9003', 5003, 50000000), ('001-2000-0000004', '9004', 5004, 50000000),
+                    ('001-2000-0000005', '9005', 5005, 50000000), ('001-2000-0000006', '9006', 5006, 50000000),
+                    ('001-2000-0000007', '9007', 5007, 50000000), ('001-2000-0000008', '9008', 5008, 50000000),
+                    ('001-2000-0000009', '9009', 5009, 50000000), ('001-2000-0000010', '9010', 5010, 50000000),
+                    ('001-2000-0000011', '9011', 5011, 50000000), ('001-2000-0000012', '9101', 5012, 50000000),
+                    ('001-2000-0000013', '9102', 5013, 50000000), ('001-2000-0000014', '9103', 5014, 50000000),
+                    ('001-2000-0000015', '9104', 5015, 50000000), ('001-2000-0000016', '9105', 5016, 50000000),
+                    ('001-2000-0000017', '9111', 5017, 50000000), ('001-2000-0000018', '9112', 5018, 50000000),
+                    ('001-2000-0000019', '9113', 5019, 50000000), ('001-2000-0000020', '9114', 5020, 50000000),
+                    ('001-2000-0000021', '9115', 5021, 50000000), ('001-2000-0000022', '9116', 5022, 50000000),
+                    ('001-2000-0000023', '9117', 5023, 50000000), ('001-2000-0000024', '9118', 5024, 50000000),
+                    ('001-2000-0000025', '9119', 5025, 50000000), ('001-2000-0000026', '9120', 5026, 50000000),
+                    ('001-2002-0000001', '9111', 5201, 30000000), ('001-2002-0000002', '9112', 5202, 30000000),
+                    ('001-2002-0000003', '9113', 5203, 30000000)
+                ) as v(account_number, customer_id, contract_id, balance)
+                on conflict (account_number) do nothing
+                """);
+
+        // 3) 기존 활성 계좌 잔액 보충: 본 시드가 만든 계좌(보조 30M 등)는 건드리지 않는다.
+        jdbcTemplate.update("""
+                update deposit_accounts
+                   set balance = greatest(balance, 50000000),
+                       updated_at = now(),
+                       updated_by = 'seed-v14'
+                 where account_status = 'ACTIVE'
+                   and balance < 50000000
+                   and created_by is distinct from 'seed-v14'
                 """);
     }
 

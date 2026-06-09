@@ -1,5 +1,6 @@
 package com.bank.ai.rule.service;
 
+import com.bank.ai.metrics.ReviewMetrics;
 import com.bank.ai.review.dto.AutoReviewResponse;
 import com.bank.ai.review.service.AutoReviewService;
 import com.bank.ai.rule.TestRequests;
@@ -35,11 +36,12 @@ class RuleEngineServiceDualScoreTest {
 
     private final AutoReviewService autoReviewService = mock(AutoReviewService.class);
     private final ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+    private final ReviewMetrics reviewMetrics = mock(ReviewMetrics.class);
     private final TrackClassifier classifier = new TrackClassifier(
             new HardConstraintEvaluator(PROPS), new PolicyMatrix(PROPS)
     );
     private final RuleEngineService service = new RuleEngineService(
-            autoReviewService, classifier, PROPS, publisher);
+            autoReviewService, classifier, PROPS, publisher, reviewMetrics);
 
     private static AutoReviewResponse dual(double approveProba, double rejectProba, double pdScore) {
         return new AutoReviewResponse(

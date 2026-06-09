@@ -19,7 +19,11 @@ import java.util.concurrent.TimeoutException;
  * 같은 key 로 발행된 메시지는 동일 파티션에 순서 보장되며,
  * 컨슈머 측에서 key 기반 중복 처리가 가능하다.
  *
- * acks=all + enable.idempotence=true (application.yml) 로 브로커 레벨 중복 발행을 추가 차단.
+ * 이 producer 는 Spring Boot 가 자동 설정한 KafkaTemplate 을 그대로 쓴다.
+ * application.yml 에 spring.kafka.producer 설정이 없어, kafka-clients 3.x 기본값
+ * (enable.idempotence=true → acks=all 강제)에 의존해 브로커 레벨 중복 발행이 차단된다.
+ * 명시 설정이 아니라 라이브러리 디폴트에 의존하는 상태이므로, producer 설정을
+ * yml 에 추가할 때 acks/idempotence 를 낮추지 않도록 주의.
  */
 @Slf4j
 @Component

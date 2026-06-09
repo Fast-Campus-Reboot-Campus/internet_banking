@@ -110,14 +110,14 @@ public class LoanReviewCheckLogWriter {
                 reviewerId);
     }
 
-    /** 정정 시 FINAL_DECISION 한 줄만 append — 기존 5건은 그대로 누적. */
-    public void logRevisit(Long revId, boolean approved, ReviseReviewRequest req) {
+    /** 정정 시 FINAL_DECISION 한 줄만 append — 기존 5건은 그대로 누적. actorId 는 인증된 정정 행위자. */
+    public void logRevisit(Long revId, boolean approved, ReviseReviewRequest req, Long actorId) {
         String revisitTag = "revisit(" + req.revisitReasonCd() + ")";
         reviewCheckLogger.log(revId,
                 ReviewCheckLog.ITEM_FINAL_DECISION,
                 approved ? ReviewCheckLog.RESULT_PASS : ReviewCheckLog.RESULT_FAIL,
                 revisitTag + ", decision=" + req.revDecisionCd()
                         + (approved ? "" : ", rejectReasonCd=" + req.rejectReasonCd()),
-                req.reviewerId());
+                actorId);
     }
 }

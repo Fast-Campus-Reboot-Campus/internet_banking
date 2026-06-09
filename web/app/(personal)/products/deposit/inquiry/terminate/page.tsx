@@ -1,5 +1,5 @@
 'use client'
-import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
+import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -108,7 +108,7 @@ export default function DepositTerminatePage() {
               해지
             </button>
             <button className="px-4 py-1.5 text-[12px] font-medium rounded-lg border transition-colors hover:bg-kb-primary-bg"
-              style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+              style={{ borderColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
               해지상세조회
             </button>
           </div>
@@ -189,7 +189,7 @@ export default function DepositTerminatePage() {
                     className="flex items-center justify-between w-full px-5 py-3.5"
                     style={{ backgroundColor: KB_PRIMARY_BG, borderBottom: open ? '1px solid #E2F5EF' : 'none' }}>
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: KB_MINT }} />
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: KB_PRIMARY }} />
                       <span className="text-[14px] font-bold text-kb-text">{label}</span>
                       <span className="text-[13px] text-kb-text-muted">({accounts.length}계좌)</span>
                       <span className="text-[13px] font-semibold ml-1" style={{ color: KB_PRIMARY }}>
@@ -331,7 +331,7 @@ export default function DepositTerminatePage() {
                 </Link>
                 <Link href="/inquiry/accounts"
                   className="border rounded-xl px-8 py-2.5 text-[14px] font-medium transition-colors hover:bg-kb-primary-bg"
-                  style={{ borderColor: KB_MINT, color: KB_PRIMARY }}>
+                  style={{ borderColor: KB_PRIMARY_BORDER, color: KB_PRIMARY }}>
                   계좌 조회
                 </Link>
               </div>

@@ -1,0 +1,30 @@
+{
+  "name": "case_h2",
+  "description": "계정탈취 — 낯선 기기 + 인증 실패 연발 + 비번 변경 직후 송금. device=낯선기기·auth 이상이 H1과 갈리는 지점. (customer_id=1 '테스트고객' 은 customer-service 시드와 매핑 — get_auth_events 실연결 토글 대상)",
+  "alert": {
+    "id": "ALT-H2",
+    "account": "110-222-2002",
+    "customer_id": "1",
+    "tx_context": {
+      "amount": 5000000,
+      "payee": "신규 수취인",
+      "time": "2026-06-07T03:41:00",
+      "channel": "MOBILE"
+    },
+    "anomaly_score": 78.0
+  },
+  "tool_responses": {
+    "get_party": { "life_status": "ALIVE", "guardianship": "NONE", "name_match": true },
+    "get_customer": { "avg_tx_amount": 200000, "usual_channel": "MOBILE", "tenure_years": 5 },
+    "get_auth_events": {
+      "recent_cert_fail": 3,
+      "password_changed_recently": true,
+      "events": ["CERT_FAIL_BLOCK x3", "PASSWORD_CHANGE 10분 전"]
+    },
+    "get_device_fingerprint": { "known_device": false, "device_id": "DEV-NEW-99", "first_seen_days": 0 },
+    "get_fds_history": { "past_detections": 0, "last_pattern": "none" },
+    "get_str_history": { "past_str_reports": 0 },
+    "get_related_accounts": { "same_device_customers": 1, "organized_ring": false, "linked_str_reports": 0 },
+    "get_aml_history": { "structuring": false, "layering_hops": 0 }
+  }
+}

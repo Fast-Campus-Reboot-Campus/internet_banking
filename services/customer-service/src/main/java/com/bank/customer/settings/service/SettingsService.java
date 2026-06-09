@@ -7,6 +7,8 @@ import com.bank.customer.customer.domain.CustomerStatusHistory;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
 import com.bank.customer.customer.repository.CustomerStatusHistoryRepository;
+import com.bank.customer.fds.domain.FdsDetection;
+import com.bank.customer.fds.service.FdsService;
 import com.bank.customer.history.domain.PasswordHistory;
 import com.bank.customer.history.repository.PasswordHistoryRepository;
 import com.bank.customer.party.domain.Party;
@@ -18,11 +20,13 @@ import com.bank.customer.settings.dto.UpdateProfileRequest;
 import com.bank.customer.settings.dto.WithdrawRequest;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SettingsService {
@@ -38,6 +42,7 @@ public class SettingsService {
     private final PasswordHistoryRepository        passwordHistoryRepository;
     private final PasswordEncoder                  passwordEncoder;
     private final StringRedisTemplate              redisTemplate;
+    private final FdsService                       fdsService;
 
     @Transactional(readOnly = true)
     public SettingsResponse getSettings(Long customerId) {
@@ -85,7 +90,7 @@ public class SettingsService {
         }
 
         // 변경 전 해시를 이력에 먼저 저장
-        passwordHistoryRepository.save(PasswordHistory.builder()
+        PasswordHistory history = passwordHistoryRepository.save(PasswordHistory.builder()
                 .credentialId(credential.getCredentialId())
                 .customerId(customerId)
                 .passwordHash(credential.getPasswordHash())
@@ -96,6 +101,19 @@ public class SettingsService {
 
         credential.changePassword(passwordEncoder.encode(req.newPassword()));
         redisTemplate.delete(RT_KEY_PREFIX + customerId);
+
+        // FDS 평가 — 비밀번호 잦은 변경 모니터링(PWD_CHANGE_MONITOR_3 등).
+        // MONITOR 룰이라 탐지만 기록하고 변경 자체는 막지 않는다.
+        evaluateFdsSilently(customerId, history.getPasswordHistoryId());
+    }
+
+    /** 비밀번호 변경 FDS 평가. BLOCK 룰이 발동해도 변경은 막지 않고 로그만 남긴다(모니터링). */
+    private void evaluateFdsSilently(Long customerId, Long referenceId) {
+        try {
+            fdsService.evaluate(customerId, FdsDetection.EVENT_PASSWORD_CHANGE, referenceId);
+        } catch (BusinessException e) {
+            log.warn("FDS BLOCK 발동 (비밀번호 변경 경로): customerId={}", customerId);
+        }
     }
 
     @Transactional
@@ -120,7 +138,7 @@ public class SettingsService {
                         Customer.STATUS_ACTIVE, Customer.STATUS_CLOSED,
                         CustomerStatusHistory.REASON_CUST_REQ,
                         "고객 자발적 해지",
-                        now, false));
+                        now, false, null));  // 고객 본인 해지 — 직원 행위자 없음
     }
 
     private Customer findActiveCustomer(Long customerId) {

@@ -39,6 +39,21 @@ configure(subprojects.findAll {
     apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
 
+    bootRun {
+        def envFile = rootProject.file('.env')
+        if (envFile.exists()) {
+            envFile.readLines().each { line ->
+                def trimmed = line.trim()
+                if (trimmed && !trimmed.startsWith('#')) {
+                    def idx = trimmed.indexOf('=')
+                    if (idx > 0) {
+                        environment trimmed.substring(0, idx).trim(), trimmed.substring(idx + 1)
+                    }
+                }
+            }
+        }
+    }
+
     dependencies {
         implementation project(':common')
 

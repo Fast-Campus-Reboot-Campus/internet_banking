@@ -42,6 +42,7 @@ public enum CustomerErrorCode implements ErrorCode {
     // 출금계좌 관리 (050-059)
     CUST_050(HttpStatus.NOT_FOUND,  "출금계좌를 찾을 수 없습니다."),
     CUST_051(HttpStatus.CONFLICT,   "이미 등록된 출금계좌입니다."),
+    CUST_052(HttpStatus.BAD_REQUEST,"본행 보유계좌는 출금계좌 등록 대상이 아닙니다. 타행 계좌만 등록할 수 있습니다."),
 
     // FDS (060-069)
     CUST_060(HttpStatus.FORBIDDEN,  "비정상 접근이 감지되어 요청이 차단되었습니다."),
@@ -65,6 +66,12 @@ public enum CustomerErrorCode implements ErrorCode {
     CUST_091(HttpStatus.GONE,       "인증 코드가 만료되었습니다."),
     CUST_092(HttpStatus.BAD_REQUEST,"인증 코드가 올바르지 않습니다."),
     CUST_093(HttpStatus.CONFLICT,   "이미 검증된 인증 요청입니다."),
+
+    // 본인확인 (094-097)
+    CUST_094(HttpStatus.NOT_FOUND,  "본인확인 정보를 찾을 수 없습니다."),
+    CUST_095(HttpStatus.GONE,       "본인확인이 만료되었습니다. 다시 인증해주세요."),
+    CUST_096(HttpStatus.CONFLICT,   "이미 사용된 본인확인입니다."),
+    CUST_097(HttpStatus.BAD_REQUEST,"주민등록번호 형식이 올바르지 않습니다."),
 
     // 세션 (100-109)
     CUST_100(HttpStatus.NOT_FOUND,  "세션을 찾을 수 없습니다."),

@@ -7,7 +7,7 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
   datasource:
-    url: jdbc:postgresql://${DOC_AGENT_DB_HOST:localhost}:${DOC_AGENT_DB_PORT:5438}/${DOC_AGENT_DB_NAME:doc_agent_db}
+    url: jdbc:postgresql://${DOC_AGENT_DB_HOST:localhost}:${DOC_AGENT_DB_PORT:5440}/${DOC_AGENT_DB_NAME:doc_agent_db}
     username: ${DOC_AGENT_DB_USER:docagent}
     password: ${DOC_AGENT_DB_PASSWORD:docagent}
     driver-class-name: org.postgresql.Driver
@@ -96,3 +96,14 @@ doc-agent:
       verified: doc-agent.verified
       routed: doc-agent.routed
       fraud-audit: doc-agent.fraud.audit
+
+---
+# local 프로파일 전용: Admin 화면 데모 시드.
+# 기본 db/migration 에 더해 db/seed(반복 마이그레이션 R__) 를 추가 스캔한다.
+# docker/운영 프로파일은 이 블록이 적용되지 않아 db/seed 를 보지 않는다.
+spring:
+  config:
+    activate:
+      on-profile: local
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed

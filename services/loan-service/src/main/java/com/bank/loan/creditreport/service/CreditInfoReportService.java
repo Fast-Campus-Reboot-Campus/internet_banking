@@ -7,6 +7,7 @@ import com.bank.common.web.BusinessException;
 import com.bank.loan.contract.domain.LoanContract;
 import com.bank.loan.contract.repository.LoanContractRepository;
 import com.bank.loan.creditreport.domain.CreditInfoReport;
+import com.bank.loan.creditreport.dto.AdminCreditInfoReportListResponse;
 import com.bank.loan.creditreport.dto.CreditInfoReportListResponse;
 import com.bank.loan.creditreport.dto.AckCallbackRequest;
 import com.bank.loan.creditreport.dto.CreditInfoReportResponse;
@@ -16,8 +17,11 @@ import com.bank.loan.creditreport.outbox.CreditInfoReportOutboxRepository;
 import com.bank.loan.creditreport.repository.CreditInfoReportRepository;
 import com.bank.loan.support.LoanErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -192,6 +196,19 @@ public class CreditInfoReportService {
             outbox.requeue(now);
         }
         return CreditInfoReportResponse.of(report);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminCreditInfoReportListResponse listAll(String statusCd, Pageable pageable) {
+        Page<CreditInfoReportResponse> page;
+        if (StringUtils.hasText(statusCd)) {
+            page = repository.findAllByCrptStatusCdAndDeletedAtIsNullOrderByCreatedAtDesc(statusCd, pageable)
+                    .map(CreditInfoReportResponse::of);
+        } else {
+            page = repository.findAllByDeletedAtIsNullOrderByCreatedAtDesc(pageable)
+                    .map(CreditInfoReportResponse::of);
+        }
+        return AdminCreditInfoReportListResponse.of(page);
     }
 
     @Transactional(readOnly = true)

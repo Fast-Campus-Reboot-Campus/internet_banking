@@ -40,4 +40,6 @@ public interface PaymentInstructionMapper {
     int updateScheduled(@Param("paymentInstructionId") String paymentInstructionId,
                         @Param("scheduledExecutionAt") LocalDateTime scheduledExecutionAt,
                         @Param("version") Integer version);
+
+    List<PaymentInstruction> selectByReceiverAccountNo(@Param("receiverAccountNo") String receiverAccountNo);
 }

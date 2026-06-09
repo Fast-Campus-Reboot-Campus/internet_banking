@@ -66,3 +66,6 @@ PR_*.md
 # Claude Code (worktree·세션 메타데이터·로컬 설정)
 .claude/
 CLAUDE.local.md
+
+# 개인 이력서 (공유 대상 아님)
+이력서_쉬운버전.md

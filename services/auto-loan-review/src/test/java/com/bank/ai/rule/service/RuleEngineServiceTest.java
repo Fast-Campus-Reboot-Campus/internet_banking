@@ -1,5 +1,6 @@
 package com.bank.ai.rule.service;
 
+import com.bank.ai.metrics.ReviewMetrics;
 import com.bank.ai.review.dto.AutoReviewResponse;
 import com.bank.ai.review.service.AutoReviewService;
 import com.bank.ai.rule.TestRequests;
@@ -36,10 +37,11 @@ class RuleEngineServiceTest {
 
     private final AutoReviewService autoReviewService = mock(AutoReviewService.class);
     private final ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+    private final ReviewMetrics reviewMetrics = mock(ReviewMetrics.class);
     private final TrackClassifier classifier = new TrackClassifier(
             new HardConstraintEvaluator(PROPS), new PolicyMatrix(PROPS)
     );
-    private final RuleEngineService service = new RuleEngineService(autoReviewService, classifier, PROPS, publisher);
+    private final RuleEngineService service = new RuleEngineService(autoReviewService, classifier, PROPS, publisher, reviewMetrics);
 
     /** PD 모델 미배포 환경 — decision-only 폴백 시 사용. */
     private static AutoReviewResponse decisionOnly(String decision, double score, Map<String, Double> proba) {
@@ -97,7 +99,7 @@ class RuleEngineServiceTest {
                 false,  // enabled = OFF (kill switch 작동)
                 false
         );
-        var disabledService = new RuleEngineService(autoReviewService, classifier, disabledProps, publisher);
+        var disabledService = new RuleEngineService(autoReviewService, classifier, disabledProps, publisher, reviewMetrics);
 
         assertThatThrownBy(() -> disabledService.evaluate(TestRequests.healthy()))
                 .isInstanceOf(BusinessException.class)
@@ -115,7 +117,7 @@ class RuleEngineServiceTest {
                 true,
                 true   // shadow = ON
         );
-        var shadowService = new RuleEngineService(autoReviewService, classifier, shadowProps, publisher);
+        var shadowService = new RuleEngineService(autoReviewService, classifier, shadowProps, publisher, reviewMetrics);
         when(autoReviewService.review(any())).thenReturn(decisionOnly(
                 "APPROVE", 0.92, Map.of("APPROVE", 0.92, "REJECT", 0.08)
         ));
