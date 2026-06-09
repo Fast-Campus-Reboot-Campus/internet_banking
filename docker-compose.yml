@@ -363,6 +363,7 @@ services:
       PAYMENT_APP_PORT: 8084
       BANK_CODE: "B"
       SPRING_PROFILES_ACTIVE: "mock"
+      APP_CORS_ENABLED: "true"
       PAYMENT_DB_HOST: payment-db-b
       PAYMENT_DB_PORT: 5432
       PAYMENT_DB_NAME: payment_b
