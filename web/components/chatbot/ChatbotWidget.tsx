@@ -39,7 +39,7 @@ type ChatMessage = {
   text: string
   buttons?: ChatbotButton[]
   data?: Record<string, unknown>[]
-  compareData?: { accumulate: Record<string, unknown>[]; lumpSum: Record<string, unknown>[] }
+  compareData?: { accumulate: Record<string, unknown>[]; lumpSum: Record<string, unknown>[]; isAccumulateType?: boolean }
   link?: { text: string; href: string }
   featureCode?: string
   loginForm?: boolean
@@ -295,7 +295,7 @@ function rowSummary(row: Record<string, unknown>, index: number) {
   }
 }
 
-function addFeatureResult(result: ChatbotFeatureExecuteResponse & { compareData?: { accumulate: Record<string, unknown>[]; lumpSum: Record<string, unknown>[] } }): ChatMessage {
+function addFeatureResult(result: ChatbotFeatureExecuteResponse & { compareData?: { accumulate: Record<string, unknown>[]; lumpSum: Record<string, unknown>[]; isAccumulateType?: boolean } }): ChatMessage {
   const needLogin = result.requires_auth && !localStorage.getItem('access_token') && !localStorage.getItem('accessToken')
   return {
     id: messageId(result.feature_code),
@@ -738,33 +738,30 @@ export default function ChatbotWidget() {
       }).sort((a, b) => b.score - a.score)
     }
 
-    // ── 4. 두 프로파일 top3 ──
-    const accSorted  = scoreProducts(true)
-    const lumpSorted = scoreProducts(false)
-    console.log('[추천][저축성장형] Top5:', accSorted.slice(0, 5).map(s => `${s.product.productName}(${s.score}점)`).join(' / '))
-    console.log('[추천][목돈운용형] Top5:', lumpSorted.slice(0, 5).map(s => `${s.product.productName}(${s.score}점)`).join(' / '))
-    const accTop3  = accSorted.slice(0, 3)
-    const lumpTop3 = lumpSorted.slice(0, 3)
+    // ── 4. 고객 유형 진단 후 해당 프로파일 top3만 계산 ──
+    const isAccumulateType = monthlySurplus > 0 && (monthlySurplus * 12) > totalBalance
+    const sorted = scoreProducts(isAccumulateType)
+    const profileLabel2 = isAccumulateType ? '저축 성장형' : '목돈 운용형'
+    console.log(`[추천][${profileLabel2}] Top5:`, sorted.slice(0, 5).map(s => `${s.product.productName}(${s.score}점)`).join(' / '))
+    const top3 = sorted.slice(0, 3)
 
-    const toRows = async (top3: ReturnType<typeof scoreProducts>) => {
-      const rows = top3.map((s, i) => productToRow(
+    const toRows = async (items: ReturnType<typeof scoreProducts>) => {
+      const rows = items.map((s, i) => productToRow(
         s.product, i,
         `재정 ${s.financialScore}/40 · 수익 ${s.returnScore}/30 · 유동성 ${s.liquidityScore}/20 · 혜택 ${s.benefitScore}/10 = ${s.score}점`,
       ))
       return enrichWithPreferentialRates(rows)
     }
 
-    const [accRows, lumpRows] = await Promise.all([toRows(accTop3), toRows(lumpTop3)])
+    const resultRows = await toRows(top3)
 
-    // 실제 고객 유형 진단
-    const isAccumulateType = monthlySurplus > 0 && (monthlySurplus * 12) > totalBalance
     const diagnosisMsg = isAccumulateType
-      ? `📌 고객님 진단: 저축 성장형\n연 저축 가능액 ${Math.round(monthlySurplus * 12 / 10000)}만원 > 현재 잔액 ${Math.round(totalBalance / 10000)}만원으로, 목돈을 만드는 적금이 더 유리합니다.\n\n왼쪽(📈)이 고객님 맞춤 추천, 오른쪽(💰)은 목돈 운용형 기준 결과입니다.`
-      : `📌 고객님 진단: 목돈 운용형\n현재 잔액 ${Math.round(totalBalance / 10000)}만원으로 목돈을 안정적으로 굴리는 예금이 더 유리합니다.\n\n오른쪽(💰)이 고객님 맞춤 추천, 왼쪽(📈)은 저축 성장형 기준 결과입니다.`
+      ? `📌 고객님 진단: 저축 성장형\n연 저축 가능액 ${Math.round(monthlySurplus * 12 / 10000)}만원 > 현재 잔액 ${Math.round(totalBalance / 10000)}만원으로, 목돈을 만드는 적금이 더 유리합니다.`
+      : `📌 고객님 진단: 목돈 운용형\n현재 잔액 ${Math.round(totalBalance / 10000)}만원으로 목돈을 안정적으로 굴리는 예금이 더 유리합니다.`
 
     return {
       ...buildFeatureResult('PRODUCT_SEARCH_COMPARE', diagnosisMsg, []),
-      compareData: { accumulate: accRows, lumpSum: lumpRows },
+      compareData: { accumulate: isAccumulateType ? resultRows : [], lumpSum: isAccumulateType ? [] : resultRows, isAccumulateType },
     }
   }
 
@@ -2388,17 +2385,18 @@ export default function ChatbotWidget() {
                               <p>• 유동성 매칭 <b>20점</b> — 거래 빈도 vs 상품 만기 적합도</p>
                               <p>• 부가 혜택 <b>10점</b> — 비과세·중도해지·우대금리 여부</p>
                             </div>
-                            {/* 양쪽 비교 */}
-                            <div className="grid grid-cols-2 gap-1.5">
+                            {/* 맞춤 추천 결과 (고객 유형 단일) */}
+                            {message.compareData.isAccumulateType ? (
                               <div>
-                                <p className="text-[11px] font-bold mb-1 text-center" style={{ color: '#2D6A4F' }}>📈 저축 성장형<br/><span className="text-[9px] font-normal text-kb-text-muted">적금 가중치 1.3×</span></p>
+                                <p className="text-[11px] font-bold mb-1 text-center" style={{ color: '#2D6A4F' }}>📈 저축 성장형 맞춤 추천<br/><span className="text-[9px] font-normal text-kb-text-muted">적금 가중치 1.3×</span></p>
                                 {renderCol(message.compareData.accumulate, '#2D6A4F')}
                               </div>
+                            ) : (
                               <div>
-                                <p className="text-[11px] font-bold mb-1 text-center" style={{ color: '#1a4a7a' }}>💰 목돈 운용형<br/><span className="text-[9px] font-normal text-kb-text-muted">예금 우선 추천</span></p>
+                                <p className="text-[11px] font-bold mb-1 text-center" style={{ color: '#1a4a7a' }}>💰 목돈 운용형 맞춤 추천<br/><span className="text-[9px] font-normal text-kb-text-muted">예금 우선 추천</span></p>
                                 {renderCol(message.compareData.lumpSum, '#1a4a7a')}
                               </div>
-                            </div>
+                            )}
                           </div>
                         )
                       }
