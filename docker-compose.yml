@@ -172,6 +172,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # 결제계 Kafka 토픽 원샷 프로비저닝.
+  # 단일 broker(auto-create=false)에 결제계 18개 토픽을 선생성하고 종료한다.
+  # init-topics.sh(payment-service/infra)를 마운트해 kafka:29092 대상으로 1회 실행.
+  payment-topic-init:
+    image: apache/kafka:3.8.0
+    container_name: ib-payment-topic-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+    volumes:
+      - ./services/payment-service/infra/init-topics.sh:/init-topics.sh:ro
+    entrypoint: ["/bin/bash", "/init-topics.sh"]
+    restart: "no"
+
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.0
     container_name: ib-schema-registry
@@ -346,6 +362,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      payment-topic-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
       interval: 10s
@@ -386,6 +404,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      payment-topic-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
       interval: 10s

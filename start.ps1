@@ -76,7 +76,8 @@ $infra = @(
     "payment-db","payment-db-b","master-db","ai-db",
     "doc-agent-db","langfuse-db",
     # Messaging / streaming (Kafka 전체: 브로커 + 레지스트리 + Connect + exporter)
-    "kafka","schema-registry","kafka-connect","kafka-connect-init",
+    # payment-topic-init: kafka healthy 후 결제계 18개 토픽 선생성(원샷). 앱 bootRun 전에 토픽 보장.
+    "kafka","payment-topic-init","schema-registry","kafka-connect","kafka-connect-init",
     "kafka-exporter-kftc","kafka-exporter-bok","kafka-exporter-internal",
     # Cache / storage / secrets / search
     "redis","minio","vault","elasticsearch",
