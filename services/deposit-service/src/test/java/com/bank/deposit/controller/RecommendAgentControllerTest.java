@@ -44,7 +44,7 @@ class RecommendAgentControllerTest {
         @Test
         @DisplayName("정상 추천 - 200과 recommendations 목록을 반환한다")
         void success() throws Exception {
-            given(cashflowBasedRecommendService.recommend("CUST001", 3))
+            given(cashflowBasedRecommendService.recommend("CUST001", 3, null))
                     .willReturn(response("CUST001", 3, List.of(
                             recommendedProduct(1L, "자유적금", "SAVINGS", new BigDecimal("3.50")),
                             recommendedProduct(2L, "정기예금", "DEPOSIT", new BigDecimal("3.20"))
@@ -71,7 +71,7 @@ class RecommendAgentControllerTest {
         @Test
         @DisplayName("periodMonth 생략 시 기본값 3이 적용된다")
         void defaultPeriodMonth() throws Exception {
-            given(cashflowBasedRecommendService.recommend("CUST001", 3))
+            given(cashflowBasedRecommendService.recommend("CUST001", 3, null))
                     .willReturn(response("CUST001", 3, List.of()));
 
             mockMvc.perform(get("/products/recommend-agent")
@@ -123,7 +123,7 @@ class RecommendAgentControllerTest {
         @Test
         @DisplayName("서비스 예외 발생 시 500을 반환한다")
         void serviceException() throws Exception {
-            given(cashflowBasedRecommendService.recommend("CUST001", 3))
+            given(cashflowBasedRecommendService.recommend("CUST001", 3, null))
                     .willThrow(new RuntimeException("예기치 않은 오류"));
 
             mockMvc.perform(get("/products/recommend-agent")
