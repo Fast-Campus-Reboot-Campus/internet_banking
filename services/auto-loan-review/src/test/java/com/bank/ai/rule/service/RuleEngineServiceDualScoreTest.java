@@ -6,7 +6,6 @@ import com.bank.ai.review.service.AutoReviewService;
 import com.bank.ai.rule.TestRequests;
 import com.bank.ai.rule.config.RuleEngineProperties;
 import com.bank.ai.rule.config.RuleEngineProperties.HardConstraints;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 
@@ -41,7 +40,6 @@ class RuleEngineServiceDualScoreTest {
     private final TrackClassifier classifier = new TrackClassifier(
             new HardConstraintEvaluator(PROPS), new PolicyMatrix(PROPS)
     );
-    private final ReviewMetrics reviewMetrics = new ReviewMetrics(new SimpleMeterRegistry());
     private final RuleEngineService service = new RuleEngineService(
             autoReviewService, classifier, PROPS, publisher, reviewMetrics);
 

@@ -99,7 +99,8 @@ services:
       POSTGRES_USER: payment
       POSTGRES_PASSWORD: payment
     ports:
-      - "5440:5432"
+      # doc-agent-db가 5440을 쓰므로(start.ps1 DOC_AGENT_DB_PORT) 충돌 회피용 5441
+      - "${PAYMENT_DB_B_PORT:-5441}:5432"
     volumes:
       - payment-db-b-data:/var/lib/postgresql/data
     healthcheck:
@@ -170,6 +171,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # 결제계 Kafka 토픽 원샷 프로비저닝.
+  # 단일 broker(auto-create=false)에 결제계 18개 토픽을 선생성하고 종료한다.
+  # init-topics.sh(payment-service/infra)를 마운트해 kafka:29092 대상으로 1회 실행.
+  payment-topic-init:
+    image: apache/kafka:3.8.0
+    container_name: ib-payment-topic-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+    volumes:
+      - ./services/payment-service/infra/init-topics.sh:/init-topics.sh:ro
+    entrypoint: ["/bin/bash", "/init-topics.sh"]
+    restart: "no"
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.0
@@ -348,6 +365,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      payment-topic-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
       interval: 10s
@@ -366,6 +385,7 @@ services:
       PAYMENT_APP_PORT: 8084
       BANK_CODE: "B"
       SPRING_PROFILES_ACTIVE: "mock"
+      APP_CORS_ENABLED: "true"
       PAYMENT_DB_HOST: payment-db-b
       PAYMENT_DB_PORT: 5432
       PAYMENT_DB_NAME: payment_b
@@ -388,6 +408,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      payment-topic-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
       interval: 10s
@@ -705,7 +727,8 @@ services:
       POSTGRES_USER: ${DOC_AGENT_DB_USER:-docagent}
       POSTGRES_PASSWORD: ${DOC_AGENT_DB_PASSWORD:-docagent}
     ports:
-      - "${DOC_AGENT_DB_PORT:-5438}:5432"
+      # 5438은 common-db가 사용 → doc-agent-db는 5440 (start.ps1 DOC_AGENT_DB_PORT와 일치)
+      - "${DOC_AGENT_DB_PORT:-5440}:5432"
     volumes:
       - doc-agent-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -759,7 +782,9 @@ services:
       dockerfile: Dockerfile
     container_name: ib-kafka-connect
     ports:
-      - "${KAFKA_CONNECT_PORT:-8083}:8083"
+      # 호스트 8083은 loan-service 정규 포트(LOAN_APP_PORT)와 충돌 → Connect는 18083으로 게시
+      # (컨테이너 내부 CONNECT_REST_PORT/내부 통신은 8083 그대로)
+      - "${KAFKA_CONNECT_PORT:-18083}:8083"
     environment:
       CONNECT_BOOTSTRAP_SERVERS: kafka:29092
       CONNECT_REST_PORT: 8083

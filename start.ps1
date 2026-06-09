@@ -21,11 +21,17 @@ $env:DEPOSIT_DB_PORT          = "5433"
 $env:DEPOSIT_DB_PASSWORD      = "deposit"
 $env:LOAN_DB_PORT             = "5434"
 $env:PAYMENT_DB_PORT          = "5435"
+$env:PAYMENT_DB_B_PORT        = "5441"
 $env:MASTER_DB_PORT           = "5436"
 $env:AI_DB_PORT               = "5437"
 $env:COMMON_DB_PORT           = "5438"
 # doc-agent-db: common-db(5438)/langfuse-db(5439) 호스트 포트 충돌 회피용으로 5440 분리
 $env:DOC_AGENT_DB_PORT        = "5440"
+# 호스트 bootRun 모드: loan-service의 서비스 간 base-url 기본값이 도커 네트워크 호스트명이라
+# 호스트 실행 시 이름이 풀리지 않는다. 두 서비스 모두 도커가 아닌 호스트 bootRun으로 뜨고
+# 각자 server.port(auto-loan-review 8089, doc-agent 8087)로 listen 하므로 localhost로 오버라이드한다.
+$env:AUTO_REVIEW_BASE_URL     = "http://localhost:8089"
+$env:DOC_AGENT_BASE_URL       = "http://localhost:8087"
 $env:VAULT_PORT               = "8200"
 $env:MINIO_PORT               = "9000"
 $env:REDIS_HOST               = "localhost"
@@ -55,17 +61,33 @@ $env:CONSULTATION_KAFKA_ENABLED  = "false"
 $env:CONSULTATION_OPENAI_API_KEY = $env:OPENAI_API_KEY
 $env:CONSULTATION_OPENAI_MODEL   = "gpt-4o-mini"
 
+# alertmanager.yml 은 gitignore 대상(.sample 복사 컨벤션). 없으면 Docker가 빈 디렉터리를
+# 만들어 마운트가 깨지므로, bind-mount 전에 sample에서 실제 파일을 보장한다.
+$amConf   = Join-Path $root "infra\alertmanager\alertmanager.yml"
+$amSample = Join-Path $root "infra\alertmanager\alertmanager.yml.sample"
+if ((Test-Path $amConf -PathType Container) ) { Remove-Item -Recurse -Force $amConf }
+if (-not (Test-Path $amConf) -and (Test-Path $amSample)) { Copy-Item $amSample $amConf }
+
 # 1. Start infra containers only (skip Docker-build app services)
 Write-Host "[1/3] Starting infrastructure..." -ForegroundColor Yellow
 $infra = @(
-    "customer-db","deposit-db","loan-db","common-db","payment-db","master-db","ai-db",
-    "doc-agent-db","minio","vault",
-    "kafka","schema-registry","redis",
-    "prometheus","grafana",
-    "loki","promtail","langfuse-db","langfuse","phoenix",
-    "elasticsearch"
+    # Databases
+    "customer-db","deposit-db","loan-db","common-db",
+    "payment-db","payment-db-b","master-db","ai-db",
+    "doc-agent-db","langfuse-db",
+    # Messaging / streaming (Kafka 전체: 브로커 + 레지스트리 + Connect + exporter)
+    # payment-topic-init: kafka healthy 후 결제계 18개 토픽 선생성(원샷). 앱 bootRun 전에 토픽 보장.
+    "kafka","payment-topic-init","schema-registry","kafka-connect","kafka-connect-init",
+    "kafka-exporter-kftc","kafka-exporter-bok","kafka-exporter-internal",
+    # Cache / storage / secrets / search
+    "redis","minio","vault","elasticsearch",
+    # Monitoring / observability
+    "prometheus","grafana","alertmanager","blackbox-exporter",
+    "loki","promtail","langfuse","phoenix","kibana"
 )
-docker compose up -d @infra
+# doc-agent-db/minio/vault 는 profile "doc", kafka-connect·elasticsearch·kibana 등은 profile "rag" 소속이라
+# 프로파일을 활성화해야 떠다. (프로파일 미지정 시 이름을 명시해도 의존성 해석이 어긋날 수 있어 명시적으로 켠다)
+docker compose --profile doc --profile rag up -d @infra
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] docker compose failed" -ForegroundColor Red
     Read-Host "Press Enter to exit"

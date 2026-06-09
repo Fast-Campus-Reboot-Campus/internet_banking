@@ -168,7 +168,10 @@ export const loanApplicationApi = {
   journey: (applId: number) =>
     api.get<any>(`/api/loan-applications/${applId}/journey`),
 
-  submitConsent: (applId: number, body: { consentTypeCd: string; agreedYn: string }) =>
+  submitConsent: (
+    applId: number,
+    body: { consentTypeCd: string; consentScopeCd: string; consentTargetCd: string; consentMethodCd?: string },
+  ) =>
     api.post<any>(`/api/loan-applications/${applId}/credit-consents`, body),
 
   verifyIdentity: (applId: number, body: { idvMethodCd: string; idvTargetCd: string; mobileNo: string }) =>

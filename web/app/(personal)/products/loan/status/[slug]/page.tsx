@@ -2,7 +2,7 @@
 import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
-import { use, useRef, useState, Suspense } from 'react'
+import { use, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
@@ -90,64 +90,6 @@ function DocsUpload({ applId }: { applId: number | null }) {
   )
 }
 
-// ─── 동의 폼 ────────────────────────────────────────────────
-
-function ConsentForm({ title, consentTypeCd, fields, applId }: {
-  title: string; consentTypeCd: string; fields: string[]; applId: number | null
-}) {
-  const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSubmit() {
-    if (!applId) { setError('신청번호를 확인할 수 없습니다.'); return }
-    setSubmitting(true)
-    setError('')
-    try {
-      await loanApplicationApi.submitConsent(applId, { consentTypeCd, agreedYn: 'Y' })
-      setDone(true)
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? '제출 중 오류가 발생했습니다.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (done) return (
-    <div className="py-12 text-center">
-      <p className="text-[16px] font-bold text-green-600 mb-2">동의 제출 완료</p>
-      <Link href="/products/loan/status" className="text-[13px] text-kb-primary hover:underline">진행현황으로 돌아가기</Link>
-    </div>
-  )
-
-  return (
-    <div className="max-w-lg">
-      {!applId && <p className="text-[13px] text-kb-red mb-4">신청번호가 없습니다. 진행현황 페이지에서 다시 접근해주세요.</p>}
-      <div className="bg-[#F5F5F5] border border-kb-primary-border rounded-xl p-4 mb-5 text-[13px] text-kb-text-body">
-        <p className="font-bold mb-1">{title} 동의</p>
-        <p>금융거래 목적으로 개인(신용)정보를 제3자에게 제공하는 것에 동의합니다.</p>
-      </div>
-      <div className="border border-kb-primary-border rounded-xl p-5 space-y-4">
-        {fields.map(field => (
-          <div key={field} className="flex items-center gap-4">
-            <label className="w-28 text-[13px] font-medium text-kb-text flex-shrink-0">{field}</label>
-            <input type="text" placeholder="입력하세요"
-              className="flex-1 border border-kb-primary-border rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-kb-text" />
-          </div>
-        ))}
-      </div>
-      {error && <p className="text-[13px] text-kb-red mt-3">{error}</p>}
-      <div className="flex justify-center mt-5">
-        <button onClick={handleSubmit} disabled={submitting || !applId}
-          className={`px-12 py-2.5 text-[14px] font-bold text-white ${submitting || !applId ? 'opacity-50' : ''}`}
-          style={{ backgroundColor: KB_PRIMARY }}>
-          {submitting ? '처리 중...' : '동의 제출'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ─── 전자서명 ────────────────────────────────────────────────
 
 function ESignForm({ applId }: { applId: number | null }) {
@@ -163,7 +105,12 @@ function ESignForm({ applId }: { applId: number | null }) {
     if (!applId) { setError('신청번호를 확인할 수 없습니다.'); return }
     setSubmitting(true); setError('')
     try {
-      await loanApplicationApi.submitConsent(applId, { consentTypeCd: 'ESIGN', agreedYn: 'Y' })
+      await loanApplicationApi.submitConsent(applId, {
+        consentTypeCd: 'ESIGN',
+        consentScopeCd: 'LOAN_CONTRACT',
+        consentTargetCd: 'BORROWER',
+        consentMethodCd: 'ELECTRONIC',
+      })
       const { data: res } = await loanApplicationApi.journey(applId)
       setJourney(res.data)
       setStep('account')
@@ -300,9 +247,6 @@ type SlugMeta = { title: string; breadcrumb: string }
 
 const PAGE_META: Record<string, SlugMeta> = {
   docs:       { title: '사후서류제출',          breadcrumb: '사후서류제출' },
-  spouse:     { title: '배우자정보제공동의',      breadcrumb: '배우자정보제공동의' },
-  household:  { title: '세대원정보제공동의',      breadcrumb: '세대원정보제공동의' },
-  collateral: { title: '제3자담보정보제공동의',   breadcrumb: '제3자담보정보제공동의' },
   sign:       { title: '전자서명',               breadcrumb: '전자서명' },
 }
 
@@ -310,12 +254,6 @@ function PageContent({ slug, applId }: { slug: string; applId: number | null }) 
   switch (slug) {
     case 'docs':
       return <DocsUpload applId={applId} />
-    case 'spouse':
-      return <ConsentForm title="배우자정보제공" consentTypeCd="SPOUSE" fields={['배우자 성명', '배우자 주민번호', '배우자 연락처']} applId={applId} />
-    case 'household':
-      return <ConsentForm title="세대원정보제공" consentTypeCd="HOUSEHOLD" fields={['세대원 성명', '세대원 주민번호', '관계']} applId={applId} />
-    case 'collateral':
-      return <ConsentForm title="제3자담보정보제공" consentTypeCd="COLLATERAL" fields={['담보 제공자 성명', '담보 제공자 주민번호', '담보 제공자 연락처']} applId={applId} />
     case 'sign':
       return <ESignForm applId={applId} />
     default:

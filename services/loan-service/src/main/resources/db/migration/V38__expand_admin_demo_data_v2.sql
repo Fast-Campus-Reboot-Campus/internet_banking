@@ -170,28 +170,10 @@ INSERT INTO loan_review (
 ON CONFLICT (rev_id) DO NOTHING;
 
 -- ------------------------------------------------------------
--- 6. 어드바이저리 리포트 (review_advisory_report) — advr_id=9102, rev_id=9103
+-- 어드바이저리 리포트(advr_id=9102, rev_id=9103 유사군 결정 분기 자문)는
+-- advisory 스트림으로 이전했다.
+-- db/advisory-migration/V29__seed_advisory_demo_data.sql 참조.
 -- ------------------------------------------------------------
-INSERT INTO review_advisory_report (
-    advr_id, rev_id, rule_id,
-    advisory_type_cd, severity_cd, advr_status_cd,
-    advr_title, advr_summary, advr_payload,
-    target_reviewer_id, generated_at,
-    created_at, created_by, updated_at, updated_by, version
-)
-OVERRIDING SYSTEM VALUE
-SELECT
-    9102, 9103, r.rule_id,
-    'REREVIEW_RECOMMEND', 'WARN', 'OPEN',
-    '유사 신청자 결정 분기 감지',
-    '유사 프로파일 90일 그룹이 70:30 으로 분기하며 본 건이 소수 결정 측에 속함. 재검토 권고.',
-    '{"cohortApprovalRate":0.30,"peerSample":34,"cevalGrade":"B","cevalScore":710}',
-    9002, '2025-04-07 09:00:00+09',
-    '2025-04-07 09:00:00+09', 0, '2025-04-07 09:00:00+09', 0, 0
-FROM review_advisory_rule r
-WHERE r.rule_cd = 'PEER_DECISION_DIVERGENCE' AND r.deleted_at IS NULL
-LIMIT 1
-ON CONFLICT (advr_id) DO NOTHING;
 
 -- ------------------------------------------------------------
 -- 7. 신청서류 (loan_document) — 9101~9109, 검증 4상태 모두 포함

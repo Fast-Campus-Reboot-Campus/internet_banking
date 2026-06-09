@@ -22,6 +22,24 @@ spring:
               - "*"
             allowCredentials: true
             maxAge: 3600
+      # [증상 정정] 다운스트림(customer/loan/payment/doc-agent/deposit 등)이
+      # 각자 자체 CORS 헤더를 붙여 Access-Control-Allow-Origin 이 중복되면
+      # 브라우저가 다중값을 거부한다. 중복 헤더를 유일값으로 병합해 차단을 막는다.
+      #
+      # RETAIN_UNIQUE 는 값이 동일할 때만 안전하게 1개로 합친다. 현재 각 서비스의
+      # allowedOrigins 는 게이트웨이와 동일(localhost:3000/3001)하며, deposit 만
+      # allowedOriginPatterns("localhost:*") 로 더 넓으나 위 origin 들에 대해선
+      # 동일한 구체값을 반영하므로 병합이 안전하다(2026-06 검증).
+      #
+      # Allow-Origin/Credentials 외에 Allow-Methods/Allow-Headers/Max-Age 도
+      # OPTIONS preflight 응답에서 동일하게 중복되므로 함께 병합한다(브라우저는
+      # 관대하나 일관성을 위해 정리).
+      #
+      # TODO(기술부채): 근본 해법은 CORS 를 게이트웨이에서 단독 처리하고 각 서비스의
+      # SecurityConfig/CorsConfig 의 CORS 설정을 제거하는 것이다. 서비스가 추가될
+      # 때마다 동일한 이중부착 패턴이 반복되므로, 각 도메인 담당과 협의해 후속 정리 권장.
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Allow-Methods Access-Control-Allow-Headers Access-Control-Max-Age, RETAIN_UNIQUE
       routes:
         # 인증 공개 엔드포인트 (JWT 검증 없음)
         - id: auth-public

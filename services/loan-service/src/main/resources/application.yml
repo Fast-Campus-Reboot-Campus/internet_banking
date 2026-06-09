@@ -10,6 +10,10 @@ spring:
     # advisory 마이그레이션(db/advisory-migration)은 버전대(V20~)가 loan 과 겹쳐
     # AdvisoryFlywayConfig 가 전용 이력 테이블로 별도 실행한다. 여기엔 loan 것만.
     locations: classpath:db/migration
+    # V2.1(dot 버전)은 V3 이후가 이미 적용된 기존 DB에 뒤늦게 추가됐다.
+    # out-of-order 가 false(기본)면 "Detected resolved migration not applied
+    # to database: 2.1" 로 기동 실패하므로, 늦게 도착한 하위 버전 적용을 허용한다.
+    out-of-order: true
   datasource:
     url: jdbc:postgresql://${LOAN_DB_HOST:localhost}:${LOAN_DB_PORT:5434}/${LOAN_DB_NAME:loan_db}
     username: ${LOAN_DB_USER:loan}
