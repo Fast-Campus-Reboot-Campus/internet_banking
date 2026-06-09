@@ -226,14 +226,14 @@ doc-agent 는 독립 서비스로 직접 검증 가능(port 8087).
 
 | 역할 | 로그인 ID | 이름/직책 | customerId | 비밀번호 | 로그인 화면 |
 |---|---|---|---|---|---|
-| 신청 고객 | `user01`~`user10` | 일반 고객 | 9111~ | `Test1234!` | `/login` (개인) |
+| 신청 고객 | `user01`~`user03` | 일반 고객 | 9111~9113 | `Employee1234!` | `/login` (개인) |
 | 심사원(DEPUTY) | `deputy01` | 심사대리·부지점장(수동심사) | 9010 | `Employee1234!` | `/admin/login` |
 | 승인자(BRANCH_MANAGER) | `employee01` | 박상우·지점장(최종결재) | 9001 | `Employee1234!` | `/admin/login` |
 | 운영(OPS) | `ops01` | 운영담당(자동심사·EOD) | 9011 | `Employee1234!` | `/admin/login` |
 | 본사심사(HQ_REVIEWER) | `review01` | 이심사 | 9004 | `Employee1234!` | `/admin/login` |
 | 감사(COMPLIANCE) | `audit01` | 김감사 | 9003 | `Employee1234!` | `/admin/login` |
 
-¹ 고객 데모 계정 `user01`~`user10`은 비밀번호 `Test1234!`로 로그인한다(런타임 생성 계정이라 DB 마이그레이션 시드에는 없음).
+¹ 고객 데모 계정 `user01`~`user03`은 비밀번호 `Employee1234!`로 로그인한다(V23 마이그레이션으로 시드됨, 직원 데모와 동일 BCrypt 해시 재사용).
 필요하면 `/join` 회원가입으로 신규 고객을 만들어 진행해도 된다. (4-eye 핵심인 심사·승인 단계는 위 직원 데모 계정으로 100% 재현 가능)
 
 ### 10.2 테스트 케이스
