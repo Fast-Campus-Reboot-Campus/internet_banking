@@ -23,6 +23,7 @@ export default function LoanReviewDetailPage() {
   const numApplId = parseInt(applId, 10)
 
   // pre-review data
+  const [appl, setAppl]                 = useState<any>(null)
   const [prescreening, setPrescreening] = useState<any>(null)
   const [creditEval, setCreditEval]     = useState<any>(null)
   const [dsr, setDsr]                   = useState<any>(null)
@@ -63,12 +64,14 @@ export default function LoanReviewDetailPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [psRes, ceRes, dsrRes, revRes] = await Promise.allSettled([
+      const [applRes, psRes, ceRes, dsrRes, revRes] = await Promise.allSettled([
+        loanApplicationApi.get(numApplId),
         loanApplicationApi.getPrescreening(numApplId),
         loanApplicationApi.getCreditEvaluation(numApplId),
         loanApplicationApi.getDsr(numApplId),
         adminReviewApi.get(numApplId),
       ])
+      if (applRes.status === 'fulfilled') setAppl(applRes.value.data?.data ?? null)
       if (psRes.status  === 'fulfilled') setPrescreening(psRes.value.data?.data ?? null)
       if (ceRes.status  === 'fulfilled') setCreditEval(ceRes.value.data?.data ?? null)
       if (dsrRes.status === 'fulfilled') setDsr(dsrRes.value.data?.data ?? null)
@@ -154,9 +157,14 @@ export default function LoanReviewDetailPage() {
                 ) : (
                   <p className="text-sm text-gray-400 mb-3">가심사 미실행</p>
                 )}
-                {!psDone && canRunReview && (
+                {!psDone && canRunReview && appl?.applStatusCd === 'SUBMITTED' && (
                   <Btn label="가심사 실행" disabled={busy}
                     onClick={() => act(() => loanApplicationApi.runPrescreening(numApplId), '가심사가 완료되었습니다.')} />
+                )}
+                {!psDone && canRunReview && appl && appl.applStatusCd !== 'SUBMITTED' && (
+                  <p className="text-[12px] text-gray-400">
+                    신청 상태({appl.applStatusCd})가 가심사 단계가 아닙니다. 가심사는 접수(SUBMITTED) 상태에서만 실행할 수 있습니다.
+                  </p>
                 )}
                 {!psDone && !canRunReview && (
                   <p className="text-[12px] text-gray-400">가심사 실행 권한이 없습니다 (심사역·운영).</p>
