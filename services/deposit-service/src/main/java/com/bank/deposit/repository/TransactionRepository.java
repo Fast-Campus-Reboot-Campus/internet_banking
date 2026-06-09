@@ -24,6 +24,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByAccountIdInAndTransactionAtBetweenAndStatus(
             List<Long> accountIds, OffsetDateTime start, OffsetDateTime end, TransactionStatus status);
 
+    Page<Transaction> findByAccountIdIn(List<Long> accountIds, Pageable pageable);
+
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
            "WHERE t.accountId = :accountId " +
            "AND t.directionType = :directionType " +

@@ -243,6 +243,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
       SPRING_PROFILES_ACTIVE: docker
+      SPRING_FLYWAY_REPAIR_ON_MIGRATE: "true"
+      SPRING_FLYWAY_VALIDATE_ON_MIGRATE: "false"
       LOG_DIR: /logs
     volumes:
       - C:/logs/internet-banking:/logs

@@ -351,43 +351,28 @@ export default function ChatbotWidget() {
 
   useEffect(() => {
     setMounted(true)
-    const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
-    const cid = localStorage.getItem('customerId') ? getCurrentDepositCustomerId() : ''
+  }, [])
 
-    const clearLoginState = () => {
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('customerId')
-      localStorage.removeItem('user')
+  useEffect(() => {
+    if (!open) return
+    // Header와 동일한 기준: localStorage 'user' 키 존재 여부로 로그인 상태 판단
+    const userRaw = localStorage.getItem('user')
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+    if (!userRaw || !token) {
+      setIsLoggedIn(false)
+      setCustomerNo('')
+      return
+    }
+    try {
+      JSON.parse(userRaw)
+      const cid = getCurrentDepositCustomerId()
+      setIsLoggedIn(true)
+      if (cid) setCustomerNo(cid)
+    } catch {
       setIsLoggedIn(false)
       setCustomerNo('')
     }
-
-    const showLoginPrompt = () => {
-      pendingLoginActionRef.current = 'welcome'
-      setMessages([{
-        id: 'welcome',
-        role: 'bot',
-        text: '안녕하세요. 챗봇 서비스를 이용하시려면 먼저 로그인해 주세요.',
-        loginForm: true,
-      }])
-    }
-
-    if (token) {
-      api.get('/api/v1/customers/me')
-        .then(() => {
-          setIsLoggedIn(true)
-          if (cid) setCustomerNo(cid)
-        })
-        .catch(() => {
-          clearLoginState()
-          showLoginPrompt()
-        })
-    } else {
-      clearLoginState()
-      showLoginPrompt()
-    }
-  }, [])
+  }, [open])
 
   useEffect(() => {
     function handlePointerMove(event: globalThis.PointerEvent) {
@@ -614,15 +599,53 @@ export default function ChatbotWidget() {
     const investAmount = params.amount ?? ((params.purpose === 'monthly' ? monthlySurplus : totalBalance * 0.7) || 1_000_000)
     const investPeriod = params.period ?? 12
 
-    // ── 2. 상품 후보 필터링 ──
+    // ── 2. 고객 만 나이 계산 ──
+    let customerAge: number | null = null
+    try {
+      const meRes = await api.get<{ data: { birthDate?: string } }>('/api/v1/customers/me')
+      const birthDate = meRes.data?.data?.birthDate // 'YYYY-MM-DD' 또는 'YYYYMMDD'
+      if (birthDate) {
+        const normalized = birthDate.replace(/-/g, '')
+        const byear = parseInt(normalized.slice(0, 4), 10)
+        const bmonth = parseInt(normalized.slice(4, 6), 10)
+        const bday = parseInt(normalized.slice(6, 8), 10)
+        const now = new Date()
+        customerAge = now.getFullYear() - byear -
+          (now.getMonth() + 1 < bmonth || (now.getMonth() + 1 === bmonth && now.getDate() < bday) ? 1 : 0)
+      }
+    } catch { /* 나이 조회 실패 시 키워드 fallback으로만 처리 */ }
+
+    // ── 3. 상품 후보 필터링 ──
     const EXCLUDE = ['군인', '장병', '군무원', '사병', '병사']
+    const YOUTH_KEYWORDS = ['청년도약', '청년우대', '청년 우대', '청년주택', '청년 주택']
     const allProducts = await fetchDepositProducts(params.productType ? { productType: params.productType } : undefined)
     const candidates = allProducts.filter(p => {
       if (p.productStatus && p.productStatus !== 'SELLING') return false
       if (p.productType === 'SUBSCRIPTION' && params.productType !== 'SUBSCRIPTION') return false
       const nd = `${p.productName} ${p.description ?? ''}`
       if (EXCLUDE.some(k => nd.includes(k))) return false
-      if (nd.includes('청년도약') || nd.includes('청년우대')) return false
+
+      // 1순위: DB targetGroups의 minAge/maxAge로 나이 체크
+      if (customerAge !== null && p.targetGroups && p.targetGroups.length > 0) {
+        const ageRestricted = p.targetGroups.some(tg => tg.minAge != null || tg.maxAge != null)
+        if (ageRestricted) {
+          // 나이 제한 있는 그룹 중 하나라도 고객이 속하면 통과
+          const eligible = p.targetGroups.some(tg => {
+            if (tg.minAge == null && tg.maxAge == null) return true // 제한 없는 그룹
+            const okMin = tg.minAge == null || customerAge! >= tg.minAge
+            const okMax = tg.maxAge == null || customerAge! <= tg.maxAge
+            return okMin && okMax
+          })
+          if (!eligible) return false
+        }
+      } else if (customerAge !== null) {
+        // 2순위: targetGroups 데이터 없을 때 키워드 fallback
+        if (YOUTH_KEYWORDS.some(k => nd.includes(k)) && customerAge > 34) return false
+      } else {
+        // 나이 모를 때는 키워드 fallback만
+        if (YOUTH_KEYWORDS.some(k => nd.includes(k))) return false
+      }
+
       const minAmt = Number(p.minJoinAmount ?? 0)
       if (minAmt > 0) {
         if (p.productType === 'DEPOSIT' && totalBalance   > 0 && minAmt > totalBalance)       return false
@@ -640,6 +663,11 @@ export default function ChatbotWidget() {
 
     // ── 3. 채점 함수 (isAccumulateType 파라미터로 두 프로파일 모두 계산) ──
     function scoreProducts(isAccumulateType: boolean) {
+      const profileLabel = isAccumulateType ? '저축성장형' : '목돈운용형'
+      const savingsCandidates = candidates.filter(p => p.productType === 'SAVINGS')
+      console.log(`[추천][${profileLabel}] 전체 후보=${candidates.length}개 / SAVINGS후보=${savingsCandidates.length}개`)
+      console.log(`[추천][${profileLabel}] 입력값: totalBalance=${totalBalance} monthlySurplus=${monthlySurplus} investAmount=${investAmount} investPeriod=${investPeriod} maxInterest=${maxInterest.toFixed(0)}`)
+
       return candidates.map(p => {
         const minAmt    = Number(p.minJoinAmount ?? 0)
         const minPeriod = p.minPeriodMonth ?? 1
@@ -648,17 +676,22 @@ export default function ChatbotWidget() {
 
         /* 재정 적합도 (40점) */
         let financialScore = 20
+        let financialDetail = 'default'
         if (p.productType === 'DEPOSIT' && totalBalance > 0 && minAmt > 0) {
           const ratio = totalBalance / minAmt
           financialScore = ratio >= 3 ? 40 : ratio >= 1.5 ? 30 : ratio >= 1 ? 20 : 10
+          financialDetail = `DEPOSIT ratio=${ratio.toFixed(2)}`
         } else if (p.productType === 'SAVINGS') {
           if (monthlySurplus > 0 && minAmt > 0) {
             const ratio = monthlySurplus / (minAmt * 2)
             let base = ratio >= 2 ? 40 : ratio >= 1 ? 30 : ratio >= 0.5 ? 20 : 10
+            const beforeBoost = base
             if (isAccumulateType) base = Math.min(40, Math.round(base * 1.3))
             financialScore = base
+            financialDetail = `SAVINGS ratio=${ratio.toFixed(2)} base=${beforeBoost}${isAccumulateType ? `→×1.3→${base}` : ''}`
           } else {
             financialScore = isAccumulateType ? 30 : 20
+            financialDetail = `SAVINGS monthlySurplus=0 fallback isAccumulate=${isAccumulateType}`
           }
         }
 
@@ -687,17 +720,34 @@ export default function ChatbotWidget() {
         if (desc.includes('우대금리') || desc.includes('preferential'))  benefitScore += 2
         benefitScore = Math.min(10, benefitScore)
 
+        const totalScore = financialScore + returnScore + liquidityScore + benefitScore
+
+        /* 디버그: 적금 상품 또는 관심 상품 상세 출력 */
+        const isWatched = p.productName.includes('맑은하늘') || p.productName.includes('내맘대로')
+        if (p.productType === 'SAVINGS' || isWatched) {
+          console.log(
+            `[추천][${profileLabel}] ${p.productName} (${p.productType})` +
+            ` | rate=${rate}%(bestRate=${p.bestRate ?? 'N/A'} base=${p.baseInterestRate})` +
+            ` | 재정=${financialScore}(${financialDetail}) 수익=${returnScore}(interest=${interest.toFixed(0)}) 유동성=${liquidityScore} 혜택=${benefitScore}` +
+            ` | 합계=${totalScore}`
+          )
+        }
+
         return {
           product: p,
-          score: financialScore + returnScore + liquidityScore + benefitScore,
+          score: totalScore,
           financialScore, returnScore, liquidityScore, benefitScore,
         }
       }).sort((a, b) => b.score - a.score)
     }
 
     // ── 4. 두 프로파일 top3 ──
-    const accTop3  = scoreProducts(true).slice(0, 3)
-    const lumpTop3 = scoreProducts(false).slice(0, 3)
+    const accSorted  = scoreProducts(true)
+    const lumpSorted = scoreProducts(false)
+    console.log('[추천][저축성장형] Top5:', accSorted.slice(0, 5).map(s => `${s.product.productName}(${s.score}점)`).join(' / '))
+    console.log('[추천][목돈운용형] Top5:', lumpSorted.slice(0, 5).map(s => `${s.product.productName}(${s.score}점)`).join(' / '))
+    const accTop3  = accSorted.slice(0, 3)
+    const lumpTop3 = lumpSorted.slice(0, 3)
 
     const toRows = async (top3: ReturnType<typeof scoreProducts>) => {
       const rows = top3.map((s, i) => productToRow(
@@ -1064,12 +1114,7 @@ export default function ChatbotWidget() {
     if (['내상품', '내가입상품', '가입상품', '내계좌'].some((word) => compactText.includes(word))) {
       if (!isLoggedIn) {
         pendingLoginActionRef.current = 'my_products'
-        setMessages([{
-          id: messageId('auth'),
-          role: 'bot',
-          text: '로그인이 필요한 서비스입니다.',
-          loginForm: true,
-        }])
+        setMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
         return
       }
       await handleFeature('MY_PRODUCTS', trimmed, true)
@@ -1087,12 +1132,7 @@ export default function ChatbotWidget() {
     if (isDepositSavingsFitQuestion) {
       if (!isLoggedIn) {
         pendingLoginActionRef.current = 'recommend'
-        setMessages([{
-          id: messageId('auth'),
-          role: 'bot',
-          text: '로그인이 필요한 서비스입니다.',
-          loginForm: true,
-        }])
+        setMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
         return
       }
       setLoading(true)
@@ -1140,12 +1180,7 @@ export default function ChatbotWidget() {
     if (hasKoreanProduct && hasKoreanRecommend) {
       if (!isLoggedIn) {
         pendingLoginActionRef.current = 'recommend'
-        setMessages([{
-          id: messageId('auth'),
-          role: 'bot',
-          text: '로그인이 필요한 서비스입니다.',
-          loginForm: true,
-        }])
+        setMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
         return
       }
       await handleFeature('CASH_FLOW_RECOMMEND', trimmed, false)
@@ -1179,11 +1214,7 @@ export default function ChatbotWidget() {
     if (CASH_FLOW_RECOMMEND_KEYWORDS.some(kw => trimmed.includes(kw)) && lastRecommendProductsRef.current.length === 0) {
       if (!isLoggedIn) {
         pendingLoginActionRef.current = 'recommend'
-        setMessages([{
-          id: messageId('auth'), role: 'bot',
-          text: '로그인 후 이용하실 수 있는 서비스입니다.',
-          loginForm: true,
-        }])
+        setMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
         return
       }
       await handleFeature('CASH_FLOW_RECOMMEND', trimmed, false)
@@ -1307,16 +1338,8 @@ export default function ChatbotWidget() {
 
     const AUTH_REQUIRED = new Set(['my_products', 'recommend', 'product_guide'])
     if (AUTH_REQUIRED.has(action.type) && !isLoggedIn) {
-      // product_guide는 로그인 후 재실행을 위해 query도 함께 저장
-      pendingLoginActionRef.current = action.type === 'product_guide' && 'query' in action
-        ? `product_guide:${action.query}`
-        : action.type
-      pushMessages([{
-        id: messageId('auth'),
-        role: 'bot',
-        text: '로그인 후 이용하실 수 있는 서비스입니다.',
-        loginForm: true,
-      }])
+      pendingLoginActionRef.current = action.type === 'my_products' ? 'my_products' : 'recommend'
+      setMessages([{ id: messageId('auth'), role: 'bot', text: '로그인 후 이용하실 수 있는 서비스입니다.', loginForm: true }])
       return
     }
 

@@ -20,6 +20,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +41,13 @@ public class TransactionService {
             return transactionRepository.findByAccountIdAndTransactionAtBetween(accountId, startDate, endDate, pageable);
         }
         return transactionRepository.findByAccountId(accountId, pageable);
+    }
+
+    public Page<Transaction> findByCustomer(String customerId, Pageable pageable) {
+        List<Long> accountIds = accountRepository.findByCustomerId(customerId)
+                .stream().map(a -> a.getAccountId()).toList();
+        if (accountIds.isEmpty()) return Page.empty(pageable);
+        return transactionRepository.findByAccountIdIn(accountIds, pageable);
     }
 
     public Transaction findById(Long id) {

@@ -55,7 +55,7 @@ internet_banking/
 │   ├── deposit-service/
 │   │   ├── service/TransactionService.java          # 이체 실행, 한도 검증
 │   │   ├── service/IdempotentTransactionSaver.java  # 멱등성 키 중복 방지
-│   │   └── resources/db/migration/                  # Flyway V1~V13
+│   │   └── resources/db/migration/                  # Flyway V1~V14
 │   ├── deposit-api/
 │   │   └── app/main.py                  # 이체 엔드포인트, 소유주 검증
 │   ├── loan-service/
@@ -90,7 +90,7 @@ internet_banking/
 
 - 예금·적금·청약·입출금 상품 조회 (유형별 필터링, 판매 상태 기준)
 - 상품별 기본금리·우대금리·가입기간·가입금액 조건 관리
-- 가입 대상 그룹(연령·직군 등) 연동
+- 가입 대상 그룹(연령·직군 등) 연동 — `GET /products` 응답에 `targetGroups[]` 포함 (`targetGroupId`, `targetGroupName`, `minAge`, `maxAge`)
 - 상품 slug와 productId 매핑은 항상 API 이름 응답 기준으로 동적 조회 (하드코딩 제거)
 
 ### 계약 관리
@@ -154,12 +154,18 @@ CREATE UNIQUE INDEX uq_deposit_transactions_idempotency_key
 
 | 조건 | 제외 상품 |
 |---|---|
-| `ProductType.SUBSCRIPTION` | 청약 상품 전체 |
-| 상품명·설명에 "군인", "장병", "군무원" 포함 | 특수 대상 상품 |
-| "youth", "young", "청년" 포함 + 고객 나이 > 34 | 청년 전용 상품 |
+| `ProductType.SUBSCRIPTION` | 청약 상품 전체 (사용자 요청 시) |
+| 상품명·설명에 "군인", "장병", "군무원", "사병", "병사" 포함 | 특수 대상 상품 |
+| **1순위** 상품 `targetGroups[].maxAge < 고객 만 나이` | 나이 상한 초과 (DB 기준) |
+| **2순위** `targetGroups` 데이터 없을 때 "청년도약", "청년우대" 등 키워드 포함 + 고객 나이 > 34 | 청년 전용 상품 (키워드 fallback) |
 | DEPOSIT — `currentBalance` < minJoinAmount | 잔액 부족 |
 | DEPOSIT — `currentBalance` > maxJoinAmount | 한도 초과 |
 | SAVINGS — `monthlySavings` < minJoinAmount | 월 저축 여력 부족 |
+
+나이 조건 판단 우선순위:
+- **1순위**: `deposit_target_groups.min_age` / `max_age` 컬럼 기준 (DB). 나이 제한이 있는 그룹 중 고객이 하나라도 충족하면 통과.
+- **2순위**: `targetGroups` 데이터가 없거나 나이 필드가 null이면 상품명·설명의 "청년" 키워드 보조 필터링.
+- **3순위**: 고객 생년월일 조회 실패 시 키워드 보조 필터링만 적용.
 
 #### 100점 채점 모델
 
@@ -528,6 +534,7 @@ Flyway로 스키마를 관리하며 서비스 기동 시 자동 적용된다.
 | V5~V8 | 마스터 코드·그룹·시드 데이터 |
 | V12 | 이체 일일 한도 컬럼 추가 |
 | V13 | `deposit_transactions.idempotency_key` 컬럼 + 부분 유니크 인덱스 |
+| V14 | `deposit_target_groups.min_age` / `max_age` 컬럼 추가. 청년고객 19~34세, 국군장병 18~27세로 초기값 설정 |
 
 > 서비스 재기동 없이 컬럼이 추가된 경우 Hibernate가 SELECT 시 해당 컬럼을 포함해 500 오류가 발생한다. DB에 직접 DDL을 실행하거나 서비스를 재기동한다.
 

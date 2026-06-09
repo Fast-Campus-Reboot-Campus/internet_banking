@@ -26,6 +26,13 @@ depositApi.interceptors.request.use((config) => {
 export type DepositProductType = 'DEPOSIT' | 'SAVINGS' | 'SUBSCRIPTION'
 export type SavingType = 'REGULAR' | 'FREE'
 
+export type DepositProductTargetGroup = {
+  targetGroupId: number
+  targetGroupName: string
+  minAge?: number | null
+  maxAge?: number | null
+}
+
 export type DepositProduct = {
   productId: number
   productType: DepositProductType
@@ -38,6 +45,7 @@ export type DepositProduct = {
   minPeriodMonth?: number
   maxPeriodMonth?: number
   productStatus?: string
+  targetGroups?: DepositProductTargetGroup[]
 }
 
 export type DepositInterestRate = {
