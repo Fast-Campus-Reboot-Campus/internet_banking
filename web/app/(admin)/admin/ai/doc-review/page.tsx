@@ -48,7 +48,7 @@ export default function AdminDocReviewPage() {
       notify(`${decision === 'CLEARED' ? '승인(통과)' : '위변조 확정'} 처리 완료`)
       setDecideTarget(null)
       await load()
-    } catch (e: any) { fail(e?.response?.data?.message ?? '처리 실패') }
+    } catch (e) { fail((e as {response?: {data?: {message?: string}}})?.response?.data?.message ?? '처리 실패') }
     finally { setBusy(null) }
   }
 
@@ -63,7 +63,7 @@ export default function AdminDocReviewPage() {
         notify('리걸홀드 설정 완료')
       }
       await load()
-    } catch (e: any) { fail(e?.response?.data?.message ?? '리걸홀드 처리 실패') }
+    } catch (e) { fail((e as {response?: {data?: {message?: string}}})?.response?.data?.message ?? '리걸홀드 처리 실패') }
     finally { setBusy(null) }
   }
 

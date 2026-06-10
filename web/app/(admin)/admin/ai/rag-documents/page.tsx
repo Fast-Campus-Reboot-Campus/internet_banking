@@ -23,6 +23,7 @@ export default function AdminRagDocumentsPage() {
   const [uploadContent, setUploadContent] = useState('')
 
   const [logsDocId, setLogsDocId] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [logs, setLogs]           = useState<any[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
 
@@ -46,7 +47,7 @@ export default function AdminRagDocumentsPage() {
       notify('문서가 업로드되었습니다.')
       setUploadTitle(''); setUploadContent(''); setShowUpload(false)
       await load()
-    } catch (e: any) { fail(e?.response?.data?.message ?? '업로드 실패') }
+    } catch (e) { fail((e as {response?: {data?: {message?: string}}})?.response?.data?.message ?? '업로드 실패') }
     finally { setBusy(false) }
   }
 
@@ -56,7 +57,7 @@ export default function AdminRagDocumentsPage() {
       await reindexRagDocument(docId)
       notify(`문서 ${docId} 재인덱싱 요청 완료`)
       await load()
-    } catch (e: any) { fail(e?.response?.data?.message ?? '재인덱싱 실패') }
+    } catch (e) { fail((e as {response?: {data?: {message?: string}}})?.response?.data?.message ?? '재인덱싱 실패') }
     finally { setBusy(false) }
   }
 
@@ -67,7 +68,7 @@ export default function AdminRagDocumentsPage() {
       await bootstrapRagDocuments()
       notify('Bootstrap 완료')
       await load()
-    } catch (e: any) { fail(e?.response?.data?.message ?? 'Bootstrap 실패') }
+    } catch (e) { fail((e as {response?: {data?: {message?: string}}})?.response?.data?.message ?? 'Bootstrap 실패') }
     finally { setBusy(false) }
   }
 
@@ -188,7 +189,7 @@ export default function AdminRagDocumentsPage() {
                               <p className="text-[12px] text-gray-400">인제스션 로그 없음</p>
                             ) : (
                               <div className="space-y-1">
-                                {logs.map((l: any, i: number) => (
+                                {logs.map((l, i: number) => (
                                   <div key={i} className="text-[11px] text-gray-600 flex gap-3">
                                     <span className="text-gray-400 font-mono">
                                       {l.createdAt ? new Date(l.createdAt).toLocaleString('ko-KR') : '-'}

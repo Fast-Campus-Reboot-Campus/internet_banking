@@ -22,9 +22,13 @@ function fmt(iso?: string) {
 }
 
 export default function AdminAuditRiskPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [opinions, setOpinions]         = useState<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [topBias, setTopBias]           = useState<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [topCompliance, setTopCompliance] = useState<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [quarantine, setQuarantine]     = useState<any[]>([])
   const [loading, setLoading]           = useState(false)
   const [err, setErr]                   = useState('')
@@ -80,7 +84,7 @@ export default function AdminAuditRiskPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {topBias.map((s: any, i: number) => (
+                    {topBias.map((s, i: number) => (
                       <tr key={i}>
                         <td className="py-1.5 text-gray-700 font-mono">{s.reviewerId}</td>
                         <td className="py-1.5">
@@ -112,7 +116,7 @@ export default function AdminAuditRiskPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {topCompliance.map((s: any, i: number) => (
+                    {topCompliance.map((s, i: number) => (
                       <tr key={i}>
                         <td className="py-1.5 text-gray-700 font-mono">{s.reviewerId}</td>
                         <td className="py-1.5">
@@ -145,7 +149,7 @@ export default function AdminAuditRiskPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {quarantine.map((q: any, i: number) => (
+                  {quarantine.map((q, i: number) => (
                     <tr key={i}>
                       <td className="py-1.5 text-gray-400 font-mono text-[11px]">{q.advrId}</td>
                       <td className="py-1.5 text-gray-700">{q.revId}</td>
@@ -174,7 +178,7 @@ export default function AdminAuditRiskPage() {
               <Empty />
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto">
-                {opinions.map((o: any, i: number) => (
+                {opinions.map((o, i: number) => (
                   <div key={i} className={`text-[12px] border rounded px-3 py-2 ${CONCLUSION_CLS[o.conclusionCd] ?? 'bg-gray-50 border-gray-200'}`}>
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-[10px] font-semibold">{o.analysisTypeCd}</span>

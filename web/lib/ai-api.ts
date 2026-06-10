@@ -35,18 +35,18 @@ export type RagDocument = {
   status: string
 }
 
-function mapDoc(raw: any): RagDocument {
+function mapDoc(raw: Record<string, unknown>): RagDocument {
   return {
-    ...raw,
+    ...(raw as Omit<RagDocument, 'docId' | 'title' | 'status'>),
     docId:  String(raw.docId),
-    title:  raw.docTitle  ?? raw.title  ?? '',
+    title:  String(raw.docTitle ?? raw.title ?? ''),
     status: raw.activeYn === 'Y' ? 'INDEXED' : 'INACTIVE',
   }
 }
 
 export async function getRagDocuments(): Promise<RagDocument[]> {
   const { data } = await aiApi.get('/api/internal/advisory/documents')
-  const items: any[] = data?.data ?? data ?? []
+  const items: Record<string, unknown>[] = data?.data ?? data ?? []
   return items.map(mapDoc)
 }
 
@@ -79,7 +79,7 @@ export async function reindexRagDocument(docId: string | number) {
 
 // ── 인제스션 로그 (현재 백엔드 미구현 — 빈 배열 반환) ─────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
 export async function getRagDocumentIngestionLogs(_docId: string | number): Promise<any> {
   return []
 }
