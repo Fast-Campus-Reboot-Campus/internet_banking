@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, text
@@ -779,14 +779,25 @@ class TransferRequest(BaseModel):
     transactionMemo: str = "인터넷이체"
 
 
+from fastapi import Depends, FastAPI, HTTPException, Query, Header
+# ...
 @app.post("/transactions/transfer", status_code=201)
-def transfer(req: TransferRequest, db: Session = Depends(get_db)):
+def transfer(
+    req: TransferRequest,
+    db: Session = Depends(get_db),
+    x_customer_id: str | None = Header(None, alias="X-Customer-Id")
+):
     from datetime import datetime, timezone
 
     # ── 출금 계좌 검증 ────────────────────────────────────────────────────────
-    src = _one(db, "SELECT account_id, account_number, balance, is_withdrawable, account_status FROM deposit_accounts WHERE account_id = :aid", {"aid": req.fromAccountId})
+    src = _one(db, "SELECT account_id, account_number, customer_id, balance, is_withdrawable, account_status FROM deposit_accounts WHERE account_id = :aid", {"aid": req.fromAccountId})
     if not src:
         raise HTTPException(status_code=404, detail="출금 계좌를 찾을 수 없습니다.")
+    
+    # 보안 체크: 요청한 고객이 계좌 소유주인지 확인 (헤더가 있는 경우)
+    if x_customer_id and src["customer_id"] != x_customer_id:
+        raise HTTPException(status_code=403, detail="본인 계좌만 출금 계좌로 선택할 수 있습니다.")
+
     if not src["is_withdrawable"]:
         raise HTTPException(status_code=422, detail="출금이 불가능한 계좌입니다.")
     if float(src["balance"] or 0) < req.amount:
@@ -797,6 +808,19 @@ def transfer(req: TransferRequest, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     tx_no_out = f"TXN{now.strftime('%Y%m%d%H%M%S')}{req.fromAccountId}OUT"
 
+    # ── 당행 입금 처리 (toAccountId가 없으면 계좌번호로 조회 시도) ──────────────
+    target_aid = req.toAccountId
+    target_cid = None
+    if not target_aid:
+        dst_acc = _one(db, "SELECT account_id, customer_id FROM deposit_accounts WHERE account_number = :ano AND account_status = 'ACTIVE'", {"ano": req.toAccountNo})
+        if dst_acc:
+            target_aid = dst_acc["account_id"]
+            target_cid = dst_acc["customer_id"]
+    else:
+        dst_acc = _one(db, "SELECT customer_id FROM deposit_accounts WHERE account_id = :aid", {"aid": target_aid})
+        if dst_acc:
+            target_cid = dst_acc["customer_id"]
+
     # ── 출금 트랜잭션 ─────────────────────────────────────────────────────────
     result = db.execute(text("""
         INSERT INTO deposit_transactions
@@ -804,14 +828,14 @@ def transfer(req: TransferRequest, db: Session = Depends(get_db)):
              amount, balance_before, balance_after, available_balance_after,
              fee_amount, currency, status, channel_type,
              transaction_memo, transaction_summary, transaction_at,
-             counterparty_account_no, counterparty_customer_id,
+             counterparty_account_no, counterparty_account_id, counterparty_customer_id,
              created_at, updated_at)
         VALUES
             (:tx_no, :aid, 'TRANSFER', 'OUT',
              :amt, :bal_before, :bal_after, :bal_after,
              0, 'W', 'SUCCESS', :channel,
              :memo, :summary, :now,
-             :to_acc_no, :to_name,
+             :to_acc_no, :to_acc_id, :to_cust_id,
              :now, :now)
         RETURNING transaction_id
     """), {
@@ -819,43 +843,55 @@ def transfer(req: TransferRequest, db: Session = Depends(get_db)):
         "amt": req.amount, "bal_before": balance_before, "bal_after": balance_after,
         "channel": req.channelType, "memo": req.transactionMemo,
         "summary": f"{req.toAccountNo}으로 이체",
-        "to_acc_no": req.toAccountNo, "to_name": req.counterpartyName or "",
+        "to_acc_no": req.toAccountNo,
+        "to_acc_id": target_aid,
+        "to_cust_id": target_cid,
         "now": now,
     })
     transaction_id = result.scalar()
     db.execute(text("UPDATE deposit_accounts SET balance = :bal WHERE account_id = :aid"), {"bal": balance_after, "aid": req.fromAccountId})
 
-    # ── 당행 입금 처리 ────────────────────────────────────────────────────────
-    if req.toAccountId:
-        dst = _one(db, "SELECT account_id, balance FROM deposit_accounts WHERE account_id = :aid", {"aid": req.toAccountId})
+    if target_aid:
+        dst = _one(db, "SELECT balance FROM deposit_accounts WHERE account_id = :aid", {"aid": target_aid})
         if dst:
             dst_before = float(dst["balance"] or 0)
             dst_after  = dst_before + req.amount
-            tx_no_in = f"TXN{now.strftime('%Y%m%d%H%M%S')}{req.toAccountId}IN"
+            tx_no_in = f"TXN{now.strftime('%Y%m%d%H%M%S')}{target_aid}IN"
             db.execute(text("""
                 INSERT INTO deposit_transactions
                     (transaction_number, account_id, transaction_type, direction_type,
                      amount, balance_before, balance_after, available_balance_after,
                      fee_amount, currency, status, channel_type,
                      transaction_memo, transaction_summary, transaction_at,
-                     counterparty_account_no, created_at, updated_at)
+                     counterparty_account_no, counterparty_account_id, counterparty_customer_id,
+                     created_at, updated_at)
                 VALUES
                     (:tx_no, :aid, 'TRANSFER', 'IN',
                      :amt, :bal_before, :bal_after, :bal_after,
                      0, 'W', 'SUCCESS', :channel,
                      :memo, :summary, :now,
-                     :from_acc_no, :now, :now)
+                     :from_acc_no, :from_acc_id, :from_cust_id,
+                     :now, :now)
             """), {
-                "tx_no": tx_no_in, "aid": req.toAccountId,
+                "tx_no": tx_no_in, "aid": target_aid,
                 "amt": req.amount, "bal_before": dst_before, "bal_after": dst_after,
                 "channel": req.channelType, "memo": req.transactionMemo,
                 "summary": f"{src['account_number']}에서 이체",
-                "from_acc_no": src["account_number"], "now": now,
+                "from_acc_no": src["account_number"],
+                "from_acc_id": req.fromAccountId,
+                "from_cust_id": src["customer_id"],
+                "now": now,
             })
-            db.execute(text("UPDATE deposit_accounts SET balance = :bal WHERE account_id = :aid"), {"bal": dst_after, "aid": req.toAccountId})
+            db.execute(text("UPDATE deposit_accounts SET balance = :bal WHERE account_id = :aid"), {"bal": dst_after, "aid": target_aid})
 
     db.commit()
-    return {"transaction_id": transaction_id, "transaction_number": tx_no_out, "status": "SUCCESS", "amount": req.amount}
+    return {
+        "transactionId": transaction_id,
+        "transactionNumber": tx_no_out,
+        "status": "SUCCESS",
+        "amount": req.amount,
+        "balanceAfter": balance_after
+    }
 
 
 # ── 특약 ──────────────────────────────────────────────────────────────────────

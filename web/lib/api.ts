@@ -10,6 +10,10 @@ api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("accessToken");
     if (token) config.headers.Authorization = `Bearer ${token}`;
+    const customerId = localStorage.getItem("customerId");
+    if (customerId && !config.headers["X-Customer-Id"]) {
+      config.headers["X-Customer-Id"] = customerId === "CUST001" ? "1" : customerId;
+    }
   }
   return config;
 });

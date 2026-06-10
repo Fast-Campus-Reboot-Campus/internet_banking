@@ -35,21 +35,35 @@ export default function TransactionsPage() {
   useEffect(() => {
     const customerId = getCurrentDepositCustomerId()
     async function loadData() {
+      let loadedAccounts: DepositViewAccount[] = []
       try {
         const accs = await fetchDepositAccountViewModels(customerId)
+        loadedAccounts = accs
         setAccounts(accs)
+        setSelectedAccount((current) => current || accs[0]?.id || '')
+        setCalAccount((current) => current || accs[0]?.id || '')
       } catch { setAccounts([]) }
       finally { setLoadingAccounts(false) }
       try {
-        const txs = await fetchTransactions({ customerId })
-        setAllTransactions(txs)
+        const txGroups = await Promise.all(
+          loadedAccounts
+            .map(account => account.apiAccountId)
+            .filter((accountId): accountId is number => accountId != null)
+            .map(accountId => fetchTransactions({ accountId })),
+        )
+        setAllTransactions(txGroups.flat())
       } catch { setAllTransactions([]) }
     }
     loadData()
   }, [])
 
   const txs = selectedAccount
-    ? allTransactions.filter(t => accounts.find(a => a.id === selectedAccount)?.number === t.accountNumber)
+    ? allTransactions.filter(t => {
+        const account = accounts.find(a => a.id === selectedAccount)
+        if (!account) return false
+        const txAccountId = (t as DepositTransaction & { accountId?: number }).accountId
+        return account.number === t.accountNumber || account.apiAccountId === txAccountId
+      })
     : []
 
   const filteredTxs = txs.filter(t => {
@@ -88,8 +102,11 @@ export default function TransactionsPage() {
   const calTxs = (() => {
     if (!calSearched || !calAccount) return []
     const prefix = `${year}-${month}`
-    const calNumber = accounts.find(a => a.id === calAccount)?.number
-    return allTransactions.filter(t => calNumber === t.accountNumber && t.transactionAt.startsWith(prefix))
+    const account = accounts.find(a => a.id === calAccount)
+    return allTransactions.filter(t => {
+      const txAccountId = (t as DepositTransaction & { accountId?: number }).accountId
+      return (account?.number === t.accountNumber || account?.apiAccountId === txAccountId) && t.transactionAt.startsWith(prefix)
+    })
   })()
 
   function buildCalendar() {

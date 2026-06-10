@@ -10,6 +10,14 @@ import { createDepositContract, getCurrentDepositCustomerId, fetchDepositAccount
 import { formatNumber } from '@/lib/mock-data'
 import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
+const SESSION_EXTENSION_MS = 10 * 60 * 1000
+
+function extendLocalSessionAfterAuthenticatedAction() {
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+  if (!token) return
+  localStorage.setItem('sessionExpiry', String(Date.now() + SESSION_EXTENSION_MS))
+}
+
 const PRODUCT_NAMES: Record<string, string> = {
   // 예금
   'axful-regular': 'AXful 정기예금',
@@ -335,11 +343,13 @@ export default function DepositJoinPage() {
         autoTransferDay: transferDay ? parseInt(transferDay) : undefined,
         taxExempt,
       })
+      extendLocalSessionAfterAuthenticatedAction()
       localStorage.removeItem('joinedAccounts')
       router.push('/inquiry/accounts')
       router.refresh()
-    } catch {
-      alert('가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; error?: string } }; message?: string }
+      alert(e.response?.data?.message || e.response?.data?.error || e.message || '가입 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       setSubmitting(false)
     }
   }

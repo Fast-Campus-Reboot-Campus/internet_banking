@@ -4,6 +4,7 @@ import com.bank.deposit.domain.entity.Account;
 import com.bank.deposit.domain.entity.Transaction;
 import com.bank.deposit.domain.enums.*;
 import com.bank.deposit.exception.BusinessException;
+import com.bank.deposit.exception.ErrorCode;
 import com.bank.deposit.repository.AccountRepository;
 import com.bank.deposit.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +34,7 @@ import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -350,7 +351,7 @@ class TransactionServiceTest {
     class DailyTransferLimit {
 
         private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-        private static final Instant FIXED = Instant.parse("2026-01-01T00:00:00Z"); // = KST 09:00
+        private static final Instant FIXED = Instant.parse("2026-01-01T00:00:00Z"); // = KST 2026-01-01 09:00
 
         @BeforeEach
         void stubClockWithZone() {
@@ -372,7 +373,8 @@ class TransactionServiceTest {
             assertThatThrownBy(() -> transactionService.transfer(1L, null, "ACC-EXT",
                     BigDecimal.valueOf(200_000), TransferType.EXTERNAL,
                     "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체", null))
-                    .isInstanceOf(BusinessException.class);
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DAILY_TRANSFER_AMOUNT_EXCEEDED);
         }
 
         @Test
@@ -387,7 +389,47 @@ class TransactionServiceTest {
             assertThatThrownBy(() -> transactionService.transfer(1L, null, "ACC-EXT",
                     BigDecimal.valueOf(100_000), TransferType.EXTERNAL,
                     "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체", null))
-                    .isInstanceOf(BusinessException.class);
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DAILY_TRANSFER_COUNT_EXCEEDED);
+        }
+
+        @Test
+        @DisplayName("KST 기준 시작 시각과 종료 시각이 정확히 전달된다")
+        void kstBoundaryTimes() {
+            Account source = accountWithDailyAmountLimit(BigDecimal.valueOf(1_000_000), BigDecimal.valueOf(500_000));
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+            given(transactionRepository.sumAmountByAccountIdAndDirectionTypeAndTransactionAtBetween(
+                    any(), any(), any(OffsetDateTime.class), any(OffsetDateTime.class)))
+                    .willReturn(BigDecimal.ZERO);
+
+            transactionService.transfer(1L, null, "ACC-EXT",
+                    BigDecimal.valueOf(100_000), TransferType.EXTERNAL,
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체", null);
+
+            ArgumentCaptor<OffsetDateTime> startCaptor = ArgumentCaptor.forClass(OffsetDateTime.class);
+            ArgumentCaptor<OffsetDateTime> endCaptor = ArgumentCaptor.forClass(OffsetDateTime.class);
+            
+            then(transactionRepository).should().sumAmountByAccountIdAndDirectionTypeAndTransactionAtBetween(
+                    eq(1L), eq(DirectionType.OUT), startCaptor.capture(), endCaptor.capture());
+
+            // KST 2026-01-01 00:00:00 = UTC 2025-12-31 15:00:00
+            assertThat(startCaptor.getValue()).isEqualTo(OffsetDateTime.parse("2026-01-01T00:00+09:00"));
+            assertThat(endCaptor.getValue()).isEqualTo(OffsetDateTime.parse("2026-01-02T00:00+09:00"));
+        }
+
+        @Test
+        @DisplayName("한도가 설정되지 않은 계좌는 검증을 건너뛴다")
+        void skipValidationWhenLimitsAreNull() {
+            Account source = activeAccount(BigDecimal.valueOf(1_000_000)); // Limits are null
+            given(accountRepository.findByIdForUpdate(1L)).willReturn(Optional.of(source));
+
+            Transaction result = transactionService.transfer(1L, null, "ACC-EXT",
+                    BigDecimal.valueOf(100_000), TransferType.EXTERNAL,
+                    "001", "국민은행", "수취인", TransactionChannel.INTERNET, "이체", null);
+
+            assertThat(result).isNotNull();
+            then(transactionRepository).should(org.mockito.Mockito.never())
+                    .sumAmountByAccountIdAndDirectionTypeAndTransactionAtBetween(any(), any(), any(), any());
         }
 
         @Test
@@ -412,11 +454,12 @@ class TransactionServiceTest {
 
         private Account accountWithDailyAmountLimit(BigDecimal balance, BigDecimal amountLimit) {
             return Account.builder()
+                    .accountId(1L)
                     .accountNumber("ACC-001")
                     .customerId("CUST-001")
                     .contractId(1L)
                     .accountType(ProductType.DEPOSIT)
-                    .accountPassword("1234")
+                    .accountPassword("$2a$10$abcdefghijklmnopqrstuv") // Valid BCrypt prefix
                     .openedAt(LocalDate.of(2026, 1, 1))
                     .balance(balance)
                     .dailyWithdrawLimit(amountLimit)
@@ -425,11 +468,12 @@ class TransactionServiceTest {
 
         private Account accountWithDailyCountLimit(BigDecimal balance, int countLimit) {
             return Account.builder()
+                    .accountId(1L)
                     .accountNumber("ACC-001")
                     .customerId("CUST-001")
                     .contractId(1L)
                     .accountType(ProductType.DEPOSIT)
-                    .accountPassword("1234")
+                    .accountPassword("$2a$10$abcdefghijklmnopqrstuv")
                     .openedAt(LocalDate.of(2026, 1, 1))
                     .balance(balance)
                     .dailyWithdrawCountLimit(countLimit)
@@ -438,11 +482,12 @@ class TransactionServiceTest {
 
         private Account accountWithBothLimits(BigDecimal balance, BigDecimal amountLimit, int countLimit) {
             return Account.builder()
+                    .accountId(1L)
                     .accountNumber("ACC-001")
                     .customerId("CUST-001")
                     .contractId(1L)
                     .accountType(ProductType.DEPOSIT)
-                    .accountPassword("1234")
+                    .accountPassword("$2a$10$abcdefghijklmnopqrstuv")
                     .openedAt(LocalDate.of(2026, 1, 1))
                     .balance(balance)
                     .dailyWithdrawLimit(amountLimit)

@@ -2,9 +2,10 @@
 import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import DepositSidebar from '@/components/products/DepositSidebar'
-import { formatNumber } from '@/lib/mock-data'
+import { formatNumber, MOCK_BANKS } from '@/lib/mock-data'
 import {
   DepositViewAccount,
   fetchDepositAccountViewModels,
@@ -13,17 +14,34 @@ import {
 } from '@/lib/deposit-api'
 import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
+type ReceiveMethod = 'internal' | 'external' | 'cash'
+
 const STEP_LABELS = ['계좌조회/선택', '해지계좌 확인', '완료']
 type Step = 1 | 2 | 3
 
 export default function DepositTerminatePage() {
-  const [step, setStep] = useState<Step>(1)
+  return (
+    <Suspense fallback={null}>
+      <TerminatePageInner />
+    </Suspense>
+  )
+}
+
+function TerminatePageInner() {
+  const searchParams = useSearchParams()
+  const preselectedId = searchParams.get('accountId')
+
+  const [step, setStep] = useState<Step>(preselectedId ? 2 : 1)
   const [selected, setSelected] = useState<DepositViewAccount | null>(null)
   const [joinedAccounts, setJoinedAccounts] = useState<DepositViewAccount[]>([])
   const [password, setPassword] = useState('')
   const [mouseInput, setMouseInput] = useState(false)
   const [mousePassword, setMousePassword] = useState('')
+  const [receiveMethod, setReceiveMethod] = useState<ReceiveMethod>('internal')
   const [depositNo, setDepositNo] = useState('')
+  const [extBankCode, setExtBankCode] = useState('')
+  const [extAccountNo, setExtAccountNo] = useState('')
+  const [showBankModal, setShowBankModal] = useState(false)
   const [depositOpen,        setDepositOpen]        = useState(true)
   const [regularSavingsOpen, setRegularSavingsOpen] = useState(true)
   const [freeSavingsOpen,    setFreeSavingsOpen]    = useState(true)
@@ -41,9 +59,22 @@ export default function DepositTerminatePage() {
     async function loadAccounts() {
       try {
         const apiAccounts = await fetchDepositAccountViewModels(getCurrentDepositCustomerId())
-        if (!cancelled) setJoinedAccounts(apiAccounts.length > 0 ? apiAccounts : fallbackAccounts)
+        if (!cancelled) {
+          const accounts = apiAccounts.length > 0 ? apiAccounts : fallbackAccounts
+          setJoinedAccounts(accounts)
+          if (preselectedId) {
+            const found = accounts.find(a => String(a.id) === preselectedId)
+            if (found) { setSelected(found); setStep(2) }
+          }
+        }
       } catch {
-        if (!cancelled) setJoinedAccounts(fallbackAccounts)
+        if (!cancelled) {
+          setJoinedAccounts(fallbackAccounts)
+          if (preselectedId) {
+            const found = fallbackAccounts.find(a => String(a.id) === preselectedId)
+            if (found) { setSelected(found); setStep(2) }
+          }
+        }
       }
     }
     loadAccounts()
@@ -67,21 +98,22 @@ export default function DepositTerminatePage() {
 
   async function handleConfirm() {
     if (!(mouseInput ? mousePassword : password)) { alert('해지계좌 비밀번호를 입력해주세요.'); return }
-    if (!depositNo) { alert('입금계좌를 선택해주세요.'); return }
+    if (receiveMethod === 'internal' && !depositNo) { alert('입금계좌를 선택해주세요.'); return }
+    if (receiveMethod === 'external' && (!extBankCode || !extAccountNo)) { alert('은행과 계좌번호를 입력해주세요.'); return }
     if (selected) {
       try {
         if (selected.contractId) await terminateDepositContract(selected.contractId)
         const terminatedBalance = selected.balance
         let updated = joinedAccounts.filter(a => a.id !== selected.id)
-        const targetInJoined = updated.find(a => a.id === depositNo)
-        if (targetInJoined) {
-          updated = updated.map(a => a.id === depositNo
-            ? { ...a, balance: a.balance + terminatedBalance, availableBalance: a.availableBalance + terminatedBalance }
-            : a)
-        } else {
+        if (receiveMethod === 'internal' && depositNo) {
+          // accountOverrides에 추가 — 계좌조회 페이지가 API 잔액 위에 합산
           const overrides = JSON.parse(localStorage.getItem('accountOverrides') || '{}')
           overrides[depositNo] = (overrides[depositNo] || 0) + terminatedBalance
           localStorage.setItem('accountOverrides', JSON.stringify(overrides))
+          // in-memory도 반영 (localStorage fallback용)
+          updated = updated.map(a => a.id === depositNo
+            ? { ...a, balance: a.balance + terminatedBalance, availableBalance: a.availableBalance + terminatedBalance }
+            : a)
         }
         localStorage.setItem('joinedAccounts', JSON.stringify(updated))
         setJoinedAccounts(updated)
@@ -229,17 +261,17 @@ export default function DepositTerminatePage() {
                 style={{ backgroundColor: KB_PRIMARY_SURFACE, border: '1px solid #E2F5EF' }}>
                 <p className="flex gap-1.5 text-kb-text-muted">
                   <span className="flex-shrink-0">·</span>
-                  <span>해지 시 잔액이 선택하신 입금계좌로 이체됩니다.</span>
+                  <span>해지 시 잔액이 선택하신 방법으로 지급됩니다.</span>
                 </p>
               </div>
 
-              <div className="rounded-xl overflow-hidden mb-6" style={{ border: '1px solid #E2F5EF' }}>
+              <div className="rounded-xl overflow-hidden mb-4" style={{ border: '1px solid #E2F5EF' }}>
                 <table className="w-full border-collapse text-[13px]">
                   <tbody>
                     {[
                       { label: '해지계좌번호', value: <span className="font-medium" style={{ color: KB_PRIMARY }}>{selected.number}</span> },
                       { label: '해지계좌명',   value: selected.name },
-                      { label: '해지금액',      value: <span className="font-bold text-[15px]" style={{ color: KB_PRIMARY }}>{formatNumber(selected.balance)}원</span> },
+                      { label: '해지금액',     value: <span className="font-bold text-[15px]" style={{ color: KB_PRIMARY }}>{formatNumber(selected.balance)}원</span> },
                     ].map(({ label, value }, i) => (
                       <tr key={i} style={{ borderBottom: '1px solid #E2F5EF' }}>
                         <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG, width: 160 }}>{label}</td>
@@ -270,24 +302,116 @@ export default function DepositTerminatePage() {
                         </div>
                       </td>
                     </tr>
-                    <tr>
-                      <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>입금계좌번호</td>
+                    {/* 지급 방법 선택 */}
+                    <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
+                      <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>지급 방법</td>
                       <td className={rowStyle}>
-                        <select
-                          value={depositNo}
-                          onChange={e => setDepositNo(e.target.value)}
-                          className="border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white"
-                          style={{ borderColor: '#D1D5DB' }}>
-                          <option value="">- 선택 -</option>
-                          {checkingAccounts.map(a => (
-                            <option key={a.id} value={a.id}>{a.number} ({a.name})</option>
+                        <div className="flex gap-3">
+                          {([
+                            { value: 'internal', label: '당행 계좌' },
+                            { value: 'external', label: '타행 계좌' },
+                            { value: 'cash',     label: '현금' },
+                          ] as { value: ReceiveMethod; label: string }[]).map(opt => (
+                            <label key={opt.value} className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+                              <input
+                                type="radio"
+                                name="receiveMethod"
+                                value={opt.value}
+                                checked={receiveMethod === opt.value}
+                                onChange={() => { setReceiveMethod(opt.value); setDepositNo(''); setExtBankCode(''); setExtAccountNo('') }}
+                              />
+                              {opt.label}
+                            </label>
                           ))}
-                        </select>
+                        </div>
                       </td>
                     </tr>
+                    {/* 당행: 내 계좌 선택 */}
+                    {receiveMethod === 'internal' && (
+                      <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
+                        <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>입금계좌</td>
+                        <td className={rowStyle}>
+                          <select
+                            value={depositNo}
+                            onChange={e => setDepositNo(e.target.value)}
+                            className="border rounded-lg px-3 py-1.5 text-[13px] outline-none bg-white"
+                            style={{ borderColor: '#D1D5DB' }}>
+                            <option value="">- 선택 -</option>
+                            {allAccounts.filter(a => a.id !== selected.id).map(a => (
+                              <option key={a.id} value={a.id}>{a.number} ({a.name}) · {formatNumber(a.balance)}원</option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    )}
+                    {/* 타행: 은행 선택 + 계좌번호 입력 */}
+                    {receiveMethod === 'external' && (
+                      <>
+                        <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
+                          <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>은행</td>
+                          <td className={rowStyle}>
+                            <button
+                              type="button"
+                              onClick={() => setShowBankModal(true)}
+                              className="border rounded-lg px-3 py-1.5 text-[13px] bg-white min-w-[120px] text-left"
+                              style={{ borderColor: '#D1D5DB', color: extBankCode ? '#111' : '#9CA3AF' }}>
+                              {extBankCode ? MOCK_BANKS.find(b => b.code === extBankCode)?.name ?? '은행 선택' : '은행 선택'}
+                            </button>
+                          </td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
+                          <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>계좌번호</td>
+                          <td className={rowStyle}>
+                            <input
+                              type="text"
+                              value={extAccountNo}
+                              onChange={e => setExtAccountNo(e.target.value.replace(/\D/g, ''))}
+                              placeholder="계좌번호 입력 (숫자만)"
+                              className="border rounded-lg px-3 py-1.5 text-[13px] w-48 outline-none focus:ring-1"
+                              style={{ borderColor: '#D1D5DB' }}
+                            />
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                    {/* 현금: 안내 문구 */}
+                    {receiveMethod === 'cash' && (
+                      <tr style={{ borderBottom: '1px solid #E2F5EF' }}>
+                        <td className={`${rowStyle} ${labelStyle}`} style={{ backgroundColor: KB_PRIMARY_BG }}>안내</td>
+                        <td className={`${rowStyle} text-kb-text-muted text-[12px]`}>
+                          해지 후 영업점 방문 시 현금으로 수령하실 수 있습니다.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {/* 타행 은행 선택 모달 */}
+              {showBankModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                  onClick={() => setShowBankModal(false)}>
+                  <div className="bg-white rounded-2xl shadow-xl w-[360px] max-h-[70vh] overflow-y-auto p-5"
+                    onClick={e => e.stopPropagation()}>
+                    <h3 className="text-[15px] font-bold mb-4" style={{ color: KB_PRIMARY }}>은행 선택</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {MOCK_BANKS.filter(b => b.code !== 'KB').map(bank => (
+                        <button
+                          key={bank.code}
+                          onClick={() => { setExtBankCode(bank.code); setShowBankModal(false) }}
+                          className="border rounded-lg py-2 text-[12px] font-medium transition-colors hover:bg-kb-primary-bg"
+                          style={{
+                            borderColor: extBankCode === bank.code ? KB_PRIMARY : '#E5E7EB',
+                            color: extBankCode === bank.code ? KB_PRIMARY : '#374151',
+                            backgroundColor: extBankCode === bank.code ? KB_PRIMARY_BG : 'white',
+                          }}>
+                          {bank.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-center gap-3">
                 <button

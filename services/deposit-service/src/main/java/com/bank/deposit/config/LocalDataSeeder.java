@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 
 @Component
-@Profile("local")
+@Profile({"local", "docker"})
 @RequiredArgsConstructor
 public class LocalDataSeeder implements ApplicationRunner {
 
@@ -35,6 +35,7 @@ public class LocalDataSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if (productRepository.count() > 0) {
             seedDemoCustomerAccounts();
+            seedDemoCustomerTransactions();
             seedDemoLoginAccounts();
             return;
         }
@@ -53,10 +54,12 @@ public class LocalDataSeeder implements ApplicationRunner {
         TargetGroup youth = targetGroupRepository.save(TargetGroup.builder()
                 .targetGroupName("청년고객")
                 .description("만 19~34세 청년 고객")
+                .minAge(19).maxAge(34)
                 .build());
         TargetGroup military = targetGroupRepository.save(TargetGroup.builder()
                 .targetGroupName("국군장병")
                 .description("현역 군인")
+                .minAge(18).maxAge(27)
                 .build());
 
         // ══════════════════════════════════════════════════════════════════════
@@ -527,6 +530,7 @@ public class LocalDataSeeder implements ApplicationRunner {
         productTargetGroupRepository.save(ProductTargetGroup.builder().id(new ProductTargetGroupId(youthAccount.getProductId(), youth.getTargetGroupId())).build());
 
         seedDemoCustomerAccounts();
+        seedDemoCustomerTransactions();
         seedDemoLoginAccounts();
     }
 
@@ -576,6 +580,48 @@ public class LocalDataSeeder implements ApplicationRunner {
                  false, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0)
                 on conflict (account_number) do nothing
                 """);
+    }
+
+    private void seedDemoCustomerTransactions() {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from deposit_transactions t" +
+                " join deposit_accounts a on a.account_id = t.account_id" +
+                " where a.customer_id = '1'",
+                Integer.class);
+        if (count != null && count > 0) return;
+
+        // 입출금 계좌(DEPOSIT) account_id subquery
+        String acctSub = "(select account_id from deposit_accounts where account_number = '001-123-000001' limit 1)";
+
+        // 최근 3개월 거래 시드: 월 입금 1,500,000 / 월 지출 800,000 → monthlySurplus ≈ 700,000
+        // monthlySurplus * 12 = 8,400,000 > totalBalance(6,200,000) → isAccumulateType = true
+        jdbcTemplate.update("""
+                insert into deposit_transactions (
+                    transaction_number, account_id, transaction_type, direction_type,
+                    amount, balance_before, balance_after, fee_amount,
+                    currency, status, channel_type, transaction_at, retry_count,
+                    transaction_summary, created_at, updated_at
+                ) values
+                -- 3개월 전: 급여입금
+                ('SEED-TX-001', %1$s, 'DEPOSIT',  'IN',  1500000, 3500000, 5000000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '3 months' + interval '5 days',  0, '급여 입금', now(), now()),
+                -- 3개월 전: 생활비 출금
+                ('SEED-TX-002', %1$s, 'WITHDRAW', 'OUT', 500000,  5000000, 4500000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '3 months' + interval '10 days', 0, '마트 이용', now(), now()),
+                -- 3개월 전: 관리비 출금
+                ('SEED-TX-003', %1$s, 'WITHDRAW', 'OUT', 300000,  4500000, 4200000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '3 months' + interval '15 days', 0, '관리비', now(), now()),
+                -- 2개월 전: 급여입금
+                ('SEED-TX-004', %1$s, 'DEPOSIT',  'IN',  1500000, 4200000, 5700000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '2 months' + interval '5 days',  0, '급여 입금', now(), now()),
+                -- 2개월 전: 생활비 출금
+                ('SEED-TX-005', %1$s, 'WITHDRAW', 'OUT', 500000,  5700000, 5200000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '2 months' + interval '10 days', 0, '마트 이용', now(), now()),
+                -- 2개월 전: 관리비 출금
+                ('SEED-TX-006', %1$s, 'WITHDRAW', 'OUT', 300000,  5200000, 4900000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '2 months' + interval '15 days', 0, '관리비', now(), now()),
+                -- 1개월 전: 급여입금
+                ('SEED-TX-007', %1$s, 'DEPOSIT',  'IN',  1500000, 4900000, 6400000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '1 month'  + interval '5 days',  0, '급여 입금', now(), now()),
+                -- 1개월 전: 생활비 출금
+                ('SEED-TX-008', %1$s, 'WITHDRAW', 'OUT', 500000,  6400000, 5900000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '1 month'  + interval '10 days', 0, '마트 이용', now(), now()),
+                -- 1개월 전: 관리비 출금
+                ('SEED-TX-009', %1$s, 'WITHDRAW', 'OUT', 300000,  5900000, 5600000, 0, 'KRW', 'SUCCESS', 'INTERNET', now() - interval '1 month'  + interval '15 days', 0, '관리비', now(), now())
+                on conflict (transaction_number) do nothing
+                """.formatted(acctSub));
     }
 
     /**

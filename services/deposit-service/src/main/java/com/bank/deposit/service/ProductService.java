@@ -11,8 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +28,7 @@ public class ProductService {
     private final SubscriptionProductRepository subscriptionProductRepository;
     private final ProductJoinChannelRepository joinChannelRepository;
     private final ProductTargetGroupRepository targetGroupMappingRepository;
+    private final TargetGroupRepository targetGroupRepository;
     private final ProductInterestRateRepository interestRateRepository;
     private final ProductSpecialTermRepository productSpecialTermRepository;
 
@@ -48,8 +51,13 @@ public class ProductService {
     public List<ProductResponse> findAllResponses(ProductType productType, ProductStatus productStatus) {
         List<Product> products = findAll(productType, productStatus);
         Map<Long, BigDecimal> bestRateByProductId = calculateBestRates(products);
+        Map<Long, List<ProductResponse.TargetGroupInfo>> targetGroupsByProductId = fetchTargetGroupInfos(
+                products.stream().map(Product::getProductId).toList());
         return products.stream()
-                .map(product -> ProductResponse.from(product, bestRateByProductId.get(product.getProductId())))
+                .map(product -> ProductResponse.from(
+                        product,
+                        bestRateByProductId.get(product.getProductId()),
+                        targetGroupsByProductId.getOrDefault(product.getProductId(), List.of())))
                 .toList();
     }
 
@@ -57,7 +65,9 @@ public class ProductService {
         Product product = findById(id);
         BigDecimal bestRate = calculateBestRate(product,
                 interestRateRepository.findByProductIdAndIsActive(id, true));
-        return ProductResponse.from(product, bestRate);
+        List<ProductResponse.TargetGroupInfo> targetGroups = fetchTargetGroupInfos(List.of(id))
+                .getOrDefault(id, List.of());
+        return ProductResponse.from(product, bestRate, targetGroups);
     }
 
     @Transactional
@@ -230,6 +240,22 @@ public class ProductService {
     // InterestRates
     public List<ProductInterestRate> findInterestRates(Long productId) {
         return interestRateRepository.findByProductId(productId);
+    }
+
+    private Map<Long, List<ProductResponse.TargetGroupInfo>> fetchTargetGroupInfos(Collection<Long> productIds) {
+        if (productIds.isEmpty()) return Map.of();
+        List<ProductTargetGroup> mappings = targetGroupMappingRepository.findByIdProductIdIn(productIds);
+        if (mappings.isEmpty()) return Map.of();
+        Set<Long> tgIds = mappings.stream().map(m -> m.getId().getTargetGroupId()).collect(Collectors.toSet());
+        Map<Long, TargetGroup> tgById = targetGroupRepository.findByTargetGroupIdIn(tgIds).stream()
+                .collect(Collectors.toMap(TargetGroup::getTargetGroupId, tg -> tg));
+        return mappings.stream()
+                .filter(m -> tgById.containsKey(m.getId().getTargetGroupId()))
+                .collect(Collectors.groupingBy(
+                        m -> m.getId().getProductId(),
+                        Collectors.mapping(
+                                m -> ProductResponse.TargetGroupInfo.from(tgById.get(m.getId().getTargetGroupId())),
+                                Collectors.toList())));
     }
 
     private Map<Long, BigDecimal> calculateBestRates(List<Product> products) {

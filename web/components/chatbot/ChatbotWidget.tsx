@@ -25,6 +25,7 @@ import {
   fetchDepositProducts,
   fetchDepositInterestRates,
   fetchDepositRecommendAgent,
+  fetchTransactions,
   terminateDepositContract,
   type DepositProduct,
   type DepositProductType,
@@ -556,7 +557,15 @@ export default function ChatbotWidget() {
 
   async function answerDepositSavingsFit(customerId: string): Promise<string> {
     try {
-      const result = await fetchDepositRecommendAgent(customerId, 3)
+      let birthYear: number | undefined
+      try {
+        const meRes = await api.get<{ data: { birthDate?: string } }>('/api/v1/customers/me')
+        const birthDate = meRes.data?.data?.birthDate
+        if (birthDate) {
+          birthYear = parseInt(birthDate.replace(/-/g, '').slice(0, 4), 10)
+        }
+      } catch { /* 나이 미확인 시 필터 생략 */ }
+      const result = await fetchDepositRecommendAgent(customerId, 3, birthYear)
       const products = result.recommendations ?? result.products ?? []
       const rows = products.slice(0, 3).map((product, index) =>
         productToRow(product, index, product.reason ?? '최근 현금흐름 기반 추천 상품입니다.'),

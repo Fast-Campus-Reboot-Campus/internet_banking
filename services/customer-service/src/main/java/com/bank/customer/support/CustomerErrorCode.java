@@ -90,7 +90,14 @@ public enum CustomerErrorCode implements ErrorCode {
 
     // 인증수단 (130-139)
     CUST_130(HttpStatus.NOT_FOUND,  "인증수단을 찾을 수 없습니다."),
-    CUST_131(HttpStatus.BAD_REQUEST,"주 인증수단은 비활성화할 수 없습니다.");
+    CUST_131(HttpStatus.BAD_REQUEST,"주 인증수단은 비활성화할 수 없습니다."),
+
+    // 보안카드 (140-149)
+    CUST_140(HttpStatus.NOT_FOUND,   "활성 보안카드를 찾을 수 없습니다."),
+    CUST_141(HttpStatus.CONFLICT,    "이미 활성 보안카드가 존재합니다."),
+    CUST_142(HttpStatus.UNAUTHORIZED,"보안카드 코드가 올바르지 않습니다."),
+    CUST_143(HttpStatus.GONE,        "보안카드 챌린지가 만료되었거나 존재하지 않습니다."),
+    CUST_144(HttpStatus.BAD_REQUEST, "챌린지에 없는 위치 코드가 포함되어 있습니다.");
 
     private final HttpStatus status;
     private final String message;

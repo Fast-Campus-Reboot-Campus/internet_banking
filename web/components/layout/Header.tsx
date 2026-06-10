@@ -129,6 +129,17 @@ export const GNB_MENUS = [
 interface StoredUser { name: string; email: string; customer_id: number }
 
 const SESSION_SECONDS = 10 * 60 // 10분
+const SESSION_MS = SESSION_SECONDS * 1000
+
+function getStoredToken() {
+  return localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+}
+
+function renewLocalSession() {
+  const expiry = Date.now() + SESSION_MS
+  localStorage.setItem('sessionExpiry', String(expiry))
+  return expiry
+}
 
 function formatTime(sec: number) {
   const m = String(Math.floor(sec / 60)).padStart(2, '0')
@@ -146,22 +157,61 @@ export default function Header() {
   const [remaining, setRemaining] = useState(SESSION_SECONDS)
   const [extending, setExtending] = useState(false)
   const [extendError, setExtendError] = useState(false)
+  const isLoggedIn = user !== null
 
   useEffect(() => {
+    // sessionExpiry 체크: 만료됐으면 로그아웃, 없으면 토큰 있을 때 세션 복원
+    const expiry = localStorage.getItem('sessionExpiry')
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+    if (expiry && parseInt(expiry, 10) <= Date.now()) {
+      // 명시적으로 만료된 세션만 강제 로그아웃
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('sessionExpiry')
+      localStorage.removeItem('user')
+      localStorage.removeItem('customerId')
+      setAuthed(false)
+      setUser(null)
+      return
+    }
+    if (!expiry && token) {
+      // sessionExpiry 없지만 토큰 있으면 30분 세션 복원 (로그인 중 페이지 이동 대응)
+      localStorage.setItem('sessionExpiry', String(Date.now() + 30 * 60 * 1000))
+    }
     setAuthed(!!(localStorage.getItem('accessToken') || localStorage.getItem('access_token')))
+    if (pathname.startsWith('/logout')) {
+      setUser(null)
+      return
+    }
+
+
     try {
       const stored = localStorage.getItem('user')
-      if (stored) setUser(JSON.parse(stored))
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        setUser(prev => {
+          if (prev?.customer_id === parsed?.customer_id) return prev
+          return parsed
+        })
+        return
+      }
+      setUser(null)
     } catch {}
-  }, [])
+  }, [pathname])
 
   // 카운트다운 + 자동 로그아웃
   useEffect(() => {
-    if (!authed) return
+    if (!authed && !isLoggedIn) return
 
     const stored = localStorage.getItem('sessionExpiry')
-    const expiry = stored ? parseInt(stored, 10) : Date.now() + SESSION_SECONDS * 1000
-    if (!stored) localStorage.setItem('sessionExpiry', String(expiry))
+    const parsedExpiry = stored ? parseInt(stored, 10) : NaN
+    const hasValidToken = Boolean(getStoredToken())
+    const expiry = !Number.isFinite(parsedExpiry) || parsedExpiry <= Date.now()
+      ? hasValidToken
+        ? renewLocalSession()
+        : Date.now()
+      : parsedExpiry
 
     const seconds = Math.max(0, Math.round((expiry - Date.now()) / 1000))
     setRemaining(seconds)
@@ -169,13 +219,23 @@ export default function Header() {
     const tick = setInterval(() => {
       const storedExpiry = localStorage.getItem('sessionExpiry')
       if (!storedExpiry) {
+        if (getStoredToken()) {
+          const renewed = renewLocalSession()
+          setRemaining(Math.max(0, Math.round((renewed - Date.now()) / 1000)))
+          return
+        }
         clearInterval(tick)
-        window.location.href = '/logout'
+        setUser(null)
         return
       }
       const remaining = Math.max(0, Math.round((parseInt(storedExpiry) - Date.now()) / 1000))
       setRemaining(remaining)
       if (remaining <= 0) {
+        if (getStoredToken()) {
+          const renewed = renewLocalSession()
+          setRemaining(Math.max(0, Math.round((renewed - Date.now()) / 1000)))
+          return
+        }
         clearInterval(tick)
         localStorage.removeItem('access_token')
         localStorage.removeItem('accessToken')
@@ -183,14 +243,14 @@ export default function Header() {
         localStorage.removeItem('sessionExpiry')
         localStorage.removeItem('user')
         localStorage.removeItem('customerId')
-        window.location.href = '/logout'
+        setUser(null)
       }
     }, 1000)
 
     return () => {
       clearInterval(tick)
     }
-  }, [authed])
+  }, [authed, isLoggedIn, pathname])
 
 
   function handleLogout() {
@@ -200,6 +260,8 @@ export default function Header() {
     localStorage.removeItem('sessionExpiry')
     localStorage.removeItem('user')
     localStorage.removeItem('customerId')
+    sessionStorage.clear()
+    setUser(null)
     window.location.href = '/logout?reason=manual'
   }
 
@@ -207,7 +269,12 @@ export default function Header() {
     if (extending) return
     const refreshToken = localStorage.getItem('refreshToken')
     if (!refreshToken) {
-      window.location.href = '/logout'
+      if (getStoredToken()) {
+        const newExpiry = renewLocalSession()
+        setRemaining(Math.max(0, Math.round((newExpiry - Date.now()) / 1000)))
+        return
+      }
+      setUser(null)
       return
     }
     setExtending(true)

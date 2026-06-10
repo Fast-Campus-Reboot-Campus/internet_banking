@@ -1,10 +1,12 @@
 package com.bank.deposit.dto.response;
 
 import com.bank.deposit.domain.entity.Product;
+import com.bank.deposit.domain.entity.TargetGroup;
 import com.bank.deposit.domain.enums.ProductStatus;
 import com.bank.deposit.domain.enums.ProductType;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record ProductResponse(
         Long productId,
@@ -24,8 +26,20 @@ public record ProductResponse(
         Boolean isPassbookIssued,
         String releasedAt,
         String endedAt,
-        ProductStatus productStatus
+        ProductStatus productStatus,
+        List<TargetGroupInfo> targetGroups
 ) {
+    public record TargetGroupInfo(
+            Long targetGroupId,
+            String targetGroupName,
+            Integer minAge,
+            Integer maxAge
+    ) {
+        public static TargetGroupInfo from(TargetGroup tg) {
+            return new TargetGroupInfo(tg.getTargetGroupId(), tg.getTargetGroupName(), tg.getMinAge(), tg.getMaxAge());
+        }
+    }
+
     public static ProductResponse from(Product product) {
         return new ProductResponse(
                 product.getProductId(),
@@ -45,11 +59,16 @@ public record ProductResponse(
                 product.getIsPassbookIssued(),
                 product.getReleasedAt(),
                 product.getEndedAt(),
-                product.getProductStatus()
+                product.getProductStatus(),
+                List.of()
         );
     }
 
     public static ProductResponse from(Product product, BigDecimal bestRate) {
+        return from(product, bestRate, List.of());
+    }
+
+    public static ProductResponse from(Product product, BigDecimal bestRate, List<TargetGroupInfo> targetGroups) {
         return new ProductResponse(
                 product.getProductId(),
                 product.getProductType(),
@@ -68,7 +87,8 @@ public record ProductResponse(
                 product.getIsPassbookIssued(),
                 product.getReleasedAt(),
                 product.getEndedAt(),
-                product.getProductStatus()
+                product.getProductStatus(),
+                targetGroups
         );
     }
 }

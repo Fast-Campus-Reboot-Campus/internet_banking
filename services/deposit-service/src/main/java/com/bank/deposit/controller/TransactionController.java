@@ -24,10 +24,17 @@ public class TransactionController {
 
     @GetMapping
     public Page<Transaction> list(
-            @RequestParam Long accountId,
+            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) String customerId,
             @RequestParam(required = false) OffsetDateTime startDate,
             @RequestParam(required = false) OffsetDateTime endDate,
-            @PageableDefault(size = 20, sort = "transactionAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 200, sort = "transactionAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        if (customerId != null) {
+            return transactionService.findByCustomer(customerId, pageable);
+        }
+        if (accountId == null) {
+            return org.springframework.data.domain.Page.empty(pageable);
+        }
         return transactionService.findByAccount(accountId, startDate, endDate, pageable);
     }
 
