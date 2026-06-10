@@ -73,19 +73,25 @@ spring:
         - id: deposit
           uri: http://${DEPOSIT_SERVICE_HOST:localhost}:${DEPOSIT_SERVICE_PORT:8082}
           predicates:
-            - Path=/api/v1/accounts/**
+            - Path=/api/v1/accounts/**,/api/products/**,/api/accounts/**,/api/contracts/**,/api/transactions/**,/api/interests/**,/api/join-targets/**,/api/payment-schedules/**,/api/departments/**
 
         # 대출 도메인 (JWT 필요)
         - id: loan
           uri: http://${LOAN_SERVICE_HOST:localhost}:${LOAN_SERVICE_PORT:8083}
           predicates:
-            - Path=/api/v1/loans/**
+            - Path=/api/loan-applications/**,/api/loan-products/**,/api/loan-contracts/**,/api/collaterals/**,/api/credit-info-reports/**,/api/credit-score/**,/api/loan-certificates/**,/api/loan-documents/**,/api/loan-reviews/**,/api/loans/**,/api/business-calendar/**,/api/notifications/**,/api/status-history/**,/api/admin/loan-contracts/**,/api/audit/**,/api/break-glass/**
 
         # 지급·이체 도메인 (JWT 필요)
         - id: payment
           uri: http://${PAYMENT_SERVICE_HOST:localhost}:${PAYMENT_SERVICE_PORT:8084}
           predicates:
             - Path=/api/v1/payments/**
+
+        # 마스터(공통코드) 도메인 (JWT 필요)
+        - id: master
+          uri: http://${MASTER_SERVICE_HOST:localhost}:${MASTER_SERVICE_PORT:8085}
+          predicates:
+            - Path=/api/codes/**
 
 jwt:
   secret: ${JWT_SECRET:dev-secret-key-please-change-in-production-min-32-chars-long}
