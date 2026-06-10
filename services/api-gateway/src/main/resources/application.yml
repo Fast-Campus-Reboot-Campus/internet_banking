@@ -10,7 +10,10 @@ spring:
         corsConfigurations:
           '[/**]':
             allowedOriginPatterns:
-              - "*"
+              - "http://localhost:3000"
+              - "http://localhost:3001"
+              - "https://axfulbank.store"
+              - "https://*.vercel.app"
             allowedMethods:
               - GET
               - POST
