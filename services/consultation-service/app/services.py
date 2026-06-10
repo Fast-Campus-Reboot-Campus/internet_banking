@@ -460,7 +460,7 @@ class ChatbotService:
             "INTEREST_HISTORY": self._execute_interest_history,
             "MY_CASH_FLOW": self._execute_my_cash_flow,
             "MY_TRANSFERS": self._execute_my_transfers,
-            "CASH_FLOW_RECOMMEND": self._execute_cash_flow_recommend,
+            "CASH_FLOW_RECOMMEND": lambda req: UserFinanceFeatureExecutor(self.db).execute_cash_flow_recommend(req),
             "STAFF_CASH_FLOW": self._execute_staff_cash_flow,
             "STAFF_CUSTOMER": self._execute_staff_customer,
             "STAFF_CONTRACT": lambda req: self._execute_customer_contracts(
