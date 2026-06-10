@@ -72,7 +72,7 @@ function StepIndicator() {
 function RateInfo({ contracts, selectedId, setSelectedId }: {
   contracts: LoanContract[]; selectedId: number | null; setSelectedId: (id: number) => void
 }) {
-  const [accruals, setAccruals] = useState<any[]>([])
+  const [, setAccruals] = useState<unknown[]>([])
   const [rateChanges, setRateChanges] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

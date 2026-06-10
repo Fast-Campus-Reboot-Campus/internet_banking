@@ -2,7 +2,7 @@
 import { KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE } from '@/lib/theme'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import CartModal from '@/components/products/CartModal'
 import DepositSidebar from '@/components/products/DepositSidebar'
@@ -259,7 +259,7 @@ const DEPOSIT_PRODUCT_TYPES = ['전체', '정기예금', '지수연동예금', '
 const JOIN_METHODS = ['전체', '인터넷뱅킹', 'AXful Next', '영업점']
 const JOIN_PERIODS = ['전체', '3개월 미만', '3-6개월 미만', '6-12개월 미만', '12-24개월 미만', '24개월 이상']
 
-export default function DepositListPage() {
+function DepositListPageInner() {
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<Tab>('예금')
   const [apiProductsMap, setApiProductsMap] = useState<Partial<Record<Tab, Product[]>>>({})
@@ -523,4 +523,8 @@ export default function DepositListPage() {
     </div>
     </>
   )
+}
+
+export default function DepositListPage() {
+  return <Suspense><DepositListPageInner /></Suspense>
 }

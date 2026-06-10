@@ -61,7 +61,7 @@ export default function AdminAdvisoryRulesPage() {
       notify(`규칙 #${ruleId} 저장 완료`)
       setEditId(null)
       await load()
-    } catch (e: any) { fail(e?.response?.data?.message ?? '저장 실패') }
+    } catch (e) { fail((e as {response?: {data?: {message?: string}}})?.response?.data?.message ?? '저장 실패') }
     finally { setBusy(false) }
   }
 

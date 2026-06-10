@@ -25,6 +25,7 @@ import {
   fetchDepositProducts,
   fetchDepositInterestRates,
   fetchDepositRecommendAgent,
+  fetchTransactions,
   terminateDepositContract,
   type DepositProduct,
   type DepositProductType,
@@ -802,7 +803,7 @@ export default function ChatbotWidget() {
         totalOutflow != null ? `- 최근 유출: ${moneyText(totalOutflow)}` : null,
         netCashFlow != null ? `- 순현금흐름: ${moneyText(netCashFlow)}` : null,
         estimatedSavings != null ? `- 예상 저축 여력: ${moneyText(estimatedSavings)}` : null,
-      ].filter(Boolean)
+      ].filter((l): l is string => Boolean(l))
       if (flowLines.length) lines.push(...flowLines, '')
 
       if (wantsDepositSavings) {
@@ -1319,7 +1320,7 @@ export default function ChatbotWidget() {
       const result = await executeChatbotFeature(featureCode, {
         customer_no: customerNo.trim() || getCurrentDepositCustomerId(),
         query: userText,
-        product_type: featureCode === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
+        product_type: undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
       if (replaceMessages) {

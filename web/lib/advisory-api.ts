@@ -121,12 +121,12 @@ const AUDITOR_HDR = { headers: { 'X-Actor-Role': 'AUDITOR' } }
 
 export async function getAuditOpinionsByReport(advrId: number) {
   const { data } = await advisoryApi.get(`/api/advisory/audit/opinions/by-report/${advrId}`, AUDITOR_HDR)
-  return (data?.data ?? []) as any[]
+  return (data?.data ?? []) as Record<string, unknown>[]
 }
 
 export async function getAuditOpinionsByReviewer(reviewerId: number) {
   const { data } = await advisoryApi.get(`/api/advisory/audit/opinions/by-reviewer/${reviewerId}`, AUDITOR_HDR)
-  return (data?.data ?? []) as any[]
+  return (data?.data ?? []) as Record<string, unknown>[]
 }
 
 export async function getReviewerRiskScore(reviewerId: number) {
@@ -138,26 +138,26 @@ export async function getRecentAuditOpinions(limit = 20) {
   const { data } = await advisoryApi.get('/api/advisory/audit/opinions/recent', {
     ...AUDITOR_HDR, params: { limit },
   })
-  return (data?.data ?? []) as any[]
+  return (data?.data ?? []) as Record<string, unknown>[]
 }
 
 export async function getTopBiasRiskScores(limit = 20) {
   const { data } = await advisoryApi.get('/api/advisory/audit/risk-scores/top/bias', {
     ...AUDITOR_HDR, params: { limit },
   })
-  return (data?.data ?? []) as any[]
+  return (data?.data ?? []) as Record<string, unknown>[]
 }
 
 export async function getTopComplianceRiskScores(limit = 20) {
   const { data } = await advisoryApi.get('/api/advisory/audit/risk-scores/top/compliance', {
     ...AUDITOR_HDR, params: { limit },
   })
-  return (data?.data ?? []) as any[]
+  return (data?.data ?? []) as Record<string, unknown>[]
 }
 
 export async function getQuarantineList() {
   const { data } = await advisoryApi.get('/api/advisory/audit/quarantine', AUDITOR_HDR)
-  return (data?.data ?? []) as any[]
+  return (data?.data ?? []) as Record<string, unknown>[]
 }
 
 // ── 통계 ──────────────────────────────────────────────────────────────────
