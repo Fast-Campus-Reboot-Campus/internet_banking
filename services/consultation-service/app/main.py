@@ -143,25 +143,27 @@ async def lifespan(app: FastAPI):
 
     # ── 기동 ─────────────────────────────────────────────────────────────────
     Base.metadata.create_all(bind=engine)
-    await _events.start()
-    # chatbot_events / chat_events 는 이 서비스가 직접 발행하는 토픽이므로
-    # 구독 목록에서 제외 — 자기 발행 메시지를 자신이 소비하는 순환 방지
-    # chatbot_message 는 자기 발행 토픽이나 Consumer가 로그만 출력(재발행 없음) → 루프 없음
-    await _consumer.start(
-        topics=[
-            settings.kafka_topic_deposit_events,    # deposit-api 계약 이벤트
-            settings.kafka_topic_chatbot_message,   # 챗봇 메시지 수신 이벤트
-        ],
-        group_id="consultation-service",
-    )
-    consume_task = asyncio.create_task(_kafka_consume_loop(_consumer))
+
+    consume_task: asyncio.Task | None = None
+    if settings.kafka_enabled:
+        await _events.start()
+        await _consumer.start(
+            topics=[
+                settings.kafka_topic_deposit_events,
+                settings.kafka_topic_chatbot_message,
+            ],
+            group_id="consultation-service",
+        )
+        consume_task = asyncio.create_task(_kafka_consume_loop(_consumer))
 
     try:
         yield
     finally:
-        consume_task.cancel()
-        await _consumer.stop()
-        await _events.stop()
+        if consume_task is not None:
+            consume_task.cancel()
+        if settings.kafka_enabled:
+            await _consumer.stop()
+            await _events.stop()
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
