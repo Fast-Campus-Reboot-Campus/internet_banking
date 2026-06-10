@@ -295,17 +295,19 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
 
             # (3) 유동성 매칭 20점
             is_long_term = (p.get("min_period_month") or 0) >= 12
-            if tx_count < 5:
-                liquidity_score = 20.0 if is_long_term else 10.0
-            else:
+            if tx_count >= 10:        # 고빈도 → 단기 선호
                 liquidity_score = 20.0 if not is_long_term else 10.0
+            elif tx_count <= 5:       # 저빈도 → 장기 선호
+                liquidity_score = 20.0 if is_long_term else 10.0
+            else:                     # 중간(6~9) → 중립
+                liquidity_score = 15.0
 
-            # (4) 부가 혜택 10점
+            # (4) 부가 혜택 10점: 비과세 7점 + 중도해지 3점
             benefit_score = 0.0
             if p.get("is_tax_benefit_available"):
-                benefit_score += 5.0
+                benefit_score += 7.0
             if p.get("is_early_termination_allowed"):
-                benefit_score += 5.0
+                benefit_score += 3.0
 
             raw_total = suit_score + return_score + liquidity_score + benefit_score
 
