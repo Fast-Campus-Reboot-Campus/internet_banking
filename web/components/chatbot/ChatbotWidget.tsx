@@ -25,7 +25,6 @@ import {
   fetchDepositProducts,
   fetchDepositInterestRates,
   fetchDepositRecommendAgent,
-  fetchTransactions,
   terminateDepositContract,
   type DepositProduct,
   type DepositProductType,
