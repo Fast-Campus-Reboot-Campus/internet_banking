@@ -134,15 +134,21 @@ class FeatureExecutorBase:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=30 * months)).strftime("%Y-%m-%d")
         tx_rows = self._rows(
             """
-            SELECT transaction_type, amount
+            SELECT transaction_type,
+                   transaction_status,
+                   amount
               FROM deposit_transactions
              WHERE account_id IN :account_ids
-               AND transaction_status = 'COMPLETED'
                AND transaction_at >= :cutoff
             """,
             {"account_ids": account_ids, "cutoff": cutoff},
             expanding_params=("account_ids",),
         )
+
+        tx_rows = [
+            r for r in tx_rows
+            if str(r.get("transaction_status") or "").upper() in ("SUCCESS", "COMPLETED")
+        ]
 
         if not tx_rows:
             return {
@@ -155,7 +161,7 @@ class FeatureExecutorBase:
         inflow  = sum(float(r["amount"] or 0) for r in tx_rows if r["transaction_type"] == "DEPOSIT")
         outflow = sum(
             float(r["amount"] or 0) for r in tx_rows
-            if r["transaction_type"] in ("WITHDRAWAL", "TRANSFER")
+            if r["transaction_type"] in ("WITHDRAWAL", "WITHDRAW", "TRANSFER")
         )
         return {
             "total_balance":    total_balance,

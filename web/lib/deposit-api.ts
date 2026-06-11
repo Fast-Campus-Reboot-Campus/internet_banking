@@ -154,9 +154,8 @@ export type CreateDepositContractInput = {
 // 하드코딩 ID는 환경마다 시퀀스가 달라 오동작 유발 — resolveProductId에서 항상 API 조회
 const PRODUCT_ID_BY_SLUG: Record<string, number> = {}
 
-// PRODUCT_NAME_TO_SLUG 제거 — DB 상품명 변경 시 조용히 깨지는 문제 방지.
+// PRODUCT_NAME_TO_SLUG 하드코딩 제거 — DB 상품명 변경 시 조용히 깨지는 문제 방지.
 // slug는 productId 기반(product-{id})으로 생성하고, 상세 페이지 라우팅은 productId를 직접 사용한다.
-
 const SLUG_BY_PRODUCT_ID = Object.fromEntries(
   Object.entries(PRODUCT_ID_BY_SLUG).map(([slug, productId]) => [productId, slug])
 ) as Record<number, string>
@@ -245,6 +244,7 @@ export function getDepositProductIdBySlug(slug: string) {
 
 export function getDepositSlugByProductId(productId: number) {
   // 환경마다 ID 시퀀스가 다르므로 하드코딩 맵 대신 productId 기반 slug를 사용한다.
+  // 상세 페이지 라우팅이 필요하면 slug 대신 productId를 직접 쿼리파라미터로 전달할 것.
   return SLUG_BY_PRODUCT_ID[productId] ?? `product-${productId}`
 }
 

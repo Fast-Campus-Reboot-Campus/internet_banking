@@ -4,8 +4,11 @@
     {
       "files": [
         "lib/loan-api.ts",
+        "lib/ai-api.ts",
+        "lib/advisory-api.ts",
         "app/**/loan/**/*.tsx",
-        "app/**/loans/**/*.tsx"
+        "app/**/loans/**/*.tsx",
+        "app/**/ai/**/*.tsx"
       ],
       "rules": {
         "@typescript-eslint/no-explicit-any": "off"

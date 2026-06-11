@@ -347,6 +347,25 @@ GET /products/deposit/inquiry/terminate?accountId={accountId}
 - 시나리오 노드·버튼·플로우 DB 구조, 멀티턴 대화 상태 관리
 - 키워드 기반 Intent 분류 → 기능 코드 실행 라우팅
 
+#### 챗봇 상품 추천 — 백엔드 단일 채점
+
+`CASH_FLOW_RECOMMEND` 기능 실행 시 채점은 **consultation-service 백엔드(`_rank_products()`)에서만** 수행한다. 프런트엔드(`ChatbotWidget.tsx`)는 백엔드 결과를 표시하는 역할에 집중하며, 브라우저에서 거래 데이터를 직접 집계하거나 채점하지 않는다.
+
+| 항목 | 배점 | 계산 기준 |
+|---|---|---|
+| 재정 적합도 | 40점 | DB에서 직접 집계한 잔액·월 잉여금 기준. 저축 성장형 진단 시 적금에 1.3× 가중치 |
+| 예상 수익 (ROI) | 30점 | 금리×기간 기반 세전 이자 상대 평가, 후보 풀 내 정규화 |
+| 유동성 매칭 | 20점 | 거래 빈도 vs 상품 만기 적합도 |
+| 부가 혜택 | 10점 | 비과세·중도해지·우대금리 여부 합산 |
+
+**예금·적금 적합 판단 (`answerDepositSavingsFit`)**
+
+"예금이랑 적금 중 나한테 맞는 거" 질문 시 deposit-service 추천 에이전트(`fetchDepositRecommendAgent`)를 호출해 판단한다. `GET /api/v1/customers/me`의 `birthDate`로 고객 만 나이를 계산해 백엔드에 전달하며, 연령 기반 상품 필터링은 deposit-service에서 처리된다.
+
+**fallback 추천 (monthlySavings ≤ 0)**
+
+월 잉여금이 0 이하인 경우 점수 기반 추천 대신 현재 보유 잔액 기준 예금 중심 fallback 추천을 제공하며, 응답의 `fallbackReason` 필드에 사유 문구가 포함된다.
+
 | 카테고리 | 기능 코드 | 설명 |
 |---|---|---|
 | PRODUCT_ADVICE | PRODUCT_GUIDE | 예금·적금·청약 상품 안내 (인증 필요) |
