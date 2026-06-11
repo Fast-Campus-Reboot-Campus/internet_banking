@@ -30,14 +30,14 @@ MSA 구조 기반 인터넷뱅킹 플랫폼. 수신·여신·결제·고객·상
 
 | 구분 | 기술 |
 |---|---|
-| 백엔드 | Java 17, Spring Boot 3.x, Gradle Multi-module |
-| 챗봇 | Python 3.11, FastAPI, SQLAlchemy, Pydantic v2 |
-| 프런트엔드 | Next.js 15, TypeScript, TanStack Query, Tailwind CSS |
+| 백엔드 | Java 17, Spring Boot 3.3.5, Gradle Multi-module |
+| 챗봇/AI 경량 서비스 | Python 3.11, FastAPI, SQLAlchemy, Pydantic v2 |
+| 프런트엔드 | Next.js 15, TypeScript, TanStack Query 5.x, Tailwind CSS, shadcn/ui |
 | DB | PostgreSQL 16 (서비스별 독립 DB), pgvector (AI/RAG) |
 | 캐시 | Redis 7 |
-| 메시지 큐 | Apache Kafka 3.8, Confluent Schema Registry |
-| AI/LLM | Spring AI, OpenAI GPT-4o-mini |
-| 모니터링 | Prometheus, Grafana, Loki, Promtail |
+| 메시지 큐 | Apache Kafka 3.8, Confluent Schema Registry 7.6 |
+| AI/LLM | Spring AI, OpenAI GPT-4o-mini, Vertex AI |
+| 모니터링 | Prometheus, Grafana, Loki, Promtail, Langfuse, Phoenix (OpenTelemetry) |
 | 테스트 | JUnit 5, Mockito, @SpringBootTest / pytest 8 |
 | 패키지 루트 | `com.bank` |
 
@@ -466,7 +466,35 @@ GET  /metrics
 docker compose up -d
 ```
 
-컨테이너: PostgreSQL×6 (5432~5437), pgvector, Kafka (9092), Schema Registry (8081), Redis (6379), Prometheus (9090), Grafana (3000), Gateway (8080)
+**기본 컨테이너 및 포트:**
+
+| 컨테이너 | 포트 | 설명 |
+|---|---|---|
+| customer-db | 5432 | 고객·인증 DB |
+| deposit-db | 5433 | 예적금 DB |
+| loan-db | 5434 | 여신 DB (pgvector) |
+| payment-db | 5435 | 결제 DB (A 은행) |
+| payment-db-b | 5441 | 결제 DB (B 은행) |
+| master-db | 5436 | 마스터 코드 DB |
+| ai-db | 5437 | AI 벡터 DB (pgvector) |
+| langfuse-db | 5439 | LLM 추적 DB |
+| Redis | 6379 | 세션·캐시 |
+| Kafka | 9092 | 이벤트 스트림 |
+| Schema Registry | 18081 | Kafka 스키마 관리 |
+| Prometheus | 9090 | 메트릭 수집 |
+| Grafana | 3000 | 대시보드 |
+| Langfuse | 3001 | LLM 호출 추적 |
+| Phoenix (OTel) | 6006 | OpenTelemetry 트레이싱 |
+
+**선택적 프로필:**
+
+```powershell
+# RAG (Elasticsearch + Kibana + Kafka Connect)
+docker compose --profile rag up -d
+
+# 서류 에이전트 (MinIO + Vault + doc-agent-db)
+docker compose --profile doc up -d
+```
 
 ### 백엔드 서비스 실행
 
@@ -508,6 +536,15 @@ $env:CRYPTO_KEY_BASE64="bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM="
 
 > 운영 환경에서는 반드시 별도 32바이트 AES-256 키(Base64)를 사용한다.
 
+### 데모 계정
+
+| 역할 | 로그인 ID | 비밀번호 |
+|------|-----------|----------|
+| 고객 (홍길동) | 금융인증서 로그인 | 인증서 PIN |
+| 고객 (테스트) | user01 / user02 / user03 | Employee1234! |
+| 직원 | employee01 | Employee1234! |
+| 관리자 | admin01 | Employee1234! |
+
 ### 프런트엔드 실행
 
 ```powershell
@@ -546,7 +583,8 @@ Flyway로 스키마를 관리하며 서비스 기동 시 자동 적용된다.
 | V12 | 이체 일일 한도 컬럼 추가 |
 | V13 | `deposit_transactions.idempotency_key` 컬럼 + 부분 유니크 인덱스 |
 | V14 | `deposit_target_groups.min_age` / `max_age` 컬럼 추가. 청년고객 19~34세, 국군장병 18~27세로 초기값 설정 |
-| V15 | employee01 테스트 계좌 시드 데이터 추가 |
+| V15 | 홍길동(customer_id=9001) 테스트 계좌·거래 시드 데이터 추가 |
+| V16 | 고아 테이블 정리, 홍길동 계좌 잔액 현실화(현금흐름 추천 시나리오 기준), 거래 날짜 90일 이내 재조정 |
 
 > 서비스 재기동 없이 컬럼이 추가된 경우 Hibernate가 SELECT 시 해당 컬럼을 포함해 500 오류가 발생한다. DB에 직접 DDL을 실행하거나 서비스를 재기동한다.
 

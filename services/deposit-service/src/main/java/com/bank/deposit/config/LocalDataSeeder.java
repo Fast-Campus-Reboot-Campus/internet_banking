@@ -704,6 +704,7 @@ public class LocalDataSeeder implements ApplicationRunner {
                 """);
 
         // 3) 기존 활성 계좌 잔액 보충: 본 시드가 만든 계좌(보조 30M 등)는 건드리지 않는다.
+        // 홍길동(9001)은 현금흐름 추천 시나리오용 잔액(V15/V16)을 유지해야 하므로 제외.
         jdbcTemplate.update("""
                 update deposit_accounts
                    set balance = greatest(balance, 50000000),
@@ -712,6 +713,7 @@ public class LocalDataSeeder implements ApplicationRunner {
                  where account_status = 'ACTIVE'
                    and balance < 50000000
                    and created_by is distinct from 'seed-v14'
+                   and customer_id != '9001'
                 """);
     }
 
