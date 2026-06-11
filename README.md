@@ -15,14 +15,19 @@ MSA 구조 기반 인터넷뱅킹 플랫폼. 수신·여신·결제·고객·상
 | `loan-service` | Java 17 / Spring Boot 3.x | 8083 | 대출 신청~상환 전 생애주기 + RAG |
 | `master-service` | Java 17 / Spring Boot 3.x | 8085 | 공통 코드·마스터 데이터 |
 | `ai-service` | Java 17 / Spring Boot 3.x | 8086 | AI 모델 서빙, 임베딩, RAG 벡터검색 |
-| `auto-loan-review` | Java 17 / Spring Boot 3.x | 8089 | 자동심사 에이전트, 편향검증, 4-eye 승인 |
+| `auto-loan-review` | Java 17 / Spring Boot 3.x | 8089 | 자동심사 에이전트, 편향검증, 4-eye 승인, 드리프트·공정성 모니터링 |
 | `review-ai-gateway` | Java 17 / Spring Boot 3.x | 8088 | 심사 AI 라우팅 게이트웨이 |
-| `payment-service` | Java 17 / Spring Boot 3.x | — | 결제·이체 처리, Kafka 이벤트 |
+| `doc-agent` | Java 17 / Spring Boot 3.x | 8087¹ | 대출 서류 심사(OCR 추출·위변조 검증·라우팅), loan-service와 REST 연동 |
+| `payment-service` | Java 17 / Spring Boot 3.x | 8080² | 타행이체(EXTERNAL) 청산 — KFTC/BOK 망 라우팅, Outbox·Saga 보상 |
+| `fraud-investigation-agent` | Python / LangGraph + FastAPI | 8090 | 이상거래 조사 에이전트 — 시나리오 경합·HITL 승인 |
 | `api-gateway` | Java 17 / Spring Cloud Gateway | — | (보조 게이트웨이) |
-| `consultation-service` | Python 3.11 / FastAPI | 8087 | 챗봇·상담사 채팅, LLM 폴백, 챗봇 이체 실행 |
+| `consultation-service` | Python 3.11 / FastAPI | 8087¹ | 챗봇·상담사 채팅, LLM 폴백, 챗봇 이체 실행 |
 | `web` | Next.js 15 / TypeScript | 3001 | 고객·어드민 통합 프런트엔드 |
-| `common` | Java | — | 서비스 공통 모듈 |
+| `common` | Java | — | 서비스 공통 모듈 (`com.bank.common.security.BankRole` 등) |
 | `infra` | Docker Compose | — | PostgreSQL 16, Redis 7, Prometheus, Grafana |
+
+> ¹ `doc-agent`와 `consultation-service`는 기본 포트가 모두 `8087`로 겹친다. 동시에 기동하지 않거나 `DOC_AGENT_APP_PORT`로 분리한다.
+> ² `payment-service`와 `gateway-service`는 기본 포트가 모두 `8080`으로 겹친다. 로컬에서 함께 띄우려면 `PAYMENT_APP_PORT`로 분리한다.
 
 ---
 
@@ -231,6 +236,32 @@ X-Customer-Id: {customerId}
 - `X-Customer-Id` 헤더 값과 출금 계좌의 `customer_id` 불일치 시 `403 Forbidden` 반환
 - `counterparty_account_id`를 이체 기록에 저장해 거래 추적 가능
 
+> 위 deposit-api 경로는 **당행이체(INTERNAL)** 전용이다. **타행이체(EXTERNAL)** 는 아래 payment-service 경로를 탄다.
+
+### 타행이체 (EXTERNAL) — payment-service
+
+웹은 `transferType`에 따라 경로를 분기한다. 타행이체는 deposit-api가 아니라 `payment-service`를 호출하며, 외부 청산망(KFTC/BOK)을 거치므로 **비동기(202 Accepted)** 로 처리된다.
+
+| 유형 | 경로 | 엔드포인트 | 완결 |
+|---|---|---|---|
+| 당행 INTERNAL | web → deposit-api → deposit-service | `POST /api/transactions/transfer` | 동기 (200) |
+| 타행 EXTERNAL (< 10억) | web → payment-service → Kafka **KFTC** | `POST /api/v1/payments` | 비동기 (202) |
+| 타행 EXTERNAL (≥ 10억) | web → payment-service → Kafka **BOK** | `POST /api/v1/payments` | 비동기 (202) |
+
+```
+POST /api/v1/payments (payment-service:8080)
+X-User-Id: {userId}
+X-Auth-Token-Id: {authTokenNo}      # web에서 이체마다 생성, 형식 T{timestamp}{random}
+X-Idempotency-Key: {idempotencyKey} # 중복 제출 방지
+```
+
+- **은행코드 매핑**: web의 `PAYMENT_BANK_CODE_MAP`이 브라우저 코드를 금융결제원 표준 3자리 코드로 변환(예: `IBK→003`, `NH→011`, 데모용 `DAON→088`).
+- **라우팅**: `receiverBankCode`가 자행이 아니면 EXTERNAL. 금액 ≥ 10억이면 한은망(BOK), 미만이면 금융결제원(KFTC).
+- **내부 처리**: `payment_instruction` 생성 → 송신계좌 검증 → 출금 → 분개(당좌/청산대기) → Outbox로 `KFTC_REQUEST_SENT`/`BOK_REQUEST_SENT` 발행 → 외부망 응답 수신 후 상태 전이(`CLEARING → COMPLETED`/`REVERSING`).
+- **인프라**: payment-service는 3개 Kafka 클러스터(KFTC·BOK·Internal)를 사용하며, 발행은 Outbox 패턴·실패 시 Saga 보상 트랜잭션으로 처리한다.
+
+> ⚠ 데모 환경에서는 외부망 응답 측이 목(mock)이므로, 실제 수취은행 검증 없이 `CLEARING` 이후 시뮬레이션 응답으로 완결된다.
+
 ### 챗봇 이체 (ChatbotWidget → consultation-service → deposit-api)
 
 ```
@@ -339,6 +370,35 @@ GET /products/deposit/inquiry/terminate?accountId={accountId}
 
 ---
 
+## 직원 인증·권한 (BankRole) 및 어드민 콘솔
+
+고객·직원 모두 `POST /api/v1/auth/login`을 사용하며, 로그인 시 직원 디렉터리(`employee` 테이블)의 `grade_code`로 직원 여부를 판정해 JWT `roles` 클레임을 발급한다.
+
+### BankRole 권한 모델
+
+`common/src/main/java/com/bank/common/security/BankRole.java`에 단일 정의된 역할 enum이다.
+
+| 역할 | 구분 | 설명 |
+|---|---|---|
+| `CUSTOMER` | 고객 | 일반 고객 (어드민 콘솔 접근 불가) |
+| `TELLER` / `DEPUTY_MANAGER` / `BRANCH_MANAGER` | 지점 | 창구·부지점장·지점장 |
+| `HQ_REVIEWER` / `HQ_RISK` / `HQ_MARKETING` | 본사 | 심사·리스크·마케팅 |
+| `COMPLIANCE` / `OPS` / `INTERNAL` | 본사 | 컴플라이언스·운영·내부 |
+| `ADMIN` | 시스템 | 전 권한 |
+
+- 권한 그룹 상수(`EMPLOYEE_ROLES`, `CUSTOMER_VIEW_ROLES`, `AUDIT_VIEW_ROLES`, `FDS_ROLES` 등)로 API·화면을 게이팅한다.
+- 백엔드: `/api/v1/internal/**` 관리 API는 `EMPLOYEE_ROLES`로 보호. 게이트웨이가 검증한 직원 신원은 `X-User-Id`·`X-User-Role` 헤더로 전달된다.
+
+### 어드민 콘솔 (`web/app/(admin)/admin/`)
+
+- 로그인 성공 시 JWT의 `roles`를 `localStorage['admin_roles']`(BankRole authority 배열)에 저장한다. **표시용 신원(`admin_user`)에는 역할 정보가 없으므로 역할 판정은 항상 `admin_roles`를 읽는다.**
+- 사이드바·화면은 섹션별 `bankRoles`로 노출을 제어한다. 예: 대출 본심사(`/admin/loan/review`)는 `DEPUTY_MANAGER·OPS·BRANCH_MANAGER·HQ_REVIEWER`만 노출.
+- 주요 섹션: 고객 조회·감사로그·가입통계 / 상담 / AI 감사·격리 / 대출(계약·본심사·담보·서류·정책·신용정보·알림·본인확인) / AI 심사지원(RAG 문서·자문규칙·서류검토) / 운영·감사(EOD·break-glass).
+
+> 데모 직원 계정은 `customer-service` 시드(`employee_directory`) 참고 — 공통 비밀번호 `Employee1234!`.
+
+---
+
 ## consultation-service 주요 기능
 
 ### 챗봇 상담
@@ -441,16 +501,77 @@ GET  /metrics
 계약 → 상환 / 부분상환 / 선납 → 연체 → 금리변경 → 만기 → 해지
 ```
 
+### 심사 자동 트리거 연쇄
+
+신청 접수 후 가심사·신용평가·DSR 산출이 트랜잭션 커밋 직후(`AFTER_COMMIT`) 비동기로 연쇄 실행된다. 각 단계는 직전 단계의 결과 이벤트를 구독한다.
+
+```
+신청 접수(SUBMITTED)
+  └─[AFTER_COMMIT]→ 가심사 자동 실행 (CreditScoreEngine이 PASS/REJECT 자동 판정)
+       └─ PASS 시 PrescreeningPassedEvent
+            └─[AFTER_COMMIT]→ CB 신용평가 자동 실행 (가심사 score·grade·limit 재사용)
+                 └─ CreditEvaluationCompletedEvent
+                      └─[AFTER_COMMIT]→ DSR 산출 자동 실행 (신청 시 입력 연소득 기준)
+```
+
+| 리스너 | 구독 이벤트 | 동작 |
+|---|---|---|
+| `PrescreeningAutoTriggerListener` | `ApplicationSubmittedEvent` | 가심사 엔진 호출 (`prescResultCd=null`로 엔진이 판정) |
+| `CreditEvaluationAutoTriggerListener` | `PrescreeningPassedEvent` | 가심사 결과를 CB 입력으로 재사용해 신용평가 row 생성 |
+| `DsrAutoTriggerListener` | `CreditEvaluationCompletedEvent` | 신청 시 추정 연소득 기준 DSR 산출 |
+
+- **AFTER_COMMIT 고정**: 커밋 전 실행 시 신청 row 미영속으로 `LOAN_012` 발생 → 커밋 후로 고정
+- **멱등성**: 이미 가심사된 건(`LOAN_046`)·가심사 불가 상태(`LOAN_047`)는 로그만 남기고 무시
+- **비차단**: 각 단계 실패는 직전 단계 결과에 영향 없음 (로그만 기록)
+- **비활성화**: `loan.auto-trigger.enabled=false` 설정 시 전체 비활성 (통합테스트는 각 단계를 직접 통제). 미설정 시 기본 활성
+
+### 문서 심사 (doc-agent 연동)
+
+대출 신청 서류는 `doc-agent` 서비스가 3단계로 처리한다(L1 OCR/추출 → L2 위변조 검증 → L3 라우팅). loan-service의 `DocAgentClient`(RestClient)가 `POST /api/documents/submit`을 **동기 REST**로 호출한다(최대 3회 재시도, 지수 백오프). 위변조 의심 건은 휴먼리뷰 큐(`GET /api/documents/queue`)로 보류된다.
+
 ### Agentic RAG (유사사례 검색)
 
 | 컴포넌트 | 역할 |
 |---|---|
 | `SimilarCaseExporter` | 심사 완료 건을 청크로 변환, 임베딩·저장 |
-| `ai-service` | pgvector 기반 유사도 검색 |
+| `ai-service` / `auto-loan-review` | 벡터 검색 위임, 정책문서 시드 |
+
+- **검색 백엔드**: `ai.rag.backend=inline|es`로 전환. `inline`은 PostgreSQL+pgvector 코사인 유사도, `es`는 Elasticsearch 하이브리드(**BM25 + kNN을 RRF로 융합**, nori 형태소 분석).
+- **정책문서 시드**: `EsPolicyCorpusSeedLoader`가 정책 청크를 임베딩(`text-embedding-005`)해 `kb_policy` 인덱스에 색인. 재기동 시 동일 문서 ID로 덮어써 멱등.
 
 ### 자동심사·편향검증
 
 `auto-loan-review` 서비스가 규칙 기반 + LLM 심사 의견을 생성하고, 편향검증 에이전트가 성별·나이·지역 편향 여부를 검사한다. 임계치 초과 시 4-eye 승인 프로세스로 에스컬레이션한다.
+
+### 모델 드리프트·공정성 모니터링 (auto-loan-review)
+
+`agent_audit_log`(자동심사 감사 기록)를 원천으로 두 가지 배치를 돌려 Prometheus 메트릭으로 노출한다.
+
+| 항목 | 주기 | 기준 | 메트릭 |
+|---|---|---|---|
+| **드리프트(PSI)** | 매주 월 02:00 | 피처 분포 안정성. 경고 0.10 / 심각 0.20 | `ai.drift.psi.value`, `ai.drift.psi.critical.total` |
+| **공정성** | 매월 1일 03:00 | 연령대별 승인률 편차 > 0.05 시 flag | `ai.fairness.flagged.total` |
+
+- 결과는 `psi_drift_result`(주간)·`fairness_report`(월간) 테이블에 적재.
+- 설정: `ai.drift.psi-cron`, `ai.drift.fairness-cron`, `ai.drift.psi-features`.
+
+---
+
+## 이상거래 조사 에이전트 (fraud-investigation-agent)
+
+`fraud-investigation-agent/` (Python · LangGraph + FastAPI, 포트 8090). 이상거래 사건을 받아 5개 공격 시나리오(보이스피싱·계정탈취·자금세탁·내부자부정·정상)를 동시에 경합시키며, 증거에 따라 조회 도구를 선택해 가설 신뢰도를 갱신하고 권고를 생성한다.
+
+| 엔드포인트 | 역할 |
+|---|---|
+| `GET /api/cases` | 조사 큐(입력 후보) 조회 |
+| `POST /api/investigate` | 사건 조사 → 단계별 트레이스 + 권고 (HITL 대기) |
+| `POST /api/approve` | 분석가 승인(HITL + RBAC) 후 동작 실행 |
+
+- **HITL + RBAC**: 에이전트는 권고까지만 생성하고, 지급정지·STR 등 실제 동작은 분석가 승인 후 실행한다.
+- **안전 모드**: 결정적 사실(사망·후견)은 fail-closed로 즉시 종료, 예산 소진 시 fail-soft로 부분 결과 인계.
+- **실데이터 연동**: `get_auth_events`가 customer-service의 `GET /api/v1/internal/auth/{id}/events`(인증 실패 횟수 등)를 호출해 계정탈취 신호를 판별. 그 외 도구(STR·AML·디바이스 등)는 현재 목(mock).
+
+> 어드민 조사 화면(`web/app/(admin)/admin/fraud/`)은 별도 브랜치(customer)에서 관리되며 `main`에는 아직 병합되어 있지 않다.
 
 ---
 
