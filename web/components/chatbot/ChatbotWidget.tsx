@@ -1120,6 +1120,33 @@ export default function ChatbotWidget() {
       return
     }
 
+    // X%이상 상품 보여줘 패턴 처리 (예: "3%이상 상품", "금리 2% 이상 상품들")
+    const rateFilterMatch = trimmed.match(/([0-9]+(?:\.[0-9]+)?)\s*%\s*이상/)
+    if (rateFilterMatch && ['상품', '보여줘', '보여주', '추천', '알려'].some(w => trimmed.includes(w))) {
+      const minRate = Number(rateFilterMatch[1])
+      setLoading(true)
+      setExpandedRow(null)
+      setDataPages({})
+      pushMessages([{ id: messageId('user'), role: 'user', text }])
+      try {
+        const allProducts = await fetchDepositProducts()
+        const filtered = allProducts.filter(p => {
+          if (p.productStatus && p.productStatus !== 'SELLING') return false
+          if (p.productType === 'SUBSCRIPTION') return false
+          const rate = Number(p.bestRate ?? p.baseInterestRate ?? 0)
+          return rate >= minRate
+        }).sort((a, b) => Number(b.bestRate ?? b.baseInterestRate ?? 0) - Number(a.bestRate ?? a.baseInterestRate ?? 0))
+        const rows = await enrichWithPreferentialRates(filtered.map((p, i) => productToRow(p, i)))
+        const result = buildFeatureResult('PRODUCT_GUIDE', `금리 ${minRate}% 이상 상품 ${rows.length}개입니다.`, rows)
+        pushMessages([addFeatureResult(result as unknown as Parameters<typeof addFeatureResult>[0])])
+      } catch {
+        pushMessages([{ id: messageId('error'), role: 'system', text: '상품 정보를 불러오는 중 오류가 발생했습니다.' }])
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     // 우대금리 종류 / 우대금리 상품 질문
     const hasPrefKeyword = ['우대금리', '우대 금리'].some(w => trimmed.includes(w))
     const isHaedangSangpum = ['해당하는 상품', '해당 상품'].some(w => trimmed.includes(w))
