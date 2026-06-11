@@ -81,14 +81,22 @@ public class JwtProvider {
     }
 
     /**
-     * 토큰을 파싱해 클레임을 반환한다. 만료·서명 오류 시 JwtException 을 던진다.
+     * 토큰을 파싱해 클레임을 반환한다.
+     * 만료 시 BusinessException(TOKEN_EXPIRED), 그 외 서명·형식 오류 시 BusinessException(TOKEN_INVALID) 을 던진다.
      */
     public JwtClaims parseClaims(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (ExpiredJwtException e) {
+            throw new BusinessException(CommonErrorCode.TOKEN_EXPIRED);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
+        }
 
         Long customerId = Long.parseLong(claims.getSubject());
         String email    = claims.get(CLAIM_EMAIL, String.class);
