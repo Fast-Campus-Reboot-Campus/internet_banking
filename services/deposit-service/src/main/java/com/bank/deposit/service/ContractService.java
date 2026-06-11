@@ -126,6 +126,8 @@ public class ContractService {
                 .accountPassword(passwordEncoder.encode(accountPassword))
                 .balance(initialBalance)
                 .totalPaidAmount(initialBalance)
+                .isOnlineBankingEnabled(true)
+                .isMobileBankingEnabled(true)
                 .build());
 
         return contract;
