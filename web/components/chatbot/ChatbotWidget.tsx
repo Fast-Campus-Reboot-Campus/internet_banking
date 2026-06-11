@@ -69,13 +69,14 @@ type TransferState = {
   cardBack: string
 }
 
-type ProductSearchStep = 'period' | 'amount' | 'type' | 'purpose' | 'done'
+type ProductSearchStep = 'period' | 'amount' | 'type' | 'rate' | 'purpose' | 'done'
 type ProductSearchState = {
   step: ProductSearchStep
   period: string
   amount: string
   productType: 'DEPOSIT' | 'SAVINGS' | 'SUBSCRIPTION' | null
   purpose: 'lump_sum' | 'monthly' | null
+  minRate: string
 }
 
 type TerminateStep = 'method' | 'verify-card' | 'verify-cert-info' | 'verify-cert-pin' | 'done' | 'error'
@@ -561,6 +562,7 @@ export default function ChatbotWidget() {
     amount?: number
     productType?: DepositProductType
     purpose?: 'lump_sum' | 'monthly' | null
+    minRate?: number
   }) {
     // ── 1. 고객 재정 데이터 수집 ──
     let totalBalance = 0
@@ -635,6 +637,10 @@ export default function ChatbotWidget() {
       if (minAmt > 0) {
         if (p.productType === 'DEPOSIT' && totalBalance   > 0 && minAmt > totalBalance)       return false
         if (p.productType === 'SAVINGS' && monthlySurplus > 0 && minAmt > monthlySurplus * 2) return false
+      }
+      if (params.minRate != null && params.minRate > 0) {
+        const rate = Number(p.bestRate ?? p.baseInterestRate ?? 0)
+        if (rate < params.minRate) return false
       }
       return true
     })
@@ -1114,6 +1120,43 @@ export default function ChatbotWidget() {
       return
     }
 
+    // 우대금리 종류 / 우대금리 상품 질문
+    const hasPrefKeyword = ['우대금리', '우대 금리'].some(w => trimmed.includes(w))
+    const isHaedangSangpum = ['해당하는 상품', '해당 상품'].some(w => trimmed.includes(w))
+    if (hasPrefKeyword || isHaedangSangpum) {
+      const wantProductList = hasPrefKeyword
+        ? ['상품', '리스트', '보여줘', '보여주', '해당'].some(w => trimmed.includes(w))
+        : true
+      setLoading(true)
+      setExpandedRow(null)
+      setDataPages({})
+      pushMessages([{ id: messageId('user'), role: 'user', text }])
+      try {
+        const allProducts = await fetchDepositProducts()
+        const selling = allProducts.filter(p => (!p.productStatus || p.productStatus === 'SELLING') && p.productType !== 'SUBSCRIPTION')
+        const rows = selling.map((p, i) => productToRow(p, i))
+        const enriched = await enrichWithPreferentialRates(rows)
+        const withPref = enriched.filter(r => r.pref_condition != null && String(r.pref_condition).trim() !== '')
+
+        if (wantProductList) {
+          const result = buildFeatureResult('PRODUCT_GUIDE', `우대금리 조건이 있는 상품 ${withPref.length}개입니다.`, withPref)
+          pushMessages([addFeatureResult(result as unknown as Parameters<typeof addFeatureResult>[0])])
+        } else {
+          const conditionSet = new Set<string>()
+          withPref.forEach(r => String(r.pref_condition ?? '').split(' / ').forEach(c => { if (c.trim()) conditionSet.add(c.trim()) }))
+          const condList = Array.from(conditionSet).slice(0, 10)
+          const productLines = withPref.slice(0, 8).map(r => `• ${String(r.product_name ?? '')}: ${String(r.pref_condition ?? '')}${r.pref_rate ? ` (+${r.pref_rate}%)` : ''}`)
+          const reply = `우대금리 조건 종류 (${conditionSet.size}가지):\n${condList.map(c => `• ${c}`).join('\n')}${conditionSet.size > 10 ? '\n...' : ''}\n\n상품별 우대금리:\n${productLines.join('\n')}${withPref.length > 8 ? `\n...외 ${withPref.length - 8}개` : ''}\n\n"우대금리 상품 보여줘"라고 하시면 상품 목록을 보여드립니다.`
+          pushMessages([{ id: messageId('bot'), role: 'bot', text: reply }])
+        }
+      } catch {
+        pushMessages([{ id: messageId('error'), role: 'system', text: '우대금리 정보를 불러오는 중 오류가 발생했습니다.' }])
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     if (hasKoreanProduct && hasKoreanRecommend) {
       if (!isLoggedIn) {
         pendingLoginActionRef.current = 'recommend'
@@ -1293,7 +1336,7 @@ export default function ChatbotWidget() {
       return
     }
     if (action.type === 'recommend') {
-      setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null })
+      setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null, minRate: '' })
       return
     }
     if (action.type === 'my_products') {
@@ -2116,8 +2159,8 @@ export default function ChatbotWidget() {
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                 {/* 진행 단계 표시 */}
                 <div className="flex gap-1">
-                  {(['period','amount','type','purpose'] as const).map((s, i) => (
-                    <div key={s} className={`flex-1 h-1 rounded-full ${(['period','amount','type','purpose'] as const).indexOf(productSearchState.step as 'period'|'amount'|'type'|'purpose') >= i ? 'bg-[#2D6A4F]' : 'bg-kb-border'}`} />
+                  {(['period','amount','type','rate','purpose'] as const).map((s, i) => (
+                    <div key={s} className={`flex-1 h-1 rounded-full ${(['period','amount','type','rate','purpose'] as const).indexOf(productSearchState.step as 'period'|'amount'|'type'|'rate'|'purpose') >= i ? 'bg-[#2D6A4F]' : 'bg-kb-border'}`} />
                   ))}
                 </div>
 
@@ -2204,7 +2247,7 @@ export default function ChatbotWidget() {
                               setLoading(false)
                             }
                           } else {
-                            setProductSearchState(s => s && { ...s, productType: val as 'DEPOSIT' | 'SAVINGS', step: 'purpose' })
+                            setProductSearchState(s => s && { ...s, productType: val as 'DEPOSIT' | 'SAVINGS', step: 'rate' })
                           }
                         }}
                         className="w-full rounded border border-kb-border px-3 py-2 text-xs font-bold text-left hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
@@ -2214,24 +2257,64 @@ export default function ChatbotWidget() {
                   </div>
                 )}
 
-                {/* Step 4: 목적 (예금/적금만) */}
+                {/* Step 4: 최소 금리 */}
+                {productSearchState.step === 'rate' && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-kb-text">최소 금리를 선택해주세요 <span className="font-normal text-kb-text-muted">(선택 안 하면 전체)</span></p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {['1%','2%','3%','4%'].map(v => (
+                        <button key={v} type="button"
+                          onClick={() => setProductSearchState(s => s && { ...s, minRate: v.replace('%',''), step: 'purpose' })}
+                          className="rounded border border-kb-border py-1.5 text-[11px] hover:border-[#2D6A4F] hover:bg-[#EAF4EF]">
+                          {v} 이상
+                        </button>
+                      ))}
+                    </div>
+                    <input type="number" placeholder="직접 입력 (예: 3.5)"
+                      value={productSearchState.minRate}
+                      onChange={e => setProductSearchState(s => s && { ...s, minRate: e.target.value })}
+                      onKeyDown={e => e.key === 'Enter' && setProductSearchState(s => s && { ...s, step: 'purpose' })}
+                      className="w-full rounded border border-kb-border px-3 py-2 text-xs outline-none focus:border-[#2D6A4F]" />
+                    <div className="flex gap-2">
+                      <button type="button"
+                        onClick={() => setProductSearchState(s => s && { ...s, minRate: '', step: 'purpose' })}
+                        className="flex-1 rounded border border-kb-border py-2 text-xs font-bold text-kb-text-muted hover:bg-[#F0F0F0]">
+                        제한 없음
+                      </button>
+                      <button type="button"
+                        onClick={() => setProductSearchState(s => s && { ...s, step: 'purpose' })}
+                        className="flex-1 rounded bg-[#2D6A4F] py-2 text-xs font-bold text-white hover:bg-[#24563F]">
+                        다음
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 5: 목적 (예금/적금만) */}
                 {productSearchState.step === 'purpose' && (
                   <div className="space-y-3">
                     <p className="text-xs font-bold text-kb-text">가입 목적을 선택해주세요</p>
                     {productSearchState.productType === 'DEPOSIT' && (
                       <button type="button"
                         onClick={async () => {
+                          const snap = productSearchState
                           setProductSearchState(null)
                           setLoading(true)
                           const cid = customerNo.trim() || getCurrentDepositCustomerId()
-                          pushMessages([{ id: messageId('user'), role: 'user', text: '목돈 굴리기 - 예금 추천 요청' }])
+                          const minRate = snap.minRate ? Number(snap.minRate) : undefined
+                          const rateLabel = minRate ? ` (금리 ${minRate}% 이상)` : ''
+                          pushMessages([{ id: messageId('user'), role: 'user', text: `목돈 굴리기 - 예금 추천 요청${rateLabel}` }])
                           try {
-                            const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
-                              customer_no: cid,
-                              query: '목돈 굴리기 예금 추천',
+                            const result = await executeDepositProductSearch({
+                              customerId: cid,
+                              period: snap.period ? Number(snap.period) : undefined,
+                              amount: snap.amount ? Number(snap.amount.replace(/[^0-9]/g, '')) : undefined,
+                              productType: 'DEPOSIT',
+                              purpose: 'lump_sum',
+                              minRate,
                             })
                             saveRecommendContext(result)
-                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
+                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'PRODUCT_SEARCH_COMPARE'), addFeatureResult(result as unknown as Parameters<typeof addFeatureResult>[0])])
                             window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
                           } catch {
                             pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
@@ -2244,17 +2327,24 @@ export default function ChatbotWidget() {
                     {productSearchState.productType === 'SAVINGS' && (
                       <button type="button"
                         onClick={async () => {
+                          const snap = productSearchState
                           setProductSearchState(null)
                           setLoading(true)
                           const cid = customerNo.trim() || getCurrentDepositCustomerId()
-                          pushMessages([{ id: messageId('user'), role: 'user', text: '매달 저축 - 적금 추천 요청' }])
+                          const minRate = snap.minRate ? Number(snap.minRate) : undefined
+                          const rateLabel = minRate ? ` (금리 ${minRate}% 이상)` : ''
+                          pushMessages([{ id: messageId('user'), role: 'user', text: `매달 저축 - 적금 추천 요청${rateLabel}` }])
                           try {
-                            const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
-                              customer_no: cid,
-                              query: '매달 저축 적금 추천',
+                            const result = await executeDepositProductSearch({
+                              customerId: cid,
+                              period: snap.period ? Number(snap.period) : undefined,
+                              amount: snap.amount ? Number(snap.amount.replace(/[^0-9]/g, '')) : undefined,
+                              productType: 'SAVINGS',
+                              purpose: 'monthly',
+                              minRate,
                             })
                             saveRecommendContext(result)
-                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
+                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'PRODUCT_SEARCH_COMPARE'), addFeatureResult(result as unknown as Parameters<typeof addFeatureResult>[0])])
                             window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
                           } catch {
                             pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
@@ -2302,9 +2392,20 @@ export default function ChatbotWidget() {
                               ? <p className="text-[10px] text-kb-text-muted text-center py-2">추천 상품 없음</p>
                               : rows.map((row, i) => (
                               <div key={i} className="rounded border border-kb-border bg-white p-2 text-xs">
-                                <div className="flex items-start gap-1.5 mb-0.5">
-                                  <span className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold text-white mt-0.5" style={{ backgroundColor: accentColor }}>{i + 1}위</span>
-                                  <p className="font-bold text-kb-text leading-tight text-[11px]">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
+                                <div className="flex items-start justify-between gap-1.5 mb-0.5">
+                                  <div className="flex items-start gap-1.5 min-w-0">
+                                    <span className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold text-white mt-0.5" style={{ backgroundColor: accentColor }}>{i + 1}위</span>
+                                    <p className="font-bold text-kb-text leading-tight text-[11px]">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
+                                  </div>
+                                  {Number(row.product_id) > 0 && (
+                                    <a
+                                      href={`/products/deposit/join/product-${Number(row.product_id)}`}
+                                      onClick={e => { e.stopPropagation(); setOpen(false) }}
+                                      className="flex-shrink-0 rounded border border-[#2D6A4F] bg-[#EAF4EF] px-2 py-0.5 text-[10px] font-bold text-[#2D6A4F] hover:bg-[#D0EBE0]"
+                                    >
+                                      가입
+                                    </a>
+                                  )}
                                 </div>
                                 <div className="flex flex-wrap gap-x-2 text-[10px] text-kb-text-muted ml-0.5">
                                   <span>금리 <b style={{ color: accentColor }}>{row.base_interest_rate != null ? `${row.base_interest_rate}%` : '-'}</b></span>
@@ -2413,6 +2514,15 @@ export default function ChatbotWidget() {
                                   <span className="block truncate text-[11px] text-kb-text-muted">{summary.meta}</span>
                                 </button>
                                 <div className="flex flex-none items-center gap-1.5">
+                                  {(row.row_type === 'recommended_product' || message.featureCode === 'PRODUCT_SEARCH_COMPARE') && Number(row.product_id) > 0 && (
+                                    <a
+                                      href={`/products/deposit/join/product-${Number(row.product_id)}`}
+                                      onClick={e => { e.stopPropagation(); setOpen(false) }}
+                                      className="rounded border border-[#2D6A4F] bg-[#EAF4EF] px-2 py-0.5 text-[10px] font-bold text-[#2D6A4F] hover:bg-[#D0EBE0]"
+                                    >
+                                      가입
+                                    </a>
+                                  )}
                                   {message.featureCode === 'MY_PRODUCTS' && canShowTransferButton(row) && (
                                     <button
                                       type="button"
@@ -2545,7 +2655,7 @@ export default function ChatbotWidget() {
                           const query = pending.replace('product_guide:', '')
                           handleFeature('PRODUCT_GUIDE', query, false)
                         } else if (pending === 'recommend') {
-                          setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null })
+                          setProductSearchState({ step: 'period', period: '', amount: '', productType: null, purpose: null, minRate: '' })
                         } else {
                           // my_products: isLoggedIn이 아직 setState 반영 전이므로 직접 실행
                           const cidVal = cid || customerNo.trim() || getCurrentDepositCustomerId()

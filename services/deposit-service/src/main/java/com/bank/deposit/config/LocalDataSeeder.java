@@ -573,12 +573,12 @@ public class LocalDataSeeder implements ApplicationRunner {
                     account_status, opened_at, maturity_at, created_at, version
                 ) values
                 ('001-123-000001', '1', 1001, 'DEPOSIT', null,
-                 '001', 5000000, 0, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
+                 '001', 100000, 0, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
                  true, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0),
                 ('001-123-000002', '1', 1002, 'SAVINGS', 'REGULAR',
-                 '001', 1200000, 1200000, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
+                 '001', 100000, 100000, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
                  false, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0)
-                on conflict (account_number) do nothing
+                on conflict (account_number) do update set balance = excluded.balance, total_paid_amount = excluded.total_paid_amount
                 """);
     }
 
