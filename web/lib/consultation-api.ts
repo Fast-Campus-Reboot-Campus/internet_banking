@@ -162,6 +162,7 @@ export async function executeChatbotTransfer(payload: {
     transferType: payload.to_account_id ? 'INTERNAL' : 'EXTERNAL',
     counterpartyBankName: payload.to_bank_name,
     transactionMemo: payload.memo ?? '이체',
+    channelType: 'CHATBOT',
   })
 
   return {
