@@ -4,6 +4,7 @@ import com.bank.common.persistence.JpaAuditingConfig;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.dto.CustomerSummaryResponse;
 import com.bank.customer.party.domain.Party;
+import com.bank.customer.party.domain.PartyRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,6 +76,18 @@ class CustomerSearchRepositoryTest {
         return c;
     }
 
+    /** 직원(party_role 'EMPLOYEE')인 PERSONAL 파티 + 그에 묶인 고객 1건. (직원도 정본화 후 PERSONAL) */
+    private void employeeCustomer(String name, String phone) {
+        Party p = party(name, Party.TYPE_PERSONAL);
+        customerOf(p.getPartyId(), Customer.STATUS_ACTIVE, Customer.GRADE_NORMAL, phone);
+        em.persist(PartyRole.builder()
+                .partyId(p.getPartyId())
+                .roleTypeCode("EMPLOYEE")
+                .roleStatusCode(PartyRole.STATUS_ACTIVE)
+                .roleStartDate("20260101")
+                .build());
+    }
+
     // ── 테스트 ────────────────────────────────────────────────────────────────
 
     @Test
@@ -89,6 +102,20 @@ class CustomerSearchRepositoryTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).partyName()).isEqualTo("김철수");
+    }
+
+    @Test
+    @DisplayName("직원(party_role EMPLOYEE)은 party_type 가 PERSONAL 이어도 고객 목록에서 제외된다")
+    void excludesEmployeesByPartyRole() {
+        personalCustomer("일반고객", Customer.STATUS_ACTIVE, Customer.GRADE_NORMAL, "01000000001");
+        employeeCustomer("심사직원", "01099998888");
+        em.flush();
+
+        Page<CustomerSummaryResponse> result =
+                customerRepository.searchCustomers(null, null, null, FIRST_20);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).partyName()).isEqualTo("일반고객");
     }
 
     @Test
