@@ -391,6 +391,7 @@ Flyway 마이그레이션 이력(`services/customer-service/src/main/resources/d
 
 ## 참고 문서
 
+- 작업공유: [인증서 기술 스택](share/cert-tech-stack.md) · [고객계·인증보안계](share/customer-auth-worknote.md) · [Fraud Investigation Agent](share/fraud-agent-worknote.md)
 - 전체 시스템 그림: [`architecture.svg`](architecture.svg)
 - 역할·권한 매트릭스: [`role-permission-matrix.svg`](role-permission-matrix.svg)
 - 고객계 DDL: [`customer_ddl_design.md`](customer_ddl_design.md)
