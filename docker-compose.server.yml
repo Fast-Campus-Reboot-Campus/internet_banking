@@ -100,6 +100,22 @@ services:
       timeout: 5s
       retries: 5
 
+  ai-db:
+    image: pgvector/pgvector:pg16
+    container_name: ib-ai-db
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME:-ai_db}
+      POSTGRES_USER: ${AI_DB_USER:-ai}
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD:-ai}
+    volumes:
+      - ai-db-data:/var/lib/postgresql/data
+      - ./infra/ai-db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-ai} -d ${AI_DB_NAME:-ai_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # =============================================================
   # Cache
   # =============================================================
@@ -370,6 +386,8 @@ services:
       PAYMENT_SERVICE_PORT: ${PAYMENT_APP_PORT:-8084}
       MASTER_SERVICE_HOST: master-service
       MASTER_SERVICE_PORT: ${MASTER_APP_PORT:-8085}
+      AI_SERVICE_HOST: auto-loan-review
+      AI_SERVICE_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
     volumes:
       - /app/logs:/app/logs
     depends_on:
@@ -383,8 +401,80 @@ services:
         condition: service_healthy
       master-service:
         condition: service_healthy
+      auto-loan-review:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  auto-loan-review:
+    build:
+      context: .
+      dockerfile: services/auto-loan-review/Dockerfile
+    container_name: ib-auto-loan-review
+    environment:
+      AUTO_LOAN_REVIEW_APP_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
+      AI_DB_HOST: ai-db
+      AI_DB_PORT: 5432
+      AI_DB_NAME: ${AI_DB_NAME:-ai_db}
+      AI_DB_USER: ${AI_DB_USER:-ai}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:-ai}
+      AI_DB_URL: jdbc:postgresql://ai-db:5432/${AI_DB_NAME:-ai_db}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: docker
+      LOG_DIR: /app/logs
+      AI_LLM_PROVIDER: ${GEMINI_LOAN_PROVIDER:-stub}
+      AI_LLM_MODEL: ${GEMINI_LOAN_MODEL:-stub-v1}
+      GEMINI_BASE_URL: ${GEMINI_LOAN_BASE_URL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - /app/logs:/app/logs
+    depends_on:
+      ai-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${AUTO_LOAN_REVIEW_APP_PORT:-8089}/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  review-ai-gateway:
+    build:
+      context: .
+      dockerfile: services/review-ai-gateway/Dockerfile
+    container_name: ib-review-ai-gateway
+    ports:
+      - "${AIGATEWAY_APP_PORT:-8088}:8088"
+    environment:
+      AIGATEWAY_APP_PORT: 8088
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_PROFILES_ACTIVE: docker
+      LOG_DIR: /app/logs
+      LOAN_SERVICE_URL: http://loan-service:8083
+      AI_SERVICE_BASE_URL: http://auto-loan-review:8089
+      ADVISORY_BASE_URL: http://advisory-service:8080
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-sonnet-4-6}
+    volumes:
+      - /app/logs:/app/logs
+    depends_on:
+      kafka:
+        condition: service_healthy
+      loan-service:
+        condition: service_healthy
+      auto-loan-review:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8088/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -468,4 +558,5 @@ volumes:
   payment-db-data:
   payment-db-b-data:
   master-db-data:
+  ai-db-data:
   redis-data:
