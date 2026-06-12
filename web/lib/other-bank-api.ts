@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // payment-service-b 직접 호출 (gateway 경유 없음, 시연용)
 const paymentBApi = axios.create({
-  baseURL: 'http://localhost:8180',
+  baseURL: process.env.NEXT_PUBLIC_PAYMENT_B_URL || 'http://localhost:8180',
   headers: { 'Content-Type': 'application/json' },
 })
 
