@@ -3,4 +3,6 @@
 dependencies {
     // local 프로필(application-local.yml)에서 H2 인메모리 DB로 bootRun 하기 위해 runtimeOnly 추가
     runtimeOnly 'com.h2database:h2'
+
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:4.1.3'
 }
