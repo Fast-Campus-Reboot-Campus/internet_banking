@@ -139,6 +139,36 @@ services:
       timeout: 5s
       retries: 5
 
+  payment-topic-init:
+    image: apache/kafka:3.8.0
+    container_name: ib-payment-topic-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+    volumes:
+      - ./services/payment-service/infra/init-topics.sh:/init-topics.sh:ro
+    entrypoint: ["/bin/bash", "/init-topics.sh"]
+    restart: "no"
+
+  payment-db-b:
+    image: postgres:16-alpine
+    container_name: ib-payment-db-b
+    environment:
+      POSTGRES_DB: payment_b
+      POSTGRES_USER: payment
+      POSTGRES_PASSWORD: payment
+    ports:
+      - "${PAYMENT_DB_B_PORT:-5441}:5432"
+    volumes:
+      - payment-db-b-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment -d payment_b"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # =============================================================
   # Application Services
   # =============================================================
@@ -360,6 +390,47 @@ services:
       retries: 10
       start_period: 60s
 
+  payment-service-b:
+    build:
+      context: .
+      dockerfile: services/payment-service/Dockerfile
+    container_name: ib-payment-service-b
+    ports:
+      - "8180:8084"
+    environment:
+      PAYMENT_APP_PORT: 8084
+      BANK_CODE: "B"
+      SPRING_PROFILES_ACTIVE: "mock"
+      APP_CORS_ENABLED: "true"
+      PAYMENT_DB_HOST: payment-db-b
+      PAYMENT_DB_PORT: 5432
+      PAYMENT_DB_NAME: payment_b
+      PAYMENT_DB_USER: payment
+      PAYMENT_DB_PASSWORD: payment
+      KFTC_KAFKA_BOOTSTRAP: kafka:29092
+      BOK_KAFKA_BOOTSTRAP: kafka:29092
+      INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
+      KFTC_CONSUMER_GROUP: payment-kftc-b
+      BOK_CONSUMER_GROUP: payment-bok-b
+      INTERNAL_CONSUMER_GROUP: payment-internal-b
+      SPRING_KAFKA_LISTENER_MISSING_TOPICS_FATAL: "false"
+      LOG_DIR: /app/logs
+      DEPOSIT_ACCOUNT_URL: http://deposit-service:8082
+      DEPOSIT_BALANCE_URL: http://deposit-service:8082
+    volumes:
+      - /app/logs:/app/logs
+    depends_on:
+      payment-db-b:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
   web:
     build:
       context: ./web
@@ -395,5 +466,6 @@ volumes:
   loan-db-data:
   common-db-data:
   payment-db-data:
+  payment-db-b-data:
   master-db-data:
   redis-data:
