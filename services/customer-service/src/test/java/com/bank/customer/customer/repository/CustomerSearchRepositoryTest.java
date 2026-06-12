@@ -76,14 +76,17 @@ class CustomerSearchRepositoryTest {
         return c;
     }
 
-    /** 직원(party_role 'EMPLOYEE')인 PERSONAL 파티 + 그에 묶인 고객 1건. (직원도 정본화 후 PERSONAL) */
-    private void employeeCustomer(String name, String phone) {
+    /**
+     * 직원 역할(party_role 'EMPLOYEE')을 가진 PERSONAL 파티 + 그에 묶인 고객 1건.
+     * (직원도 정본화 후 PERSONAL) {@code roleStatus} 로 현직(ACTIVE)·전직(CLOSED)을 구분한다.
+     */
+    private void employeeCustomer(String name, String phone, String roleStatus) {
         Party p = party(name, Party.TYPE_PERSONAL);
         customerOf(p.getPartyId(), Customer.STATUS_ACTIVE, Customer.GRADE_NORMAL, phone);
         em.persist(PartyRole.builder()
                 .partyId(p.getPartyId())
-                .roleTypeCode("EMPLOYEE")
-                .roleStatusCode(PartyRole.STATUS_ACTIVE)
+                .roleTypeCode(PartyRole.TYPE_EMPLOYEE)
+                .roleStatusCode(roleStatus)
                 .roleStartDate("20260101")
                 .build());
     }
@@ -105,10 +108,10 @@ class CustomerSearchRepositoryTest {
     }
 
     @Test
-    @DisplayName("직원(party_role EMPLOYEE)은 party_type 가 PERSONAL 이어도 고객 목록에서 제외된다")
+    @DisplayName("현직 직원(party_role EMPLOYEE·ACTIVE)은 party_type 가 PERSONAL 이어도 고객 목록에서 제외된다")
     void excludesEmployeesByPartyRole() {
         personalCustomer("일반고객", Customer.STATUS_ACTIVE, Customer.GRADE_NORMAL, "01000000001");
-        employeeCustomer("심사직원", "01099998888");
+        employeeCustomer("심사직원", "01099998888", PartyRole.STATUS_ACTIVE);
         em.flush();
 
         Page<CustomerSummaryResponse> result =
@@ -116,6 +119,21 @@ class CustomerSearchRepositoryTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).partyName()).isEqualTo("일반고객");
+    }
+
+    @Test
+    @DisplayName("전직 직원(EMPLOYEE 역할이 CLOSED)은 일반 고객으로 다시 목록에 노출된다")
+    void includesFormerEmployeesWhoseRoleIsClosed() {
+        personalCustomer("일반고객", Customer.STATUS_ACTIVE, Customer.GRADE_NORMAL, "01000000001");
+        employeeCustomer("퇴직자", "01077776666", PartyRole.STATUS_CLOSED);
+        em.flush();
+
+        Page<CustomerSummaryResponse> result =
+                customerRepository.searchCustomers(null, null, null, FIRST_20);
+
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent()).extracting(CustomerSummaryResponse::partyName)
+                .containsExactlyInAnyOrder("일반고객", "퇴직자");
     }
 
     @Test

@@ -51,11 +51,16 @@ public class InternalHolderController {
         Party party = partyRepository.findByPartyIdAndDeletedAtIsNull(customer.getPartyId())
                 .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
 
+        // TODO(deceasedFlag): Party 에 사망 컬럼이 없어 현재 false 고정이다. 다운스트림
+        //  payment-service 는 이 값을 "확정 생존"으로 해석하면 안 되고, 사망 차단은
+        //  사망 정보 소스(party 사망 컬럼/외부 연계) 연결 전까지 미검증으로 취급해야 한다.
+        //  사망 컬럼 wiring 후 false 하드코딩을 실제 값으로 교체할 것.
+        boolean deceasedFlag = false;
         return ResponseEntity.ok(new HolderInfoResponse(
                 String.valueOf(customerId),
                 party.getPartyName(),
                 holderType(party.getPartyTypeCode()),
-                false));
+                deceasedFlag));
     }
 
     /** party_type_code(PERSONAL/ORGANIZATION) → 예금주 유형. Party 모델에 JOINT 없음 → 개인 기본값. */

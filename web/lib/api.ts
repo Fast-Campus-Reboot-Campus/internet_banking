@@ -50,6 +50,11 @@ async function refreshAccessToken(): Promise<string | null> {
     if (!newToken) return null;
     localStorage.setItem("accessToken", newToken);
     localStorage.setItem("access_token", newToken);
+    // 백엔드는 refresh 시 refresh 토큰도 회전한다(LoginService.refresh: 옛 키 삭제 →
+    // reissueTokens 가 새 refresh 발급·저장). 새 값을 저장하지 않으면 다음 갱신에서
+    // stale 토큰으로 호출해 TOKEN_INVALID(401) → 로그아웃되므로 반드시 함께 갱신한다.
+    const newRefreshToken: string | undefined = data?.data?.refreshToken;
+    if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
     return newToken;
   } catch {
     return null;

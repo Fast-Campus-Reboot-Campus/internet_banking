@@ -27,8 +27,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      *
      * <p>{@code keyword}(이름·전화 부분일치)·{@code status}·{@code grade}는 모두 선택값으로,
      * null이면 해당 조건을 적용하지 않는다(서비스에서 공백 문자열을 null로 정규화).
-     * 개인(PERSONAL) 파티만 대상으로 하며, 직원(party_role 'EMPLOYEE')은 제외한다.
+     * 개인(PERSONAL) 파티만 대상으로 하며, 현직 직원(party_role 'EMPLOYEE' 이며 ACTIVE)은 제외한다.
      * (직원 구분은 party_type 가 아니라 party_role 로 한다 — party_type 은 개인/법인 축.)
+     * 역할이 CLOSED(퇴직)인 전(前) 직원은 일반 고객으로 다시 목록에 노출된다.
      */
     @Query(value = """
             SELECT new com.bank.customer.customer.dto.CustomerSummaryResponse(
@@ -38,7 +39,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
             WHERE c.deletedAt IS NULL
               AND p.partyTypeCode = 'PERSONAL'
               AND NOT EXISTS (SELECT pr.partyId FROM PartyRole pr
-                              WHERE pr.partyId = p.partyId AND pr.roleTypeCode = 'EMPLOYEE')
+                              WHERE pr.partyId = p.partyId
+                                AND pr.roleTypeCode   = 'EMPLOYEE'
+                                AND pr.roleStatusCode = 'ACTIVE')
               AND (:keyword IS NULL OR p.partyName LIKE %:keyword% OR c.phone LIKE %:keyword%)
               AND (:status  IS NULL OR c.customerStatusCode = :status)
               AND (:grade   IS NULL OR c.customerGradeCode  = :grade)
@@ -50,7 +53,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
             WHERE c.deletedAt IS NULL
               AND p.partyTypeCode = 'PERSONAL'
               AND NOT EXISTS (SELECT pr.partyId FROM PartyRole pr
-                              WHERE pr.partyId = p.partyId AND pr.roleTypeCode = 'EMPLOYEE')
+                              WHERE pr.partyId = p.partyId
+                                AND pr.roleTypeCode   = 'EMPLOYEE'
+                                AND pr.roleStatusCode = 'ACTIVE')
               AND (:keyword IS NULL OR p.partyName LIKE %:keyword% OR c.phone LIKE %:keyword%)
               AND (:status  IS NULL OR c.customerStatusCode = :status)
               AND (:grade   IS NULL OR c.customerGradeCode  = :grade)
