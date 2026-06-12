@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
@@ -18,20 +18,86 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// 응답 인터셉터 — 401이면 로그인 페이지로
-// 단, 로그인 요청 자체나 선택적 보조 호출(customers/me 등)은 제외
-const SILENT_401_PATHS = ['/auth/login', '/auth/cert-login', '/auth/refresh', '/customers/me']
+// 응답 인터셉터 — 401이면 refresh 토큰으로 액세스 토큰을 자동 갱신하고 원요청을 1회 재시도한다.
+// 액세스 토큰 수명(10분) < UI 세션(30분) 불일치로 생기던 "좀비 로그인"(화면은 로그인,
+// API는 전부 401) 구간을 없앤다. 갱신/재시도까지 실패할 때만 로그인 페이지로 보낸다.
+type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+
+const AUTH_PATHS = ["/auth/login", "/auth/cert-login", "/auth/refresh"]; // 자동 갱신 대상 아님
+const SILENT_PATHS = ["/customers/me"]; // 실패해도 로그인으로 안 보냄(배경 보조 호출)
+
+function clearSession() {
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("sessionExpiry");
+}
+
+// 동시에 발생한 401들이 refresh 를 한 번만 호출하도록 단일 비행(single-flight)으로 공유한다.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem("refreshToken");
+  if (!refreshToken) return null;
+  try {
+    // 인터셉터 재귀를 피하려고 기본 axios 로 직접 호출한다.
+    const { data } = await axios.post(
+      `${api.defaults.baseURL}/api/v1/auth/refresh`,
+      { refreshToken },
+      { headers: { "Content-Type": "application/json" } }
+    );
+    const newToken: string | undefined = data?.data?.accessToken;
+    if (!newToken) return null;
+    localStorage.setItem("accessToken", newToken);
+    localStorage.setItem("access_token", newToken);
+    return newToken;
+  } catch {
+    return null;
+  }
+}
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
-    const url: string = err.config?.url ?? ''
-    const isSilent = SILENT_401_PATHS.some((p) => url.includes(p))
-    if (err.response?.status === 401 && !isSilent) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("access_token");
-      window.location.href = "/login";
+  async (err: AxiosError) => {
+    const config = (err.config ?? {}) as RetriableConfig;
+    const url = config.url ?? "";
+    const isSilent = SILENT_PATHS.some((p) => url.includes(p));
+
+    if (err.response?.status !== 401 || typeof window === "undefined") {
+      return Promise.reject(err);
     }
-    return Promise.reject(err);
+
+    // 인증 엔드포인트 자체의 401은 갱신 대상이 아니다. refresh 가 401이면 세션 종료.
+    if (AUTH_PATHS.some((p) => url.includes(p))) {
+      if (url.includes("/auth/refresh")) {
+        clearSession();
+        window.location.href = "/login";
+      }
+      return Promise.reject(err);
+    }
+
+    // 이미 한 번 재시도한 요청이면 더 갱신하지 않는다(무한 루프 방지).
+    if (config._retry) {
+      clearSession();
+      if (!isSilent) window.location.href = "/login";
+      return Promise.reject(err);
+    }
+    config._retry = true;
+
+    if (!refreshPromise) {
+      refreshPromise = refreshAccessToken().finally(() => {
+        refreshPromise = null;
+      });
+    }
+    const newToken = await refreshPromise;
+
+    if (!newToken) {
+      clearSession();
+      if (!isSilent) window.location.href = "/login";
+      return Promise.reject(err);
+    }
+
+    // 새 액세스 토큰으로 원요청을 1회 재시도(요청 인터셉터가 새 토큰을 자동 첨부).
+    return api(config);
   }
 );
