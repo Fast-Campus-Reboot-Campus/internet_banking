@@ -168,6 +168,10 @@ const CHECKING_PRODUCT_SLUGS = new Set([
   'axful-youth-account',
   'axful-sok',
   'monimo-daily',
+  // join/[id]/page.tsx CHECKING_IDS와 동기화
+  'axful-living',
+  'axful-gs',
+  'election',
 ])
 
 const SAVING_TYPE_BY_SLUG: Record<string, SavingType> = {

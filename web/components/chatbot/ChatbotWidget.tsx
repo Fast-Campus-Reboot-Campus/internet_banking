@@ -579,8 +579,8 @@ export default function ChatbotWidget() {
       const now = new Date()
       const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
       const recent = txs.filter(t => new Date(t.transactionAt ?? '') >= threeMonthsAgo)
-      monthlyIncome  = recent.filter(t => Number(t.amount) > 0).reduce((s, t) => s + Number(t.amount), 0) / 3
-      monthlyExpense = recent.filter(t => Number(t.amount) < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0) / 3
+      monthlyIncome  = recent.filter(t => t.directionType === 'IN').reduce((s, t) => s + Number(t.amount), 0) / 3
+      monthlyExpense = recent.filter(t => t.directionType === 'OUT').reduce((s, t) => s + Number(t.amount), 0) / 3
       txFrequency    = recent.length / 3
     } catch {}
 
@@ -1122,7 +1122,7 @@ export default function ChatbotWidget() {
 
     // X%이상 상품 보여줘 패턴 처리 (예: "3%이상 상품", "금리 2% 이상 상품들")
     const rateFilterMatch = trimmed.match(/([0-9]+(?:\.[0-9]+)?)\s*%\s*이상/)
-    if (rateFilterMatch && ['상품', '보여줘', '보여주', '추천', '알려'].some(w => trimmed.includes(w))) {
+    if (rateFilterMatch && ['상품', '보여줘', '보여주', '보여달', '추천', '알려'].some(w => trimmed.includes(w))) {
       const minRate = Number(rateFilterMatch[1])
       setLoading(true)
       setExpandedRow(null)
