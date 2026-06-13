@@ -211,6 +211,7 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
             {
                 "row_type":           "recommended_product",
                 "rank":               i + 1,
+                "product_id":         p.get("product_id"),
                 "product_name":       p.get("deposit_product_name", ""),
                 "product_type":       p.get("deposit_product_type", ""),
                 "base_interest_rate": p.get("base_interest_rate"),

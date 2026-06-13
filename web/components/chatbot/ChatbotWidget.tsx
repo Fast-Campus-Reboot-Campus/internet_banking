@@ -28,6 +28,7 @@ import {
   fetchDepositInterestRates,
   fetchDepositRecommendAgent,
   terminateDepositContract,
+  getDepositSlugByProductId,
   type DepositProduct,
   type DepositProductType,
   type DepositRecommendProduct,
@@ -2198,7 +2199,21 @@ export default function ChatbotWidget() {
                                     {String(row.rank)}위
                                   </span>
                                 )}
-                                <p className="font-bold text-kb-text">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
+                                <p className="font-bold text-kb-text flex-1">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
+                                {row.product_id != null && (() => {
+                                  const slug = getDepositSlugByProductId(Number(row.product_id))
+                                  if (!slug || slug.startsWith('product-')) return null
+                                  return (
+                                    <a
+                                      href={`/products/${slug}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]"
+                                    >
+                                      가입하기
+                                    </a>
+                                  )
+                                })()}
                               </div>
                               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-kb-text-muted">
                                 <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate != null ? `${row.base_interest_rate}%` : '-'}</span></span>
