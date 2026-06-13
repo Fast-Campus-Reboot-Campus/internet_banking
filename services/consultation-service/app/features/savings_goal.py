@@ -378,7 +378,7 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
     ) -> ChatbotFeatureExecuteResponse:
         """상품 조회 → 이자 계산 → 비교 → 추천."""
         is_lump = lump_sum is not None
-        ptype_filter = "'DEPOSIT'" if is_lump else "'SAVINGS', 'DEPOSIT'"
+        ptype_filter = "'DEPOSIT'" if is_lump else "'SAVINGS'"
 
         # ── 실제 DB 조회 (기간 조건 포함) ─────────────────────────────────────
         products = self._rows(
