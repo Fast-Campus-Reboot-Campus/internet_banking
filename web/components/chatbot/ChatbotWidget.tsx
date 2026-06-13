@@ -331,6 +331,7 @@ export default function ChatbotWidget() {
   const lastRecommendProductsRef = useRef<Record<string, unknown>[]>([])
   const lastTopProductRef = useRef<Record<string, unknown> | null>(null)
   const lastCompareAnalysisRef = useRef<string | null>(null)
+  const lastCompareNamesRef = useRef<[string, string] | null>(null)
   const [showFileMenu, setShowFileMenu] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingFileAction, setPendingFileAction] = useState<'CASH_FLOW' | 'TERMS' | 'PRODUCT' | 'ENROLLMENT' | null>(null)
@@ -895,6 +896,14 @@ export default function ChatbotWidget() {
     ].join('\n')
   }
 
+  function josa(word: string, type: '을를' | '이가' | '과와'): string {
+    const code = word.charCodeAt(word.length - 1)
+    const hasBatchim = code >= 0xAC00 && (code - 0xAC00) % 28 !== 0
+    if (type === '을를') return word + (hasBatchim ? '을' : '를')
+    if (type === '이가') return word + (hasBatchim ? '이' : '가')
+    return word + (hasBatchim ? '과' : '와')
+  }
+
   function answerProductCompare(text: string): string | null {
     // 구체적 상품명이 포함된 비교 요청은 서버(ProductCompareAgent)로 위임
     const hasSpecificProduct = /AXful|내맘대로|수퍼정기|달러자|맑은하늘|장병내일|청년도약|특★한|쏙머니|당선통장|생계비|GS Pay|모임금고|스타통장|지갑통장|자유입출금|주택청약|청년 주택드림/.test(text)
@@ -1200,7 +1209,10 @@ export default function ChatbotWidget() {
             lastCompareAnalysisRef.current = String(row.analysis ?? '')
             const pa = (row.product_a as Record<string, unknown>)
             const pb = (row.product_b as Record<string, unknown>)
-            shortIntro = `${String(pa.product_name ?? '')}과(와) ${String(pb.product_name ?? '')}을(를) 비교했습니다.`
+            const nameA = String(pa.product_name ?? '')
+            const nameB = String(pb.product_name ?? '')
+            lastCompareNamesRef.current = [nameA, nameB]
+            shortIntro = `${josa(nameA, '과와')} ${josa(nameB, '을를')} 비교했습니다.`
           }
         }
         setMessages(prev => [...prev, addFeatureResult({ ...result, message: shortIntro })])
@@ -1228,12 +1240,13 @@ export default function ChatbotWidget() {
       ['나한테', '나에게', '나한', '적절', '적합', '맞아', '맞나', '맞는', '추천이야', '추천인가', '맞게'].some(w => trimmed.includes(w))
     if (isCompareFollowup) {
       const fullAnalysis = lastCompareAnalysisRef.current!
-      // 추천 상품명 추출 후 새 문구로 안내 (AI 분석 박스 내용 반복 방지)
+      const names = lastCompareNamesRef.current
       const productMatch = fullAnalysis.match(/내\s*상황엔\s*([^\s이가]+(?:\s+[^\s이가]+)*?)\s*[이가]\s*유리/)
-      const recommendedProduct = productMatch ? productMatch[1].trim() : null
-      const replyText = recommendedProduct
-        ? `${recommendedProduct}을(를) 추천드려요 😊\n가입 기간이나 중도해지 가능 여부 등 더 궁금한 조건이 있으시면 편하게 물어봐 주세요!`
-        : '위 비교표를 참고하셔서 고객님 상황에 맞는 상품을 선택해 보세요 😊 더 궁금한 점이 있으시면 편하게 물어봐 주세요!'
+      const recommended = productMatch ? productMatch[1].trim() : null
+      const other = names ? names.find(n => n !== recommended) ?? null : null
+      const replyText = recommended && other
+        ? `${josa(recommended, '과와')} ${josa(other, '을를')} 비교해봤을 때,\n금리·조건 면에서 ${josa(recommended, '이가')} 고객님께 조금 더 유리할 수 있어요 😊\n단, ${other}도 중도해지나 자동갱신 조건에 따라 맞는 경우가 있으니 위 표를 함께 참고해 주세요!`
+        : '위 두 상품 모두 좋은 선택이에요! 비교표와 AI 분석을 참고하셔서 고객님 상황에 맞게 선택해 보세요 😊'
       setMessages(prev => [...prev, {
         id: messageId('bot'),
         role: 'bot',
