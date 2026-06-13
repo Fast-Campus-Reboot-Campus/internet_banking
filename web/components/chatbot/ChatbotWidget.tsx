@@ -942,7 +942,9 @@ export default function ChatbotWidget() {
       return lines.join('\n')
     }
 
-    if (wantsDeposit && wantsSavings && hasCompareIntent && !wantsPersonal) {
+    // 구체적인 상품명이 포함된 경우(ex: "AXful 정기예금이랑 내맘대로적금 비교")는 서버로 위임
+    const hasSpecificProductName = /AXful|내맘대로|수퍼정기|달러자|맑은하늘|장병내일|청년도약|특★한|쏙머니|당선통장|생계비|GS Pay|모임금고|스타통장|지갑통장|자유입출금|주택청약|청년 주택드림/.test(text)
+    if (wantsDeposit && wantsSavings && hasCompareIntent && !wantsPersonal && !hasSpecificProductName) {
       return [
         '예금과 적금의 차이를 안내해 드릴게요.',
         '',

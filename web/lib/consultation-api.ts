@@ -18,6 +18,8 @@ export type ChatbotStartResponse = {
 export type ChatbotMessageResponse = ChatbotStartResponse & {
   process_method: string
   agent_transfer_required: boolean
+  feature_code?: string
+  feature_data?: Record<string, unknown>[]
 }
 
 export type ChatbotFeatureExecuteRequest = {
