@@ -415,6 +415,8 @@ services:
       context: .
       dockerfile: services/auto-loan-review/Dockerfile
     container_name: ib-auto-loan-review
+    ports:
+      - "${AUTO_LOAN_REVIEW_APP_PORT:-8089}:8089"
     environment:
       AUTO_LOAN_REVIEW_APP_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
       AI_DB_HOST: ai-db
@@ -576,6 +578,46 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  # =============================================================
+  # Kafka Exporters (Prometheus 스크랩용)
+  # =============================================================
+
+  kafka-exporter-kftc:
+    image: danielqsj/kafka-exporter:latest
+    container_name: ib-kafka-exporter-kftc
+    command:
+      - "--kafka.server=kafka:29092"
+    ports:
+      - "${KAFKA_EXPORTER_KFTC_PORT:-9308}:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  kafka-exporter-bok:
+    image: danielqsj/kafka-exporter:latest
+    container_name: ib-kafka-exporter-bok
+    command:
+      - "--kafka.server=kafka:29092"
+    ports:
+      - "${KAFKA_EXPORTER_BOK_PORT:-9309}:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  kafka-exporter-internal:
+    image: danielqsj/kafka-exporter:latest
+    container_name: ib-kafka-exporter-internal
+    command:
+      - "--kafka.server=kafka:29092"
+    ports:
+      - "${KAFKA_EXPORTER_INTERNAL_PORT:-9310}:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
 
   # =============================================================
   # Monitoring — Metrics (Prometheus + Grafana)
