@@ -50,13 +50,17 @@ public class ProductService {
 
     public List<ProductResponse> findAllResponses(ProductType productType, ProductStatus productStatus) {
         List<Product> products = findAll(productType, productStatus);
+        List<Long> productIds = products.stream().map(Product::getProductId).toList();
         Map<Long, BigDecimal> bestRateByProductId = calculateBestRates(products);
-        Map<Long, List<ProductResponse.TargetGroupInfo>> targetGroupsByProductId = fetchTargetGroupInfos(
-                products.stream().map(Product::getProductId).toList());
+        Map<Long, List<ProductResponse.TargetGroupInfo>> targetGroupsByProductId = fetchTargetGroupInfos(productIds);
+        Map<Long, SavingType> savingTypeByProductId = savingsProductRepository
+                .findByProductIdIn(productIds).stream()
+                .collect(Collectors.toMap(SavingsProduct::getProductId, SavingsProduct::getSavingType));
         return products.stream()
                 .map(product -> ProductResponse.from(
                         product,
                         bestRateByProductId.get(product.getProductId()),
+                        savingTypeByProductId.get(product.getProductId()),
                         targetGroupsByProductId.getOrDefault(product.getProductId(), List.of())))
                 .toList();
     }
@@ -67,7 +71,9 @@ public class ProductService {
                 interestRateRepository.findByProductIdAndIsActive(id, true));
         List<ProductResponse.TargetGroupInfo> targetGroups = fetchTargetGroupInfos(List.of(id))
                 .getOrDefault(id, List.of());
-        return ProductResponse.from(product, bestRate, targetGroups);
+        SavingType savingType = savingsProductRepository.findByProductId(id)
+                .map(SavingsProduct::getSavingType).orElse(null);
+        return ProductResponse.from(product, bestRate, savingType, targetGroups);
     }
 
     @Transactional

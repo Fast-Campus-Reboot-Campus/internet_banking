@@ -135,7 +135,7 @@ class FeatureExecutorBase:
         tx_rows = self._rows(
             """
             SELECT transaction_type,
-                   transaction_status,
+                   status,
                    amount
               FROM deposit_transactions
              WHERE account_id IN :account_ids
@@ -147,7 +147,7 @@ class FeatureExecutorBase:
 
         tx_rows = [
             r for r in tx_rows
-            if str(r.get("transaction_status") or "").upper() in ("SUCCESS", "COMPLETED")
+            if str(r.get("status") or "").upper() in ("SUCCESS", "COMPLETED")
         ]
 
         if not tx_rows:

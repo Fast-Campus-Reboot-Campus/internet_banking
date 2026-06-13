@@ -151,11 +151,30 @@ export type CreateDepositContractInput = {
   taxExempt?: boolean
 }
 
-// 하드코딩 ID는 환경마다 시퀀스가 달라 오동작 유발 — resolveProductId에서 항상 API 조회
-const PRODUCT_ID_BY_SLUG: Record<string, number> = {}
+const PRODUCT_ID_BY_SLUG: Record<string, number> = {
+  'axful-regular':       1,
+  'axful-super':         2,
+  'regular':             3,
+  'axful-youth':         4,
+  'axful-free':          5,
+  'axful-dollar':        6,
+  'axful-green':         7,
+  'axful-soldier':       8,
+  'axful-star-savings':  9,
+  'housing-savings':     10,
+  'youth-housing':       11,
+  'axful-sok':           12,
+  'election':            13,
+  'axful-living':        14,
+  'axful-gs':            15,
+  'monimo-daily':        16,
+  'axful-moim':          17,
+  'axful-star-account':  18,
+  'axful-wallet':        19,
+  'axful-free-account':  20,
+  'axful-youth-account': 21,
+}
 
-// PRODUCT_NAME_TO_SLUG 하드코딩 제거 — DB 상품명 변경 시 조용히 깨지는 문제 방지.
-// slug는 productId 기반(product-{id})으로 생성하고, 상세 페이지 라우팅은 productId를 직접 사용한다.
 const SLUG_BY_PRODUCT_ID = Object.fromEntries(
   Object.entries(PRODUCT_ID_BY_SLUG).map(([slug, productId]) => [productId, slug])
 ) as Record<number, string>
