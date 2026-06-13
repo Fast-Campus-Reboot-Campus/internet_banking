@@ -502,6 +502,14 @@ export default function ChatbotWidget() {
     return enriched
   }
 
+  function parseKoreanAmount(value: string): number {
+    const v = value.replace(/,/g, '').trim()
+    const manMatch = v.match(/(\d+(?:\.\d+)?)\s*만/)
+    if (manMatch) return Math.round(parseFloat(manMatch[1]) * 10_000)
+    const num = parseFloat(v.replace(/[^0-9.]/g, ''))
+    return isNaN(num) ? 0 : num
+  }
+
   function inferProductType(text: string): DepositProductType | undefined {
     if (text.includes('청약')) return 'SUBSCRIPTION'
     if (text.includes('적금')) return 'SAVINGS'
@@ -2059,18 +2067,20 @@ export default function ChatbotWidget() {
                     {productSearchState.productType === 'DEPOSIT' && (
                       <button type="button"
                         onClick={async () => {
+                          const snap = productSearchState
                           setProductSearchState(null)
                           setLoading(true)
                           const cid = customerNo.trim() || getCurrentDepositCustomerId()
-                          pushMessages([{ id: messageId('user'), role: 'user', text: '목돈 굴리기 - 예금 추천 요청' }])
+                          const parsedAmount = parseKoreanAmount(snap.amount)
+                          pushMessages([{ id: messageId('user'), role: 'user', text: `목돈 굴리기 - 예금 추천 (기간 ${snap.period}개월, 금액 ${parsedAmount.toLocaleString()}원)` }])
                           try {
-                            const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
+                            const result = await executeChatbotFeature('PRODUCT_SEARCH', {
                               customer_no: cid,
-                              query: '목돈 굴리기 예금 추천',
                               product_type: 'DEPOSIT',
+                              period: Number(snap.period),
+                              amount: parsedAmount,
                             })
-                            saveRecommendContext(result)
-                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
+                            pushMessages([addFeatureResult(result)])
                             window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
                           } catch {
                             pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])
@@ -2083,18 +2093,20 @@ export default function ChatbotWidget() {
                     {productSearchState.productType === 'SAVINGS' && (
                       <button type="button"
                         onClick={async () => {
+                          const snap = productSearchState
                           setProductSearchState(null)
                           setLoading(true)
                           const cid = customerNo.trim() || getCurrentDepositCustomerId()
-                          pushMessages([{ id: messageId('user'), role: 'user', text: '매달 저축 - 적금 추천 요청' }])
+                          const parsedAmount = parseKoreanAmount(snap.amount)
+                          pushMessages([{ id: messageId('user'), role: 'user', text: `매달 저축 - 적금 추천 (기간 ${snap.period}개월, 월납입 ${parsedAmount.toLocaleString()}원)` }])
                           try {
-                            const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
+                            const result = await executeChatbotFeature('PRODUCT_SEARCH', {
                               customer_no: cid,
-                              query: '매달 저축 적금 추천',
                               product_type: 'SAVINGS',
+                              period: Number(snap.period),
+                              amount: parsedAmount,
                             })
-                            saveRecommendContext(result)
-                            setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
+                            pushMessages([addFeatureResult(result)])
                             window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
                           } catch {
                             pushMessages([{ id: messageId('error'), role: 'system', text: '조회 중 오류가 발생했습니다.' }])

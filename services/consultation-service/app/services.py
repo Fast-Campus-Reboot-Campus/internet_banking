@@ -2162,6 +2162,7 @@ class ChatbotService:
             {
                 "row_type":          "recommended_product",
                 "rank":              i + 1,
+                "product_id":        p.get("product_id") or p.get("banking_product_id"),
                 "product_name":      p.get("deposit_product_name") or p.get("product_name", ""),
                 "product_type":      p.get("deposit_product_type") or p.get("product_type", ""),
                 "base_interest_rate": p.get("base_interest_rate"),
