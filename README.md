@@ -67,8 +67,11 @@ internet_banking/
 │   ├── consultation-service/
 │   │   └── app/
 │   │       ├── main.py                  # FastAPI 앱, 라우터, CORS
-│   │       ├── services.py              # ChatbotService, ChatService
-│   │       ├── features/                # 기능별 Feature 모듈
+│   │       ├── services.py              # ChatbotService, ChatService — 인텐트 분류·기능 라우팅
+│   │       ├── features/
+│   │       │   ├── product_compare.py   # ProductCompareAgent — 상품명 매칭·비교표·GPT 분석
+│   │       │   ├── savings_goal.py      # SavingsGoalAgent — 저축 목표 멀티턴
+│   │       │   └── cash_flow.py         # 현금흐름 기반 추천
 │   │       └── kafka.py
 │   └── (기타 서비스)
 ├── web/
@@ -484,6 +487,81 @@ GET /products/deposit/inquiry/terminate?accountId={accountId}
 | "해당하는 상품 리스트 보여줘" | 동일 (우대금리 상품 카드 목록) |
 
 상품 카드에는 우대금리 조건(`pref_condition`)과 추가 금리(`pref_rate`)가 주황색으로 강조 표시된다.
+
+#### 챗봇 상품 비교 분석 에이전트 (PRODUCT_COMPARE)
+
+두 상품을 이름으로 지정하면 8개 항목을 비교하는 테이블 카드와 GPT 기반 맞춤 분석을 제공한다.
+
+**트리거 조건**
+
+- 입력 메시지에 구체적인 상품명(`AXful`, `내맘대로`, `수퍼정기`, `달러자`, `맑은하늘` 등) + 비교 키워드(`비교`, `차이`, `어느 쪽`, `뭐가 더`)가 함께 포함된 경우
+
+**처리 흐름**
+
+```
+ChatbotWidget (웹)
+  ↓ executeChatbotFeature('PRODUCT_COMPARE', { query })  — sendChatbotMessage 우회
+consultation-service
+  └─ ProductCompareAgent.execute()
+       ├─ _find_products_by_name()  : 토큰 채점으로 DB에서 상품 2개 자동 매칭
+       ├─ 8개 항목 비교표 생성
+       │     유형 / 기본금리 / 가입기간 / 세제혜택 / 중도해지 / 자동갱신 / 우대금리조건 / 상품설명
+       └─ GPT-4o-mini 분석 : "내 상황엔 A/B가 유리한 이유" 1~2문장
+  ↓ feature_code="PRODUCT_COMPARE", data=[{row_type:"compare_product", ...}]
+ChatbotWidget
+  └─ 3열 비교 테이블 카드 + 💡 AI 분석 박스 렌더링
+```
+
+**상품명 자동 매칭 (토큰 스코어링)**
+
+- 상품명을 공백·구분자로 토큰 분리 후 4자 이상 토큰이 쿼리에 몇 개 포함되는지로 점수 산정
+- 점수가 같을 경우 짧은 상품명 우선 → "AXful 정기예금", "AXful 내맘대로적금" 정확 구분 가능
+
+**비교 테이블 카드 구성**
+
+| 열 | 내용 |
+|---|---|
+| 항목 | 유형·기본금리·가입기간·세제혜택·중도해지·자동갱신·우대금리조건·상품설명 |
+| 상품 A | 첫 번째 매칭 상품값 |
+| 상품 B | 두 번째 매칭 상품값 |
+
+각 상품 헤더 아래에 **가입하기** 버튼이 표시되어 `/products/deposit/join/{product_id}` 로 바로 이동 가능하다.
+
+**백엔드 응답 구조**
+
+```json
+{
+  "feature_code": "PRODUCT_COMPARE",
+  "status": "OK",
+  "message": "GPT 분석 텍스트",
+  "data": [
+    {
+      "row_type": "compare_product",
+      "product_a": { "product_id": 1, "product_name": "AXful 정기예금", "product_type": "예금", ... },
+      "product_b": { "product_id": 5, "product_name": "AXful 내맘대로적금", "product_type": "적금", ... },
+      "compare_items": [
+        { "label": "유형", "a": "예금", "b": "적금" },
+        { "label": "기본금리", "a": "2.15%", "b": "2.95%" },
+        ...
+      ],
+      "analysis": "GPT 분석 요약"
+    }
+  ]
+}
+```
+
+**관련 파일**
+
+| 파일 | 역할 |
+|---|---|
+| `services/consultation-service/app/features/product_compare.py` | `ProductCompareAgent` — 상품 매칭·비교표 생성·GPT 분석 |
+| `services/consultation-service/app/services.py` | `_execute_product_compare()` — PRODUCT_COMPARE 인텐트 라우팅 |
+| `web/components/chatbot/ChatbotWidget.tsx` | 비교 테이블 카드 렌더링, 후속 질문 처리 |
+| `web/lib/consultation-api.ts` | `ChatbotMessageResponse` 타입에 `feature_code`, `feature_data` 포함 |
+
+**후속 질문 처리**
+
+비교 결과 직후 "나한테 적절한 추천이야?" 등의 질문 시 두 상품을 모두 언급하며 추천 상품과 비추천 상품을 구분해 안내한다. `lastCompareNamesRef` + `lastCompareAnalysisRef`로 직전 비교 컨텍스트를 유지한다.
 
 **예금·적금 적합 판단 (`answerDepositSavingsFit`)**
 
