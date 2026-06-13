@@ -6,6 +6,8 @@ import com.bank.common.web.BusinessException;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.fds.domain.FdsDetection;
 import com.bank.customer.fds.service.FdsService;
+import com.bank.customer.metrics.AuthMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.bank.customer.login.domain.LoginAttempt;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.repository.LoginAttemptRepository;
@@ -62,7 +64,8 @@ class AuthEventServiceTest {
 
         authEventService = new AuthEventService(
                 loginAttemptRepository, loginSessionService, fdsService,
-                jwtProvider, jwtProperties, redisTemplate, employeeDirectory);
+                jwtProvider, jwtProperties, redisTemplate, employeeDirectory,
+                new AuthMetrics(new SimpleMeterRegistry()));
 
         given(redisTemplate.opsForValue()).willReturn(valueOps);
         given(employeeDirectory.findByPartyId(any())).willReturn(Optional.empty());
