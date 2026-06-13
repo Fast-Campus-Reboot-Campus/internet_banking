@@ -2552,6 +2552,58 @@ export default function ChatbotWidget() {
                         )
                       }
 
+                      if (message.featureCode === 'SAVINGS_GOAL' && message.data && message.data.some(r => r.row_type === 'savings_goal_product')) {
+                        const goalRows = message.data.filter(r => r.row_type === 'savings_goal_product')
+                        return (
+                          <div className="mt-3 space-y-2">
+                            {goalRows.map((row, index) => {
+                              const achievable = Boolean(row.achievable)
+                              const plan: {month:number,cumulative:number,interest_earned:number,on_track:boolean}[] = Array.isArray(row.monthly_plan) ? row.monthly_plan : []
+                              const step = Math.max(1, Math.floor(plan.length / 4))
+                              const midPlan = plan.filter((_, i) => (i + 1) % step === 0).slice(0, 4)
+                              return (
+                                <div key={index} className={`rounded border p-3 text-xs space-y-2 ${achievable ? 'border-[#2D6A4F] bg-[#EAF4EF]' : 'border-orange-300 bg-orange-50'}`}>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`flex-shrink-0 rounded px-2 py-0.5 text-[10px] font-bold text-white ${achievable ? 'bg-[#2D6A4F]' : 'bg-orange-400'}`}>
+                                      {achievable ? '✅ 달성 가능' : '⚠️ 달성 어려움'}
+                                    </span>
+                                    <p className="font-bold text-kb-text flex-1">{String(row.product_name ?? '')}</p>
+                                    {Number(row.product_id) > 0 && (
+                                      <a href={`/products/deposit/join/${row.product_id}`} target="_blank" rel="noopener noreferrer"
+                                        className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]">
+                                        가입하기
+                                      </a>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                                    <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate}%</span></span>
+                                    <span>만기수령 <span className="font-bold text-kb-text">{Number(row.maturity_amount).toLocaleString()}원</span></span>
+                                    <span>이자 <span className="font-bold text-[#2D6A4F]">+{Number(row.interest_amount).toLocaleString()}원</span></span>
+                                    {row.required_monthly != null && (
+                                      <span>월납입 <span className="font-bold text-kb-text">{Number(row.required_monthly).toLocaleString()}원</span></span>
+                                    )}
+                                    <span>기간 <span className="font-bold text-kb-text">{row.goal_months}개월</span></span>
+                                  </div>
+                                  {index === 0 && midPlan.length > 0 && (
+                                    <div className="mt-1">
+                                      <p className="text-[10px] text-kb-text-muted mb-1">납입 계획표</p>
+                                      <div className="grid grid-cols-4 gap-1">
+                                        {midPlan.map(pt => (
+                                          <div key={pt.month} className={`rounded p-1 text-center text-[10px] ${pt.on_track ? 'bg-[#2D6A4F]/10' : 'bg-orange-100'}`}>
+                                            <p className="text-kb-text-muted">{pt.month}개월</p>
+                                            <p className="font-bold text-kb-text">{(pt.cumulative / 10000).toFixed(0)}만</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      }
+
                       if (message.featureCode === 'PRODUCT_GUIDE' || message.featureCode === 'CASH_FLOW_RECOMMEND' || message.featureCode === 'PRODUCT_SEARCH') {
                         const productRows = message.featureCode === 'CASH_FLOW_RECOMMEND'
                           ? message.data!.filter(r => r.row_type === 'recommended_product')
