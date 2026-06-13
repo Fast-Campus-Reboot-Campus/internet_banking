@@ -1343,6 +1343,7 @@ class ChatbotService:
             {
                 "row_type":          "recommended_product",
                 "rank":              i + 1,
+                "product_id":        p.get("product_id") or p.get("banking_product_id"),
                 "product_name":      p.get("deposit_product_name") or p.get("product_name", ""),
                 "product_type":      p.get("deposit_product_type") or p.get("product_type", ""),
                 "base_interest_rate": p.get("base_interest_rate"),
@@ -2034,6 +2035,7 @@ class ChatbotService:
             """)
             data = [
                 {"row_type": "recommended_product", "rank": i + 1,
+                 "product_id": p.get("product_id") or p.get("banking_product_id"),
                  "product_name": p.get("product_name", ""), "product_type": "SUBSCRIPTION",
                  "base_interest_rate": p.get("base_interest_rate"),
                  "min_period_month": p.get("min_period_month"), "max_period_month": p.get("max_period_month"),
@@ -2097,6 +2099,17 @@ class ChatbotService:
                 cf = {"total_balance": 0.0, "monthly_surplus": amount or 300_000,
                       "monthly_tx_count": 5.0, "has_data": False}
 
+        # 사용자가 직접 금액을 입력했으면 cf를 해당 금액으로 덮어씀
+        # → "내 잔액이 얼마든 이 금액으로 가입 가능한 상품만 보여줘" 의도 반영
+        if amount and amount > 0:
+            if ptype == "DEPOSIT":
+                cf = {**cf, "total_balance": amount}
+            elif ptype == "SAVINGS":
+                cf = {**cf, "monthly_surplus": amount}
+            else:
+                # 전체(DEPOSIT+SAVINGS) 선택 시 양쪽 모두 입력 금액으로 설정
+                cf = {**cf, "total_balance": amount, "monthly_surplus": amount}
+
         # 우대금리 조건 보강
         _PREF_COND_FALLBACK: list[tuple[str, str]] = [
             ("맑은하늘",   "맑은하늘 앱 설치 후 인증코드 등록"),
@@ -2131,6 +2144,17 @@ class ChatbotService:
         ranked = self._rank_products(cf, products, input_period=period)
 
         if not ranked:
+            # 최소가입금액 때문에 필터링된 건지 확인해서 구체적 안내
+            if amount and amount > 0 and products:
+                min_amounts = [float(p.get("min_join_amount") or 0) for p in products if p.get("min_join_amount")]
+                if min_amounts:
+                    lowest_min = min(min_amounts)
+                    type_label = "월 납입액" if ptype == "SAVINGS" else "가입금액"
+                    return self._data_response(
+                        "PRODUCT_SEARCH", [], "",
+                        f"입력하신 {type_label} {int(amount):,}원은 해당 상품들의 최소 가입금액({int(lowest_min):,}원~)보다 적습니다.\n"
+                        f"금액을 {int(lowest_min):,}원 이상으로 다시 입력해 주세요.",
+                    )
             return self._data_response("PRODUCT_SEARCH", [], "", "조건에 맞는 상품이 없습니다.")
 
         top3 = ranked[:3]

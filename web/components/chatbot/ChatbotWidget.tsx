@@ -2067,6 +2067,7 @@ export default function ChatbotWidget() {
                             const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
                               customer_no: cid,
                               query: '목돈 굴리기 예금 추천',
+                              product_type: 'DEPOSIT',
                             })
                             saveRecommendContext(result)
                             setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
@@ -2090,6 +2091,7 @@ export default function ChatbotWidget() {
                             const result = await executeChatbotFeature('CASH_FLOW_RECOMMEND', {
                               customer_no: cid,
                               query: '매달 저축 적금 추천',
+                              product_type: 'SAVINGS',
                             })
                             saveRecommendContext(result)
                             setMessages(prev => [...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'), addFeatureResult(result)])
@@ -2105,7 +2107,30 @@ export default function ChatbotWidget() {
                   </div>
                 )}
               </div>
-            </>) : (<>
+            </>) : !isLoggedIn ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-6 bg-[#FBFAF7] px-6 py-10 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EAF4EF]">
+                  <Bot className="h-8 w-8 text-[#2D6A4F]" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-base font-bold text-kb-text">로그인이 필요한 서비스입니다</p>
+                  <p className="text-xs text-kb-text-muted">로그인 후 맞춤 상품 추천, 계좌 조회 등<br />다양한 챗봇 기능을 이용하실 수 있습니다.</p>
+                </div>
+                <a
+                  href="/login"
+                  className="rounded-lg bg-[#2D6A4F] px-6 py-3 text-sm font-bold text-white hover:bg-[#245a42]"
+                >
+                  로그인하기
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsLoggedIn(true)}
+                  className="text-xs text-kb-text-muted underline"
+                >
+                  비회원으로 계속하기
+                </button>
+              </div>
+            ) : (<>
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#FBFAF7] px-4 py-4">
               {messages.map((message) => (
@@ -2200,20 +2225,16 @@ export default function ChatbotWidget() {
                                   </span>
                                 )}
                                 <p className="font-bold text-kb-text flex-1">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
-                                {row.product_id != null && (() => {
-                                  const slug = getDepositSlugByProductId(Number(row.product_id))
-                                  if (!slug || slug.startsWith('product-')) return null
-                                  return (
-                                    <a
-                                      href={`/products/${slug}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]"
-                                    >
-                                      가입하기
-                                    </a>
-                                  )
-                                })()}
+                                {row.product_id != null && Number(row.product_id) > 0 && (
+                                  <a
+                                    href={`/products/deposit/join/${row.product_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]"
+                                  >
+                                    가입하기
+                                  </a>
+                                )}
                               </div>
                               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-kb-text-muted">
                                 <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate != null ? `${row.base_interest_rate}%` : '-'}</span></span>
@@ -2536,6 +2557,7 @@ export default function ChatbotWidget() {
             </>)}
 
           </section>
+
         </div>,
         document.body,
       )
