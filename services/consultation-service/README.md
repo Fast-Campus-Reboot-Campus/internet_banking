@@ -12,6 +12,8 @@ AXful Bank 챗봇 상담 서비스입니다.
 - [서비스 구조](#서비스-구조)
 - [주요 기능](#주요-기능)
 - [100점 채점 모델](#100점-채점-모델)
+- [파일 첨부 분석](#파일-첨부-분석)
+- [챗봇 위젯 개선 사항](#챗봇-위젯-개선-사항)
 - [현금흐름 분석](#현금흐름-분석)
 - [나이 기반 상품 필터](#나이-기반-상품-필터)
 - [API 엔드포인트](#api-엔드포인트)
@@ -53,6 +55,8 @@ consultation-service/
 | 가입 조건 안내 | JOIN_CONDITION | 대상·채널·기간·금액 조건 안내 |
 | 내 현금 흐름 | MY_CASH_FLOW | 고객 입출금 거래 내역 조회 |
 | 내 상품 | MY_PRODUCTS | 가입된 예금·적금·청약 상품 조회 |
+| **파일 첨부 분석** | FILE_ANALYZE | PDF 업로드 → 거래내역(CASH_FLOW) / 약관(TERMS) / 상품설명서(PRODUCT) 분석 |
+| **서류 제출** | ENROLLMENT | 비과세·소득확인 서류 업로드 및 접수 |
 | 챗봇 이체 | — | 계좌 간 이체 (보안카드·금융인증서 인증) |
 | 상담사 연결 | — | 대기 큐 → 직원 연결 |
 
@@ -132,6 +136,91 @@ targetPeriod = clamp(사용자 입력기간 or 12, min_period_month, max_period_
 
 ---
 
+## 파일 첨부 분석
+
+챗봇 파일 첨부 기능은 프론트엔드(pdf.js)가 PDF 텍스트를 추출한 뒤 서버로 전송하면, 서버가 분석 결과를 반환하는 구조입니다.
+
+### 분석 유형
+
+| analyze_type | 대상 문서 | 분석 내용 |
+|-------------|---------|---------|
+| `CASH_FLOW` | 타행 거래내역 | 월 수입·지출 패턴, 잉여자금, 저축 여력, 상품 추천 포인트 |
+| `TERMS` | 약관 | 주요 조항 요약, 중도해지·수수료·이자 관련 내용 강조 |
+| `PRODUCT` | 상품 설명서 | 금리 조건, 가입 금액·기간, 세제 혜택, 주요 특징 |
+| `ENROLLMENT` | 서류 제출 | 파일 저장 후 DB 기록, 접수 완료 메시지 반환 |
+
+### LLM 분석 (`/chatbot/file/analyze`)
+
+`CONSULTATION_OPENAI_API_KEY`가 설정된 경우 **OpenAI GPT-4o-mini**로 분석합니다.  
+API 키가 없으면 **룰 기반 텍스트 파싱**으로 자동 폴백합니다.
+
+```json
+POST /chatbot/file/analyze
+{
+  "text": "PDF에서 추출한 텍스트",
+  "analyze_type": "CASH_FLOW",
+  "customer_no": "9001"
+}
+```
+
+### 서류 제출 (`/chatbot/documents/upload`)
+
+```
+POST /chatbot/documents/upload
+Content-Type: multipart/form-data
+
+file=<PDF파일>
+customer_no=9001
+doc_type=ENROLLMENT
+```
+
+업로드된 파일은 `CONSULTATION_UPLOADS_DIR`에 저장되고 `chatbot_documents` 테이블에 기록됩니다.
+
+---
+
+## 챗봇 위젯 개선 사항
+
+`web/components/chatbot/ChatbotWidget.tsx`에 아래 기능이 추가·수정되었습니다.
+
+### 로그인 화면
+
+챗봇을 열면 로그인 여부를 확인합니다.
+
+- 비로그인 상태: "로그인이 필요한 서비스입니다" 안내 + `/login` 이동 버튼
+- "비회원으로 계속하기" 버튼: 로그인 없이 챗봇 이용 가능 (고객번호 없이 일반 대화만 가능)
+
+### 상품 카드 가입하기 버튼
+
+`PRODUCT_GUIDE`, `CASH_FLOW_RECOMMEND`, `PRODUCT_SEARCH` 응답의 상품 카드에 **가입하기** 버튼이 표시됩니다.
+
+- 버튼 클릭 시 `/products/deposit/join/{product_id}` 페이지로 이동 (새 탭)
+- `product_id`가 없는 카드(외부 상품 등)에는 버튼이 표시되지 않음
+- 백엔드 응답의 `product_id` 필드: `services.py`·`user_finance.py`에서 모든 추천 카드에 추가
+
+### 예금/적금 분리 추천
+
+상품 추천 목적 버튼("목돈 굴리기", "월적립 저축" 등)이 `CASH_FLOW_RECOMMEND` 대신 `PRODUCT_SEARCH`를 호출합니다.
+
+- 예금 버튼 → `product_type: "DEPOSIT"` 전달 → DEPOSIT 상품만 반환
+- 적금 버튼 → `product_type: "SAVINGS"` 전달 → SAVINGS 상품만 반환
+- 백엔드 `_score_products()`에 `preferred_type` 파라미터 추가: 지정된 타입이 아닌 상품은 채점에서 제외
+
+### 금액 필터 개선
+
+사용자가 입력한 금액이 올바르게 상품 필터링에 반영됩니다.
+
+- 한국어 금액 파싱: `parseKoreanAmount()` 헬퍼로 "100만원" → 1,000,000 변환
+- 금액이 입력되면 고객 실제 잔액 대신 입력 금액을 기준으로 채점
+  - 예금: `total_balance` 를 입력 금액으로 대체
+  - 적금: `monthly_surplus` 를 입력 금액으로 대체
+- 입력 금액 < 모든 상품 최소 가입금액인 경우: 상품 목록 대신 한국어 안내 메시지 반환
+  ```
+  입력하신 가입금액 100,000원은 해당 상품들의 최소 가입금액(500,000원~)보다 적습니다.
+  금액을 500,000원 이상으로 다시 입력해 주세요.
+  ```
+
+---
+
 ## 현금흐름 분석
 
 `_analyze_customer_cash_flow()` 함수 집계 기준:
@@ -195,6 +284,13 @@ Response: { data: { birthDate: "19900101", ... } }
 | POST | `/chat/consultations/{id}/messages` | 메시지 전송 |
 | POST | `/chat/consultations/{id}/end` | 상담 종료 |
 
+### 파일 첨부
+
+| Method | Path | 설명 |
+|--------|------|------|
+| POST | `/chatbot/file/analyze` | PDF 텍스트 분석 (CASH_FLOW / TERMS / PRODUCT) |
+| POST | `/chatbot/documents/upload` | 서류 파일 업로드 및 DB 기록 |
+
 ### 기타
 
 | Method | Path | 설명 |
@@ -215,6 +311,7 @@ Response: { data: { birthDate: "19900101", ... } }
 | `CONSULTATION_OPENAI_MODEL` | `gpt-4o-mini` | 사용할 LLM 모델명 |
 | `CONSULTATION_CUSTOMER_SERVICE_URL` | `http://localhost:8081` | customer-service 주소 (나이 조회) |
 | `CONSULTATION_LANGFUSE_ENABLED` | `false` | Langfuse LLM 트레이싱 활성화 여부 |
+| `CONSULTATION_UPLOADS_DIR` | `./uploads` | 서류 업로드 파일 저장 경로 |
 
 ---
 
