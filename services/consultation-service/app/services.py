@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session, aliased
 from app.features import ProductFeatureExecutor, StaffFeatureExecutor, UserFinanceFeatureExecutor
 from app.features.base import build_history_context
 from app.kafka import KafkaEventPublisher
-from app.llm import FeatureAnswerFormatter, IntentClassifier
+from app.llm import FeatureAnswerFormatter, IntentClassifier, RagAnswerGenerator
+from app.rag import ProductRagEngine
 from app.models import (
     ChatConsultation,
     ChatMessageHistory,
@@ -49,11 +50,21 @@ CODE_MESSAGE_TYPE_TEXT = 1
 
 
 class ChatbotService:
-    def __init__(self, db: Session, events: KafkaEventPublisher, *unused_adapters):
+    def __init__(
+        self,
+        db: Session,
+        events: KafkaEventPublisher,
+        *unused_adapters,
+        rag_engine: "ProductRagEngine | None" = None,
+        openai_api_key: str = "",
+        openai_model: str = "gpt-4o-mini",
+    ):
         self.db = db
         self.events = events
         self._classifier = IntentClassifier()
         self._formatter = FeatureAnswerFormatter()
+        self._rag_engine = rag_engine
+        self._rag_generator = RagAnswerGenerator(openai_api_key, openai_model)
 
     async def start(self, customer_no: str, entry_screen: str, app_version: str) -> ChatbotStartResponse:
         scenario = self._get_active_scenario()
@@ -203,16 +214,25 @@ class ChatbotService:
                 if intent_record:
                     chatbot.intent_id = intent_record.intent_id
             else:
-                agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_REQUEST")
-                process_method = "STAFF_REQUEST"
-                process_code = CODE_PROCESS_LLM
-                response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
-                agent_transfer_required = True
-                node_id = current_node_id or 0
-                chatbot.agent_connected_yn = "Y"
-                if agent_intent:
-                    chatbot.intent_id = agent_intent.intent_id
-                self._open_chat_consultation(chatbot)
+                # RAG 자유질문 처리: intent 미매칭 시 상담사 연결 전에 RAG 검색 시도
+                rag_answer = self._try_rag_answer(classify_text)
+                if rag_answer:
+                    response_message = rag_answer
+                    process_method = "FEATURE_FREE_QUESTION_RAG"
+                    process_code = CODE_PROCESS_LLM
+                    node_id = current_node_id or 0
+                    agent_transfer_required = False
+                else:
+                    agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_REQUEST")
+                    process_method = "STAFF_REQUEST"
+                    process_code = CODE_PROCESS_LLM
+                    response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
+                    agent_transfer_required = True
+                    node_id = current_node_id or 0
+                    chatbot.agent_connected_yn = "Y"
+                    if agent_intent:
+                        chatbot.intent_id = agent_intent.intent_id
+                    self._open_chat_consultation(chatbot)
 
         chatbot.total_turn_count += 1
         self._record_message(chatbot, next_node, CODE_SENDER_BOT, response_message, None, process_code)
@@ -579,6 +599,18 @@ class ChatbotService:
             """
         )
         return self._data_response("PRODUCT_GUIDE", rows, "상품 안내 조회를 완료했습니다.", "등록된 수신 상품 데이터가 없습니다.")
+
+    def _try_rag_answer(self, query: str) -> str | None:
+        """RAG 엔진으로 자유질문에 답변을 시도한다. 엔진 미준비 또는 오류 시 None 반환."""
+        if not self._rag_engine or not self._rag_engine.is_ready():
+            return None
+        try:
+            results = self._rag_engine.search(query, top_k=3)
+            if not results:
+                return None
+            return self._rag_generator.answer(query, results)
+        except Exception:
+            return None
 
     def _enrich_rag_results(
         self, rag_results: list[dict[str, Any]], cf: dict[str, Any] | None

@@ -505,3 +505,98 @@ class LlmHandoffAdapter:
         )
 
 
+
+
+class RagAnswerGenerator:
+    """RAG 검색 결과 + 사용자 질문 → 자연어 답변 생성기.
+
+    OpenAI API 키가 있으면 GPT-4o-mini로 답변하고, 없으면 룰 기반으로 폴백한다.
+    """
+
+    _SYSTEM_PROMPT = (
+        "당신은 AXful Bank의 친절한 금융 상품 상담사입니다. "
+        "제공된 상품 정보를 근거로 고객 질문에 한국어로 답변해 주세요. "
+        "상품 정보에 없는 내용은 추측하지 말고 '확인이 필요합니다'라고 안내하세요. "
+        "답변은 간결하고 명확하게 작성하며, 필요시 불릿 포인트를 사용하세요."
+    )
+
+    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
+        self._api_key = api_key
+        self._model = model
+
+    def answer(self, query: str, rag_results: list[dict]) -> str:
+        if not rag_results:
+            return "현재 등록된 상품 정보 기준으로는 답변이 어렵습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
+
+        context = self._build_context(rag_results)
+
+        if self._api_key:
+            try:
+                return self._answer_with_openai(query, context)
+            except Exception:
+                pass
+
+        return self._answer_rule_based(query, rag_results)
+
+    def _build_context(self, rag_results: list[dict]) -> str:
+        lines = []
+        for i, r in enumerate(rag_results, 1):
+            doc_type = r.get("_type", "product")
+            if doc_type == "product":
+                name    = r.get("deposit_product_name") or r.get("product_name", "")
+                ptype   = r.get("deposit_product_type") or r.get("product_type", "")
+                ptype_ko = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}.get(ptype, ptype)
+                rate    = r.get("base_interest_rate", "")
+                min_amt = r.get("min_join_amount", "")
+                max_amt = r.get("max_join_amount", "")
+                min_m   = r.get("min_period_month", "")
+                max_m   = r.get("max_period_month", "")
+                early   = "가능" if r.get("is_early_termination_allowed") else "불가"
+                tax     = "있음" if r.get("is_tax_benefit_available") else "없음"
+                desc    = r.get("description", "")
+                line = (
+                    f"[상품 {i}] {name} ({ptype_ko})\n"
+                    f"  - 기본금리: {rate}% | 가입금액: {min_amt}~{max_amt}원 | 기간: {min_m}~{max_m}개월\n"
+                    f"  - 중도해지: {early} | 세제혜택: {tax}"
+                )
+                if desc:
+                    line += f"\n  - 설명: {desc[:150]}"
+            else:
+                name    = r.get("special_term_name", "")
+                summary = r.get("special_term_summary", "") or r.get("special_term_content", "")[:150]
+                line    = f"[약관 {i}] {name}\n  - {summary}"
+            lines.append(line)
+        return "\n\n".join(lines)
+
+    def _answer_with_openai(self, query: str, context: str) -> str:
+        from openai import OpenAI
+        client = OpenAI(api_key=self._api_key)
+        resp = client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": self._SYSTEM_PROMPT},
+                {"role": "user", "content": f"[관련 상품 정보]\n{context}\n\n[고객 질문]\n{query}"},
+            ],
+            max_tokens=600,
+            temperature=0.3,
+        )
+        return resp.choices[0].message.content or "답변을 생성할 수 없습니다."
+
+    def _answer_rule_based(self, query: str, rag_results: list[dict]) -> str:
+        ptype_ko = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}
+        lines = ["관련 상품 정보를 찾았습니다.\n"]
+        for r in rag_results[:3]:
+            doc_type = r.get("_type", "product")
+            if doc_type == "product":
+                name  = r.get("deposit_product_name") or r.get("product_name", "")
+                ptype = r.get("deposit_product_type") or r.get("product_type", "")
+                rate  = r.get("base_interest_rate", "")
+                min_m = r.get("min_period_month", "")
+                max_m = r.get("max_period_month", "")
+                lines.append(f"• {name} ({ptype_ko.get(ptype, ptype)}): 금리 {rate}%, 기간 {min_m}~{max_m}개월")
+            else:
+                name    = r.get("special_term_name", "")
+                summary = r.get("special_term_summary", "")
+                lines.append(f"• {name}: {summary[:80]}" if summary else f"• {name}")
+        lines.append("\n자세한 내용은 상담사 연결을 이용해 주세요.")
+        return "\n".join(lines)

@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -61,6 +62,7 @@ from app.services import (
 )
 from app.llm import OpenAIDocumentAnalyzer
 from app.models import ChatbotDocument
+from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +92,7 @@ static_dir = Path(__file__).resolve().parents[1] / "static"
 
 
 async def _handle_contract_created(payload: dict) -> None:
-    """deposit-api 에서 ContractCreated 이벤트 수신 시 처리."""
+    """deposit-api 에서 ContractCreated 이벤트 수신 시 처리. RAG 인덱스 재빌드."""
     logger.info(
         "[Kafka] ContractCreated 처리 — customer=%s product=%s contract=%s amount=%s",
         payload.get("customerId", ""),
@@ -98,6 +100,10 @@ async def _handle_contract_created(payload: dict) -> None:
         payload.get("contractId", ""),
         payload.get("joinAmount", 0),
     )
+    # 상품 계약 이벤트 수신 시 RAG 인덱스 재빌드
+    rag_engine: ProductRagEngine | None = getattr(app, "state", None) and getattr(app.state, "rag_engine", None)
+    if rag_engine and settings.openai_api_key:
+        await asyncio.get_event_loop().run_in_executor(None, _build_rag_index, rag_engine)
 
 
 async def _handle_chatbot_message_received(payload: dict) -> None:
@@ -141,14 +147,52 @@ async def _kafka_consume_loop(consumer: KafkaEventConsumer) -> None:
 
 
 
+def _build_rag_index(rag_engine: ProductRagEngine) -> None:
+    """DB에서 상품 목록을 조회해 RAG 인덱스를 빌드한다. 오류 시 로그만 남기고 계속 진행."""
+    from sqlalchemy.orm import Session as _Session
+    try:
+        with _Session(engine) as db:
+            rows = db.execute(text(
+                """
+                SELECT banking_product_id AS product_id,
+                       deposit_product_name,
+                       deposit_product_type,
+                       base_interest_rate,
+                       min_join_amount,
+                       max_join_amount,
+                       min_period_month,
+                       max_period_month,
+                       is_early_termination_allowed,
+                       is_tax_benefit_available,
+                       description
+                  FROM deposit_banking_products
+                 WHERE is_sold = true
+                 ORDER BY banking_product_id
+                """
+            )).mappings().all()
+            products = [dict(r) for r in rows]
+        rag_engine.build_from_db(products)
+        logger.info("[RAG] 인덱스 빌드 완료: 상품 %d건", len(products))
+    except Exception as exc:
+        logger.warning("[RAG] 인덱스 빌드 실패 (서비스는 계속 동작): %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── 싱글턴 생성 및 app.state 등록 ────────────────────────────────────────
     _events = KafkaEventPublisher(settings)
     _consumer = KafkaEventConsumer(settings)
 
+    # RAG 엔진 초기화 (API 키 없으면 엔진은 생성되지만 인덱스 빌드 실패 → 자유질문 시 상담사 연결 폴백)
+    _rag_engine = ProductRagEngine(OpenAIEmbeddingProvider(settings.openai_api_key or ""))
+    if settings.openai_api_key:
+        await asyncio.get_event_loop().run_in_executor(None, _build_rag_index, _rag_engine)
+    else:
+        logger.warning("[RAG] OPENAI_API_KEY 없음 — RAG 자유질문 비활성화")
+
     app.state.events = _events
     app.state.consumer = _consumer
+    app.state.rag_engine = _rag_engine
 
     # ── 기동 ─────────────────────────────────────────────────────────────────
     Base.metadata.create_all(bind=engine)
@@ -204,7 +248,13 @@ def get_chatbot_service(
     request: Request,
     db: Session = Depends(get_db),
 ) -> ChatbotService:
-    return ChatbotService(db, request.app.state.events)
+    return ChatbotService(
+        db,
+        request.app.state.events,
+        rag_engine=getattr(request.app.state, "rag_engine", None),
+        openai_api_key=settings.openai_api_key or "",
+        openai_model=settings.openai_model,
+    )
 
 
 def get_chat_service(
