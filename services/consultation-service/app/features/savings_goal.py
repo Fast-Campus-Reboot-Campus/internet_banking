@@ -69,9 +69,11 @@ def _parse_amount(text: str) -> float | None:
     m = re.search(r"(\d+(?:\.\d+)?)\s*천", text)
     if m:
         return float(m.group(1)) * 1_000
-    m = re.search(r"(\d{4,})", text)
+    # 순수 숫자: 4자리 이상 → 원 단위, 미만 → 만원 단위로 해석
+    m = re.search(r"(\d+)", text)
     if m:
-        return float(m.group(1))
+        n = float(m.group(1))
+        return n if n >= 10_000 else n * 10_000
     return None
 
 
