@@ -1315,7 +1315,14 @@ export default function ChatbotWidget() {
         message: messageWithCtx,
         button_value: buttonValue ?? null,
       })
-      setMessages(prev => [...prev, { id: messageId('bot'), role: 'bot', text: reply.message, buttons: reply.buttons }])
+      setMessages(prev => [...prev, {
+        id: messageId('bot'),
+        role: 'bot',
+        text: reply.message,
+        buttons: reply.buttons,
+        featureCode: reply.feature_code ?? undefined,
+        data: reply.feature_data?.length ? reply.feature_data : undefined,
+      }])
     } catch {
       setMessages(prev => [...prev, { id: messageId('error'), role: 'system', text: '챗봇 서버 연결에 실패했습니다. 상담 서비스를 확인해주세요.' }])
     } finally {

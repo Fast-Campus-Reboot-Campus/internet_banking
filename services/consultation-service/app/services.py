@@ -155,6 +155,8 @@ class ChatbotService:
 
         process_method = "SCENARIO"
         agent_transfer_required = False
+        response_feature_code: str | None = None
+        response_feature_data: list[dict] = []
         if next_node:
             response_message = next_node.response_message
             node_id = next_node.node_id
@@ -192,6 +194,9 @@ class ChatbotService:
                 )
                 if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL"):
                     response_message = feat_result.message
+                    if intent_name == "SAVINGS_GOAL" and feat_result.status == "OK" and feat_result.data:
+                        response_feature_code = "SAVINGS_GOAL"
+                        response_feature_data = [d if isinstance(d, dict) else d.__dict__ for d in feat_result.data]
                     # PRODUCT_COMPARE이면서 개인 추천 의도도 포함된 경우 → 추천도 함께 제공
                     if intent_name == "PRODUCT_COMPARE" and customer_no and self._has_personal_recommend_intent(classify_text):
                         try:
@@ -264,6 +269,8 @@ class ChatbotService:
             buttons=self._button_responses(node_id) if node_id else [],
             process_method=process_method,
             agent_transfer_required=agent_transfer_required,
+            feature_code=response_feature_code,
+            feature_data=response_feature_data,
         )
 
     def categories(self) -> list[ChatbotCategoryResponse]:

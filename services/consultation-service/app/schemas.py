@@ -41,6 +41,8 @@ class ChatbotMessageResponse(BaseModel):
     buttons: list[ButtonResponse] = Field(default_factory=list)
     process_method: str = "SCENARIO"
     agent_transfer_required: bool = False
+    feature_code: str | None = None
+    feature_data: list[dict] = Field(default_factory=list)
 
 
 class ScenarioSeedResponse(BaseModel):
