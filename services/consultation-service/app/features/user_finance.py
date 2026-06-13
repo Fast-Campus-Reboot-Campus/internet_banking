@@ -213,33 +213,6 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
                 "row_type":           "recommended_product",
                 "rank":               i + 1,
                 "product_id":         p.get("product_id"),
-                "product_name":       p.get("deposit_product_name", ""),
-                "product_type":       p.get("deposit_product_type", ""),
-                "base_interest_rate": p.get("base_interest_rate"),
-                "min_period_month":   p.get("min_period_month"),
-                "max_period_month":   p.get("max_period_month"),
-                "target_groups":      ", ".join([tg["name"] for tg in p["target_groups"]]) if p["target_groups"] else "개인고객",
-                "score":              p.get("total_score", 0),
-                "raw_score":          p.get("raw_score", 0),
-                "suit_score":         p.get("suit_score", 0),
-                "return_score":       p.get("return_score", 0),
-                "liquidity_score":    p.get("liquidity_score", 0),
-                "benefit_score":      p.get("benefit_score", 0)
-            }
-            for i, p in enumerate(top3)
-        ])
-
-        return ChatbotFeatureExecuteResponse(
-            feature_code="CASH_FLOW_RECOMMEND",
-            status="OK",
-            message=recommendation,
-            data=product_data,
-            requires_auth=True,
-        )
-
-    # ── 내부 헬퍼 ─────────────────────────────────────────────────────────────
-
-    def _score_products(self, cf: dict[str, Any], products: list[dict[str, Any]], user_age: int, preferred_type: str | None = None) -> list[dict[str, Any]]:
         """Scoring Model (100점 만점) 적용."""
         total_balance = float(cf.get("total_balance", 0))
         monthly_surplus = float(cf.get("monthly_surplus", 0))
@@ -255,65 +228,6 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
             if preferred_type and ptype != preferred_type:
                 continue
 
-            # 특수 대상 제외 (군인, 장병, 군무원)
-            if any(keyword in pname for keyword in ["군인", "장병", "군무원"]):
-                logger.debug(f"Filtered (Target): {pname}")
-                continue
-
-            # 연령 제한
-            age_ok = True
-            if p.get("target_groups"):
-                age_ok = False
-                for tg in p["target_groups"]:
-                    min_a = tg["min_age"] or 0
-                    max_a = tg["max_age"] or 150
-                    if min_a <= user_age <= max_a:
-                        age_ok = True
-                        break
-            if not age_ok:
-                logger.debug(f"Filtered (Age): {pname}, Age: {user_age}")
-                continue
-
-            # 최소 가입 금액
-            min_amt = float(p.get("min_join_amount") or 0)
-            if ptype == "DEPOSIT" and min_amt > total_balance:
-                logger.debug(f"Filtered (Amount/DEPOSIT): {pname}")
-                continue
-            if ptype == "SAVINGS" and min_amt > monthly_surplus:
-                logger.debug(f"Filtered (Amount/SAVINGS): {pname}")
-                continue
-
-            # (1) 재정 적합도 40점
-            suit_score = 0.0
-            if ptype == "DEPOSIT":
-                if min_amt > 0:
-                    ratio = total_balance / min_amt
-                    suit_score = 40.0 if 1.0 <= ratio <= 5.0 else (20.0 if ratio > 5.0 else 10.0)
-            else:
-                if min_amt > 0:
-                    ratio = monthly_surplus / (min_amt * 2)
-                    suit_score = 40.0 if ratio >= 1.0 else 20.0
-
-            # (2) 예상 수익 30점
-            rate = float(p.get("base_interest_rate") or 0)
-            period = float(p.get("min_period_month") or 12)
-            return_score = min(30.0, (rate * period / 48.0) * 30.0)
-
-            # (3) 유동성 매칭 20점
-            is_long_term = (p.get("min_period_month") or 0) >= 12
-            if tx_count >= 10:        # 고빈도 → 단기 선호
-                liquidity_score = 20.0 if not is_long_term else 10.0
-            elif tx_count <= 5:       # 저빈도 → 장기 선호
-                liquidity_score = 20.0 if is_long_term else 10.0
-            else:                     # 중간(6~9) → 중립
-                liquidity_score = 15.0
-
-            # (4) 부가 혜택 10점: 비과세 7점 + 중도해지 3점
-            benefit_score = 0.0
-            if p.get("is_tax_benefit_available"):
-                benefit_score += 7.0
-            if p.get("is_early_termination_allowed"):
-                benefit_score += 3.0
 
             raw_total = suit_score + return_score + liquidity_score + benefit_score
 

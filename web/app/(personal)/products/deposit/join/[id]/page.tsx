@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DepositSidebar from '@/components/products/DepositSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
-import { createDepositContract, getCurrentDepositCustomerId, fetchDepositAccountViewModels, DepositViewAccount } from '@/lib/deposit-api'
+import { createDepositContract, getCurrentDepositCustomerId, fetchDepositAccountViewModels, fetchDepositProduct, DepositViewAccount } from '@/lib/deposit-api'
 import { formatNumber } from '@/lib/mock-data'
 import MouseNumKeypad from '@/components/ui/MouseNumKeypad'
 
@@ -64,6 +64,7 @@ const HOUSING_IDS = new Set([
 
 const CHECKING_IDS = new Set([
   'axful-free-account', 'axful-youth-account', 'axful-sok', 'monimo-daily',
+  'axful-living', 'axful-gs', 'axful-moim', 'axful-star-account', 'axful-wallet', 'election',
 ])
 
 // 적금별 가입기간 범위
@@ -192,16 +193,42 @@ export default function DepositJoinPage() {
   const params = useParams()
   const router = useRouter()
   const id = typeof params.id === 'string' ? params.id : 'axful-regular'
-  const productName = PRODUCT_NAMES[id] ?? 'AXful 정기예금'
-  const isSavings = SAVINGS_IDS.has(id)
-  const isHousing = HOUSING_IDS.has(id)
-  const isChecking = CHECKING_IDS.has(id)
+
+  // product-{n} 슬러그는 API로 상품 정보를 조회해 타입을 결정
+  const numericIdMatch = id.match(/^product-(\d+)$/)
+  const [apiProductName, setApiProductName] = useState<string | null>(null)
+  const [apiIsChecking, setApiIsChecking] = useState<boolean | null>(null)
+  const [apiIsSavings, setApiIsSavings] = useState<boolean | null>(null)
+  const [apiIsHousing, setApiIsHousing] = useState<boolean | null>(null)
+  const [apiIsFreeStyleSavings, setApiIsFreeStyleSavings] = useState<boolean | null>(null)
+  const [apiIsRegularSavings, setApiIsRegularSavings] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!numericIdMatch) return
+    const productId = parseInt(numericIdMatch[1], 10)
+    fetchDepositProduct(productId).then(product => {
+      setApiProductName(product.productName)
+      const savings = product.productType === 'SAVINGS'
+      const housing = product.productType === 'SUBSCRIPTION'
+      const checking = !savings && !housing && product.productName.includes('통장')
+      setApiIsSavings(savings)
+      setApiIsHousing(housing)
+      setApiIsChecking(checking)
+      setApiIsFreeStyleSavings(savings && product.savingType === 'FREE')
+      setApiIsRegularSavings(savings && product.savingType === 'REGULAR')
+    }).catch(() => { /* 조회 실패 시 정기예금으로 fallback */ })
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const productName = apiProductName ?? (PRODUCT_NAMES[id] ?? 'AXful 정기예금')
+  const isSavings = apiIsSavings ?? SAVINGS_IDS.has(id)
+  const isHousing = apiIsHousing ?? HOUSING_IDS.has(id)
+  const isChecking = apiIsChecking ?? CHECKING_IDS.has(id)
   const terms = isChecking ? TERMS_BY_TYPE.checking
     : isHousing ? TERMS_BY_TYPE.housing
     : isSavings ? TERMS_BY_TYPE.savings
     : TERMS_BY_TYPE.deposit
-  const isFreeStyleSavings = FREE_SAVINGS_IDS.has(id)   // 자유적금: 납입 자유
-  const isRegularSavings   = REGULAR_SAVINGS_IDS.has(id) // 정기적금: 월 고정 납입
+  const isFreeStyleSavings = apiIsFreeStyleSavings ?? FREE_SAVINGS_IDS.has(id)
+  const isRegularSavings   = apiIsRegularSavings ?? REGULAR_SAVINGS_IDS.has(id)
   const periodRange = isSavings ? (SAVINGS_PERIOD_RANGE[id] ?? { min: 1, max: 36, label: '1~36개월, 월단위' }) : { min: 1, max: 36, label: '1~36개월, 월단위' }
 
   const [step, setStep] = useState<1 | 2 | 3>(1)

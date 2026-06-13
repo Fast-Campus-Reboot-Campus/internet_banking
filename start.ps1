@@ -75,19 +75,21 @@ $infra = @(
     "customer-db","deposit-db","loan-db","common-db",
     "payment-db","payment-db-b","master-db","ai-db",
     "doc-agent-db","langfuse-db",
-    # Messaging / streaming (Kafka 전체: 브로커 + 레지스트리 + Connect + exporter)
+    # Messaging / streaming (Kafka 전체: 브로커 + 레지스트리 + exporter)
     # payment-topic-init: kafka healthy 후 결제계 18개 토픽 선생성(원샷). 앱 bootRun 전에 토픽 보장.
-    "kafka","payment-topic-init","schema-registry","kafka-connect","kafka-connect-init",
+    "kafka","payment-topic-init","schema-registry",
     "kafka-exporter-kftc","kafka-exporter-bok","kafka-exporter-internal",
-    # Cache / storage / secrets / search
-    "redis","minio","vault","elasticsearch",
+    # Cache / storage / secrets
+    "redis","minio","vault",
     # Monitoring / observability
     "prometheus","grafana","alertmanager","blackbox-exporter",
-    "loki","promtail","langfuse","phoenix","kibana"
+    "loki","promtail","langfuse","phoenix"
 )
-# doc-agent-db/minio/vault 는 profile "doc", kafka-connect·elasticsearch·kibana 등은 profile "rag" 소속이라
-# 프로파일을 활성화해야 떠다. (프로파일 미지정 시 이름을 명시해도 의존성 해석이 어긋날 수 있어 명시적으로 켠다)
-docker compose --profile doc --profile rag up -d @infra
+# doc-agent-db/minio/vault 는 profile "doc" 소속이라 프로파일을 활성화해야 떠다.
+# rag 프로파일(elasticsearch/kibana/kafka-connect/kafka-connect-init)은 Phase E(ES 백엔드) 미도입이라 띄우지 않는다.
+# kibana·kafka-connect 가 elasticsearch 에 depends_on(service_healthy)으로 묶여 있어 ES 만 빼도 의존성으로 끌려 올라오므로,
+# rag 프로파일 자체를 끄고 4개 서비스를 $infra 에서 제외한다.
+docker compose --profile doc up -d @infra
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] docker compose failed" -ForegroundColor Red
     Read-Host "Press Enter to exit"

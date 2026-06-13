@@ -191,7 +191,8 @@ services:
       DEPOSIT_DB_PASSWORD: ${DEPOSIT_DB_PASSWORD:-deposit}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
-      SPRING_PROFILES_ACTIVE: docker
+      SPRING_PROFILES_ACTIVE: docker,local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://deposit-db:5432/${DEPOSIT_DB_NAME:-deposit_db}
       LOG_DIR: /app/logs
     volumes:
       - /app/logs:/app/logs

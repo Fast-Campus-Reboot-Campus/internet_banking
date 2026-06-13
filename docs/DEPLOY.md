@@ -9,7 +9,7 @@
 | 항목 | 내용 |
 |---|---|
 | 클라우드 | 네이버 클라우드 플랫폼 (NCP) |
-| 공인 IP | 101.79.17.205 |
+| 공인 IP | 팀 내부 공유 |
 | OS | Ubuntu 24.04 |
 | 접속 포트 | 8080 (백엔드 API) |
 
@@ -18,7 +18,7 @@
 ## 서버 접속 방법
 
 ```bash
-ssh root@101.79.17.205
+ssh root@<서버_IP>
 ```
 
 비밀번호는 네이버 클라우드 콘솔에서 확인합니다.
@@ -95,7 +95,7 @@ docker compose -f docker-compose.server.yml up -d --build gateway-service
 curl http://localhost:8080/actuator/health
 ```
 
-외부에서는 `http://101.79.17.205:8080` 으로 접속합니다.
+외부에서는 `http://<서버_IP>:8080` 으로 접속합니다.
 
 ---
 

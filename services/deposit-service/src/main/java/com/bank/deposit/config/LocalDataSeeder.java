@@ -573,12 +573,12 @@ public class LocalDataSeeder implements ApplicationRunner {
                     account_status, opened_at, maturity_at, created_at, version
                 ) values
                 ('001-123-000001', '1', 1001, 'DEPOSIT', null,
-                 '001', 5000000, 0, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
+                 '001', 100000, 0, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
                  true, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0),
                 ('001-123-000002', '1', 1002, 'SAVINGS', 'REGULAR',
-                 '001', 1200000, 1200000, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
+                 '001', 100000, 100000, 0, 'KRW', '$2a$10$012345678901234567890u3JcU7Q64k9GZ3f3hQz8hC7cWv9q1y6K',
                  false, true, true, true, 'ACTIVE', current_date, current_date + interval '12 months', now(), 0)
-                on conflict (account_number) do nothing
+                on conflict (account_number) do update set balance = excluded.balance, total_paid_amount = excluded.total_paid_amount
                 """);
     }
 
@@ -704,6 +704,7 @@ public class LocalDataSeeder implements ApplicationRunner {
                 """);
 
         // 3) 기존 활성 계좌 잔액 보충: 본 시드가 만든 계좌(보조 30M 등)는 건드리지 않는다.
+        // 홍길동(9001)은 현금흐름 추천 시나리오용 잔액(V15/V16)을 유지해야 하므로 제외.
         jdbcTemplate.update("""
                 update deposit_accounts
                    set balance = greatest(balance, 50000000),
@@ -712,6 +713,7 @@ public class LocalDataSeeder implements ApplicationRunner {
                  where account_status = 'ACTIVE'
                    and balance < 50000000
                    and created_by is distinct from 'seed-v14'
+                   and customer_id != '9001'
                 """);
     }
 
