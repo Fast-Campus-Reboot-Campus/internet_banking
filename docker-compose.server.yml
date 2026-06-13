@@ -536,7 +536,6 @@ services:
         NEXT_PUBLIC_CONSULTATION_API_URL: https://axfulbank.store
         NEXT_PUBLIC_ADVISORY_API_URL: https://axfulbank.store
         NEXT_PUBLIC_DOC_AGENT_API_URL: https://axfulbank.store
-        NEXT_PUBLIC_PAYMENT_B_URL: http://axfulbank.store:8180
     container_name: ib-web
     ports:
       - "3000:3000"
