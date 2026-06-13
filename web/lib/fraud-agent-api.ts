@@ -67,6 +67,12 @@ export type ProposedAction = {
   reason?: string | null
 }
 
+export type DecisiveFact = {
+  kind: 'DEATH' | 'GUARDIANSHIP'
+  source: string
+  detail?: string | null
+}
+
 export type Recommendation = {
   scenario: AttackScenario
   status: RecommendationStatus
@@ -74,6 +80,7 @@ export type Recommendation = {
   rationale_chain: string[]
   liability_grade: LiabilityGrade
   actions: ProposedAction[]
+  decisive_fact?: DecisiveFact | null   // fail-closed(사망·후견) 헤드라인 근거
 }
 
 export type InvestigateResponse = {
@@ -135,6 +142,12 @@ export const SCENARIO_LABEL: Record<string, string> = {
   H3_LAUNDERING:       'H3 자금세탁',
   H4_INSIDER:          'H4 내부자',
   H5_BENIGN:           'H5 정상(오탐)',
+}
+
+// fail-closed 결정적 사실 → 헤드라인 라벨 (경합 시나리오와 다른 책임 축, L4)
+export const DECISIVE_LABEL: Record<string, string> = {
+  DEATH:        '사망계좌 · 권리자 적격성(L4)',
+  GUARDIANSHIP: '성년후견 · 단독거래 무효(L4)',
 }
 
 export const STATUS_LABEL: Record<string, string> = {

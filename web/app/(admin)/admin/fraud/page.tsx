@@ -5,7 +5,7 @@ import AdminSidebar from '@/components/admin/AdminSidebar'
 import {
   listFraudCases, runInvestigation, approveInvestigation,
   CaseSummary, InvestigateResponse, TraceStep, ApproveResponse,
-  SCENARIO_LABEL, STATUS_LABEL, ACTION_LABEL, errMsg,
+  SCENARIO_LABEL, STATUS_LABEL, ACTION_LABEL, DECISIVE_LABEL, errMsg,
 } from '@/lib/fraud-agent-api'
 
 const STATUS_CLS: Record<string, string> = {
@@ -213,7 +213,9 @@ function TraceView({ result }: { result: InvestigateResponse }) {
             {STATUS_LABEL[rec.status] ?? rec.status}
           </span>
           <span className="text-[14px] font-bold text-gray-800">
-            {SCENARIO_LABEL[rec.scenario] ?? rec.scenario}
+            {rec.status === 'FAIL_CLOSED' && rec.decisive_fact
+              ? (DECISIVE_LABEL[rec.decisive_fact.kind] ?? rec.decisive_fact.kind)
+              : (SCENARIO_LABEL[rec.scenario] ?? rec.scenario)}
           </span>
           {rec.tags.length > 0 && (
             <span className="text-[10px] text-gray-400">태그: {rec.tags.join(', ')}</span>
