@@ -1192,12 +1192,18 @@ export default function ChatbotWidget() {
           query: trimmed,
           chatbot_consultation_id: consultationId ?? undefined,
         })
-        // 분석 텍스트 저장 (후속 질문 응답용)
+        // 분석 텍스트 저장 (후속 질문 응답용), 첫 응답은 짧게 표시
+        let shortIntro = '두 상품을 비교했습니다. 아래 표와 AI 분석을 확인해주세요.'
         if (result.data && result.data.length > 0) {
           const row = result.data.find(r => r.row_type === 'compare_product')
-          if (row) lastCompareAnalysisRef.current = String(row.analysis ?? '')
+          if (row) {
+            lastCompareAnalysisRef.current = String(row.analysis ?? '')
+            const pa = (row.product_a as Record<string, unknown>)
+            const pb = (row.product_b as Record<string, unknown>)
+            shortIntro = `${String(pa.product_name ?? '')}과(와) ${String(pb.product_name ?? '')}을(를) 비교했습니다.`
+          }
         }
-        setMessages(prev => [...prev, addFeatureResult(result)])
+        setMessages(prev => [...prev, addFeatureResult({ ...result, message: shortIntro })])
       } catch {
         setMessages(prev => [...prev, { id: messageId('error'), role: 'system', text: '요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }])
       } finally {
@@ -1221,10 +1227,16 @@ export default function ChatbotWidget() {
     const isCompareFollowup = lastCompareAnalysisRef.current &&
       ['나한테', '나에게', '나한', '적절', '적합', '맞아', '맞나', '맞는', '추천이야', '추천인가', '맞게'].some(w => trimmed.includes(w))
     if (isCompareFollowup) {
+      const fullAnalysis = lastCompareAnalysisRef.current!
+      // "내 상황엔 ..." 결론 문장만 추출
+      const conclusionMatch = fullAnalysis.match(/내\s*상황엔[^\n.。]+[이가]\s*유리한\s*이유는[^。.]*[.。]?/)
+      const shortAnswer = conclusionMatch
+        ? `네, ${conclusionMatch[0].trim()}`
+        : fullAnalysis.split('\n').filter(l => l.trim()).pop() ?? fullAnalysis
       setMessages(prev => [...prev, {
         id: messageId('bot'),
         role: 'bot',
-        text: lastCompareAnalysisRef.current!,
+        text: shortAnswer,
       }])
       return
     }
