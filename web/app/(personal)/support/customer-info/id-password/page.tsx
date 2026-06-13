@@ -3,9 +3,9 @@ import { KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { api } from '@/lib/api'
 
 type Tab      = 'no-id' | 'has-id'
-type AuthTab  = 'security' | 'old-pw'
 type Step     = 'verify' | 'id-result' | 'change' | 'done'
 
 const NOTICES_VERIFY = [
@@ -92,7 +92,6 @@ function IdDisplay({ id }: { id: string }) {
 export default function IdPasswordPage() {
   const [tab,     setTab]     = useState<Tab>('no-id')
   const [step,    setStep]    = useState<Step>('verify')
-  const [authTab] = useState<AuthTab>('old-pw')
 
   // Step 1 fields
   const [name,      setName]      = useState('')
@@ -103,38 +102,62 @@ export default function IdPasswordPage() {
   // Step 2 (change) fields
   const [newPw,        setNewPw]        = useState('')
   const [newPwConfirm, setNewPwConfirm] = useState('')
-  const [oldPw,        setOldPw]        = useState('')
+  const [customerName, setCustomerName] = useState('')
   const [error,        setError]        = useState('')
   const [loading,      setLoading]      = useState(false)
 
-  // mock 결과
-  const MOCK_ID   = 'dalmate777'
-  const MOCK_NAME = '문수현'
-
-  function handleVerify() {
+  async function handleVerify() {
     const required = tab === 'no-id'
       ? [name, accountNo, accountPw]
       : [loginId, accountNo, accountPw]
     if (required.some(v => !v)) { alert('모든 항목을 입력해주세요.'); return }
     setError('')
-    if (tab === 'no-id') setStep('id-result')
-    else               setStep('change')
+    // ID 알고 있는 경우: 계좌 본인확인은 재설정 시점에 수행 → 바로 변경 단계로
+    if (tab === 'has-id') { setStep('change'); return }
+    // ID 모르는 경우: 성명 + 계좌 본인확인으로 ID 조회 (#45)
+    setLoading(true)
+    try {
+      const { data: res } = await api.post('/api/v1/auth/find-id', {
+        name, accountNumber: accountNo, accountPassword: accountPw,
+      })
+      setLoginId(res.data.loginId)
+      setCustomerName(res.data.customerName)
+      setStep('id-result')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      alert(e.response?.data?.message ?? '본인확인에 실패했습니다. 입력 정보를 확인해주세요.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleChange() {
-    if (newPw.length < 8)    { setError('사용자암호는 8자리 이상 입력해주세요.'); return }
+    // 정책: 영문/숫자/특수문자 조합 8~12자리 (숫자만·짧은 것 거부) — #48
+    if (newPw.length < 8 || newPw.length > 12) { setError('새 사용자암호는 8~12자리로 입력해주세요.'); return }
+    const hasLetter  = /[A-Za-z]/.test(newPw)
+    const hasDigit   = /[0-9]/.test(newPw)
+    const hasSpecial = /[^A-Za-z0-9]/.test(newPw)
+    if (!(hasLetter && hasDigit && hasSpecial)) { setError('새 사용자암호는 영문·숫자·특수문자를 모두 조합해야 합니다.'); return }
     if (newPw !== newPwConfirm) { setError('사용자암호가 일치하지 않습니다.'); return }
-    if (authTab === 'old-pw' && !oldPw) { setError('기존 사용자암호를 입력해주세요.'); return }
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 600))
-    setLoading(false)
-    setStep('done')
+    setError(''); setLoading(true)
+    try {
+      // 계좌 본인확인 + 사용자암호 재설정 (#47) — 계좌가 신원 증빙이므로 기존 암호는 받지 않는다.
+      await api.post('/api/v1/auth/reset-password', {
+        loginId, accountNumber: accountNo, accountPassword: accountPw, newPassword: newPw,
+      })
+      setStep('done')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '사용자암호 재설정에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function reset() {
     setStep('verify')
     setName(''); setAccountNo(''); setAccountPw(''); setLoginId('')
-    setNewPw(''); setNewPwConfirm(''); setOldPw('')
+    setNewPw(''); setNewPwConfirm(''); setCustomerName('')
     setError('')
   }
 
@@ -220,13 +243,13 @@ export default function IdPasswordPage() {
             <table className="w-full text-[13px]">
               <tbody>
                 <TableRow label="고객">
-                  <span className="font-semibold text-kb-text">{MOCK_NAME}</span>
+                  <span className="font-semibold text-kb-text">{customerName}</span>
                 </TableRow>
                 <TableRow label="고객구분">
                   <span className="text-kb-text-body">뱅킹이체회원</span>
                 </TableRow>
                 <TableRow label="ID">
-                  <IdDisplay id={MOCK_ID} />
+                  <IdDisplay id={loginId} />
                 </TableRow>
               </tbody>
             </table>
@@ -272,19 +295,6 @@ export default function IdPasswordPage() {
               </tbody>
             </table>
           </div>
-
-          {/* 기존 사용자암호로 인증 */}
-          {authTab === 'old-pw' && (
-            <div className="border border-kb-border rounded-xl overflow-hidden">
-              <table className="w-full text-[13px]">
-                <tbody>
-                  <TableRow label="기존 사용자암호">
-                    <PwInput value={oldPw} onChange={setOldPw} placeholder="기존 사용자암호 입력" />
-                  </TableRow>
-                </tbody>
-              </table>
-            </div>
-          )}
 
           {error && <p className="text-center text-[13px] text-red-500">{error}</p>}
 
