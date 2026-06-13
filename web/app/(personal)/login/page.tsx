@@ -535,10 +535,37 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false)
   const [subModal, setSubModal] = useState<'view' | 'find' | 'delete' | null>(null)
 
+  // 발급 화면(joint-cert-issue)에서 저장한 인증서를 목록에 합친다.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('issuedJointCert')
+      if (!raw) return
+      const c = JSON.parse(raw)
+      if (!c?.serialNumber) return
+      setCerts(prev => prev.some(x => x.serialNumber === c.serialNumber) ? prev : [
+        {
+          id: 'issued_joint',
+          serialNumber: c.serialNumber,
+          certType: c.certType ?? 'CERT_COMMON',
+          type: '금융결제원',
+          user: c.user ?? '본인',
+          expiry: c.expiry ?? '',
+          issuer: c.issuer ?? '한국전자인증',
+        },
+        ...prev,
+      ])
+    } catch {}
+  }, [])
+
   const activeCert = certs.find(c => c.id === selectedCert)
 
   function handleDelete() {
+    const target = certs.find(c => c.id === selectedCert)
     setCerts(prev => prev.filter(c => c.id !== selectedCert))
+    // 발급 인증서를 지우면 localStorage 도 비워 모달 재진입 시 되살아나지 않게 한다.
+    if (target?.id === 'issued_joint') {
+      try { localStorage.removeItem('issuedJointCert') } catch {}
+    }
     setSelectedCert(null)
     setSubModal(null)
   }
@@ -549,7 +576,8 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
     setError('')
     setLoading(true)
     try {
-      const cert = MOCK_JOINT_CERTS.find(c => c.id === selectedCert)!
+      const cert = certs.find(c => c.id === selectedCert)
+      if (!cert) { setError('인증서를 선택해 주세요.'); return }
       await handleCertLogin(cert.serialNumber, cert.certType, password)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } }; message?: string }
@@ -625,7 +653,7 @@ function JointCertModal({ onClose }: { onClose: () => void }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {MOCK_JOINT_CERTS.map((cert) => (
+                  {certs.map((cert) => (
                     <tr
                       key={cert.id}
                       onClick={() => setSelectedCert(cert.id)}

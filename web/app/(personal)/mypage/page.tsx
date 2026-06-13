@@ -75,6 +75,11 @@ function fmtDate(str: string) {
   const d = new Date(str)
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`
 }
+/** YYYYMMDD → YYYY.MM.DD. birthDate 가 null/형식미달이면 '-' (페이지 크래시 방지) */
+function fmtBirth(v: string | null | undefined) {
+  if (!v || v.length < 8) return '-'
+  return `${v.slice(0,4)}.${v.slice(4,6)}.${v.slice(6,8)}`
+}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -255,7 +260,7 @@ export default function MyKBPage() {
               <td className={`${lc} w-[160px]`}>성명</td>
               <td className={`${vc} w-[300px]`}>{data.name}</td>
               <td className={`${lc} w-[120px]`}>생년월일</td>
-              <td className={vc}>{data.birthDate.slice(0,4)}.{data.birthDate.slice(4,6)}.{data.birthDate.slice(6,8)}</td>
+              <td className={vc}>{fmtBirth(data.birthDate)}</td>
             </tr>
             <tr>
               <td className={lc}>휴대폰번호</td>
