@@ -203,8 +203,8 @@ class ChatbotService:
                 )
                 if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL"):
                     response_message = feat_result.message
-                    if intent_name == "SAVINGS_GOAL" and feat_result.status == "OK" and feat_result.data:
-                        response_feature_code = "SAVINGS_GOAL"
+                    if feat_result.status == "OK" and feat_result.data and intent_name in ("SAVINGS_GOAL", "PRODUCT_COMPARE"):
+                        response_feature_code = intent_name
                         response_feature_data = [d if isinstance(d, dict) else d.__dict__ for d in feat_result.data]
                     # PRODUCT_COMPARE이면서 개인 추천 의도도 포함된 경우 → 추천도 함께 제공
                     if intent_name == "PRODUCT_COMPARE" and customer_no and self._has_personal_recommend_intent(classify_text):
@@ -823,7 +823,14 @@ class ChatbotService:
 
     def _execute_product_compare(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         query = (request.query or "").strip()
-        product_ids = request.compare_product_ids or ([request.product_id] if request.product_id else [])
+        product_ids = list(request.compare_product_ids or ([request.product_id] if request.product_id else []))
+
+        # ── 상품명 언급 또는 ID가 있으면 비교 분석 에이전트로 위임 ────────────
+        from app.features.product_compare import ProductCompareAgent, _find_products_by_name
+        has_name_mention = len(_find_products_by_name(self.db, query)) >= 1
+        if len(product_ids) >= 2 or has_name_mention:
+            agent = ProductCompareAgent(self.db)
+            return agent.execute(request)
 
         # ── 개념 비교 질문: "예금 적금 차이" 등 → LLM 또는 고정 텍스트 설명 ──
         _CONCEPT_PAIRS = [

@@ -2676,6 +2676,49 @@ export default function ChatbotWidget() {
                         )
                       }
 
+                      if (message.featureCode === 'PRODUCT_COMPARE' && message.data && message.data.some(r => r.row_type === 'compare_product')) {
+                        const row = message.data.find(r => r.row_type === 'compare_product')!
+                        const pa = row.product_a as Record<string, unknown>
+                        const pb = row.product_b as Record<string, unknown>
+                        const items = row.compare_items as {label:string, a:string, b:string}[]
+                        const analysis = String(row.analysis ?? '')
+                        return (
+                          <div className="mt-3 space-y-2 text-xs">
+                            {/* 상품명 헤더 + 가입하기 버튼 */}
+                            <div className="grid grid-cols-3 gap-1">
+                              <div />
+                              {[pa, pb].map((p, i) => (
+                                <div key={i} className="rounded bg-[#1a3a5c] p-2 text-center text-[10px] font-bold text-white">
+                                  <p>{String(p.product_name ?? '')}</p>
+                                  {Number(p.product_id) > 0 && (
+                                    <a href={`/products/deposit/join/${p.product_id}`} target="_blank" rel="noopener noreferrer"
+                                      className="mt-1 inline-block rounded bg-white px-2 py-0.5 text-[9px] font-bold text-[#1a3a5c] hover:bg-gray-100">
+                                      가입하기
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {/* 비교 테이블 */}
+                            {items.map((item, i) => (
+                              <div key={i} className={`grid grid-cols-3 gap-1 rounded px-1 py-1 ${i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}>
+                                <span className="text-[10px] font-semibold text-kb-text-muted flex items-center">{item.label}</span>
+                                {[item.a, item.b].map((val, j) => (
+                                  <span key={j} className="text-center text-[11px] font-medium text-kb-text">{val}</span>
+                                ))}
+                              </div>
+                            ))}
+                            {/* GPT 분석 */}
+                            {analysis && (
+                              <div className="mt-2 rounded border border-[#2D6A4F] bg-[#EAF4EF] p-2 text-[11px] text-kb-text whitespace-pre-line">
+                                <p className="mb-1 text-[10px] font-bold text-[#2D6A4F]">💡 AI 분석</p>
+                                {analysis}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      }
+
                       if (message.featureCode === 'PRODUCT_GUIDE' || message.featureCode === 'CASH_FLOW_RECOMMEND' || message.featureCode === 'PRODUCT_SEARCH') {
                         const productRows = message.featureCode === 'CASH_FLOW_RECOMMEND'
                           ? message.data!.filter(r => r.row_type === 'recommended_product')
