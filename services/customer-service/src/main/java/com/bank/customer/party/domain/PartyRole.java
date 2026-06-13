@@ -30,6 +30,7 @@ public class PartyRole extends BaseEntity {
     public static final String TYPE_TRUSTEE    = "TRUSTEE";
     public static final String TYPE_AGENT      = "AGENT";
     public static final String TYPE_BENEFICIARY = "BENEFICIARY";
+    public static final String TYPE_EMPLOYEE    = "EMPLOYEE";
 
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_CLOSED = "CLOSED";

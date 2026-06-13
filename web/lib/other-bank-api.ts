@@ -1,8 +1,10 @@
 import axios from 'axios'
 
-// payment-service-b 직접 호출 (gateway 경유 없음, 시연용)
+// payment-service-b 호출 — Next.js BFF 프록시(/api/other-bank) 경유.
+// 배포(HTTPS)에서 브라우저가 HTTP 백엔드를 직접 부르면 Mixed Content 로 차단되므로
+// same-origin 라우트가 중계한다. 실제 백엔드 주소는 서버 전용 env PAYMENT_B_API_URL.
 const paymentBApi = axios.create({
-  baseURL: 'http://localhost:8180',
+  baseURL: '/api/other-bank',
   headers: { 'Content-Type': 'application/json' },
 })
 

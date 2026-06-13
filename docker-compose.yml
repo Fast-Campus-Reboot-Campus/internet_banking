@@ -511,6 +511,27 @@ services:
       retries: 5
       start_period: 20s
 
+  mock-responder:
+    image: python:3.12-alpine
+    container_name: ib-mock-responder
+    command: >
+      sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
+    volumes:
+      - ./services/payment-service/mock:/app:ro
+    environment:
+      KFTC_BOOTSTRAP: kafka:29092
+      BOK_BOOTSTRAP:  kafka:29092
+      SUCCESS_RATE:   "${SUCCESS_RATE:-1.0}"
+      DELAY_MS:       "${DELAY_MS:-300}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      payment-topic-init:
+        condition: service_completed_successfully
+    restart: on-failure
+    profiles:
+      - mock
+
   # =============================================================
   # Monitoring — Metrics (Prometheus + Grafana)
   # =============================================================
