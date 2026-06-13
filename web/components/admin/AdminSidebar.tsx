@@ -48,6 +48,14 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    // 이상거래 조사 에이전트(Python/LangGraph 사이드카) — 경쟁 가설 조사 + HITL 권고.
+    section: '이상거래 조사', dot: 'bg-purple-400',
+    bankRoles: HQ_DESK,
+    items: [
+      { label: '조사 에이전트', href: '/admin/fraud' },
+    ],
+  },
+  {
     section: '상담', dot: 'bg-teal-400',
     bankRoles: AUDIT_VIEW,
     items: [
