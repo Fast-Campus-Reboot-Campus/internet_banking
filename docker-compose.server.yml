@@ -565,6 +565,8 @@ services:
     container_name: ib-web
     ports:
       - "3000:3000"
+    environment:
+      PAYMENT_B_API_URL: http://payment-service-b:8084
     depends_on:
       gateway-service:
         condition: service_healthy
