@@ -1228,15 +1228,16 @@ export default function ChatbotWidget() {
       ['나한테', '나에게', '나한', '적절', '적합', '맞아', '맞나', '맞는', '추천이야', '추천인가', '맞게'].some(w => trimmed.includes(w))
     if (isCompareFollowup) {
       const fullAnalysis = lastCompareAnalysisRef.current!
-      // "내 상황엔 ..." 결론 문장만 추출
-      const conclusionMatch = fullAnalysis.match(/내\s*상황엔[^\n.。]+[이가]\s*유리한\s*이유는[^。.]*[.。]?/)
-      const shortAnswer = conclusionMatch
-        ? `네, ${conclusionMatch[0].trim()}`
-        : fullAnalysis.split('\n').filter(l => l.trim()).pop() ?? fullAnalysis
+      // 추천 상품명 추출 후 새 문구로 안내 (AI 분석 박스 내용 반복 방지)
+      const productMatch = fullAnalysis.match(/내\s*상황엔\s*([^\s이가]+(?:\s+[^\s이가]+)*?)\s*[이가]\s*유리/)
+      const recommendedProduct = productMatch ? productMatch[1].trim() : null
+      const replyText = recommendedProduct
+        ? `${recommendedProduct}을(를) 추천드려요 😊\n가입 기간이나 중도해지 가능 여부 등 더 궁금한 조건이 있으시면 편하게 물어봐 주세요!`
+        : '위 비교표를 참고하셔서 고객님 상황에 맞는 상품을 선택해 보세요 😊 더 궁금한 점이 있으시면 편하게 물어봐 주세요!'
       setMessages(prev => [...prev, {
         id: messageId('bot'),
         role: 'bot',
-        text: shortAnswer,
+        text: replyText,
       }])
       return
     }
