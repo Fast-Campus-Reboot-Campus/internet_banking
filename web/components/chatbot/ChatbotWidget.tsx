@@ -2619,6 +2619,7 @@ export default function ChatbotWidget() {
 
                       if (message.featureCode === 'SAVINGS_GOAL' && message.data && message.data.some(r => r.row_type === 'savings_goal_product')) {
                         const goalRows = message.data.filter(r => r.row_type === 'savings_goal_product')
+                        const rankLabel = ['🥇 1위', '🥈 2위', '🥉 3위']
                         return (
                           <div className="mt-3 space-y-2">
                             {goalRows.map((row, index) => {
@@ -2628,11 +2629,15 @@ export default function ChatbotWidget() {
                               const midPlan = plan.filter((_, i) => (i + 1) % step === 0).slice(0, 4)
                               return (
                                 <div key={index} className={`rounded border p-3 text-xs space-y-2 ${achievable ? 'border-[#2D6A4F] bg-[#EAF4EF]' : 'border-orange-300 bg-orange-50'}`}>
+                                  {/* 순위 + 상품명 + 가입하기 */}
                                   <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="flex-shrink-0 rounded bg-[#1a3a5c] px-2 py-0.5 text-[10px] font-bold text-white">
+                                      {rankLabel[index] ?? `${index + 1}위`}
+                                    </span>
                                     <span className={`flex-shrink-0 rounded px-2 py-0.5 text-[10px] font-bold text-white ${achievable ? 'bg-[#2D6A4F]' : 'bg-orange-400'}`}>
                                       {achievable ? '✅ 달성 가능' : '⚠️ 달성 어려움'}
                                     </span>
-                                    <p className="font-bold text-kb-text flex-1">{String(row.product_name ?? '')}</p>
+                                    <p className="font-bold text-kb-text flex-1 text-[11px]">{String(row.product_name ?? '')}</p>
                                     {Number(row.product_id) > 0 && (
                                       <a href={`/products/deposit/join/${row.product_id}`} target="_blank" rel="noopener noreferrer"
                                         className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]">
@@ -2640,6 +2645,7 @@ export default function ChatbotWidget() {
                                       </a>
                                     )}
                                   </div>
+                                  {/* 핵심 수치 */}
                                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
                                     <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate}%</span></span>
                                     <span>만기수령 <span className="font-bold text-kb-text">{Number(row.maturity_amount).toLocaleString()}원</span></span>
@@ -2649,6 +2655,7 @@ export default function ChatbotWidget() {
                                     )}
                                     <span>기간 <span className="font-bold text-kb-text">{row.goal_months}개월</span></span>
                                   </div>
+                                  {/* 1위 상품에만 납입 계획표 */}
                                   {index === 0 && midPlan.length > 0 && (
                                     <div className="mt-1">
                                       <p className="text-[10px] text-kb-text-muted mb-1">납입 계획표</p>
