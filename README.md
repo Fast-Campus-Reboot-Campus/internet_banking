@@ -461,7 +461,11 @@ GET /products/deposit/inquiry/terminate?accountId={accountId}
 | `CONSULTATION_OPENAI_API_KEY` | (필수) | GPT-4o-mini 호출 키. 미설정 시 503 반환 |
 | `CONSULTATION_UPLOADS_DIR` | `./uploads` | 서류 파일 저장 경로 |
 
-**DB 테이블**: `chatbot_document` — `document_id`, `customer_no`, `original_filename`, `stored_path`, `doc_type`, `file_size_bytes`, `status`
+> **볼륨 마운트 필수**: 컨테이너 재시작 시 업로드 파일이 삭제되지 않도록 `docker-compose.yml`에 named volume `consultation_uploads:/app/uploads`가 설정되어 있다. 별도 경로를 사용할 경우 `CONSULTATION_UPLOADS_DIR` 환경변수와 volume mount 경로를 함께 변경한다.
+
+**파일 업로드 제한**: 허용 형식 PDF·JPG·PNG, 최대 10MB. MIME 타입 및 확장자 이중 검증 후 초과 시 400 반환.
+
+**DB 테이블**: `chatbot_document` — `document_id`, `customer_no`, `original_filename`, `stored_path`, `doc_type`, `file_size_bytes`, `status`. 서비스 기동 시 SQLAlchemy `create_all`로 자동 생성된다(`services/consultation-service/sql/ddl.sql` 참고).
 
 #### 챗봇 조건 맞춤 상품 추천 — 프런트엔드 5단계 플로우
 

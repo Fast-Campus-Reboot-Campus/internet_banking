@@ -522,14 +522,29 @@ async def upload_document(
     doc_type: str = Form(default="ENROLLMENT"),
     db: Session = Depends(get_db),
 ) -> DocumentUploadResponse:
+    # 허용 MIME 타입 및 확장자 검증
+    ALLOWED_MIME = {"application/pdf", "image/jpeg", "image/png"}
+    ALLOWED_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
+    MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+    ext = FilePath(file.filename or "document").suffix.lower()
+    if ext not in ALLOWED_EXT:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"허용되지 않는 파일 형식입니다. (허용: PDF, JPG, PNG)")
+    if file.content_type and file.content_type not in ALLOWED_MIME:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"허용되지 않는 MIME 타입입니다.")
+
     uploads_dir = FilePath(os.getenv("UPLOADS_DIR", "./uploads"))
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
-    ext = FilePath(file.filename or "document").suffix
     stored_name = f"{uuid.uuid4()}{ext}"
     stored_path = uploads_dir / stored_name
 
     contents = await file.read()
+    if len(contents) > MAX_SIZE_BYTES:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="파일 크기가 10MB를 초과합니다.")
     stored_path.write_bytes(contents)
 
     doc = ChatbotDocument(

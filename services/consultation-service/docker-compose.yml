@@ -94,6 +94,7 @@ services:
       CONSULTATION_LANGFUSE_HOST:                  ${LANGFUSE_HOST:-http://localhost:3001}
     volumes:
       - C:/logs/internet-banking:/logs
+      - consultation_uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8087/health')\""]
       interval: 10s
@@ -117,4 +118,5 @@ volumes:
   postgres_data:
   zookeeper_data:
   zookeeper_log:
+  consultation_uploads:       # 컨테이너 재시작 후에도 업로드 파일 보존
   kafka_data:
