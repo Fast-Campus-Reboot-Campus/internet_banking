@@ -527,5 +527,4 @@ function DepositListPageInner() {
 
 export default function DepositListPage() {
   return <Suspense><DepositListPageInner /></Suspense>
-
 }

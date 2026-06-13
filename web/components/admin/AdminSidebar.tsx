@@ -35,6 +35,19 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    // KYC·AML·제재·세무 심사.
+    section: '심사·컴플라이언스', dot: 'bg-orange-400',
+    bankRoles: HQ_DESK,
+    items: [
+      { label: '제재대상 Hit 검토', href: '/admin/screening' },
+      { label: 'EDD 심사·승인',    href: '/admin/edd' },
+      { label: '중복고객 검토',     href: '/admin/duplicates' },
+      { label: '대리인 검토',       href: '/admin/agent' },
+      { label: '미성년 검토',       href: '/admin/minor' },
+      { label: 'FATCA/CRS',        href: '/admin/fatca' },
+    ],
+  },
+  {
     section: '상담', dot: 'bg-teal-400',
     bankRoles: AUDIT_VIEW,
     items: [

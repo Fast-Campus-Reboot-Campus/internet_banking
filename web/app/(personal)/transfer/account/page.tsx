@@ -88,7 +88,7 @@ export default function TransferAccountPage() {
   }, [requestedFromAccount])
 
   // 입출금(이체 가능) 계좌만 출금계좌로 노출
-  const transferableAccounts = accounts.filter(a => a.type === '입출금' || a.isWithdrawable)
+  const transferableAccounts = accounts.filter(a => a.type === '입출금')
   const fromAcc = transferableAccounts.find(a => a.id === fromAccount) ?? transferableAccounts[0]
   const isFromAccountLocked = Boolean(requestedFromAccount) && Boolean(fromAcc)
 

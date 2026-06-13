@@ -353,8 +353,8 @@ function accountTypeLabel(account: DepositAccount, product?: DepositProduct): Ac
   if (product && CHECKING_PRODUCT_SLUGS.has(getDepositSlugByProductId(product.productId))) return '입출금'
   if (product?.productName?.includes('통장')) return '입출금'
   if (account.accountAlias?.includes('통장')) return '입출금'
-  // contracts/products 조회 실패 시 isWithdrawable로 폴백
-  if (account.isWithdrawable ?? account.withdrawable) return '입출금'
+  // product 정보가 없을 때만 isWithdrawable fallback 사용 (기본값 true이므로 product 있으면 사용 안 함)
+  if (!product && (account.isWithdrawable ?? account.withdrawable)) return '입출금'
   return '예금'
 }
 
