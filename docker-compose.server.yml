@@ -533,6 +533,7 @@ services:
       CONSULTATION_KAFKA_ENABLED: "false"
       CONSULTATION_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ALLOWED_ORIGINS: "https://axfulbank.store,http://localhost:3000,http://localhost:3001"
       LOG_DIR: /logs
     volumes:
       - /app/logs:/logs
