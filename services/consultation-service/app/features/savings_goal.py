@@ -247,6 +247,12 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
         if session and session.get("stage") == "ASKED_MONTHLY":
             return self._handle_payment_answer(cid, query, session)
 
+        # ── 결과 표시 후 후속 금액 입력 처리 ─────────────────────────────────
+        if session and session.get("stage") == "RESULT_SHOWN":
+            amount = _parse_amount(query)
+            if amount is not None:
+                return self._handle_payment_answer(cid, query, session)
+
         # ── 새 요청: 목표 파싱 ────────────────────────────────────────────────
         goal_amount = _parse_amount(query)
         goal_months = _parse_months(query)
@@ -357,8 +363,9 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
                 f"납입 부담이 생길 수 있으니 참고해 주세요."
             )
 
-        if cid and cid in _SESSION:
-            del _SESSION[cid]
+        # 세션을 RESULT_SHOWN 단계로 유지 (후속 금액 재시도 지원)
+        if cid:
+            _SESSION[cid] = {**session, "stage": "RESULT_SHOWN"}
 
         return self._recommend(
             goal_amount=goal_amount,
