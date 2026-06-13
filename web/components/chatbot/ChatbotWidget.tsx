@@ -570,6 +570,64 @@ export default function ChatbotWidget() {
   }
 
   async function answerDepositSavingsFit(customerId: string): Promise<string> {
+    try {
+      let birthYear: number | undefined
+      try {
+        const meRes = await api.get<{ data: { birthDate?: string } }>('/api/v1/customers/me')
+        const birthDate = meRes.data?.data?.birthDate
+        if (birthDate) {
+          birthYear = parseInt(birthDate.replace(/-/g, '').slice(0, 4), 10)
+        }
+      } catch { /* 나이 미확인 시 필터 생략 */ }
+      const result = await fetchDepositRecommendAgent(customerId, 3, birthYear)
+      const products = result.recommendations ?? result.products ?? []
+      const rows = products.slice(0, 3).map((product, index) =>
+        productToRow(product, index, product.reason ?? '최근 현금흐름 기반 추천 상품입니다.'),
+      )
+      const enrichedRows = await enrichWithPreferentialRates(rows)
+      saveRecommendContext(buildFeatureResult('CASH_FLOW_RECOMMEND', '최근 현금흐름 기반 추천 상품입니다.', enrichedRows))
+      const firstDepositOrSavings = products.find((product) => {
+        const type = product.productType ?? product.product_type
+        return type === 'DEPOSIT' || type === 'SAVINGS'
+      })
+      const productType = firstDepositOrSavings?.productType ?? firstDepositOrSavings?.product_type
+      const productName = firstDepositOrSavings?.productName ?? firstDepositOrSavings?.product_name
+      const reason = firstDepositOrSavings?.reason
+      const netCashFlow = result.cashFlow?.netCashFlow
+      const estimatedSavings = result.cashFlow?.estimatedSavingsAmount
+
+      if (productType === 'DEPOSIT') {
+        return [
+          '고객님의 최근 현금흐름 기준으로는 적금보다 예금이 더 적절해 보여요.',
+          '',
+          netCashFlow != null ? `최근 순현금흐름은 약 ${Number(netCashFlow).toLocaleString()}원입니다.` : null,
+          '이미 운용할 수 있는 목돈이 있거나, 매달 추가 납입보다 일정 기간 묶어두는 방식이 더 맞을 때 예금이 유리합니다.',
+          productName ? `우선 검토할 상품: ${productName}` : null,
+          reason ? `판단 근거: ${reason}` : null,
+        ].filter(Boolean).join('\n')
+      }
+
+      if (productType === 'SAVINGS') {
+        return [
+          '고객님의 최근 현금흐름 기준으로는 예금보다 적금이 더 적절해 보여요.',
+          '',
+          estimatedSavings != null ? `매달 저축 여력은 약 ${Number(estimatedSavings).toLocaleString()}원으로 추정됩니다.` : null,
+          '목돈을 한 번에 맡기기보다 매달 꾸준히 모으는 패턴이면 적금이 더 잘 맞습니다.',
+          productName ? `우선 검토할 상품: ${productName}` : null,
+          reason ? `판단 근거: ${reason}` : null,
+        ].filter(Boolean).join('\n')
+      }
+    } catch {}
+
+    return [
+      '거래 내역을 충분히 확인하지 못해 일반 기준으로 안내드릴게요.',
+      '',
+      '- 이미 모아둔 목돈이 있으면 예금이 더 적절합니다.',
+      '- 매달 조금씩 모으고 싶으면 적금이 더 적절합니다.',
+      '- 당장 큰 금액을 묶기 어렵다면 소액 자유적금부터 시작하는 편이 좋습니다.',
+    ].join('\n')
+  }
+
   async function executeDepositProductSearch(params: {
     customerId: string
     period?: number
