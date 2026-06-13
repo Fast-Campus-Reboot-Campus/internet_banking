@@ -37,71 +37,38 @@ _SESSION: dict[int, dict[str, Any]] = {}
 
 # ── 파서 ────────────────────────────────────────────────────────────────────
 
-_KOREAN_NUM = {"일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9}
-
-
-def _korean_prefix_to_num(text: str) -> float:
-    """'백', '이백', '삼백오십' 등 한글 숫자 접두어를 float으로 변환.
-
-    지원: 일~구 + 백 조합 (예: '백'→100, '이백'→200, '삼백오십'→350)
-    숫자가 없으면 1 반환 (예: '백만원' → 100만원).
-    """
-    text = text.strip()
-    result = 0.0
-    hundreds = 0
-    tens = 0
-    # 백 단위
-    m = re.search(r"([일이삼사오육칠팔구]?)백([일이삼사오육칠팔구]?십)?([일이삼사오육칠팔구]?)", text)
-    if m:
-        h = _KOREAN_NUM.get(m.group(1), 1)
-        t = _KOREAN_NUM.get(m.group(2)[0], 0) if m.group(2) else 0
-        o = _KOREAN_NUM.get(m.group(3), 0) if m.group(3) else 0
-        result = h * 100 + t * 10 + o
-        return float(result) if result else 100.0
-    # 십 단위
-    m = re.search(r"([일이삼사오육칠팔구]?)십([일이삼사오육칠팔구]?)", text)
-    if m:
-        t = _KOREAN_NUM.get(m.group(1), 1)
-        o = _KOREAN_NUM.get(m.group(2), 0) if m.group(2) else 0
-        return float(t * 10 + o)
-    # 단독 한글 숫자
-    for k, v in _KOREAN_NUM.items():
-        if text.startswith(k):
-            return float(v)
-    return 1.0
+def _normalize_korean_amount(text: str) -> str:
+    """한글 숫자를 아라비아 숫자로 치환 (예: '백만원' → '100만원')."""
+    _MAP = [
+        ("구백", "900"), ("팔백", "800"), ("칠백", "700"), ("육백", "600"),
+        ("오백", "500"), ("사백", "400"), ("삼백", "300"), ("이백", "200"), ("일백", "100"), ("백", "100"),
+        ("구십", "90"), ("팔십", "80"), ("칠십", "70"), ("육십", "60"),
+        ("오십", "50"), ("사십", "40"), ("삼십", "30"), ("이십", "20"), ("일십", "10"), ("십", "10"),
+        ("구만", "9만"), ("팔만", "8만"), ("칠만", "7만"), ("육만", "6만"),
+        ("오만", "5만"), ("사만", "4만"), ("삼만", "3만"), ("이만", "2만"), ("일만", "1만"),
+        ("구천", "9천"), ("팔천", "8천"), ("칠천", "7천"), ("육천", "6천"),
+        ("오천", "5천"), ("사천", "4천"), ("삼천", "3천"), ("이천", "2천"), ("일천", "1천"),
+        ("구억", "9억"), ("팔억", "8억"), ("칠억", "7억"), ("육억", "6억"),
+        ("오억", "5억"), ("사억", "4억"), ("삼억", "3억"), ("이억", "2억"), ("일억", "1억"),
+    ]
+    for k, v in _MAP:
+        text = text.replace(k, v)
+    return text
 
 
 def _parse_amount(text: str) -> float | None:
     """'500만원', '백만원', '이백오십만', '5000000원' 등을 float으로 변환."""
     text = text.replace(",", "").replace(" ", "")
-    # 한글 숫자 + 억 (예: 이억, 백억)
-    m = re.search(r"([일이삼사오육칠팔구백십]+억)", text)
-    if m:
-        prefix = m.group(1).replace("억", "")
-        return _korean_prefix_to_num(prefix) * 1_0000_0000
-    # 아라비아 숫자 + 억
+    text = _normalize_korean_amount(text)
     m = re.search(r"(\d+(?:\.\d+)?)\s*억", text)
     if m:
         return float(m.group(1)) * 1_0000_0000
-    # 한글 숫자 + 만 (예: 백만, 오십만, 이백오십만)
-    m = re.search(r"([일이삼사오육칠팔구백십]+만)", text)
-    if m:
-        prefix = m.group(1).replace("만", "")
-        return _korean_prefix_to_num(prefix) * 10_000
-    # 아라비아 숫자 + 만
     m = re.search(r"(\d+(?:\.\d+)?)\s*만", text)
     if m:
         return float(m.group(1)) * 10_000
-    # 한글 숫자 + 천 (예: 오천, 삼천오백)
-    m = re.search(r"([일이삼사오육칠팔구백십]+천)", text)
-    if m:
-        prefix = m.group(1).replace("천", "")
-        return _korean_prefix_to_num(prefix) * 1_000
-    # 아라비아 숫자 + 천
     m = re.search(r"(\d+(?:\.\d+)?)\s*천", text)
     if m:
         return float(m.group(1)) * 1_000
-    # 순수 아라비아 숫자 (4자리 이상)
     m = re.search(r"(\d{4,})", text)
     if m:
         return float(m.group(1))
