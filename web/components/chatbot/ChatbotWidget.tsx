@@ -330,6 +330,7 @@ export default function ChatbotWidget() {
   const [lastRecommendCtx, setLastRecommendCtx] = useState<string>('')
   const lastRecommendProductsRef = useRef<Record<string, unknown>[]>([])
   const lastTopProductRef = useRef<Record<string, unknown> | null>(null)
+  const lastCompareAnalysisRef = useRef<string | null>(null)
   const [showFileMenu, setShowFileMenu] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingFileAction, setPendingFileAction] = useState<'CASH_FLOW' | 'TERMS' | 'PRODUCT' | 'ENROLLMENT' | null>(null)
@@ -1176,6 +1177,35 @@ export default function ChatbotWidget() {
       return
     }
 
+    // 구체적 상품명 포함 비교 요청 → executeChatbotFeature 직접 호출
+    const hasSpecificProductInCompare = /AXful|내맘대로|수퍼정기|달러자|맑은하늘|장병내일|청년도약|특★한|쏙머니|당선통장|생계비|GS Pay|모임금고|스타통장|지갑통장|자유입출금|주택청약|청년 주택드림/.test(trimmed)
+    const hasCompareWord = ['비교', '차이', '어느 쪽', '어느쪽', '뭐가 더'].some(w => trimmed.includes(w))
+    if (hasSpecificProductInCompare && hasCompareWord) {
+      setLoading(true)
+      setExpandedRow(null)
+      setDataPages({})
+      setMessages([{ id: messageId('user'), role: 'user', text }])
+      try {
+        const consultationId = await ensureStarted()
+        const result = await executeChatbotFeature('PRODUCT_COMPARE', {
+          customer_no: customerNo.trim() || getCurrentDepositCustomerId(),
+          query: trimmed,
+          chatbot_consultation_id: consultationId ?? undefined,
+        })
+        // 분석 텍스트 저장 (후속 질문 응답용)
+        if (result.data && result.data.length > 0) {
+          const row = result.data.find(r => r.row_type === 'compare_product')
+          if (row) lastCompareAnalysisRef.current = String(row.analysis ?? '')
+        }
+        setMessages(prev => [...prev, addFeatureResult(result)])
+      } catch {
+        setMessages(prev => [...prev, { id: messageId('error'), role: 'system', text: '요청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }])
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     const compareAnswer = answerProductCompare(trimmed)
     if (compareAnswer) {
       setExpandedRow(null)
@@ -1184,6 +1214,18 @@ export default function ChatbotWidget() {
         { id: messageId('user'), role: 'user', text },
         { id: messageId('bot'), role: 'bot', text: compareAnswer },
       ])
+      return
+    }
+
+    // 비교 후속 질문 처리 ("나한테 적절한 추천이야?" 등)
+    const isCompareFollowup = lastCompareAnalysisRef.current &&
+      ['나한테', '나에게', '나한', '적절', '적합', '맞아', '맞나', '맞는', '추천이야', '추천인가', '맞게'].some(w => trimmed.includes(w))
+    if (isCompareFollowup) {
+      setMessages(prev => [...prev, {
+        id: messageId('bot'),
+        role: 'bot',
+        text: lastCompareAnalysisRef.current!,
+      }])
       return
     }
 
