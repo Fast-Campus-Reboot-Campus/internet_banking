@@ -521,6 +521,31 @@ services:
       retries: 10
       start_period: 60s
 
+  consultation-service:
+    build:
+      context: services/consultation-service
+      dockerfile: Dockerfile
+    container_name: ib-consultation-service
+    ports:
+      - "${CONSULTATION_APP_PORT:-8087}:8087"
+    environment:
+      CONSULTATION_DATABASE_URL: postgresql+psycopg://${DEPOSIT_DB_USER:-deposit}:${DEPOSIT_DB_PASSWORD:-deposit}@deposit-db:5432/${DEPOSIT_DB_NAME:-deposit_db}
+      CONSULTATION_KAFKA_ENABLED: "false"
+      CONSULTATION_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      LOG_DIR: /logs
+    volumes:
+      - /app/logs:/logs
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   web:
     build:
       context: ./web
