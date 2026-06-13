@@ -269,4 +269,18 @@ BEGIN
     END IF;
 END $$;
 
+CREATE TABLE IF NOT EXISTS chatbot_document (
+    document_id       BIGSERIAL PRIMARY KEY,
+    customer_no       VARCHAR(30)  NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    stored_path       VARCHAR(500) NOT NULL,
+    doc_type          VARCHAR(50)  NOT NULL,
+    file_size_bytes   BIGINT,
+    status            VARCHAR(20)  NOT NULL DEFAULT 'UPLOADED',
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_by        BIGINT,
+    updated_at        TIMESTAMPTZ  DEFAULT NOW(),
+    updated_by        BIGINT
+);
+
 COMMIT;

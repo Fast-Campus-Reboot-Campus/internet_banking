@@ -157,3 +157,26 @@ class ChatbotTransferResponse(BaseModel):
     message: str
     transaction_id: int | None = None
     balance_after: int | None = None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 파일 분석 / 서류 제출
+# ──────────────────────────────────────────────────────────────────────────────
+
+class FileAnalyzeRequest(BaseModel):
+    text: str = Field(..., description="프론트엔드에서 PDF를 파싱한 텍스트")
+    analyze_type: str = Field(..., description="CASH_FLOW | TERMS | PRODUCT")
+    customer_no: str | None = None
+
+
+class FileAnalyzeResponse(BaseModel):
+    analyze_type: str
+    result: str
+
+
+class DocumentUploadResponse(BaseModel):
+    document_id: int
+    filename: str
+    doc_type: str
+    status: str
+    message: str

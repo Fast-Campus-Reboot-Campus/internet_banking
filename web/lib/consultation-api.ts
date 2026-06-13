@@ -179,3 +179,46 @@ export async function endChat(chatConsultationId: number, satisfactionScore?: nu
   )
   return data
 }
+
+// ── 파일 분석 / 서류 제출 ──────────────────────────────────────────────────────
+
+export type FileAnalyzeResponse = {
+  analyze_type: string
+  result: string
+}
+
+export type DocumentUploadResponse = {
+  document_id: number
+  filename: string
+  doc_type: string
+  status: string
+  message: string
+}
+
+export async function analyzeFile(
+  text: string,
+  analyzeType: 'CASH_FLOW' | 'TERMS' | 'PRODUCT',
+  customerNo?: string,
+): Promise<FileAnalyzeResponse> {
+  const { data } = await consultationApi.post<FileAnalyzeResponse>('/chatbot/file/analyze', {
+    text,
+    analyze_type: analyzeType,
+    customer_no: customerNo,
+  })
+  return data
+}
+
+export async function uploadDocument(
+  file: File,
+  customerNo: string,
+  docType: string = 'ENROLLMENT',
+): Promise<DocumentUploadResponse> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('customer_no', customerNo)
+  form.append('doc_type', docType)
+  const { data } = await consultationApi.post<DocumentUploadResponse>('/chatbot/documents/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}

@@ -10,10 +10,12 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '@/lib/api'
-import { ArrowLeftRight, Bot, Home, LogOut, MessageCircle, PackageSearch, Phone, Send, Sparkles, X } from 'lucide-react'
+import { ArrowLeftRight, Bot, Home, LogOut, MessageCircle, PackageSearch, Paperclip, Phone, Send, Sparkles, X } from 'lucide-react'
 import {
   ChatbotButton,
   ChatbotFeatureExecuteResponse,
+  analyzeFile,
+  uploadDocument,
   executeChatbotFeature,
   executeChatbotTransfer,
   sendChatbotMessage,
@@ -326,6 +328,9 @@ export default function ChatbotWidget() {
   const [lastRecommendCtx, setLastRecommendCtx] = useState<string>('')
   const lastRecommendProductsRef = useRef<Record<string, unknown>[]>([])
   const lastTopProductRef = useRef<Record<string, unknown> | null>(null)
+  const [showFileMenu, setShowFileMenu] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [pendingFileAction, setPendingFileAction] = useState<'CASH_FLOW' | 'TERMS' | 'PRODUCT' | 'ENROLLMENT' | null>(null)
   const pendingLoginActionRef = useRef<string | null>(null)
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -1057,6 +1062,54 @@ export default function ChatbotWidget() {
       } else {
         pushMessages([errorMessage])
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleFileSelected(file: File) {
+    if (!file) return
+    const action = pendingFileAction
+    setPendingFileAction(null)
+
+    if (action === 'ENROLLMENT') {
+      pushMessages([{ id: messageId('user'), role: 'user', text: `📎 ${file.name} 제출` }])
+      setLoading(true)
+      try {
+        const result = await uploadDocument(file, customerNo || 'GUEST', 'ENROLLMENT')
+        pushMessages([{ id: messageId('bot'), role: 'bot', text: result.message }])
+      } catch {
+        pushMessages([{ id: messageId('bot'), role: 'bot', text: '서류 제출 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }])
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // PDF text extraction using pdfjs-dist
+    pushMessages([{ id: messageId('user'), role: 'user', text: `📎 ${file.name} 분석 중...` }])
+    setLoading(true)
+    try {
+      const pdfjsLib = await import('pdfjs-dist')
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+      const arrayBuffer = await file.arrayBuffer()
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      const texts: string[] = []
+      for (let i = 1; i <= Math.min(pdf.numPages, 20); i++) {
+        const page = await pdf.getPage(i)
+        const content = await page.getTextContent()
+        texts.push(content.items.map((item) => ('str' in item ? (item.str ?? '') : '')).join(' '))
+      }
+      const fullText = texts.join('\n')
+      if (!fullText.trim()) {
+        pushMessages([{ id: messageId('bot'), role: 'bot', text: 'PDF에서 텍스트를 추출할 수 없습니다. 스캔 이미지 PDF는 지원되지 않습니다.' }])
+        return
+      }
+      const analyzeType = action as 'CASH_FLOW' | 'TERMS' | 'PRODUCT'
+      const result = await analyzeFile(fullText, analyzeType, customerNo || undefined)
+      pushMessages([{ id: messageId('bot'), role: 'bot', text: result.result }])
+    } catch {
+      pushMessages([{ id: messageId('bot'), role: 'bot', text: '파일 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' }])
     } finally {
       setLoading(false)
     }
@@ -2402,7 +2455,53 @@ export default function ChatbotWidget() {
                 ))}
               </div>
 
+              {/* 파일 첨부 메뉴 */}
+              {showFileMenu && (
+                <div className="mb-2 rounded border border-kb-border bg-white shadow-md">
+                  {[
+                    { action: 'CASH_FLOW' as const, label: '📊 타행 거래내역 분석', accept: '.pdf' },
+                    { action: 'TERMS' as const, label: '📋 약관 설명', accept: '.pdf' },
+                    { action: 'PRODUCT' as const, label: '📄 상품 설명서 안내', accept: '.pdf' },
+                    { action: 'ENROLLMENT' as const, label: '📁 서류 제출', accept: '.pdf,.jpg,.jpeg,.png' },
+                  ].map(({ action, label, accept }) => (
+                    <button
+                      key={action}
+                      type="button"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-kb-beige"
+                      onClick={() => {
+                        setPendingFileAction(action)
+                        setShowFileMenu(false)
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = accept
+                          fileInputRef.current.click()
+                        }
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) handleFileSelected(f)
+                  e.target.value = ''
+                }}
+              />
               <form onSubmit={submitMessage} className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setShowFileMenu((v) => !v)}
+                  className="flex h-10 w-10 items-center justify-center rounded border border-kb-border text-kb-text-muted transition hover:bg-kb-beige disabled:opacity-40"
+                  aria-label="파일 첨부"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
                 <input
                   value={input}
                   onChange={(event) => setInput(event.target.value)}

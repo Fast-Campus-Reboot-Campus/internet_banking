@@ -7,7 +7,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()  # .env → os.environ 주입 (_setup_phoenix 등 os.getenv 사용 전에 실행)
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+import os
+import uuid
+from pathlib import Path as FilePath
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -42,6 +46,9 @@ from app.schemas import (
     ChatEndRequest,
     ChatMessageHistoryResponse,
     ChatSendMessageRequest,
+    DocumentUploadResponse,
+    FileAnalyzeRequest,
+    FileAnalyzeResponse,
     ScenarioSeedResponse,
 )
 from app.services import (
@@ -52,6 +59,8 @@ from app.services import (
     _chat_status,
     _SENDER_LABEL,
 )
+from app.llm import OpenAIDocumentAnalyzer
+from app.models import ChatbotDocument
 
 logger = logging.getLogger(__name__)
 
@@ -431,3 +440,67 @@ async def end_chat(
         return _to_chat_response(chat)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── 파일 분석 / 서류 제출 ─────────────────────────────────────────────────────
+
+@app.post(
+    "/chatbot/file/analyze",
+    response_model=FileAnalyzeResponse,
+    summary="파일 내용 분석 (타행 거래내역 / 약관 / 상품 설명서)",
+    description="프론트엔드에서 PDF를 파싱한 텍스트를 받아 OpenAI로 분석 결과를 반환합니다.",
+)
+async def analyze_file(request: FileAnalyzeRequest) -> FileAnalyzeResponse:
+    api_key = settings.openai_api_key
+    if not api_key:
+        raise HTTPException(status_code=503, detail="OpenAI API 키가 설정되지 않았습니다.")
+    try:
+        analyzer = OpenAIDocumentAnalyzer(api_key)
+        result = analyzer.analyze(request.text, request.analyze_type)
+        return FileAnalyzeResponse(analyze_type=request.analyze_type, result=result)
+    except Exception as exc:
+        logger.exception("[file/analyze] OpenAI 호출 오류: %s", exc)
+        raise HTTPException(status_code=500, detail="파일 분석 중 오류가 발생했습니다.") from exc
+
+
+@app.post(
+    "/chatbot/documents/upload",
+    response_model=DocumentUploadResponse,
+    summary="서류 제출 (비과세 서류 등)",
+    description="고객이 서류를 업로드하면 서버에 저장하고 DB에 기록합니다.",
+)
+async def upload_document(
+    file: UploadFile = File(...),
+    customer_no: str = Form(...),
+    doc_type: str = Form(default="ENROLLMENT"),
+    db: Session = Depends(get_db),
+) -> DocumentUploadResponse:
+    uploads_dir = FilePath(os.getenv("UPLOADS_DIR", "./uploads"))
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = FilePath(file.filename or "document").suffix
+    stored_name = f"{uuid.uuid4()}{ext}"
+    stored_path = uploads_dir / stored_name
+
+    contents = await file.read()
+    stored_path.write_bytes(contents)
+
+    doc = ChatbotDocument(
+        customer_no=customer_no,
+        original_filename=file.filename or "document",
+        stored_path=str(stored_path),
+        doc_type=doc_type,
+        file_size_bytes=len(contents),
+        status="UPLOADED",
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    return DocumentUploadResponse(
+        document_id=doc.document_id,
+        filename=doc.original_filename,
+        doc_type=doc.doc_type,
+        status=doc.status,
+        message="서류가 성공적으로 제출되었습니다. 영업일 기준 1~3일 내 처리될 예정입니다.",
+    )

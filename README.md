@@ -358,6 +358,48 @@ GET /products/deposit/inquiry/terminate?accountId={accountId}
 | 유동성 매칭 | 20점 | 거래 빈도 vs 상품 만기 적합도 |
 | 부가 혜택 | 10점 | 비과세·중도해지·우대금리 여부 합산 |
 
+#### 챗봇 파일 첨부 분석 (4가지 기능)
+
+챗봇 입력창 왼쪽의 📎 버튼을 누르면 파일 첨부 메뉴가 열린다. 4가지 기능을 지원한다.
+
+| 메뉴 항목 | 분석 유형 | 지원 파일 | 동작 |
+|---|---|---|---|
+| 📊 타행 거래내역 분석 | `CASH_FLOW` | PDF | 타행 거래내역 PDF를 업로드하면 월별 수입·지출 패턴, 저축 여력, 금융상품 추천 포인트를 AI가 분석해 답변 |
+| 📋 약관 설명 | `TERMS` | PDF | 약관 PDF를 업로드하면 중도해지 조건·수수료·주의사항 등 핵심 내용을 고객이 이해하기 쉬운 언어로 요약 |
+| 📄 상품 설명서 안내 | `PRODUCT` | PDF | 상품 설명서 PDF를 업로드하면 금리 조건·가입 조건·해지 방법·세제 혜택을 정리해 안내 |
+| 📁 서류 제출 | `ENROLLMENT` | PDF, JPG, PNG | 비과세 확인서 등 서류를 서버에 업로드·저장, DB 기록 후 처리 예정 안내 |
+
+**처리 흐름**
+
+```
+[사용자] 📎 → 파일 선택
+  ↓
+[CASH_FLOW / TERMS / PRODUCT]
+  브라우저에서 pdfjs-dist로 텍스트 추출 (최대 20페이지)
+  ↓
+  POST /chatbot/file/analyze  (consultation-service:8087)
+    text, analyze_type → OpenAI GPT-4o-mini 분석 → result 반환
+  ↓
+  챗봇 메시지로 분석 결과 표시
+
+[ENROLLMENT]
+  파일 원본 multipart 전송
+  ↓
+  POST /chatbot/documents/upload  (consultation-service:8087)
+    파일 저장 (uploads/ 디렉터리) + chatbot_document 테이블 DB 기록
+  ↓
+  "영업일 1~3일 내 처리 예정" 안내 메시지 표시
+```
+
+**환경 변수 (consultation-service)**
+
+| 변수 | 기본값 | 설명 |
+|---|---|---|
+| `CONSULTATION_OPENAI_API_KEY` | (필수) | GPT-4o-mini 호출 키. 미설정 시 503 반환 |
+| `CONSULTATION_UPLOADS_DIR` | `./uploads` | 서류 파일 저장 경로 |
+
+**DB 테이블**: `chatbot_document` — `document_id`, `customer_no`, `original_filename`, `stored_path`, `doc_type`, `file_size_bytes`, `status`
+
 **예금·적금 적합 판단 (`answerDepositSavingsFit`)**
 
 "예금이랑 적금 중 나한테 맞는 거" 질문 시 deposit-service 추천 에이전트(`fetchDepositRecommendAgent`)를 호출해 판단한다. `GET /api/v1/customers/me`의 `birthDate`로 고객 만 나이를 계산해 백엔드에 전달하며, 연령 기반 상품 필터링은 deposit-service에서 처리된다.
@@ -435,6 +477,8 @@ POST /chatbot/features/{feature_code}/execute
 POST /chatbot/consultations/start
 POST /chatbot/consultations/{id}/messages
 POST /chatbot/transfer
+POST /chatbot/file/analyze
+POST /chatbot/documents/upload
 GET  /chat/queue
 POST /chat/consultations/{id}/connect
 POST /chat/consultations/{id}/messages

@@ -284,6 +284,44 @@ class LlmAdapter:
         raise RuntimeError("상품 추천은 규칙 기반 추천 엔진에서만 처리합니다.")
 
 
+class OpenAIDocumentAnalyzer:
+    """업로드된 문서(PDF 텍스트)를 OpenAI로 분석하는 어댑터."""
+
+    _SYSTEM_PROMPTS: dict[str, str] = {
+        "CASH_FLOW": (
+            "당신은 은행 재무 상담사입니다. 고객이 제공한 타행 거래내역을 분석해 "
+            "월별 수입/지출 패턴, 주요 지출 카테고리, 저축 여력을 한국어로 요약해 주세요. "
+            "구체적인 수치와 함께 금융 상품 추천 포인트도 함께 제시해 주세요."
+        ),
+        "TERMS": (
+            "당신은 금융 약관 전문가입니다. 제공된 약관을 고객이 이해하기 쉽게 핵심 내용을 "
+            "한국어로 설명해 주세요. 특히 중도해지 조건, 수수료, 주의사항을 강조해 주세요."
+        ),
+        "PRODUCT": (
+            "당신은 은행 상품 전문가입니다. 제공된 상품 설명서를 바탕으로 금리 조건, "
+            "가입 조건, 해지 방법, 세제 혜택을 고객이 쉽게 이해할 수 있도록 한국어로 요약해 주세요."
+        ),
+    }
+
+    def __init__(self, api_key: str, model: str = "gpt-4o-mini") -> None:
+        self._api_key = api_key
+        self._model = model
+
+    def analyze(self, text: str, analyze_type: str) -> str:
+        from openai import OpenAI
+        system_prompt = self._SYSTEM_PROMPTS.get(analyze_type, self._SYSTEM_PROMPTS["TERMS"])
+        client = OpenAI(api_key=self._api_key)
+        resp = client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"다음 내용을 분석해 주세요:\n\n{text[:8000]}"},
+            ],
+            max_tokens=1000,
+        )
+        return resp.choices[0].message.content or "분석 결과를 가져올 수 없습니다."
+
+
 class LlmHandoffAdapter:
     process_method_code = "BP002"
 
