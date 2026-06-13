@@ -541,7 +541,7 @@ services:
       deposit-db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8087/health')\""]
       interval: 10s
       timeout: 5s
       retries: 5
