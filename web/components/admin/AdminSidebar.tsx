@@ -118,8 +118,8 @@ export default function AdminSidebar() {
   }, [])
 
   function logout() {
-    localStorage.removeItem('admin_role')
-    localStorage.removeItem('admin_user')
+    const keys = ['accessToken', 'access_token', 'refreshToken', 'customerId', 'admin_roles', 'admin_role', 'admin_user']
+    keys.forEach((k) => localStorage.removeItem(k))
     router.push('/admin/login')
   }
 
