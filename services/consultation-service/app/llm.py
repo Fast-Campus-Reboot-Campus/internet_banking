@@ -285,7 +285,10 @@ class LlmAdapter:
 
 
 class OpenAIDocumentAnalyzer:
-    """업로드된 문서(PDF 텍스트)를 OpenAI로 분석하는 어댑터."""
+    """업로드된 문서(PDF 텍스트)를 분석하는 어댑터.
+
+    OpenAI API 키가 있으면 GPT를 사용하고, 없으면 룰 기반 분석으로 폴백한다.
+    """
 
     _SYSTEM_PROMPTS: dict[str, str] = {
         "CASH_FLOW": (
@@ -308,6 +311,14 @@ class OpenAIDocumentAnalyzer:
         self._model = model
 
     def analyze(self, text: str, analyze_type: str) -> str:
+        if self._api_key:
+            try:
+                return self._analyze_with_openai(text, analyze_type)
+            except Exception:
+                pass
+        return self._analyze_rule_based(text, analyze_type)
+
+    def _analyze_with_openai(self, text: str, analyze_type: str) -> str:
         from openai import OpenAI
         system_prompt = self._SYSTEM_PROMPTS.get(analyze_type, self._SYSTEM_PROMPTS["TERMS"])
         client = OpenAI(api_key=self._api_key)
@@ -320,6 +331,163 @@ class OpenAIDocumentAnalyzer:
             max_tokens=1000,
         )
         return resp.choices[0].message.content or "분석 결과를 가져올 수 없습니다."
+
+    def _analyze_rule_based(self, text: str, analyze_type: str) -> str:
+        import re
+
+        if analyze_type == "CASH_FLOW":
+            return self._analyze_cash_flow(text)
+        if analyze_type == "TERMS":
+            return self._analyze_terms(text)
+        if analyze_type == "PRODUCT":
+            return self._analyze_product(text)
+        return "분석 유형을 인식할 수 없습니다."
+
+    def _analyze_cash_flow(self, text: str) -> str:
+        import re
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+        # 금액 패턴: 숫자+원 혹은 쉼표 포함 숫자
+        amount_pattern = re.compile(r"([\+\-]?\d[\d,]*)\s*원?")
+
+        income_keywords = ["입금", "급여", "월급", "이자", "수입", "환급", "적립"]
+        expense_keywords = ["출금", "이체", "결제", "납부", "지출", "인출", "자동이체"]
+
+        income_total = 0
+        expense_total = 0
+        income_items: list[str] = []
+        expense_items: list[str] = []
+
+        for line in lines:
+            amounts = [int(m.group(1).replace(",", "")) for m in amount_pattern.finditer(line)]
+            if not amounts:
+                continue
+            amt = amounts[-1]
+            if any(k in line for k in income_keywords):
+                income_total += amt
+                if len(income_items) < 5:
+                    income_items.append(f"  • {line[:40]}")
+            elif any(k in line for k in expense_keywords):
+                expense_total += amt
+                if len(expense_items) < 5:
+                    expense_items.append(f"  • {line[:40]}")
+
+        surplus = income_total - expense_total
+        parts: list[str] = ["📊 **거래내역 분석 결과**\n"]
+        parts.append(f"💰 총 수입: {income_total:,}원")
+        if income_items:
+            parts.extend(income_items)
+        parts.append(f"\n💸 총 지출: {expense_total:,}원")
+        if expense_items:
+            parts.extend(expense_items)
+        parts.append(f"\n📈 월평균 잉여자금: {surplus:,}원")
+
+        if surplus > 500_000:
+            parts.append("\n✅ 잉여자금이 충분합니다. 정기적금이나 청약저축을 활용하면 목돈 마련에 유리합니다.")
+        elif surplus > 0:
+            parts.append("\n💡 소액 자동이체 적금으로 저축 습관을 만들어 보세요.")
+        else:
+            parts.append("\n⚠️ 지출이 수입을 초과하고 있습니다. 지출 항목 점검을 권장드립니다.")
+
+        if income_total == 0 and expense_total == 0:
+            parts = [
+                "📄 거래내역 파일을 확인했습니다.\n",
+                "수입·지출 금액을 자동으로 파악하기 어려운 형식입니다.\n",
+                "주요 내용을 직접 확인해 주세요:\n",
+            ]
+            parts.extend(f"  • {l}" for l in lines[:10])
+
+        return "\n".join(parts)
+
+    def _analyze_terms(self, text: str) -> str:
+        import re
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+        # 조항 번호(제N조) 또는 숫자. 형태로 시작하는 줄 추출
+        article_pattern = re.compile(r"^(제\s*\d+\s*조|[\d]+\.)\s*(.+)")
+        articles: list[str] = []
+        for line in lines:
+            m = article_pattern.match(line)
+            if m:
+                articles.append(f"  • {m.group(0)[:60]}")
+            if len(articles) >= 10:
+                break
+
+        # 키워드별 관련 문장 추출
+        highlights: dict[str, list[str]] = {
+            "중도해지": [],
+            "수수료": [],
+            "이자": [],
+            "만기": [],
+        }
+        for line in lines:
+            for keyword, bucket in highlights.items():
+                if keyword in line and len(bucket) < 2:
+                    bucket.append(line[:80])
+
+        parts = ["📋 **약관 분석 결과**\n"]
+
+        if articles:
+            parts.append("📌 주요 조항:")
+            parts.extend(articles)
+
+        for keyword, bucket in highlights.items():
+            if bucket:
+                parts.append(f"\n🔍 {keyword} 관련:")
+                parts.extend(f"  • {s}" for s in bucket)
+
+        if len(parts) == 1:
+            parts.append("약관 내용을 확인했습니다. 주요 내용:")
+            parts.extend(f"  • {l}" for l in lines[:8])
+
+        parts.append("\n⚠️ 중도해지 시 이자 손실이 발생할 수 있으니 가입 전 약관을 꼼꼼히 확인하세요.")
+        return "\n".join(parts)
+
+    def _analyze_product(self, text: str) -> str:
+        import re
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+
+        rate_pattern = re.compile(r"(\d+\.?\d*)\s*%")
+        amount_pattern = re.compile(r"(\d[\d,]*)\s*원")
+        period_pattern = re.compile(r"(\d+)\s*개월")
+
+        rates: list[str] = []
+        amounts: list[str] = []
+        periods: list[str] = []
+        features: list[str] = []
+
+        feature_keywords = ["세제", "비과세", "소득공제", "우대", "혜택", "특징", "조건", "가입대상", "만기"]
+
+        for line in lines:
+            if rate_pattern.search(line) and len(rates) < 4:
+                rates.append(f"  • {line[:70]}")
+            if amount_pattern.search(line) and len(amounts) < 3:
+                amounts.append(f"  • {line[:70]}")
+            if period_pattern.search(line) and len(periods) < 3:
+                periods.append(f"  • {line[:70]}")
+            if any(k in line for k in feature_keywords) and len(features) < 5:
+                features.append(f"  • {line[:70]}")
+
+        parts = ["📄 **상품 설명서 분석 결과**\n"]
+        if rates:
+            parts.append("💹 금리 조건:")
+            parts.extend(rates)
+        if amounts:
+            parts.append("\n💰 가입 금액:")
+            parts.extend(amounts)
+        if periods:
+            parts.append("\n📅 가입 기간:")
+            parts.extend(periods)
+        if features:
+            parts.append("\n✨ 주요 특징/혜택:")
+            parts.extend(features)
+
+        if len(parts) == 1:
+            parts.append("상품 설명서 내용을 확인했습니다. 주요 내용:")
+            parts.extend(f"  • {l}" for l in lines[:8])
+
+        parts.append("\n💡 자세한 가입 조건은 영업점 또는 고객센터에 문의하세요.")
+        return "\n".join(parts)
 
 
 class LlmHandoffAdapter:

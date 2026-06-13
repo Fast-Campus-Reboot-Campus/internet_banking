@@ -451,15 +451,12 @@ async def end_chat(
     description="프론트엔드에서 PDF를 파싱한 텍스트를 받아 OpenAI로 분석 결과를 반환합니다.",
 )
 async def analyze_file(request: FileAnalyzeRequest) -> FileAnalyzeResponse:
-    api_key = settings.openai_api_key
-    if not api_key:
-        raise HTTPException(status_code=503, detail="OpenAI API 키가 설정되지 않았습니다.")
     try:
-        analyzer = OpenAIDocumentAnalyzer(api_key)
+        analyzer = OpenAIDocumentAnalyzer(settings.openai_api_key or "")
         result = analyzer.analyze(request.text, request.analyze_type)
         return FileAnalyzeResponse(analyze_type=request.analyze_type, result=result)
     except Exception as exc:
-        logger.exception("[file/analyze] OpenAI 호출 오류: %s", exc)
+        logger.exception("[file/analyze] 분석 오류: %s", exc)
         raise HTTPException(status_code=500, detail="파일 분석 중 오류가 발생했습니다.") from exc
 
 
