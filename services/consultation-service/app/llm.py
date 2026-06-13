@@ -113,9 +113,11 @@ class IntentClassifier:
         # 1. 등록된 키워드 매칭 — 단, PRODUCT_COMPARE는 개인 추천 의도가 없을 때만
         for feature_code in _INTENT_PRIORITY:
             if any(kw in msg for kw in _INTENT_KEYWORDS[feature_code]):
-                # 비교 질문이지만 개인 추천 의도가 함께 있으면 CASH_FLOW_RECOMMEND로
+                # 비교 질문 + 개인 추천 의도: 명시적 비교 키워드("비교", "차이")가 있으면 PRODUCT_COMPARE 유지
                 if feature_code == "PRODUCT_COMPARE" and (has_personal or has_recommend):
-                    return "CASH_FLOW_RECOMMEND"
+                    has_explicit_compare = any(w in msg for w in ["비교", "차이", "다른 점", "다른점"])
+                    if not has_explicit_compare:
+                        return "CASH_FLOW_RECOMMEND"
                 return feature_code
 
         has_product = any(p in msg for p in _PRODUCT_TYPES)
@@ -131,6 +133,9 @@ class IntentClassifier:
             "하나만", "딱 하나", "하나 골라", "하나 추천",
         ]
         if any(w in msg for w in _COMPARE_FOLLOW_UP):
+            # "비교"가 명시적으로 있으면 PRODUCT_COMPARE로 처리
+            if any(w in msg for w in ["비교", "차이", "다른 점"]):
+                return "PRODUCT_COMPARE"
             return "CASH_FLOW_RECOMMEND"
 
         # 3. "예금"과 "적금"이 같이 나올 때: 추천 의도가 있을 때만 CASH_FLOW_RECOMMEND
