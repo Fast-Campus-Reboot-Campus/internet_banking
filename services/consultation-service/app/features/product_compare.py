@@ -97,10 +97,11 @@ def _find_products_by_name(db: Any, query: str) -> list[dict]:
         elif name_nospace in q_nospace:
             score = 2
         else:
-            # 4자 이상 고유 토큰 매칭 (브랜드명 "AXful" 등 짧은 공통 단어 제외)
-            tokens = [t for t in re.split(r"[\s,·\-]", name) if len(t) >= 4]
-            if any(t in query or t in q_nospace for t in tokens):
-                score = 1
+            # 4자 이상 토큰 중 쿼리에 포함된 개수를 점수로 사용 (다수 매칭일수록 높음)
+            tokens = [t for t in re.split(r"[\s,·\-★()]", name) if len(t) >= 4]
+            match_count = sum(1 for t in tokens if t in query or t in q_nospace)
+            if match_count > 0:
+                score = match_count
         if score > 0:
             scored.append((score, dict(row)))
             seen.add(pid)

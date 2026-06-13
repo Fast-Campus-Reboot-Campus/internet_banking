@@ -825,12 +825,13 @@ class ChatbotService:
         query = (request.query or "").strip()
         product_ids = list(request.compare_product_ids or ([request.product_id] if request.product_id else []))
 
-        # ── 상품명 언급 또는 ID가 있으면 비교 분석 에이전트로 위임 ────────────
-        from app.features.product_compare import ProductCompareAgent, _find_products_by_name
-        has_name_mention = len(_find_products_by_name(self.db, query)) >= 1
-        if len(product_ids) >= 2 or has_name_mention:
-            agent = ProductCompareAgent(self.db)
-            return agent.execute(request)
+        # ── 비교 분석 에이전트로 위임 (상품명 언급 여부와 무관하게 항상) ─────
+        from app.features.product_compare import ProductCompareAgent
+        agent = ProductCompareAgent(self.db)
+        result = agent.execute(request)
+        # 에이전트가 상품을 못 찾은 경우(NEED_INFO)면 개념 비교로 폴백
+        if result.status != "NEED_INFO":
+            return result
 
         # ── 개념 비교 질문: "예금 적금 차이" 등 → LLM 또는 고정 텍스트 설명 ──
         _CONCEPT_PAIRS = [
