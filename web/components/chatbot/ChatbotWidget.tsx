@@ -895,6 +895,10 @@ export default function ChatbotWidget() {
   }
 
   function answerProductCompare(text: string): string | null {
+    // 구체적 상품명이 포함된 비교 요청은 서버(ProductCompareAgent)로 위임
+    const hasSpecificProduct = /AXful|내맘대로|수퍼정기|달러자|맑은하늘|장병내일|청년도약|특★한|쏙머니|당선통장|생계비|GS Pay|모임금고|스타통장|지갑통장|자유입출금|주택청약|청년 주택드림/.test(text)
+    if (hasSpecificProduct) return null
+
     const normalized = text.replace(/\s+/g, '').toLowerCase()
     const hasCompareIntent = ['비교', '차이', '뭐가더', '어느쪽', 'compare', 'difference'].some(keyword => normalized.includes(keyword))
     const hasMeaningIntent = ['뜻', '의미', '뭐야', '뭔가요', '뭔지', '설명', '알려줘', '개념'].some(keyword => normalized.includes(keyword))
