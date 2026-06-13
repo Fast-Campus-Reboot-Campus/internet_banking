@@ -51,7 +51,13 @@ def _amount_str(min_a: Any, max_a: Any) -> str:
 # ── 상품명 감지 ───────────────────────────────────────────────────────────────
 
 def _find_products_by_name(db: Any, query: str) -> list[dict]:
-    """쿼리 텍스트에서 상품명을 감지해 DB에서 조회."""
+    """쿼리 텍스트에서 상품명을 감지해 DB에서 조회.
+
+    매칭 전략 (점수 높은 순):
+    1. 상품명 전체가 쿼리에 포함
+    2. 공백 제거 후 상품명이 쿼리에 포함
+    3. 상품명 고유 토큰(4자 이상) 중 하나가 쿼리에 포함
+    """
     from sqlalchemy import text
     rows = db.execute(text(
         """
@@ -71,25 +77,37 @@ def _find_products_by_name(db: Any, query: str) -> list[dict]:
                is_passbook_issued
           FROM deposit_banking_products
          WHERE deposit_product_status = 'SELLING'
+         ORDER BY banking_product_id
         """
     )).mappings().all()
 
-    matched: list[dict] = []
+    q_nospace = query.replace(" ", "")
+    scored: list[tuple[int, dict]] = []
     seen: set[int] = set()
+
     for row in rows:
         name = str(row["product_name"] or "")
         pid = int(row["product_id"])
         if pid in seen:
             continue
-        # 상품명 단어가 쿼리에 포함되면 매칭 (2글자 이상 토큰)
-        tokens = [t for t in re.split(r"[\s,·]", name) if len(t) >= 2]
-        if any(t in query for t in tokens):
-            matched.append(dict(row))
+        name_nospace = name.replace(" ", "")
+        score = 0
+        if name in query:
+            score = 3
+        elif name_nospace in q_nospace:
+            score = 2
+        else:
+            # 4자 이상 고유 토큰 매칭 (브랜드명 "AXful" 등 짧은 공통 단어 제외)
+            tokens = [t for t in re.split(r"[\s,·\-]", name) if len(t) >= 4]
+            if any(t in query or t in q_nospace for t in tokens):
+                score = 1
+        if score > 0:
+            scored.append((score, dict(row)))
             seen.add(pid)
-        if len(matched) >= 2:
-            break
 
-    return matched
+    # 점수 높은 순 정렬 후 상위 2개 반환
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:2]]
 
 
 def _fetch_products_by_ids(db: Any, product_ids: list[int]) -> list[dict]:
