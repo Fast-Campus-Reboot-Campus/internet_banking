@@ -97,7 +97,11 @@ public enum CustomerErrorCode implements ErrorCode {
     CUST_141(HttpStatus.CONFLICT,    "이미 활성 보안카드가 존재합니다."),
     CUST_142(HttpStatus.UNAUTHORIZED,"보안카드 코드가 올바르지 않습니다."),
     CUST_143(HttpStatus.GONE,        "보안카드 챌린지가 만료되었거나 존재하지 않습니다."),
-    CUST_144(HttpStatus.BAD_REQUEST, "챌린지에 없는 위치 코드가 포함되어 있습니다.");
+    CUST_144(HttpStatus.BAD_REQUEST, "챌린지에 없는 위치 코드가 포함되어 있습니다."),
+
+    // 이체한도 (150-159)
+    CUST_150(HttpStatus.BAD_REQUEST,"이체한도는 온라인에서 감액만 가능합니다. 증액은 영업점 방문 또는 본인인증이 필요합니다."),
+    CUST_151(HttpStatus.BAD_REQUEST,"이체한도는 0보다 큰 금액으로 입력해 주세요.");
 
     private final HttpStatus status;
     private final String message;
