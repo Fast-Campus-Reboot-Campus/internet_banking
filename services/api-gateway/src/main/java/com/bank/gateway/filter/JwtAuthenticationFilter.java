@@ -37,13 +37,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     );
 
     /**
-     * 고객 본인만 호출 가능한 경로(자금이동·계좌). 직원/관리자 세션 토큰은 ROLE_CUSTOMER 가 없어 차단된다.
-     * 직원용 조회·처리는 {@code /api/v1/internal/**} 로 분리돼 있고, 직원의 개인 거래는
+     * 고객 본인만 호출 가능한 경로(자금이동·계좌·고객 자가설정). 직원/관리자 세션 토큰은 ROLE_CUSTOMER 가 없어 차단된다.
+     * 직원용 조회·처리는 {@code /api/v1/internal/**} 로 분리돼 있고, 직원의 개인 거래·자가설정은
      * 사용자 모드(ROLE_CUSTOMER) 로그인으로 정상 수행한다.
      */
     private static final List<String> CUSTOMER_ONLY_PATHS = List.of(
             "/api/v1/accounts",
-            "/api/v1/payments"
+            "/api/v1/payments",
+            "/api/v1/customers/me"   // 고객 자가설정·인뱅해지·이체한도 등 — 직원/관리자 세션 차단(#72)
     );
 
     private final JwtProvider jwtProvider;
