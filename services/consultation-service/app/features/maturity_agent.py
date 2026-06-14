@@ -23,7 +23,9 @@ class MaturityManagementAgent(FeatureExecutorBase):
     """Recommend what to do with maturing deposit/savings contracts."""
 
     def execute(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
-        customer_no = request.customer_no or "1"
+        if not request.customer_no:
+            return self._auth_required(FEATURE_CODE, "재투자 추천에는 고객번호와 본인 인증이 필요합니다.")
+        customer_no = request.customer_no
         targets = self._maturity_targets(customer_no)
         if not targets:
             return self._data_response(
@@ -36,11 +38,12 @@ class MaturityManagementAgent(FeatureExecutorBase):
         cash_flow = self._analyze_customer_cash_flow_compatible(customer_no)
         products = self._selling_products()
         rows = [self._recommend_for_target(target, cash_flow, products) for target in targets]
+        display_rows = rows[:3]
 
         return ChatbotFeatureExecuteResponse(
             feature_code=FEATURE_CODE,
             status="OK",
-            message=self._format_message(rows, cash_flow),
+            message=self._format_message(display_rows, cash_flow),
             data=[
                 {
                     "row_type": "cash_flow_summary",
@@ -49,7 +52,7 @@ class MaturityManagementAgent(FeatureExecutorBase):
                     "monthly_tx_count": cash_flow["monthly_tx_count"],
                     "has_data": cash_flow["has_data"],
                 },
-                *rows,
+                *display_rows,
             ],
         )
 
@@ -185,8 +188,6 @@ class MaturityManagementAgent(FeatureExecutorBase):
         ]
         if not eligible:
             eligible = [p for p in general if self._amount_eligible(p, amount)]
-        if not eligible:
-            eligible = [p for p in products if self._amount_eligible(p, amount)]
         return max(eligible, key=self._product_score, default=None)
 
     def _product_score(self, product: dict[str, Any]) -> float:
@@ -202,6 +203,9 @@ class MaturityManagementAgent(FeatureExecutorBase):
         return amount >= min_amount and (max_amount == 0 or amount <= max_amount)
 
     def _recommended_period_month(self, target: MaturityTarget, monthly_surplus: float) -> int:
+        # 만기 임박(45일 이내)이면 현금흐름과 무관하게 단기 6개월로 고정
+        # — _recommend_for_target에서 이미 TERMINATE_OR_KEEP_LIQUID를 권고하므로
+        #   이 period 값은 REDEPOSIT/SWITCH_PRODUCT 경로에서만 실질 사용됨
         if target.days_to_maturity <= 45:
             return 6
         if monthly_surplus < 0:
@@ -268,7 +272,7 @@ class MaturityManagementAgent(FeatureExecutorBase):
         else:
             lines.append("거래 데이터가 부족해 보수적인 만기 운용 전략으로 안내합니다.")
 
-        for row in rows[:3]:
+        for row in rows:
             amount = float(row.get("join_amount") or 0)
             product_name = row.get("product_name") or "만기 상품"
             period = row.get("recommended_period_month")

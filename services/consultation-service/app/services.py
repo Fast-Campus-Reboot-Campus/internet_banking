@@ -966,7 +966,9 @@ class ChatbotService:
         )
 
     def _execute_maturity_schedule(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
-        customer_no = request.customer_no or "1"
+        if not request.customer_no:
+            return self._auth_required("MATURITY_SCHEDULE", "만기 예정 조회에는 고객번호와 본인 인증이 필요합니다.")
+        customer_no = request.customer_no
         rows = self._contract_rows(customer_no)
         if not rows:
             return ChatbotFeatureExecuteResponse(
@@ -1011,8 +1013,15 @@ class ChatbotService:
         return "\n".join(lines)
 
     def _execute_maturity_management(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
-        customer_no = request.customer_no or "1"
+        if not request.customer_no:
+            return self._auth_required("MATURITY_MANAGEMENT", "만기 운용 전략 조회에는 고객번호와 본인 인증이 필요합니다.")
+        customer_no = request.customer_no
         rows = self._contract_rows(customer_no)
+        if not rows:
+            return ChatbotFeatureExecuteResponse(
+                feature_code="MATURITY_MANAGEMENT", status="OK",
+                message="조회된 만기 예정 계약이 없습니다.",
+            )
         return ChatbotFeatureExecuteResponse(
             feature_code="MATURITY_MANAGEMENT", status="OK",
             message=self._format_maturity_strategy(rows),
