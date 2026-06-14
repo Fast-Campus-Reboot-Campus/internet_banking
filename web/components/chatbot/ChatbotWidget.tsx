@@ -324,6 +324,7 @@ export default function ChatbotWidget() {
   const [chatbotConsultationId, setChatbotConsultationId] = useState<number | null>(null)
   const [expandedRow, setExpandedRow] = useState<ExpandedRow | null>(null)
   const [dataPages, setDataPages] = useState<Record<string, number>>({})
+  const [feedback, setFeedback] = useState<Record<string, 'like' | 'dislike'>>({})
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const [transferState, setTransferState] = useState<TransferState | null>(null)
   const [terminateState, setTerminateState] = useState<TerminateState | null>(null)
@@ -2605,7 +2606,7 @@ export default function ChatbotWidget() {
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#FBFAF7] px-4 py-4">
               {messages.map((message) => (
-                <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+                <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start'}>
                   <div
                     className={`max-w-[88%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                       message.role === 'user'
@@ -2989,6 +2990,28 @@ export default function ChatbotWidget() {
                           <ArrowLeftRight className="h-3 w-3" />
                           {message.link.text}
                         </a>
+                      </div>
+                    )}
+                    {message.role === 'bot' && !message.loginForm && (
+                      <div className="flex gap-1.5 mt-2 pt-2 border-t border-kb-border">
+                        <button
+                          onClick={() => setFeedback(prev => {
+                            if (prev[message.id] === 'like') { const n = {...prev}; delete n[message.id]; return n }
+                            return { ...prev, [message.id]: 'like' }
+                          })}
+                          className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${feedback[message.id] === 'like' ? 'bg-green-100 text-green-600 font-bold' : 'text-kb-text-muted hover:text-green-500'}`}
+                        >
+                          👍 {feedback[message.id] === 'like' ? '도움됐어요' : '좋아요'}
+                        </button>
+                        <button
+                          onClick={() => setFeedback(prev => {
+                            if (prev[message.id] === 'dislike') { const n = {...prev}; delete n[message.id]; return n }
+                            return { ...prev, [message.id]: 'dislike' }
+                          })}
+                          className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${feedback[message.id] === 'dislike' ? 'bg-red-100 text-red-500 font-bold' : 'text-kb-text-muted hover:text-red-400'}`}
+                        >
+                          👎 {feedback[message.id] === 'dislike' ? '별로예요' : '싫어요'}
+                        </button>
                       </div>
                     )}
                     {message.loginForm && !isLoggedIn && (
