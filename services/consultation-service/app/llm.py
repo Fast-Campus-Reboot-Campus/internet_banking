@@ -7,6 +7,9 @@
 # (더 구체적인 "내 패턴/현금흐름 분석 기반" 의도이므로)
 _INTENT_PRIORITY: list[str] = [
     "SAVINGS_GOAL",
+    "REINVESTMENT_RECOMMEND",
+    "MATURITY_MANAGEMENT",
+    "MATURITY_SCHEDULE",
     "MY_ACCOUNTS",
     "INTEREST_HISTORY",
     "RATE_GUIDE",
@@ -19,6 +22,23 @@ _INTENT_PRIORITY: list[str] = [
 ]
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
+    "REINVESTMENT_RECOMMEND": [
+        "재투자", "재예치", "재가입", "다시 가입",
+        "만기 추천", "만기 상품 추천", "만기 운용 추천",
+        "어디에 넣", "어디다 넣", "어디에 재",
+    ],
+    "MATURITY_MANAGEMENT": [
+        "만기 후 어떻게", "만기되면 어떻게", "만기 상품 어떻게", "만기 되면 어떻게",
+        "만기됐", "만기 됐", "만기됐는데", "만기 됐는데",
+        "만기되면", "만기 되면", "만기 후",
+        "만기 운용", "갱신", "자동 갱신",
+    ],
+    "MATURITY_SCHEDULE": [
+        "만기", "만기일", "만기 예정", "만기 언제", "만기일 언제",
+        "곧 만기", "다음 달 만기", "이번 달 만기", "만기 상품",
+        "만기 알려", "만기 확인", "만기 조회", "만기 내역",
+        "언제 만기", "만기 날짜", "만기 일정",
+    ],
     "SAVINGS_GOAL": [
         "모으고", "모으려", "모아야", "모을래", "모을게", "모아볼", "모아서",
         "모아야", "모아두", "모으면", "모으나", "모을 수", "모을수",
