@@ -9,7 +9,8 @@ import { getAdminRoles, hasAnyRole, primaryRoleLabel } from '@/lib/admin-auth'
 // 게이팅은 BankRole(JWT, admin_roles) 단일 어휘로 한다. 섹션/항목에 bankRoles 를 지정하고
 // 항목에 없으면 섹션 값을 상속한다. (ROLE_ADMIN 은 hasAnyRole 에서 항상 통과)
 type NavItem    = { label: string; href: string; bankRoles?: string[] }
-type NavSection = { section: string; dot: string; bankRoles: string[]; items: NavItem[] }
+// domain = 도메인(계) 라벨. 같은 domain 끼리 한 블록으로 묶어 소유 경계를 시각화한다.
+type NavSection = { domain: string; section: string; dot: string; bankRoles: string[]; items: NavItem[] }
 
 // CUSTOMER 제외 전 직원(BankRole). break-glass 긴급 접근 등 '전 직원' 범위 게이팅에 사용.
 const EMPLOYEE_ROLES = [
@@ -21,22 +22,25 @@ const CUSTOMER_VIEW = ['ROLE_COMPLIANCE', 'ROLE_HQ_REVIEWER', 'ROLE_HQ_RISK', 'R
 const AUDIT_VIEW    = ['ROLE_COMPLIANCE', 'ROLE_HQ_REVIEWER', 'ROLE_BRANCH_MANAGER', 'ROLE_TELLER']
 const HQ_DESK       = ['ROLE_COMPLIANCE', 'ROLE_HQ_REVIEWER', 'ROLE_HQ_RISK']
 
+// 도메인(계) 블록 단위로 정렬한다. 같은 domain 끼리 연속 배치 → 렌더에서 도메인 헤더로 묶인다.
 const NAV: NavSection[] = [
+  // ───────── 고객·인증보안계 ─────────
   {
-    // 고객 운영 전반 — 조회·회원 라이프사이클·접근 감사·가입 통계.
+    domain: '고객·인증보안계',
+    // 고객 운영 — 조회·회원 라이프사이클·가입 통계. (감사 로그는 여신계 감사 소관)
     section: '고객', dot: 'bg-blue-300',
     bankRoles: CUSTOMER_VIEW,
     items: [
       { label: '고객 조회',      href: '/admin/customers' },
       { label: '회원 목록',      href: '/admin/members' },
       { label: '회원 상태 관리', href: '/admin/member-status' },
-      { label: '감사 로그',      href: '/admin/audit-log',  bankRoles: AUDIT_VIEW },
       { label: '가입 대시보드',  href: '/admin/join-stats', bankRoles: ['ROLE_COMPLIANCE', 'ROLE_HQ_RISK'] },
     ],
   },
   {
+    domain: '고객·인증보안계',
     // KYC·AML·제재·세무 심사.
-    section: '심사·컴플라이언스', dot: 'bg-orange-400',
+    section: '준법·심사', dot: 'bg-orange-400',
     bankRoles: HQ_DESK,
     items: [
       { label: '제재대상 Hit 검토', href: '/admin/screening' },
@@ -48,6 +52,7 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    domain: '고객·인증보안계',
     // 이상거래 조사 에이전트(Python/LangGraph 사이드카) — 경쟁 가설 조사 + HITL 권고.
     section: '이상거래 조사', dot: 'bg-purple-400',
     bankRoles: HQ_DESK,
@@ -55,24 +60,22 @@ const NAV: NavSection[] = [
       { label: '조사 에이전트', href: '/admin/fraud' },
     ],
   },
+
+  // ───────── 수신계 ─────────
   {
+    domain: '수신계',
     section: '상담', dot: 'bg-teal-400',
     bankRoles: AUDIT_VIEW,
     items: [
       { label: '고객 조회', href: '/admin/consultation/customer' },
     ],
   },
+
+  // ───────── 여신계 ─────────
   {
-    section: 'AI 감사', dot: 'bg-red-400',
-    bankRoles: ['ROLE_COMPLIANCE'],
-    items: [
-      { label: '감사 대시보드', href: '/admin/audit' },
-      { label: '격리 관리',     href: '/admin/audit/quarantine' },
-    ],
-  },
-  {
-    section: '대출', dot: 'bg-green-400',
+    domain: '여신계',
     // 대출 어드민은 심사·운영·결재 직군이 사용한다.
+    section: '대출', dot: 'bg-green-400',
     bankRoles: ['ROLE_DEPUTY_MANAGER', 'ROLE_OPS', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER'],
     items: [
       { label: '계약 모니터링',      href: '/admin/loan/contracts' },
@@ -89,8 +92,9 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    section: 'AI 심사지원', dot: 'bg-violet-400',
+    domain: '여신계',
     // RAG·자문·편향감사 관리 — 본사 심사·컴플라이언스 데스크(HQ_DESK).
+    section: 'AI 심사지원', dot: 'bg-violet-400',
     bankRoles: HQ_DESK,
     items: [
       { label: 'RAG 문서관리',  href: '/admin/ai/rag-documents' },
@@ -100,12 +104,24 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    section: '대출 운영·감사', dot: 'bg-emerald-400',
+    domain: '여신계',
+    // 감사 — 접근 감사로그 + AI 출력 감사. (감사 로그는 여신계 감사 소관)
+    section: '감사', dot: 'bg-red-400',
+    bankRoles: AUDIT_VIEW,
+    items: [
+      { label: '감사 로그',     href: '/admin/audit-log' },
+      { label: '감사 대시보드', href: '/admin/audit',            bankRoles: ['ROLE_COMPLIANCE'] },
+      { label: '격리 관리',     href: '/admin/audit/quarantine', bankRoles: ['ROLE_COMPLIANCE'] },
+    ],
+  },
+  {
+    domain: '여신계',
     // break-glass 는 고객 제외 전 직원이 사용 → 섹션은 직원 역할 합집합, 항목은 개별 게이팅.
+    section: '대출 운영·감사', dot: 'bg-emerald-400',
     bankRoles: EMPLOYEE_ROLES,
     items: [
       { label: 'EOD 배치',     href: '/admin/loan/eod',         bankRoles: ['ROLE_OPS'] },
-      { label: '감사로그',     href: '/admin/loan/audit',       bankRoles: ['ROLE_COMPLIANCE'] },
+      { label: '대출 감사로그', href: '/admin/loan/audit',       bankRoles: ['ROLE_COMPLIANCE'] },
       { label: '긴급 접근',    href: '/admin/loan/break-glass', bankRoles: EMPLOYEE_ROLES },
     ],
   },
@@ -194,8 +210,19 @@ export default function AdminSidebar() {
 
       {/* 섹션별 네비게이션 */}
       <nav className="flex-1 overflow-y-auto pb-4">
-        {visibleNav.map((group) => (
-          <div key={group.section} className="mt-4">
+        {visibleNav.map((group, idx) => {
+          const showDomain = idx === 0 || visibleNav[idx - 1].domain !== group.domain
+          return (
+          <div key={group.section}>
+            {/* 도메인(계) 헤더 — 같은 도메인 첫 섹션에서만. 소유 경계 시각화 */}
+            {showDomain && (
+              <div className="px-4 pt-3 pb-1 mt-4 first:mt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <p className="text-[11px] font-extrabold tracking-wide" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                  {group.domain}
+                </p>
+              </div>
+            )}
+            <div className="mt-3">
             <div className="flex items-center gap-1.5 px-4 pb-1.5">
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${group.dot}`} />
               <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -219,8 +246,10 @@ export default function AdminSidebar() {
                 </Link>
               )
             })}
+            </div>
           </div>
-        ))}
+          )
+        })}
 
         {visibleNav.length === 0 && (
           <div className="mx-3 mt-4 px-3 py-3 rounded text-[11px] leading-relaxed" style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.3)' }}>
