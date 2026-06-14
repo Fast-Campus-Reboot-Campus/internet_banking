@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -39,17 +38,6 @@ public class AccountService {
     public Account findByAccountNumber(String accountNumber) {
         return accountRepository.findByAccountNumber(accountNumber)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
-    }
-
-    /**
-     * 계좌 소유주 검증 — 계좌번호 + 계좌비밀번호가 일치하면 소유 고객 ID를 돌려준다.
-     * 비로그인 ID 조회/사용자암호 재설정(customer-service)의 본인확인에 쓰인다.
-     * 계좌 미존재·비밀번호 불일치는 구분하지 않고 빈 값으로 반환한다(정보 노출 방지).
-     */
-    public Optional<String> verifyOwner(String accountNumber, String rawPassword) {
-        return accountRepository.findByAccountNumber(accountNumber)
-                .filter(a -> passwordEncoder.matches(rawPassword, a.getAccountPassword()))
-                .map(Account::getCustomerId);
     }
 
     public Account findActive(Long id) {
