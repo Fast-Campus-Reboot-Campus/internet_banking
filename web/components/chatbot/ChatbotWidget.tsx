@@ -27,6 +27,7 @@ import {
   fetchDepositProducts,
   fetchDepositInterestRates,
   fetchDepositRecommendAgent,
+  fetchTransactions,
   terminateDepositContract,
   getDepositSlugByProductId,
   type DepositProduct,
@@ -2720,13 +2721,13 @@ export default function ChatbotWidget() {
                                   </div>
                                   {/* 핵심 수치 */}
                                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-                                    <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate}%</span></span>
+                                    <span>금리 <span className="font-bold text-[#2D6A4F]">{String(row.base_interest_rate)}%</span></span>
                                     <span>만기수령 <span className="font-bold text-kb-text">{Number(row.maturity_amount).toLocaleString()}원</span></span>
                                     <span>이자 <span className="font-bold text-[#2D6A4F]">+{Number(row.interest_amount).toLocaleString()}원</span></span>
                                     {row.required_monthly != null && (
                                       <span>월납입 <span className="font-bold text-kb-text">{Number(row.required_monthly).toLocaleString()}원</span></span>
                                     )}
-                                    <span>기간 <span className="font-bold text-kb-text">{row.goal_months}개월</span></span>
+                                    <span>기간 <span className="font-bold text-kb-text">{String(row.goal_months)}개월</span></span>
                                   </div>
                                   {/* 1위 상품에만 납입 계획표 */}
                                   {index === 0 && midPlan.length > 0 && (
