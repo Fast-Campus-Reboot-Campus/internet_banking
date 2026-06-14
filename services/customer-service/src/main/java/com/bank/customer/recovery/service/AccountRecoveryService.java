@@ -51,7 +51,7 @@ public class AccountRecoveryService {
         IdentityVerification identity = loadVerifiedIdentity(req.verificationId());
         Customer customer = resolveCustomer(identity.getIdentityVerificationCiValue());
         Credential credential = credentialRepository.findByCustomerIdAndDeletedAtIsNull(customer.getCustomerId())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_094));
         return new FindIdResponse(credential.getLoginId(), resolvePartyName(customer.getPartyId()));
     }
 
@@ -61,7 +61,7 @@ public class AccountRecoveryService {
         IdentityVerification identity = loadVerifiedIdentity(req.verificationId());
         Customer customer = resolveCustomer(identity.getIdentityVerificationCiValue());
         Credential credential = credentialRepository.findByCustomerIdAndDeletedAtIsNull(customer.getCustomerId())
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_094));
 
         credential.changePassword(passwordEncoder.encode(req.newPassword()));
         identity.consume(customer.getCustomerId());
@@ -92,10 +92,10 @@ public class AccountRecoveryService {
     /** CI 값으로 사람(PartyPerson) → party → 해지되지 않은 고객을 찾는다. */
     private Customer resolveCustomer(String ciValue) {
         PartyPerson person = partyPersonRepository.findByCiValueAndDeletedAtIsNull(ciValue)
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_094));
         return customerRepository
                 .findByPartyIdAndCustomerStatusCodeNotAndDeletedAtIsNull(person.getPartyId(), Customer.STATUS_CLOSED)
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_094));
     }
 
     private String resolvePartyName(Long partyId) {

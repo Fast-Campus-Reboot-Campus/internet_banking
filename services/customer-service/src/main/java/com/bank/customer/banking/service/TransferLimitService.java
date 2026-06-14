@@ -35,6 +35,9 @@ public class TransferLimitService {
         if (req.dailyLimit() <= 0 || req.onceLimit() <= 0) {
             throw new BusinessException(CustomerErrorCode.CUST_151);
         }
+        if (req.onceLimit() > req.dailyLimit()) {
+            throw new BusinessException(CustomerErrorCode.CUST_152);
+        }
 
         TransferLimit limit = transferLimitRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseGet(() -> transferLimitRepository.save(TransferLimit.builder()

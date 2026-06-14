@@ -101,7 +101,8 @@ public enum CustomerErrorCode implements ErrorCode {
 
     // 이체한도 (150-159)
     CUST_150(HttpStatus.BAD_REQUEST,"이체한도는 온라인에서 감액만 가능합니다. 증액은 영업점 방문 또는 본인인증이 필요합니다."),
-    CUST_151(HttpStatus.BAD_REQUEST,"이체한도는 0보다 큰 금액으로 입력해 주세요.");
+    CUST_151(HttpStatus.BAD_REQUEST,"이체한도는 0보다 큰 금액으로 입력해 주세요."),
+    CUST_152(HttpStatus.BAD_REQUEST,"1회 이체한도는 1일 이체한도를 초과할 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
