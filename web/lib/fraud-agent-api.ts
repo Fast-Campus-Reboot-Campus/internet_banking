@@ -167,7 +167,9 @@ export const ACTION_LABEL: Record<string, string> = {
 
 export function errMsg(e: unknown, fallback: string): string {
   if (axios.isAxiosError(e)) {
-    return e.response?.data?.detail || e.message || fallback
+    // 응답 온 에러는 서버 메시지 우선. 연결 실패(사이드카 다운 등 — 응답 없음)는
+    // 'Network Error' 대신 안내 폴백을 보여준다(serve.py 실행 안내).
+    return e.response ? (e.response.data?.detail || e.message || fallback) : fallback
   }
   return fallback
 }
