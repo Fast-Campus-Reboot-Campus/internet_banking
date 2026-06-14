@@ -7,7 +7,7 @@ import { useAdminRoles } from '@/components/admin/RoleGate'
 import { isMaskingRole, requiresReason, primaryRoleLabel } from '@/lib/admin-auth'
 import { searchCustomers, recordAccess, CustomerSummary, STATUS_LABEL, errMsg } from '@/lib/admin-customer-api'
 
-const maskPhone = (p: string | null) => (p ? p.replace(/(\d{3})\d+(\d{4})$/, '$1****$2') : '-')
+const maskPhone = (p: string | null) => (p ? p.replace(/^(\d{2,3})-?\d{3,4}-?(\d{4})$/, '$1-****-$2') : '-')
 const maskEmail = (e: string | null) => (e ? e.replace(/^(.).*(@.*)$/, '$1****$2') : '-')
 
 export default function CustomersPage() {
