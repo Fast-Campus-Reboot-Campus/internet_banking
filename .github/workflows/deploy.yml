@@ -1,0 +1,49 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ~/internet_banking
+
+            # pull 전 커밋 해시 저장
+            PREV=$(git rev-parse HEAD)
+
+            git pull origin main
+
+            # 변경된 파일 목록
+            CHANGED=$(git diff $PREV HEAD --name-only)
+            echo "Changed files:"
+            echo "$CHANGED"
+
+            # 변경된 서비스 감지
+            services=""
+            echo "$CHANGED" | grep -q "^services/api-gateway/"        && services="$services gateway-service"
+            echo "$CHANGED" | grep -q "^services/customer-service/"   && services="$services customer-service"
+            echo "$CHANGED" | grep -q "^services/deposit-service/"    && services="$services deposit-service"
+            echo "$CHANGED" | grep -q "^services/loan-service/"       && services="$services loan-service"
+            echo "$CHANGED" | grep -q "^services/payment-service/"    && services="$services payment-service payment-service-b"
+            echo "$CHANGED" | grep -q "^services/master-service/"     && services="$services master-service"
+            echo "$CHANGED" | grep -q "^services/auto-loan-review/"   && services="$services auto-loan-review"
+            echo "$CHANGED" | grep -q "^services/review-ai-gateway/"  && services="$services review-ai-gateway"
+            echo "$CHANGED" | grep -q "^services/consultation-service/" && services="$services consultation-service"
+            echo "$CHANGED" | grep -q "^web/"                         && services="$services web"
+
+            if [ -n "$services" ]; then
+              echo "Rebuilding:$services"
+              docker compose -f docker-compose.server.yml up -d --build $services
+            else
+              echo "No app services changed, skipping rebuild"
+            fi
