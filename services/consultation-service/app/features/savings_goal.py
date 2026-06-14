@@ -246,19 +246,24 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
         query = (request.query or "").strip()
         session = _SESSION.get(cid) if cid else None
 
+        # ── 새 요청 여부 먼저 판단: 금액+기간이 모두 있으면 새 목표로 인식 ──────
+        _fresh_amount = _parse_amount(query)
+        _fresh_months = _parse_months(query)
+        _is_new_goal = (_fresh_amount is not None and _fresh_months is not None)
+
         # ── 진행 중인 세션: 추가 질문 답변 수신 ──────────────────────────────
-        if session and session.get("stage") == "ASKED_MONTHLY":
+        if session and session.get("stage") == "ASKED_MONTHLY" and not _is_new_goal:
             return self._handle_payment_answer(cid, query, session)
 
         # ── 결과 표시 후 후속 금액 입력 처리 ─────────────────────────────────
-        if session and session.get("stage") == "RESULT_SHOWN":
+        if session and session.get("stage") == "RESULT_SHOWN" and not _is_new_goal:
             amount = _parse_amount(query)
             if amount is not None:
                 return self._handle_payment_answer(cid, query, session)
 
         # ── 새 요청: 목표 파싱 ────────────────────────────────────────────────
-        goal_amount = _parse_amount(query)
-        goal_months = _parse_months(query)
+        goal_amount = _fresh_amount
+        goal_months = _fresh_months
 
         missing = []
         if goal_amount is None:
