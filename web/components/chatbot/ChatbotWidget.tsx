@@ -1084,7 +1084,7 @@ export default function ChatbotWidget() {
       setMessages([{ id: messageId('user'), role: 'user', text }])
       try {
         const cid = customerNo.trim() || getCurrentDepositCustomerId()
-        const answer = await answerDepositSavingsFit(cid)
+        const answer = await answerCashflowRecommend(cid, trimmed)
         setMessages((current) => [...current, { id: messageId('bot'), role: 'bot', text: answer }])
       } catch {
         setMessages((current) => [...current, {
@@ -1320,14 +1320,7 @@ export default function ChatbotWidget() {
         product_type: (featureCode as string) === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
-      if (featureCode === 'CASH_FLOW_RECOMMEND') {
-        saveRecommendContext(result)
-        setMessages(prev => [
-          ...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'),
-          addFeatureResult(result),
-        ])
-        window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
-      } else if (replaceMessages) {
+      if (replaceMessages) {
         setMessages((current) => [...current, addFeatureResult(result)])
       } else {
         pushMessages([addFeatureResult(result)])
