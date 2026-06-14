@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: root
@@ -58,15 +58,20 @@ jobs:
               echo "Rebuilding: $services"
               docker compose -f docker-compose.server.yml up -d --build $services
 
-              # 헬스체크 — 30초 대기 후 컨테이너 상태 확인
+              # 헬스체크 — 재빌드한 서비스만 확인
               sleep 30
-              UNHEALTHY=$(docker compose -f docker-compose.server.yml ps --format json | grep -v '"Health":"healthy"' | grep '"State":"running"' | grep '"Health":"' || true)
-              if docker compose -f docker-compose.server.yml ps | grep -E "Exit|unhealthy"; then
-                echo "ERROR: One or more containers are unhealthy after deploy"
+              FAILED=0
+              for svc in $services; do
+                if docker compose -f docker-compose.server.yml ps $svc | grep -qE "Exit|unhealthy"; then
+                  echo "ERROR: $svc is unhealthy"
+                  FAILED=1
+                fi
+              done
+              if [ $FAILED -eq 1 ]; then
                 docker compose -f docker-compose.server.yml ps
                 exit 1
               fi
-              echo "Deploy complete. All containers healthy."
+              echo "Deploy complete. All deployed services healthy."
               docker compose -f docker-compose.server.yml ps
             else
               echo "No app services changed, skipping rebuild"
