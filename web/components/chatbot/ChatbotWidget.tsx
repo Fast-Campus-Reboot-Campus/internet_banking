@@ -1231,7 +1231,8 @@ export default function ChatbotWidget() {
       return
     }
 
-    const compareAnswer = answerProductCompare(trimmed)
+    const isMatureQuery = ['만기', '재투자', '재예치', '재가입'].some(w => trimmed.includes(w))
+    const compareAnswer = isMatureQuery ? null : answerProductCompare(trimmed)
     if (compareAnswer) {
       setExpandedRow(null)
       setDataPages({})
