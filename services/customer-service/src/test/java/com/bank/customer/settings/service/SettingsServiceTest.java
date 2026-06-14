@@ -1,7 +1,9 @@
 package com.bank.customer.settings.service;
 
 import com.bank.common.web.BusinessException;
+import com.bank.customer.cert.domain.AuthMethod;
 import com.bank.customer.cert.domain.Certificate;
+import com.bank.customer.cert.repository.AuthMethodRepository;
 import com.bank.customer.cert.repository.CertificateRepository;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
@@ -52,6 +54,7 @@ class SettingsServiceTest {
     @Mock PartyRepository                 partyRepository;
     @Mock CredentialRepository            credentialRepository;
     @Mock CertificateRepository           certificateRepository;
+    @Mock AuthMethodRepository            authMethodRepository;
     @Mock CustomerStatusHistoryRepository customerStatusHistoryRepository;
     @Mock PasswordHistoryRepository       passwordHistoryRepository;
     @Mock PasswordEncoder                 passwordEncoder;
@@ -63,7 +66,7 @@ class SettingsServiceTest {
     @BeforeEach
     void setUp() {
         settingsService = new SettingsService(
-                customerRepository, partyRepository, credentialRepository, certificateRepository,
+                customerRepository, partyRepository, credentialRepository, certificateRepository, authMethodRepository,
                 customerStatusHistoryRepository, passwordHistoryRepository,
                 passwordEncoder, redisTemplate, fdsService);
 
@@ -136,10 +139,14 @@ class SettingsServiceTest {
         Certificate cert = mock(Certificate.class);
         given(cert.isActive()).willReturn(true);
         given(certificateRepository.findByCustomerIdAndDeletedAtIsNull(1L)).willReturn(java.util.List.of(cert));
+        AuthMethod authMethod = mock(AuthMethod.class);
+        given(authMethodRepository.findByCustomerIdAndAuthMethodStatusCodeAndDeletedAtIsNull(1L, AuthMethod.STATUS_ACTIVE))
+                .willReturn(java.util.List.of(authMethod));
 
         settingsService.cancelInternetBanking(1L, new InternetBankingCancelRequest("pw"));
 
         verify(cert).revoke("IB_CANCEL");
+        verify(authMethod).deactivate();
         verify(credential).close();
         verify(redisTemplate).delete("RT:1");
         verify(customer, never()).close(any(), any()); // 고객 해지(withdraw)와 달리 고객 상태는 유지
@@ -161,6 +168,10 @@ class SettingsServiceTest {
                         .isEqualTo(CustomerErrorCode.CUST_020));
 
         verify(credential, never()).close();
+        // 비밀번호 불일치 → 인증서·인증수단 비활성화 로직에 도달하기 전 throw (부수효과 없음)
+        verify(certificateRepository, never()).findByCustomerIdAndDeletedAtIsNull(anyLong());
+        verify(authMethodRepository, never())
+                .findByCustomerIdAndAuthMethodStatusCodeAndDeletedAtIsNull(anyLong(), any());
     }
 
     private Credential mockCredential() {

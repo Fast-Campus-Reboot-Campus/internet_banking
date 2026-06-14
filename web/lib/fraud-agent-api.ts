@@ -167,7 +167,10 @@ export const ACTION_LABEL: Record<string, string> = {
 
 export function errMsg(e: unknown, fallback: string): string {
   if (axios.isAxiosError(e)) {
-    return e.response?.data?.detail || e.message || fallback
+    // 응답 온 에러는 서버 메시지(detail) 우선. detail 이 없으면(예: 500) axios 내부 문구
+    // ('Request failed with status code 500')를 UI에 노출하지 않고 안내 폴백을 쓴다.
+    // 연결 실패(사이드카 다운 등 — 응답 없음)도 'Network Error' 대신 폴백(serve.py 실행 안내).
+    return e.response ? (e.response.data?.detail || fallback) : fallback
   }
   return fallback
 }

@@ -1,7 +1,9 @@
 package com.bank.customer.settings.service;
 
 import com.bank.common.web.BusinessException;
+import com.bank.customer.cert.domain.AuthMethod;
 import com.bank.customer.cert.domain.Certificate;
+import com.bank.customer.cert.repository.AuthMethodRepository;
 import com.bank.customer.cert.repository.CertificateRepository;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
@@ -42,6 +44,7 @@ public class SettingsService {
     private final PartyRepository                  partyRepository;
     private final CredentialRepository             credentialRepository;
     private final CertificateRepository            certificateRepository;
+    private final AuthMethodRepository             authMethodRepository;
     private final CustomerStatusHistoryRepository  customerStatusHistoryRepository;
     private final PasswordHistoryRepository        passwordHistoryRepository;
     private final PasswordEncoder                  passwordEncoder;
@@ -164,6 +167,11 @@ public class SettingsService {
         certificateRepository.findByCustomerIdAndDeletedAtIsNull(customerId).stream()
                 .filter(Certificate::isActive)
                 .forEach(c -> c.revoke("IB_CANCEL"));
+
+        // 인증서 기반 인증수단(auth_method)도 비활성화 — 폐기된 인증서가 활성 인증수단으로 남지 않게
+        authMethodRepository
+                .findByCustomerIdAndAuthMethodStatusCodeAndDeletedAtIsNull(customerId, AuthMethod.STATUS_ACTIVE)
+                .forEach(AuthMethod::deactivate);
 
         // credential 비활성화 → 해당 ID 로 인터넷뱅킹 로그인 차단 (고객·계좌는 유지)
         credential.close();

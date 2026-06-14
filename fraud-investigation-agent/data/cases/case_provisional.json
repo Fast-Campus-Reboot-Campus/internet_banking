@@ -1,0 +1,26 @@
+{
+  "name": "case_provisional",
+  "description": "장기 경합 — 약한 상충 신호(낯선기기 vs 깨끗한 인증·네트워크)로 어느 가설도 0.75 못 넘기고 예산 소진. PROVISIONAL(잠정·부분결과 인계) 검증용.",
+  "alert": {
+    "id": "ALT-PROV",
+    "account": "110-555-5005",
+    "customer_id": "CUST-5005",
+    "tx_context": {
+      "amount": 3000000,
+      "payee": "일반 수취인",
+      "time": "2026-06-07T14:00:00",
+      "channel": "MOBILE"
+    },
+    "anomaly_score": 55.0
+  },
+  "tool_responses": {
+    "get_party": { "life_status": "ALIVE", "guardianship": "NONE", "name_match": true },
+    "get_customer": { "avg_tx_amount": 1000000, "usual_channel": "MOBILE", "tenure_years": 5 },
+    "get_auth_events": { "recent_cert_fail": 0, "password_changed_recently": false, "events": [] },
+    "get_device_fingerprint": { "known_device": true, "device_id": "DEV-USUAL-50", "first_seen_days": 600 },
+    "get_fds_history": { "past_detections": 1, "last_pattern": "none" },
+    "get_str_history": { "past_str_reports": 0, "last_report": null },
+    "get_related_accounts": { "same_device_customers": 1, "organized_ring": false, "linked_str_reports": 0 },
+    "get_aml_history": { "structuring": false, "layering_hops": 2 }
+  }
+}

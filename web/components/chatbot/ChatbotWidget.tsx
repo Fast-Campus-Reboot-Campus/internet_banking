@@ -27,6 +27,7 @@ import {
   fetchDepositProducts,
   fetchDepositInterestRates,
   fetchDepositRecommendAgent,
+  fetchTransactions,
   terminateDepositContract,
   getDepositSlugByProductId,
   type DepositProduct,
@@ -1178,7 +1179,7 @@ export default function ChatbotWidget() {
       setMessages([{ id: messageId('user'), role: 'user', text }])
       try {
         const cid = customerNo.trim() || getCurrentDepositCustomerId()
-        const answer = await answerDepositSavingsFit(cid)
+        const answer = await answerCashflowRecommend(cid, trimmed)
         setMessages((current) => [...current, { id: messageId('bot'), role: 'bot', text: answer }])
       } catch {
         setMessages((current) => [...current, {
@@ -1230,7 +1231,8 @@ export default function ChatbotWidget() {
       return
     }
 
-    const compareAnswer = answerProductCompare(trimmed)
+    const isMatureQuery = ['만기', '재투자', '재예치', '재가입'].some(w => trimmed.includes(w))
+    const compareAnswer = isMatureQuery ? null : answerProductCompare(trimmed)
     if (compareAnswer) {
       setExpandedRow(null)
       setDataPages({})
@@ -1479,14 +1481,7 @@ export default function ChatbotWidget() {
         product_type: (featureCode as string) === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
-      if (featureCode === 'CASH_FLOW_RECOMMEND') {
-        saveRecommendContext(result)
-        setMessages(prev => [
-          ...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'),
-          addFeatureResult(result),
-        ])
-        window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
-      } else if (replaceMessages) {
+      if (replaceMessages) {
         setMessages((current) => [...current, addFeatureResult(result)])
       } else {
         pushMessages([addFeatureResult(result)])
@@ -2719,7 +2714,7 @@ export default function ChatbotWidget() {
                                     </span>
                                     <p className="font-bold text-kb-text flex-1 text-[11px]">{String(row.product_name ?? '')}</p>
                                     {Number(row.product_id) > 0 && (
-                                      <a href={`/products/deposit/join/${row.product_id}`} target="_blank" rel="noopener noreferrer"
+                                      <a href={`/products/deposit/join/product-${row.product_id}`} target="_blank" rel="noopener noreferrer"
                                         className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]">
                                         가입하기
                                       </a>
@@ -2727,13 +2722,13 @@ export default function ChatbotWidget() {
                                   </div>
                                   {/* 핵심 수치 */}
                                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-                                    <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate}%</span></span>
+                                    <span>금리 <span className="font-bold text-[#2D6A4F]">{String(row.base_interest_rate)}%</span></span>
                                     <span>만기수령 <span className="font-bold text-kb-text">{Number(row.maturity_amount).toLocaleString()}원</span></span>
                                     <span>이자 <span className="font-bold text-[#2D6A4F]">+{Number(row.interest_amount).toLocaleString()}원</span></span>
                                     {row.required_monthly != null && (
                                       <span>월납입 <span className="font-bold text-kb-text">{Number(row.required_monthly).toLocaleString()}원</span></span>
                                     )}
-                                    <span>기간 <span className="font-bold text-kb-text">{row.goal_months}개월</span></span>
+                                    <span>기간 <span className="font-bold text-kb-text">{String(row.goal_months)}개월</span></span>
                                   </div>
                                   {/* 1위 상품에만 납입 계획표 */}
                                   {index === 0 && midPlan.length > 0 && (
@@ -2771,7 +2766,7 @@ export default function ChatbotWidget() {
                                 <div key={i} className="rounded bg-[#1a3a5c] p-2 text-center text-[10px] font-bold text-white">
                                   <p>{String(p.product_name ?? '')}</p>
                                   {Number(p.product_id) > 0 && (
-                                    <a href={`/products/deposit/join/${p.product_id}`} target="_blank" rel="noopener noreferrer"
+                                    <a href={`/products/deposit/join/product-${p.product_id}`} target="_blank" rel="noopener noreferrer"
                                       className="mt-1 inline-block rounded bg-white px-2 py-0.5 text-[9px] font-bold text-[#1a3a5c] hover:bg-gray-100">
                                       가입하기
                                     </a>
@@ -2816,7 +2811,7 @@ export default function ChatbotWidget() {
                                 <p className="font-bold text-kb-text flex-1">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
                                 {row.product_id != null && Number(row.product_id) > 0 && (
                                   <a
-                                    href={`/products/deposit/join/${row.product_id}`}
+                                    href={`/products/deposit/join/product-${row.product_id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]"
