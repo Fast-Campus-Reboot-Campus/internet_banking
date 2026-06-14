@@ -2714,7 +2714,7 @@ export default function ChatbotWidget() {
                                     </span>
                                     <p className="font-bold text-kb-text flex-1 text-[11px]">{String(row.product_name ?? '')}</p>
                                     {Number(row.product_id) > 0 && (
-                                      <a href={`/products/deposit/join/${row.product_id}`} target="_blank" rel="noopener noreferrer"
+                                      <a href={`/products/deposit/join/product-${row.product_id}`} target="_blank" rel="noopener noreferrer"
                                         className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]">
                                         가입하기
                                       </a>
@@ -2766,7 +2766,7 @@ export default function ChatbotWidget() {
                                 <div key={i} className="rounded bg-[#1a3a5c] p-2 text-center text-[10px] font-bold text-white">
                                   <p>{String(p.product_name ?? '')}</p>
                                   {Number(p.product_id) > 0 && (
-                                    <a href={`/products/deposit/join/${p.product_id}`} target="_blank" rel="noopener noreferrer"
+                                    <a href={`/products/deposit/join/product-${p.product_id}`} target="_blank" rel="noopener noreferrer"
                                       className="mt-1 inline-block rounded bg-white px-2 py-0.5 text-[9px] font-bold text-[#1a3a5c] hover:bg-gray-100">
                                       가입하기
                                     </a>
@@ -2811,7 +2811,7 @@ export default function ChatbotWidget() {
                                 <p className="font-bold text-kb-text flex-1">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
                                 {row.product_id != null && Number(row.product_id) > 0 && (
                                   <a
-                                    href={`/products/deposit/join/${row.product_id}`}
+                                    href={`/products/deposit/join/product-${row.product_id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]"
