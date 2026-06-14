@@ -170,6 +170,49 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("직원/관리자 토큰은 고객 자가설정 경로(/api/v1/customers/me)에서 403 차단된다 (#72)")
+    void employeeToken_isBlocked_onCustomerSelfServicePath() {
+        JwtClaims claims = new JwtClaims(8L, "teller@bank.com",
+                List.of("ROLE_TELLER"), TokenType.ACCESS, "BR-001", "T1", 108L);
+        when(jwtProvider.parseClaims(anyString())).thenReturn(claims);
+
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/v1/customers/me/withdraw")
+                        .header("Authorization", "Bearer token123")
+                        .build());
+
+        AtomicReference<Boolean> chainCalled = new AtomicReference<>(false);
+        filter.filter(exchange, ex -> {
+            chainCalled.set(true);
+            return Mono.empty();
+        }).block();
+
+        assertThat(chainCalled.get()).isFalse();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("고객 토큰(ROLE_CUSTOMER)은 고객 자가설정 경로를 정상 통과한다")
+    void customerToken_passesThrough_onCustomerSelfServicePath() {
+        JwtClaims claims = new JwtClaims(3L, "user@bank.com",
+                List.of("ROLE_CUSTOMER"), TokenType.ACCESS, null, null, null);
+        when(jwtProvider.parseClaims(anyString())).thenReturn(claims);
+
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/customers/me/settings")
+                        .header("Authorization", "Bearer token123")
+                        .build());
+
+        AtomicReference<Boolean> chainCalled = new AtomicReference<>(false);
+        filter.filter(exchange, ex -> {
+            chainCalled.set(true);
+            return Mono.empty();
+        }).block();
+
+        assertThat(chainCalled.get()).isTrue();
+    }
+
+    @Test
     @DisplayName("고객 토큰(ROLE_CUSTOMER)은 자금이동 경로를 정상 통과한다")
     void customerToken_passesThrough_onPaymentPath() {
         JwtClaims claims = new JwtClaims(3L, "user@bank.com",

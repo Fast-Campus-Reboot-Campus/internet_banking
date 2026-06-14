@@ -192,7 +192,8 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
         products = list(product_map.values())
 
         # ── 4. 채점 및 필터링 ────────────────────────────────────────────────
-        scored_products = self._score_products(cf, products, user_age)
+        preferred_type = (request.product_type or "").upper() or None  # "DEPOSIT" / "SAVINGS" / None
+        scored_products = self._score_products(cf, products, user_age, preferred_type)
         top3 = scored_products[:3]
         recommendation = self._build_recommendation_message(customer_name, cf, top3)
 
@@ -211,6 +212,7 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
             {
                 "row_type":           "recommended_product",
                 "rank":               i + 1,
+                "product_id":         p.get("product_id"),
                 "product_name":       p.get("deposit_product_name", ""),
                 "product_type":       p.get("deposit_product_type", ""),
                 "base_interest_rate": p.get("base_interest_rate"),
@@ -237,7 +239,7 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
 
     # ── 내부 헬퍼 ─────────────────────────────────────────────────────────────
 
-    def _score_products(self, cf: dict[str, Any], products: list[dict[str, Any]], user_age: int) -> list[dict[str, Any]]:
+    def _score_products(self, cf: dict[str, Any], products: list[dict[str, Any]], user_age: int, preferred_type: str | None = None) -> list[dict[str, Any]]:
         """Scoring Model (100점 만점) 적용."""
         total_balance = float(cf.get("total_balance", 0))
         monthly_surplus = float(cf.get("monthly_surplus", 0))
@@ -248,6 +250,10 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
         for p in products:
             pname = p["deposit_product_name"]
             ptype = p["deposit_product_type"]
+
+            # 상품 타입 필터 (예금/적금 명시 선택 시)
+            if preferred_type and ptype != preferred_type:
+                continue
 
             # 특수 대상 제외 (군인, 장병, 군무원)
             if any(keyword in pname for keyword in ["군인", "장병", "군무원"]):
@@ -295,17 +301,19 @@ class UserFinanceFeatureExecutor(FeatureExecutorBase):
 
             # (3) 유동성 매칭 20점
             is_long_term = (p.get("min_period_month") or 0) >= 12
-            if tx_count < 5:
+            if tx_count >= 10:
+                liquidity_score = 20.0 if not is_long_term else 10.0
+            elif tx_count <= 5:
                 liquidity_score = 20.0 if is_long_term else 10.0
             else:
-                liquidity_score = 20.0 if not is_long_term else 10.0
+                liquidity_score = 15.0
 
-            # (4) 부가 혜택 10점
+            # (4) 부가 혜택 10점: 비과세 7점 + 중도해지 3점
             benefit_score = 0.0
             if p.get("is_tax_benefit_available"):
-                benefit_score += 5.0
+                benefit_score += 7.0
             if p.get("is_early_termination_allowed"):
-                benefit_score += 5.0
+                benefit_score += 3.0
 
             raw_total = suit_score + return_score + liquidity_score + benefit_score
 

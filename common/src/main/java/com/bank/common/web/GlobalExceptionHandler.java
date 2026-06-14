@@ -9,6 +9,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
 import java.util.Map;
@@ -60,6 +61,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(NoHandlerFoundException ex) {
+        CommonErrorCode c = CommonErrorCode.COMMON_404;
+        return ResponseEntity.status(c.getStatus())
+                .body(ApiResponse.error(c.getCode(), c.getMessage()));
+    }
+
+    // Boot 3 는 매핑되지 않은 경로를 정적 리소스로 폴백하다 NoResourceFoundException 을 던진다.
+    // NoHandlerFoundException 과 동일하게 404 로 응답한다(미처리 시 Exception 폴백으로 500 이 됨).
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResource(NoResourceFoundException ex) {
         CommonErrorCode c = CommonErrorCode.COMMON_404;
         return ResponseEntity.status(c.getStatus())
                 .body(ApiResponse.error(c.getCode(), c.getMessage()));

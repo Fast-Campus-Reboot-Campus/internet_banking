@@ -1,13 +1,13 @@
 # Internet Banking — 전체 API 명세서
 > 전 서비스 REST 엔드포인트 통합 레퍼런스. 소스 컨트롤러에서 자동 추출 후 정리.
 - **서비스 수**: 9
-- **컨트롤러 수**: 116
-- **엔드포인트 수**: 367
+- **컨트롤러 수**: 118
+- **엔드포인트 수**: 372
 
 ---
 
 ## 목차
-- [Customer Service (고객·인증·인증서)](#customer-service) — 99개
+- [Customer Service (고객·인증·인증서)](#customer-service) — 104개
 - [Deposit Service (수신·계좌·예적금)](#deposit-service) — 91개
 - [Payment Service (이체)](#payment-service) — 5개
 - [Loan Service (여신·대출)](#loan-service) — 128개
@@ -22,6 +22,15 @@
 <a id="customer-service"></a>
 
 ## Customer Service (고객·인증·인증서)
+
+### AccountRecoveryController
+
+`base: /api/v1/auth`
+
+| Method | Path |
+|---|---|
+| `POST` | `/api/v1/auth/find-id` |
+| `POST` | `/api/v1/auth/reset-password` |
 
 ### AuthMethodController
 
@@ -257,6 +266,16 @@
 | `PUT` | `/api/v1/customers/me/profile` |
 | `GET` | `/api/v1/customers/me/settings` |
 | `POST` | `/api/v1/customers/me/withdraw` |
+| `POST` | `/api/v1/customers/me/internet-banking/cancel` |
+
+### TransferLimitController
+
+`base: /api/v1/customers/me/transfer-limit`
+
+| Method | Path |
+|---|---|
+| `GET` | `/api/v1/customers/me/transfer-limit` |
+| `PATCH` | `/api/v1/customers/me/transfer-limit` |
 
 ### WithdrawalAccountController
 

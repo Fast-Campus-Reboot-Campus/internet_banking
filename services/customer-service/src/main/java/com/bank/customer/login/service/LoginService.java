@@ -13,6 +13,7 @@ import com.bank.customer.customer.repository.CustomerRepository;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.dto.RefreshRequest;
+import com.bank.customer.metrics.AuthMetrics;
 import com.bank.customer.support.CustomerErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class LoginService {
     private final JwtProvider          jwtProvider;
     private final StringRedisTemplate  redisTemplate;
     private final AuthEventService     authEventService;
+    private final AuthMetrics          authMetrics;
 
     /**
      * 아이디/비밀번호 로그인.
@@ -97,10 +99,12 @@ public class LoginService {
         try {
             claims = jwtProvider.parseClaims(request.refreshToken());
         } catch (BusinessException e) {
+            authMetrics.jwtInvalid();
             throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
         }
 
         if (claims.tokenType() != TokenType.REFRESH) {
+            authMetrics.jwtInvalid();
             throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
         }
 
@@ -109,6 +113,7 @@ public class LoginService {
         String stored   = redisTemplate.opsForValue().get(key);
 
         if (stored == null || !stored.equals(Sha256.hex(request.refreshToken()))) {
+            authMetrics.jwtInvalid();
             redisTemplate.delete(key);
             throw new BusinessException(CommonErrorCode.TOKEN_INVALID);
         }

@@ -182,3 +182,15 @@ class ChatMessageHistory(AuditMixin, Base):
     error_type_code_id: Mapped[int | None] = mapped_column(BigInteger)
     read_yn: Mapped[str] = mapped_column(String(1), default="N", nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ChatbotDocument(AuditMixin, Base):
+    __tablename__ = "chatbot_document"
+
+    document_id: Mapped[int] = mapped_column(ID_TYPE, primary_key=True, autoincrement=True)
+    customer_no: Mapped[str] = mapped_column(String(30), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    doc_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    file_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    status: Mapped[str] = mapped_column(String(20), default="UPLOADED", nullable=False)

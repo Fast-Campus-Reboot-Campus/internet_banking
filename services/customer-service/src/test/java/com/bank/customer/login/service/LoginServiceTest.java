@@ -8,6 +8,8 @@ import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
+import com.bank.customer.metrics.AuthMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.bank.customer.login.dto.LoginRequest;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.dto.RefreshRequest;
@@ -58,7 +60,8 @@ class LoginServiceTest {
 
         loginService = new LoginService(
                 credentialRepository, customerRepository,
-                passwordEncoder, jwtProvider, redisTemplate, authEventService);
+                passwordEncoder, jwtProvider, redisTemplate, authEventService,
+                new AuthMetrics(new SimpleMeterRegistry()));
 
         // 후처리는 AuthEventService 단위 책임 — 여기서는 위임 결과만 스텁한다.
         given(authEventService.onLoginSuccess(any(), anyString(), any(), any(), anyString()))

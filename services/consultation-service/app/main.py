@@ -7,11 +7,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()  # .env → os.environ 주입 (_setup_phoenix 등 os.getenv 사용 전에 실행)
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+import os
+import uuid
+from pathlib import Path as FilePath
+
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -42,6 +47,9 @@ from app.schemas import (
     ChatEndRequest,
     ChatMessageHistoryResponse,
     ChatSendMessageRequest,
+    DocumentUploadResponse,
+    FileAnalyzeRequest,
+    FileAnalyzeResponse,
     ScenarioSeedResponse,
 )
 from app.services import (
@@ -52,6 +60,9 @@ from app.services import (
     _chat_status,
     _SENDER_LABEL,
 )
+from app.llm import OpenAIDocumentAnalyzer
+from app.models import ChatbotDocument
+from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +92,7 @@ static_dir = Path(__file__).resolve().parents[1] / "static"
 
 
 async def _handle_contract_created(payload: dict) -> None:
-    """deposit-api 에서 ContractCreated 이벤트 수신 시 처리."""
+    """deposit-api 에서 ContractCreated 이벤트 수신 시 처리. RAG 인덱스 재빌드."""
     logger.info(
         "[Kafka] ContractCreated 처리 — customer=%s product=%s contract=%s amount=%s",
         payload.get("customerId", ""),
@@ -89,6 +100,10 @@ async def _handle_contract_created(payload: dict) -> None:
         payload.get("contractId", ""),
         payload.get("joinAmount", 0),
     )
+    # 상품 계약 이벤트 수신 시 RAG 인덱스 재빌드
+    rag_engine: ProductRagEngine | None = getattr(app, "state", None) and getattr(app.state, "rag_engine", None)
+    if rag_engine and settings.openai_api_key:
+        await asyncio.get_event_loop().run_in_executor(None, _build_rag_index, rag_engine)
 
 
 async def _handle_chatbot_message_received(payload: dict) -> None:
@@ -132,36 +147,76 @@ async def _kafka_consume_loop(consumer: KafkaEventConsumer) -> None:
 
 
 
+def _build_rag_index(rag_engine: ProductRagEngine) -> None:
+    """DB에서 상품 목록을 조회해 RAG 인덱스를 빌드한다. 오류 시 로그만 남기고 계속 진행."""
+    from sqlalchemy.orm import Session as _Session
+    try:
+        with _Session(engine) as db:
+            rows = db.execute(text(
+                """
+                SELECT banking_product_id AS product_id,
+                       deposit_product_name,
+                       deposit_product_type,
+                       base_interest_rate,
+                       min_join_amount,
+                       max_join_amount,
+                       min_period_month,
+                       max_period_month,
+                       is_early_termination_allowed,
+                       is_tax_benefit_available,
+                       description
+                  FROM deposit_banking_products
+                 WHERE is_sold = true
+                 ORDER BY banking_product_id
+                """
+            )).mappings().all()
+            products = [dict(r) for r in rows]
+        rag_engine.build_from_db(products)
+        logger.info("[RAG] 인덱스 빌드 완료: 상품 %d건", len(products))
+    except Exception as exc:
+        logger.warning("[RAG] 인덱스 빌드 실패 (서비스는 계속 동작): %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── 싱글턴 생성 및 app.state 등록 ────────────────────────────────────────
     _events = KafkaEventPublisher(settings)
     _consumer = KafkaEventConsumer(settings)
 
+    # RAG 엔진 초기화 (API 키 없으면 엔진은 생성되지만 인덱스 빌드 실패 → 자유질문 시 상담사 연결 폴백)
+    _rag_engine = ProductRagEngine(OpenAIEmbeddingProvider(settings.openai_api_key or ""))
+    if settings.openai_api_key:
+        await asyncio.get_event_loop().run_in_executor(None, _build_rag_index, _rag_engine)
+    else:
+        logger.warning("[RAG] OPENAI_API_KEY 없음 — RAG 자유질문 비활성화")
+
     app.state.events = _events
     app.state.consumer = _consumer
+    app.state.rag_engine = _rag_engine
 
     # ── 기동 ─────────────────────────────────────────────────────────────────
     Base.metadata.create_all(bind=engine)
-    await _events.start()
-    # chatbot_events / chat_events 는 이 서비스가 직접 발행하는 토픽이므로
-    # 구독 목록에서 제외 — 자기 발행 메시지를 자신이 소비하는 순환 방지
-    # chatbot_message 는 자기 발행 토픽이나 Consumer가 로그만 출력(재발행 없음) → 루프 없음
-    await _consumer.start(
-        topics=[
-            settings.kafka_topic_deposit_events,    # deposit-api 계약 이벤트
-            settings.kafka_topic_chatbot_message,   # 챗봇 메시지 수신 이벤트
-        ],
-        group_id="consultation-service",
-    )
-    consume_task = asyncio.create_task(_kafka_consume_loop(_consumer))
+
+    consume_task: asyncio.Task | None = None
+    if settings.kafka_enabled:
+        await _events.start()
+        await _consumer.start(
+            topics=[
+                settings.kafka_topic_deposit_events,
+                settings.kafka_topic_chatbot_message,
+            ],
+            group_id="consultation-service",
+        )
+        consume_task = asyncio.create_task(_kafka_consume_loop(_consumer))
 
     try:
         yield
     finally:
-        consume_task.cancel()
-        await _consumer.stop()
-        await _events.stop()
+        if consume_task is not None:
+            consume_task.cancel()
+        if settings.kafka_enabled:
+            await _consumer.stop()
+            await _events.stop()
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
@@ -193,7 +248,13 @@ def get_chatbot_service(
     request: Request,
     db: Session = Depends(get_db),
 ) -> ChatbotService:
-    return ChatbotService(db, request.app.state.events)
+    return ChatbotService(
+        db,
+        request.app.state.events,
+        rag_engine=getattr(request.app.state, "rag_engine", None),
+        openai_api_key=settings.openai_api_key or "",
+        openai_model=settings.openai_model,
+    )
 
 
 def get_chat_service(
@@ -429,3 +490,79 @@ async def end_chat(
         return _to_chat_response(chat)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── 파일 분석 / 서류 제출 ─────────────────────────────────────────────────────
+
+@app.post(
+    "/chatbot/file/analyze",
+    response_model=FileAnalyzeResponse,
+    summary="파일 내용 분석 (타행 거래내역 / 약관 / 상품 설명서)",
+    description="프론트엔드에서 PDF를 파싱한 텍스트를 받아 OpenAI로 분석 결과를 반환합니다.",
+)
+async def analyze_file(request: FileAnalyzeRequest) -> FileAnalyzeResponse:
+    try:
+        analyzer = OpenAIDocumentAnalyzer(settings.openai_api_key or "")
+        result = analyzer.analyze(request.text, request.analyze_type)
+        return FileAnalyzeResponse(analyze_type=request.analyze_type, result=result)
+    except Exception as exc:
+        logger.exception("[file/analyze] 분석 오류: %s", exc)
+        raise HTTPException(status_code=500, detail="파일 분석 중 오류가 발생했습니다.") from exc
+
+
+@app.post(
+    "/chatbot/documents/upload",
+    response_model=DocumentUploadResponse,
+    summary="서류 제출 (비과세 서류 등)",
+    description="고객이 서류를 업로드하면 서버에 저장하고 DB에 기록합니다.",
+)
+async def upload_document(
+    file: UploadFile = File(...),
+    customer_no: str = Form(...),
+    doc_type: str = Form(default="ENROLLMENT"),
+    db: Session = Depends(get_db),
+) -> DocumentUploadResponse:
+    # 허용 MIME 타입 및 확장자 검증
+    ALLOWED_MIME = {"application/pdf", "image/jpeg", "image/png"}
+    ALLOWED_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
+    MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+    ext = FilePath(file.filename or "document").suffix.lower()
+    if ext not in ALLOWED_EXT:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"허용되지 않는 파일 형식입니다. (허용: PDF, JPG, PNG)")
+    if file.content_type and file.content_type not in ALLOWED_MIME:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"허용되지 않는 MIME 타입입니다.")
+
+    uploads_dir = FilePath(os.getenv("UPLOADS_DIR", "./uploads"))
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    stored_name = f"{uuid.uuid4()}{ext}"
+    stored_path = uploads_dir / stored_name
+
+    contents = await file.read()
+    if len(contents) > MAX_SIZE_BYTES:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="파일 크기가 10MB를 초과합니다.")
+    stored_path.write_bytes(contents)
+
+    doc = ChatbotDocument(
+        customer_no=customer_no,
+        original_filename=file.filename or "document",
+        stored_path=str(stored_path),
+        doc_type=doc_type,
+        file_size_bytes=len(contents),
+        status="UPLOADED",
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    return DocumentUploadResponse(
+        document_id=doc.document_id,
+        filename=doc.original_filename,
+        doc_type=doc.doc_type,
+        status=doc.status,
+        message="서류가 성공적으로 제출되었습니다. 영업일 기준 1~3일 내 처리될 예정입니다.",
+    )

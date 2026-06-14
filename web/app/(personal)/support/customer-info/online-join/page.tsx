@@ -200,7 +200,14 @@ export default function OnlineJoinPage() {
   }
 
   function handleIdCheck() {
-    if (!userId || userId.length < 4) { alert('아이디는 4자리 이상 입력해주세요.'); return }
+    // 형식 검증: 6~12자리 영문/숫자(특수문자 제외), 영문 1자 이상.
+    // 실제 중복 여부는 가입 제출(register) 시 서버가 검증·거부한다.
+    const formatOk = /^[A-Za-z0-9]{6,12}$/.test(userId) && /[A-Za-z]/.test(userId)
+    if (!formatOk) {
+      setIdOk(false)
+      alert('아이디는 특수문자 제외 영문/숫자 조합 6~12자리로 입력해주세요. (영문 1자 이상)')
+      return
+    }
     setIdOk(true)
   }
 

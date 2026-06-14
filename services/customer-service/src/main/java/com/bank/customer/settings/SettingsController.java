@@ -2,6 +2,7 @@ package com.bank.customer.settings;
 
 import com.bank.common.web.ApiResponse;
 import com.bank.customer.settings.dto.ChangePasswordRequest;
+import com.bank.customer.settings.dto.InternetBankingCancelRequest;
 import com.bank.customer.settings.dto.SettingsResponse;
 import com.bank.customer.settings.dto.UpdateNotificationRequest;
 import com.bank.customer.settings.dto.UpdateProfileRequest;
@@ -69,6 +70,15 @@ public class SettingsController {
             @RequestHeader("X-Customer-Id") Long customerId,
             @RequestBody WithdrawRequest request) {
         settingsService.withdraw(customerId, request);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    // 인터넷뱅킹 해지 — 고객 해지(withdraw)와 달리 고객·계좌는 유지하고 인터넷뱅킹 접근만 차단한다.
+    @PostMapping("/internet-banking/cancel")
+    public ResponseEntity<ApiResponse<Void>> cancelInternetBanking(
+            @RequestHeader("X-Customer-Id") Long customerId,
+            @RequestBody InternetBankingCancelRequest request) {
+        settingsService.cancelInternetBanking(customerId, request);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

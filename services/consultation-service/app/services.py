@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session, aliased
 from app.features import ProductFeatureExecutor, StaffFeatureExecutor, UserFinanceFeatureExecutor
 from app.features.base import build_history_context
 from app.kafka import KafkaEventPublisher
-from app.llm import FeatureAnswerFormatter, IntentClassifier
+from app.llm import FeatureAnswerFormatter, IntentClassifier, RagAnswerGenerator
+from app.rag import ProductRagEngine
 from app.models import (
     ChatConsultation,
     ChatMessageHistory,
@@ -49,11 +50,21 @@ CODE_MESSAGE_TYPE_TEXT = 1
 
 
 class ChatbotService:
-    def __init__(self, db: Session, events: KafkaEventPublisher, *unused_adapters):
+    def __init__(
+        self,
+        db: Session,
+        events: KafkaEventPublisher,
+        *unused_adapters,
+        rag_engine: "ProductRagEngine | None" = None,
+        openai_api_key: str = "",
+        openai_model: str = "gpt-4o-mini",
+    ):
         self.db = db
         self.events = events
         self._classifier = IntentClassifier()
         self._formatter = FeatureAnswerFormatter()
+        self._rag_engine = rag_engine
+        self._rag_generator = RagAnswerGenerator(openai_api_key, openai_model)
 
     async def start(self, customer_no: str, entry_screen: str, app_version: str) -> ChatbotStartResponse:
         scenario = self._get_active_scenario()
@@ -144,6 +155,8 @@ class ChatbotService:
 
         process_method = "SCENARIO"
         agent_transfer_required = False
+        response_feature_code: str | None = None
+        response_feature_data: list[dict] = []
         if next_node:
             response_message = next_node.response_message
             node_id = next_node.node_id
@@ -166,7 +179,16 @@ class ChatbotService:
             # 진행 중인 SAVINGS_GOAL 세션이 있으면 분류 전에 강제 라우팅
             # 2턴 답변("월 30만원요", "목돈 300만원")은 키워드 미매칭이므로 세션으로 판단
             from app.features.savings_goal import _SESSION as _SAVINGS_SESSION
+            import re as _re
+            def _is_savings_goal(text: str) -> bool:
+                t = text.replace(" ", "")
+                has_amount = bool(_re.search(r"\d+만|\d+억|\d+천만|[일이삼사오육칠팔구백]만", t))
+                has_period = bool(_re.search(r"\d+개월|\d+달|\d+년|[일이삼사오육칠팔구]개월|[일이삼사오육칠팔구]년", t))
+                has_goal   = bool(_re.search(r"모으|모아|목표|저축|저금|적금|모을|쌓", t))
+                return has_amount and (has_period or has_goal)
             if chatbot.chatbot_consultation_id in _SAVINGS_SESSION:
+                intent_name = "SAVINGS_GOAL"
+            elif _is_savings_goal(classify_text):
                 intent_name = "SAVINGS_GOAL"
             else:
                 intent_name = self._classifier.classify(classify_text)
@@ -181,6 +203,9 @@ class ChatbotService:
                 )
                 if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL"):
                     response_message = feat_result.message
+                    if feat_result.status == "OK" and feat_result.data and intent_name in ("SAVINGS_GOAL", "PRODUCT_COMPARE"):
+                        response_feature_code = intent_name
+                        response_feature_data = [d if isinstance(d, dict) else d.__dict__ for d in feat_result.data]
                     # PRODUCT_COMPARE이면서 개인 추천 의도도 포함된 경우 → 추천도 함께 제공
                     if intent_name == "PRODUCT_COMPARE" and customer_no and self._has_personal_recommend_intent(classify_text):
                         try:
@@ -203,16 +228,25 @@ class ChatbotService:
                 if intent_record:
                     chatbot.intent_id = intent_record.intent_id
             else:
-                agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_REQUEST")
-                process_method = "STAFF_REQUEST"
-                process_code = CODE_PROCESS_LLM
-                response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
-                agent_transfer_required = True
-                node_id = current_node_id or 0
-                chatbot.agent_connected_yn = "Y"
-                if agent_intent:
-                    chatbot.intent_id = agent_intent.intent_id
-                self._open_chat_consultation(chatbot)
+                # RAG 자유질문 처리: intent 미매칭 시 상담사 연결 전에 RAG 검색 시도
+                rag_answer = self._try_rag_answer(classify_text)
+                if rag_answer:
+                    response_message = rag_answer
+                    process_method = "FEATURE_FREE_QUESTION_RAG"
+                    process_code = CODE_PROCESS_LLM
+                    node_id = current_node_id or 0
+                    agent_transfer_required = False
+                else:
+                    agent_intent = self._get_intent(chatbot.scenario_id, "STAFF_REQUEST")
+                    process_method = "STAFF_REQUEST"
+                    process_code = CODE_PROCESS_LLM
+                    response_message = "상담사 연결을 요청했습니다. 잠시만 기다려 주세요."
+                    agent_transfer_required = True
+                    node_id = current_node_id or 0
+                    chatbot.agent_connected_yn = "Y"
+                    if agent_intent:
+                        chatbot.intent_id = agent_intent.intent_id
+                    self._open_chat_consultation(chatbot)
 
         chatbot.total_turn_count += 1
         self._record_message(chatbot, next_node, CODE_SENDER_BOT, response_message, None, process_code)
@@ -244,6 +278,8 @@ class ChatbotService:
             buttons=self._button_responses(node_id) if node_id else [],
             process_method=process_method,
             agent_transfer_required=agent_transfer_required,
+            feature_code=response_feature_code,
+            feature_data=response_feature_data,
         )
 
     def categories(self) -> list[ChatbotCategoryResponse]:
@@ -580,6 +616,18 @@ class ChatbotService:
         )
         return self._data_response("PRODUCT_GUIDE", rows, "상품 안내 조회를 완료했습니다.", "등록된 수신 상품 데이터가 없습니다.")
 
+    def _try_rag_answer(self, query: str) -> str | None:
+        """RAG 엔진으로 자유질문에 답변을 시도한다. 엔진 미준비 또는 오류 시 None 반환."""
+        if not self._rag_engine or not self._rag_engine.is_ready():
+            return None
+        try:
+            results = self._rag_engine.search(query, top_k=3)
+            if not results:
+                return None
+            return self._rag_generator.answer(query, results)
+        except Exception:
+            return None
+
     def _enrich_rag_results(
         self, rag_results: list[dict[str, Any]], cf: dict[str, Any] | None
     ) -> list[dict[str, Any]]:
@@ -775,7 +823,15 @@ class ChatbotService:
 
     def _execute_product_compare(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         query = (request.query or "").strip()
-        product_ids = request.compare_product_ids or ([request.product_id] if request.product_id else [])
+        product_ids = list(request.compare_product_ids or ([request.product_id] if request.product_id else []))
+
+        # ── 비교 분석 에이전트로 위임 (상품명 언급 여부와 무관하게 항상) ─────
+        from app.features.product_compare import ProductCompareAgent
+        agent = ProductCompareAgent(self.db)
+        result = agent.execute(request)
+        # 에이전트가 상품을 못 찾은 경우(NEED_INFO)면 개념 비교로 폴백
+        if result.status != "NEED_INFO":
+            return result
 
         # ── 개념 비교 질문: "예금 적금 차이" 등 → LLM 또는 고정 텍스트 설명 ──
         _CONCEPT_PAIRS = [
@@ -1343,6 +1399,7 @@ class ChatbotService:
             {
                 "row_type":          "recommended_product",
                 "rank":              i + 1,
+                "product_id":        p.get("product_id") or p.get("banking_product_id"),
                 "product_name":      p.get("deposit_product_name") or p.get("product_name", ""),
                 "product_type":      p.get("deposit_product_type") or p.get("product_type", ""),
                 "base_interest_rate": p.get("base_interest_rate"),
@@ -2034,6 +2091,7 @@ class ChatbotService:
             """)
             data = [
                 {"row_type": "recommended_product", "rank": i + 1,
+                 "product_id": p.get("product_id") or p.get("banking_product_id"),
                  "product_name": p.get("product_name", ""), "product_type": "SUBSCRIPTION",
                  "base_interest_rate": p.get("base_interest_rate"),
                  "min_period_month": p.get("min_period_month"), "max_period_month": p.get("max_period_month"),
@@ -2097,6 +2155,17 @@ class ChatbotService:
                 cf = {"total_balance": 0.0, "monthly_surplus": amount or 300_000,
                       "monthly_tx_count": 5.0, "has_data": False}
 
+        # 사용자가 직접 금액을 입력했으면 cf를 해당 금액으로 덮어씀
+        # → "내 잔액이 얼마든 이 금액으로 가입 가능한 상품만 보여줘" 의도 반영
+        if amount and amount > 0:
+            if ptype == "DEPOSIT":
+                cf = {**cf, "total_balance": amount}
+            elif ptype == "SAVINGS":
+                cf = {**cf, "monthly_surplus": amount}
+            else:
+                # 전체(DEPOSIT+SAVINGS) 선택 시 양쪽 모두 입력 금액으로 설정
+                cf = {**cf, "total_balance": amount, "monthly_surplus": amount}
+
         # 우대금리 조건 보강
         _PREF_COND_FALLBACK: list[tuple[str, str]] = [
             ("맑은하늘",   "맑은하늘 앱 설치 후 인증코드 등록"),
@@ -2131,6 +2200,17 @@ class ChatbotService:
         ranked = self._rank_products(cf, products, input_period=period)
 
         if not ranked:
+            # 최소가입금액 때문에 필터링된 건지 확인해서 구체적 안내
+            if amount and amount > 0 and products:
+                min_amounts = [float(p.get("min_join_amount") or 0) for p in products if p.get("min_join_amount")]
+                if min_amounts:
+                    lowest_min = min(min_amounts)
+                    type_label = "월 납입액" if ptype == "SAVINGS" else "가입금액"
+                    return self._data_response(
+                        "PRODUCT_SEARCH", [], "",
+                        f"입력하신 {type_label} {int(amount):,}원은 해당 상품들의 최소 가입금액({int(lowest_min):,}원~)보다 적습니다.\n"
+                        f"금액을 {int(lowest_min):,}원 이상으로 다시 입력해 주세요.",
+                    )
             return self._data_response("PRODUCT_SEARCH", [], "", "조건에 맞는 상품이 없습니다.")
 
         top3 = ranked[:3]
@@ -2138,6 +2218,7 @@ class ChatbotService:
             {
                 "row_type":          "recommended_product",
                 "rank":              i + 1,
+                "product_id":        p.get("product_id") or p.get("banking_product_id"),
                 "product_name":      p.get("deposit_product_name") or p.get("product_name", ""),
                 "product_type":      p.get("deposit_product_type") or p.get("product_type", ""),
                 "base_interest_rate": p.get("base_interest_rate"),

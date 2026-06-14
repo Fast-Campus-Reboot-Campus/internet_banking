@@ -12,6 +12,6 @@ public record CertPinChangeRequest(
         String currentPin,
 
         @NotBlank
-        @Size(min = 8, max = 30, message = "새 인증서 암호는 8~30자로 입력해 주세요.")
+        @Size(min = 6, max = 30, message = "새 인증서 암호는 6~30자로 입력해 주세요.")
         String newPin
 ) {}

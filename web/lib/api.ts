@@ -23,7 +23,9 @@ api.interceptors.request.use((config) => {
 // API는 전부 401) 구간을 없앤다. 갱신/재시도까지 실패할 때만 로그인 페이지로 보낸다.
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
-const AUTH_PATHS = ["/auth/login", "/auth/cert-login", "/auth/refresh"]; // 자동 갱신 대상 아님
+// 자동 갱신 대상 아님. cert/issue 는 본문의 id/password 로 재인증하므로 401=세션만료가 아니라
+// "입력한 자격 오류" → 갱신·리다이렉트 없이 페이지 catch 가 인라인 에러로 처리해야 한다(#54).
+const AUTH_PATHS = ["/auth/login", "/auth/cert-login", "/auth/cert/issue", "/auth/refresh"];
 const SILENT_PATHS = ["/customers/me"]; // 실패해도 로그인으로 안 보냄(배경 보조 호출)
 
 function clearSession() {

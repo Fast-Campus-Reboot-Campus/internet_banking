@@ -3,23 +3,21 @@ import { KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { api } from '@/lib/api'
+import MobileAuthField from '@/components/MobileAuthField'
 
-type Tab      = 'no-id' | 'has-id'
-type AuthTab  = 'security' | 'old-pw'
-type Step     = 'verify' | 'id-result' | 'change' | 'done'
+type Step = 'verify' | 'id-result' | 'change' | 'done'
 
 const NOTICES_VERIFY = [
-  '개인고객(인터넷뱅킹 가입한 개인사업자 포함)께서 ID를 조회하실 수 있습니다.',
-  '본인확인을 위해 계좌번호와 계좌비밀번호를 입력하십시오.',
-  '고객명은 출금계좌 또는 입출금계좌의 고객명 그대로를 입력하시기 바랍니다.',
-  '폰뱅킹 아이디 고객 (계좌 미보유 고객)님은 이용이 제한됩니다. 영업점 방문을 부탁드립니다.',
+  '개인고객(인터넷뱅킹 가입한 개인사업자 포함)께서 ID 조회·사용자암호 재설정을 하실 수 있습니다.',
+  '본인확인을 위해 성명·주민등록번호와 휴대폰 본인인증(SMS)이 필요합니다.',
+  '가입 시 본인확인한 정보와 동일해야 조회됩니다.',
   '사용자암호는 다른 사이트의 비밀번호와 다르게 설정하시고 주기적으로 변경하시기 바랍니다.',
 ]
 
 const NOTICES_CHANGE = [
   '사용자암호(PW)?  AXful Bank 아이디 로그인 시 필요한 비밀번호입니다.',
   '새로 지정할 사용자암호 : 영문/숫자/특수문자 조합 8~12자리로 설정해야 합니다.',
-  '기존 사용자암호 : 숫자(6~8자리), 영문/숫자 조합(10~12자리), 영문/숫자/특수문자 조합(8~12자리)',
   '사용불가: ID와 동일한 암호설정, 같은 숫자 반복, 연속된 숫자, 연속된 문자(알파벳 순서 등), 노출되기 쉬운 주민등록번호·생일·전화번호 등',
 ]
 
@@ -60,7 +58,7 @@ function PwInput({ value, onChange, placeholder }: {
 function TableRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <tr className="border-b border-kb-border last:border-b-0">
-      <td className="px-5 py-3.5 font-semibold text-[13px] text-kb-text w-40 whitespace-nowrap"
+      <td className="px-5 py-3.5 font-semibold text-[13px] text-kb-text w-40 whitespace-nowrap align-top"
         style={{ backgroundColor: KB_PRIMARY_BG }}>
         {label}
       </td>
@@ -90,52 +88,68 @@ function IdDisplay({ id }: { id: string }) {
 }
 
 export default function IdPasswordPage() {
-  const [tab,     setTab]     = useState<Tab>('no-id')
-  const [step,    setStep]    = useState<Step>('verify')
-  const [authTab] = useState<AuthTab>('old-pw')
+  const [step, setStep] = useState<Step>('verify')
 
-  // Step 1 fields
-  const [name,      setName]      = useState('')
-  const [accountNo, setAccountNo] = useState('')
-  const [accountPw, setAccountPw] = useState('')
-  const [loginId,   setLoginId]   = useState('')
+  // 본인확인 (휴대폰 본인인증)
+  const [name,           setName]           = useState('')
+  const [rrnFront,       setRrnFront]       = useState('')
+  const [rrnBack,        setRrnBack]        = useState('')
+  const [verificationId, setVerificationId] = useState<number | null>(null)
 
-  // Step 2 (change) fields
+  // 조회 결과
+  const [loginId,      setLoginId]      = useState('')
+  const [customerName, setCustomerName] = useState('')
+
+  // 재설정
   const [newPw,        setNewPw]        = useState('')
   const [newPwConfirm, setNewPwConfirm] = useState('')
-  const [oldPw,        setOldPw]        = useState('')
   const [error,        setError]        = useState('')
   const [loading,      setLoading]      = useState(false)
 
-  // mock 결과
-  const MOCK_ID   = 'dalmate777'
-  const MOCK_NAME = '문수현'
-
-  function handleVerify() {
-    const required = tab === 'no-id'
-      ? [name, accountNo, accountPw]
-      : [loginId, accountNo, accountPw]
-    if (required.some(v => !v)) { alert('모든 항목을 입력해주세요.'); return }
-    setError('')
-    if (tab === 'no-id') setStep('id-result')
-    else               setStep('change')
+  // 본인확인(verificationId) → ID 조회 (#45)
+  async function handleFindId() {
+    if (verificationId == null) { alert('휴대폰 본인인증을 완료해주세요.'); return }
+    setError(''); setLoading(true)
+    try {
+      const { data: res } = await api.post('/api/v1/auth/find-id', { verificationId })
+      setLoginId(res.data.loginId)
+      setCustomerName(res.data.customerName)
+      setStep('id-result')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      alert(e.response?.data?.message ?? '본인확인에 실패했습니다. 가입 시 정보와 동일한지 확인해주세요.')
+    } finally {
+      setLoading(false)
+    }
   }
 
+  // 본인확인(verificationId) → 사용자암호 재설정 (#47)
   async function handleChange() {
-    if (newPw.length < 8)    { setError('사용자암호는 8자리 이상 입력해주세요.'); return }
+    // 정책: 영문/숫자/특수문자 조합 8~12자리 (숫자만·짧은 것 거부) — #48
+    if (newPw.length < 8 || newPw.length > 12) { setError('새 사용자암호는 8~12자리로 입력해주세요.'); return }
+    const hasLetter  = /[A-Za-z]/.test(newPw)
+    const hasDigit   = /[0-9]/.test(newPw)
+    const hasSpecial = /[^A-Za-z0-9]/.test(newPw)
+    if (!(hasLetter && hasDigit && hasSpecial)) { setError('새 사용자암호는 영문·숫자·특수문자를 모두 조합해야 합니다.'); return }
     if (newPw !== newPwConfirm) { setError('사용자암호가 일치하지 않습니다.'); return }
-    if (authTab === 'old-pw' && !oldPw) { setError('기존 사용자암호를 입력해주세요.'); return }
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 600))
-    setLoading(false)
-    setStep('done')
+    if (verificationId == null) { setError('휴대폰 본인인증이 만료되었습니다. 처음부터 다시 시도해주세요.'); return }
+    setError(''); setLoading(true)
+    try {
+      await api.post('/api/v1/auth/reset-password', { verificationId, newPassword: newPw })
+      setStep('done')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '사용자암호 재설정에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function reset() {
     setStep('verify')
-    setName(''); setAccountNo(''); setAccountPw(''); setLoginId('')
-    setNewPw(''); setNewPwConfirm(''); setOldPw('')
-    setError('')
+    setName(''); setRrnFront(''); setRrnBack(''); setVerificationId(null)
+    setLoginId(''); setCustomerName('')
+    setNewPw(''); setNewPwConfirm(''); setError('')
   }
 
   return (
@@ -154,44 +168,38 @@ export default function IdPasswordPage() {
 
       <h1 className="text-[24px] font-bold text-kb-text mb-8">ID 조회 / 사용자암호 설정</h1>
 
-      {/* ── STEP 1: 본인확인 ── */}
+      {/* ── STEP 1: 본인확인 (휴대폰 본인인증) ── */}
       {step === 'verify' && (
         <div className="space-y-5">
           <NoticeBox items={NOTICES_VERIFY} />
 
-          <div className="flex border-b border-kb-border">
-            {([['no-id', 'ID 모르는 경우'], ['has-id', 'ID 알고 있는 경우']] as [Tab, string][]).map(([key, label]) => (
-              <button key={key} onClick={() => { setTab(key); setError('') }}
-                className={`px-6 py-3 text-[14px] whitespace-nowrap transition-colors
-                  ${tab === key ? 'border-b-2 font-bold -mb-px' : 'text-kb-text-muted hover:text-kb-text'}`}
-                style={tab === key ? { borderColor: KB_PRIMARY, color: KB_PRIMARY } : {}}>
-                {label}
-              </button>
-            ))}
-          </div>
-
           <div className="border border-kb-border rounded-xl overflow-hidden">
             <table className="w-full text-[13px]">
               <tbody>
-                {tab === 'no-id'
-                  ? <TableRow label="성명(고객명)">
-                      <input type="text" value={name} onChange={e => setName(e.target.value)}
-                        placeholder="고객명 입력"
-                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
-                    </TableRow>
-                  : <TableRow label="아이디(ID)">
-                      <input type="text" value={loginId} onChange={e => setLoginId(e.target.value)}
-                        placeholder="아이디 입력"
-                        className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
-                    </TableRow>
-                }
-                <TableRow label="계좌번호">
-                  <input type="text" value={accountNo} onChange={e => setAccountNo(e.target.value)}
-                    placeholder="'-' 없이 입력"
+                <TableRow label="성명(고객명)">
+                  <input type="text" value={name} onChange={e => setName(e.target.value)}
+                    placeholder="가입 시 본인확인한 성명"
                     className="border border-kb-border px-3 py-1.5 w-64 outline-none text-[13px] focus:border-kb-primary" />
                 </TableRow>
-                <TableRow label="계좌비밀번호">
-                  <PwInput value={accountPw} onChange={setAccountPw} placeholder="계좌비밀번호 입력" />
+                <TableRow label="주민등록번호">
+                  <div className="flex items-center gap-1">
+                    <input type="text" inputMode="numeric" maxLength={6} value={rrnFront}
+                      onChange={e => setRrnFront(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="앞 6자리"
+                      className="border border-kb-border px-3 py-1.5 w-28 outline-none text-[13px] focus:border-kb-primary" />
+                    <span className="text-kb-text-muted">-</span>
+                    <input type="password" inputMode="numeric" maxLength={7} value={rrnBack}
+                      onChange={e => setRrnBack(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                      placeholder="뒤 7자리"
+                      className="border border-kb-border px-3 py-1.5 w-28 outline-none text-[13px] focus:border-kb-primary" />
+                  </div>
+                </TableRow>
+                <TableRow label="휴대폰 본인인증">
+                  <MobileAuthField
+                    purpose="IDENTITY_VERIFY"
+                    identity={{ name, rrn: rrnFront + rrnBack }}
+                    onVerified={(_phone, vid) => setVerificationId(vid ?? null)}
+                  />
                 </TableRow>
               </tbody>
             </table>
@@ -202,31 +210,31 @@ export default function IdPasswordPage() {
               className="border border-kb-border px-12 py-2.5 text-[14px] text-kb-text-body hover:bg-kb-primary-bg transition-colors">
               취소
             </Link>
-            <button onClick={handleVerify}
-              className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 transition-opacity"
+            <button onClick={handleFindId} disabled={loading || verificationId == null}
+              className="px-12 py-2.5 text-[14px] font-bold text-white rounded-lg hover:opacity-85 disabled:opacity-50 transition-opacity"
               style={{ backgroundColor: KB_PRIMARY }}>
-              확인
+              {loading ? '조회 중...' : 'ID 조회'}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── STEP 2: ID 조회 결과 (no-id 탭만) ── */}
+      {/* ── STEP 2: ID 조회 결과 ── */}
       {step === 'id-result' && (
         <div className="space-y-5">
-          <NoticeBox items={['ID 조회 결과입니다.']} />
+          <NoticeBox items={['ID 조회 결과입니다. 이어서 사용자암호를 재설정할 수 있습니다.']} />
 
           <div className="border border-kb-border rounded-xl overflow-hidden">
             <table className="w-full text-[13px]">
               <tbody>
                 <TableRow label="고객">
-                  <span className="font-semibold text-kb-text">{MOCK_NAME}</span>
+                  <span className="font-semibold text-kb-text">{customerName}</span>
                 </TableRow>
                 <TableRow label="고객구분">
                   <span className="text-kb-text-body">뱅킹이체회원</span>
                 </TableRow>
                 <TableRow label="ID">
-                  <IdDisplay id={MOCK_ID} />
+                  <IdDisplay id={loginId} />
                 </TableRow>
               </tbody>
             </table>
@@ -246,7 +254,7 @@ export default function IdPasswordPage() {
         </div>
       )}
 
-      {/* ── STEP 3: 비밀번호 재설정 ── */}
+      {/* ── STEP 3: 사용자암호 재설정 ── */}
       {step === 'change' && (
         <div className="space-y-5">
           <NoticeBox items={NOTICES_CHANGE} />
@@ -272,19 +280,6 @@ export default function IdPasswordPage() {
               </tbody>
             </table>
           </div>
-
-          {/* 기존 사용자암호로 인증 */}
-          {authTab === 'old-pw' && (
-            <div className="border border-kb-border rounded-xl overflow-hidden">
-              <table className="w-full text-[13px]">
-                <tbody>
-                  <TableRow label="기존 사용자암호">
-                    <PwInput value={oldPw} onChange={setOldPw} placeholder="기존 사용자암호 입력" />
-                  </TableRow>
-                </tbody>
-              </table>
-            </div>
-          )}
 
           {error && <p className="text-center text-[13px] text-red-500">{error}</p>}
 

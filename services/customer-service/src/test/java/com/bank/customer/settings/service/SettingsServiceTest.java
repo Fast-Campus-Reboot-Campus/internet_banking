@@ -1,7 +1,11 @@
 package com.bank.customer.settings.service;
 
 import com.bank.common.web.BusinessException;
+import com.bank.customer.cert.domain.Certificate;
+import com.bank.customer.cert.repository.CertificateRepository;
 import com.bank.customer.customer.domain.Credential;
+import com.bank.customer.customer.domain.Customer;
+import com.bank.customer.settings.dto.InternetBankingCancelRequest;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
 import com.bank.customer.customer.repository.CustomerStatusHistoryRepository;
@@ -47,6 +51,7 @@ class SettingsServiceTest {
     @Mock CustomerRepository              customerRepository;
     @Mock PartyRepository                 partyRepository;
     @Mock CredentialRepository            credentialRepository;
+    @Mock CertificateRepository           certificateRepository;
     @Mock CustomerStatusHistoryRepository customerStatusHistoryRepository;
     @Mock PasswordHistoryRepository       passwordHistoryRepository;
     @Mock PasswordEncoder                 passwordEncoder;
@@ -58,7 +63,7 @@ class SettingsServiceTest {
     @BeforeEach
     void setUp() {
         settingsService = new SettingsService(
-                customerRepository, partyRepository, credentialRepository,
+                customerRepository, partyRepository, credentialRepository, certificateRepository,
                 customerStatusHistoryRepository, passwordHistoryRepository,
                 passwordEncoder, redisTemplate, fdsService);
 
@@ -117,6 +122,45 @@ class SettingsServiceTest {
 
         verify(passwordHistoryRepository, never()).save(any());
         verify(fdsService, never()).evaluate(anyLong(), any(), anyLong());
+    }
+
+    @Test
+    @DisplayName("인터넷뱅킹 해지 — 비번검증·활성 인증서 폐기·credential 비활성, 고객 상태는 유지")
+    void cancelInternetBanking_success() {
+        Customer customer = mock(Customer.class);
+        given(customer.isActive()).willReturn(true);
+        given(customerRepository.findByCustomerIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(customer));
+        Credential credential = mockCredential();
+        given(credentialRepository.findByCustomerIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(credential));
+        given(passwordEncoder.matches(eq("pw"), any())).willReturn(true);
+        Certificate cert = mock(Certificate.class);
+        given(cert.isActive()).willReturn(true);
+        given(certificateRepository.findByCustomerIdAndDeletedAtIsNull(1L)).willReturn(java.util.List.of(cert));
+
+        settingsService.cancelInternetBanking(1L, new InternetBankingCancelRequest("pw"));
+
+        verify(cert).revoke("IB_CANCEL");
+        verify(credential).close();
+        verify(redisTemplate).delete("RT:1");
+        verify(customer, never()).close(any(), any()); // 고객 해지(withdraw)와 달리 고객 상태는 유지
+    }
+
+    @Test
+    @DisplayName("인터넷뱅킹 해지 — 비밀번호 불일치면 CUST_020, 인증서/credential 손대지 않음")
+    void cancelInternetBanking_wrongPassword() {
+        Customer customer = mock(Customer.class);
+        given(customer.isActive()).willReturn(true);
+        given(customerRepository.findByCustomerIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(customer));
+        Credential credential = mockCredential();
+        given(credentialRepository.findByCustomerIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(credential));
+        given(passwordEncoder.matches(eq("wrong"), any())).willReturn(false);
+
+        assertThatThrownBy(() -> settingsService.cancelInternetBanking(1L, new InternetBankingCancelRequest("wrong")))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
+                        .isEqualTo(CustomerErrorCode.CUST_020));
+
+        verify(credential, never()).close();
     }
 
     private Credential mockCredential() {

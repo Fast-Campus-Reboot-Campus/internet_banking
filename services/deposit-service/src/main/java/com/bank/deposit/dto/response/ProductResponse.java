@@ -1,9 +1,11 @@
 package com.bank.deposit.dto.response;
 
 import com.bank.deposit.domain.entity.Product;
+import com.bank.deposit.domain.entity.SavingsProduct;
 import com.bank.deposit.domain.entity.TargetGroup;
 import com.bank.deposit.domain.enums.ProductStatus;
 import com.bank.deposit.domain.enums.ProductType;
+import com.bank.deposit.domain.enums.SavingType;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -11,6 +13,7 @@ import java.util.List;
 public record ProductResponse(
         Long productId,
         ProductType productType,
+        SavingType savingType,
         String productName,
         String description,
         Long departmentId,
@@ -41,37 +44,22 @@ public record ProductResponse(
     }
 
     public static ProductResponse from(Product product) {
-        return new ProductResponse(
-                product.getProductId(),
-                product.getProductType(),
-                product.getProductName(),
-                product.getDescription(),
-                product.getDepartmentId(),
-                product.getBaseInterestRate(),
-                null,
-                product.getMinJoinAmount(),
-                product.getMaxJoinAmount(),
-                product.getMinPeriodMonth(),
-                product.getMaxPeriodMonth(),
-                product.getIsEarlyTerminationAllowed(),
-                product.getIsTaxBenefitAvailable(),
-                product.getIsAutoRenewalAvailable(),
-                product.getIsPassbookIssued(),
-                product.getReleasedAt(),
-                product.getEndedAt(),
-                product.getProductStatus(),
-                List.of()
-        );
+        return from(product, null, null, List.of());
     }
 
     public static ProductResponse from(Product product, BigDecimal bestRate) {
-        return from(product, bestRate, List.of());
+        return from(product, bestRate, null, List.of());
     }
 
     public static ProductResponse from(Product product, BigDecimal bestRate, List<TargetGroupInfo> targetGroups) {
+        return from(product, bestRate, null, targetGroups);
+    }
+
+    public static ProductResponse from(Product product, BigDecimal bestRate, SavingType savingType, List<TargetGroupInfo> targetGroups) {
         return new ProductResponse(
                 product.getProductId(),
                 product.getProductType(),
+                savingType,
                 product.getProductName(),
                 product.getDescription(),
                 product.getDepartmentId(),

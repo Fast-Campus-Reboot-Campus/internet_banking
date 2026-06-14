@@ -63,7 +63,7 @@ const NOTICES = [
   '금융인증서는 금융결제원의 클라우드에 저장되어 PC·스마트폰 등 기기에 관계없이 이용 가능합니다.',
   '유효기간은 3년이며 만료 전 갱신을 통해 계속 사용 가능합니다.',
   '발급 수수료는 무료입니다.',
-  '인증서 암호는 영문/숫자/특수문자 조합 8자리 이상으로 설정해 주세요.',
+  '금융인증서 PIN은 숫자 6자리로 설정해 주세요.',
 ]
 
 export default function FinCertIssuePage() {
@@ -101,8 +101,8 @@ export default function FinCertIssuePage() {
     if (!userId)                        { setError('아이디를 입력해 주세요.'); return }
     if (rrn1.length !== 6 || rrn2.length !== 7) { setError('주민등록번호를 올바르게 입력해 주세요.'); return }
     if (!password)                      { setError('비밀번호를 입력해 주세요.'); return }
-    if (certPin.length < 8)             { setError('인증서 암호는 8자리 이상 입력해 주세요.'); return }
-    if (certPin !== certPinConfirm)     { setError('인증서 암호가 일치하지 않습니다.'); return }
+    if (!/^\d{6}$/.test(certPin))       { setError('금융인증서 PIN은 숫자 6자리로 입력해 주세요.'); return }
+    if (certPin !== certPinConfirm)     { setError('금융인증서 PIN이 일치하지 않습니다.'); return }
     setError(''); setLoading(true)
     try {
       const { data: res } = await api.post('/api/v1/auth/cert/issue', {
@@ -226,23 +226,23 @@ export default function FinCertIssuePage() {
 
         {/* 인증서 암호 설정 */}
         <section className="space-y-3">
-          <h2 className="text-[15px] font-bold text-kb-text">인증서 암호 설정</h2>
+          <h2 className="text-[15px] font-bold text-kb-text">금융인증서 PIN 설정</h2>
           <div className="border border-kb-border rounded-xl overflow-hidden">
             <table className="w-full text-[13px]">
               <tbody>
-                <TableRow label="인증서 암호">
+                <TableRow label="금융인증서 PIN">
                   <div className="space-y-1">
-                    <PwInput value={certPin} onChange={setCertPin} placeholder="영문/숫자/특수문자 조합(8자 이상)" />
-                    <p className="text-[11px] text-kb-text-muted">영문·숫자·특수문자를 조합하여 8자 이상 입력하세요.</p>
+                    <PwInput value={certPin} onChange={v => setCertPin(v.replace(/\D/g, '').slice(0, 6))} placeholder="숫자 6자리" />
+                    <p className="text-[11px] text-kb-text-muted">숫자 6자리를 입력하세요.</p>
                   </div>
                 </TableRow>
-                <TableRow label="인증서 암호 확인">
+                <TableRow label="PIN 확인">
                   <div className="space-y-1">
-                    <PwInput value={certPinConfirm} onChange={setCertPinConfirm} placeholder="인증서 암호 재입력" />
+                    <PwInput value={certPinConfirm} onChange={v => setCertPinConfirm(v.replace(/\D/g, '').slice(0, 6))} placeholder="PIN 재입력" />
                     {certPinConfirm && certPin !== certPinConfirm && (
-                      <p className="text-[12px] text-red-500">인증서 암호가 일치하지 않습니다.</p>
+                      <p className="text-[12px] text-red-500">금융인증서 PIN이 일치하지 않습니다.</p>
                     )}
-                    {certPinConfirm && certPin === certPinConfirm && certPin.length >= 8 && (
+                    {certPinConfirm && certPin === certPinConfirm && certPin.length === 6 && (
                       <p className="text-[12px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 일치합니다.</p>
                     )}
                   </div>
