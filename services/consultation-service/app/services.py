@@ -201,7 +201,7 @@ class ChatbotService:
                     customer_no=customer_no,
                     chatbot_consultation_id=chatbot.chatbot_consultation_id,
                 )
-                if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL", "MATURITY_MANAGEMENT", "MATURITY_SCHEDULE", "REINVESTMENT_RECOMMEND"):
+                if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL", "MATURITY_MANAGEMENT", "MATURITY_SCHEDULE", "REINVESTMENT_RECOMMEND", "SPENDING_PATTERN"):
                     response_message = feat_result.message
                     if feat_result.status == "OK" and feat_result.data and intent_name in ("SAVINGS_GOAL", "PRODUCT_COMPARE"):
                         response_feature_code = intent_name
@@ -513,6 +513,7 @@ class ChatbotService:
             "STAFF_CONSULTATION_HISTORY": self._execute_staff_consultation_history,
             "PRODUCT_SEARCH": self._execute_product_search,
             "SAVINGS_GOAL": self._execute_savings_goal,
+            "SPENDING_PATTERN": self._execute_spending_pattern,
         }
         handler = handlers.get(feature_code)
         if not handler:
@@ -1049,6 +1050,10 @@ class ChatbotService:
     def _execute_reinvestment_recommend(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         from app.features.maturity_agent import MaturityManagementAgent
         return MaturityManagementAgent(db=self.db).execute(request)
+
+    def _execute_spending_pattern(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        from app.features.spending_pattern_agent import SpendingPatternAgent
+        return SpendingPatternAgent(db=self.db).execute(request)
 
     def _execute_interest_history(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no:
@@ -2796,6 +2801,7 @@ class ChatbotService:
             {"intent_name": "MATURITY_MANAGEMENT",   "intent_desc": "만기 운용 전략 안내",        "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
             {"intent_name": "MATURITY_SCHEDULE",     "intent_desc": "만기 예정 일정 조회",        "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
             {"intent_name": "REINVESTMENT_RECOMMEND","intent_desc": "만기 재투자 상품 추천",       "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
+            {"intent_name": "SPENDING_PATTERN",      "intent_desc": "지출 패턴 이상 감지 및 경고", "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
             {"intent_name": "CASH_FLOW_RECOMMEND","intent_desc": "현금흐름 기반 상품 추천",    "process_method_code_id": CODE_PROCESS_LLM,      "priority": 7},
             {"intent_name": "LLM_FALLBACK",      "intent_desc": "LLM 자유 응답",              "process_method_code_id": CODE_PROCESS_LLM,      "priority": 8},
             {"intent_name": "STAFF_REQUEST",     "intent_desc": "상담사 이관",                "process_method_code_id": CODE_PROCESS_LLM,      "priority": 9},

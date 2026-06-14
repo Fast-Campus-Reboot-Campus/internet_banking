@@ -10,6 +10,7 @@ _INTENT_PRIORITY: list[str] = [
     "REINVESTMENT_RECOMMEND",
     "MATURITY_MANAGEMENT",
     "MATURITY_SCHEDULE",
+    "SPENDING_PATTERN",
     "MY_ACCOUNTS",
     "INTEREST_HISTORY",
     "RATE_GUIDE",
@@ -22,6 +23,13 @@ _INTENT_PRIORITY: list[str] = [
 ]
 
 _INTENT_KEYWORDS: dict[str, list[str]] = {
+    "SPENDING_PATTERN": [
+        "지출 패턴", "소비 패턴", "지출 분석", "소비 분석",
+        "얼마나 썼", "얼마 썼", "돈 어디에 썼", "돈 어디 썼", "돈을 어디에",
+        "이번 달 지출", "이번달 지출", "월별 지출", "지출 내역",
+        "소비 현황", "지출 현황", "과소비", "지출이 늘", "지출 늘었",
+        "많이 썼", "너무 썼", "지출 경고", "지출 알림",
+    ],
     "REINVESTMENT_RECOMMEND": [
         "재투자", "재예치", "재가입", "다시 가입",
         "만기 추천", "만기 상품 추천", "만기 운용 추천",
