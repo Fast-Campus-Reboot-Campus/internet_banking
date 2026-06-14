@@ -2,6 +2,7 @@ package com.bank.customer.settings.service;
 
 import com.bank.common.web.BusinessException;
 import com.bank.customer.customer.domain.Credential;
+import com.bank.customer.cert.repository.CertificateRepository;
 import com.bank.customer.customer.repository.CredentialRepository;
 import com.bank.customer.customer.repository.CustomerRepository;
 import com.bank.customer.customer.repository.CustomerStatusHistoryRepository;
@@ -47,6 +48,7 @@ class SettingsServiceTest {
     @Mock CustomerRepository              customerRepository;
     @Mock PartyRepository                 partyRepository;
     @Mock CredentialRepository            credentialRepository;
+    @Mock CertificateRepository           certificateRepository;
     @Mock CustomerStatusHistoryRepository customerStatusHistoryRepository;
     @Mock PasswordHistoryRepository       passwordHistoryRepository;
     @Mock PasswordEncoder                 passwordEncoder;
@@ -58,7 +60,7 @@ class SettingsServiceTest {
     @BeforeEach
     void setUp() {
         settingsService = new SettingsService(
-                customerRepository, partyRepository, credentialRepository,
+                customerRepository, partyRepository, credentialRepository, certificateRepository,
                 customerStatusHistoryRepository, passwordHistoryRepository,
                 passwordEncoder, redisTemplate, fdsService);
 
