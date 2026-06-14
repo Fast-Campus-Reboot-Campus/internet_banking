@@ -168,6 +168,10 @@ class SettingsServiceTest {
                         .isEqualTo(CustomerErrorCode.CUST_020));
 
         verify(credential, never()).close();
+        // 비밀번호 불일치 → 인증서·인증수단 비활성화 로직에 도달하기 전 throw (부수효과 없음)
+        verify(certificateRepository, never()).findByCustomerIdAndDeletedAtIsNull(anyLong());
+        verify(authMethodRepository, never())
+                .findByCustomerIdAndAuthMethodStatusCodeAndDeletedAtIsNull(anyLong(), any());
     }
 
     private Credential mockCredential() {
