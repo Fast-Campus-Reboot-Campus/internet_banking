@@ -166,7 +166,10 @@ export default function CertManagementPage() {
   }
 
   async function handlePinChange() {
-    if (newPin.length < 8)           { setPinError('새 인증서 암호는 8자리 이상 입력해 주세요.'); return }
+    const isFinCert = certs.find(c => c.serialNumber === selected)?.certType === 'CERT_FIN'
+    if (isFinCert ? !/^\d{6}$/.test(newPin) : newPin.length < 8) {
+      setPinError(isFinCert ? '금융인증서 PIN은 숫자 6자리로 입력해 주세요.' : '새 인증서 암호는 8자리 이상 입력해 주세요.'); return
+    }
     if (newPin !== newPinConfirm)    { setPinError('새 인증서 암호가 일치하지 않습니다.'); return }
     if (!currentPin)                 { setPinError('현재 인증서 암호를 입력해 주세요.'); return }
     setPinLoading(true); setPinError('')
@@ -184,6 +187,7 @@ export default function CertManagementPage() {
   }
 
   const selectedCert = certs.find(c => c.serialNumber === selected)
+  const isFinCert = selectedCert?.certType === 'CERT_FIN'   // 금융인증서는 6자리 숫자 PIN, 그 외(공동 등)는 8+ 영숫자특
 
   // ── 인증서 선택 바 ─────────────────────────────────────────
 
@@ -530,20 +534,20 @@ export default function CertManagementPage() {
               )}
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[13px] font-semibold text-kb-text">현재 인증서 암호</label>
-                  <PwInput value={currentPin} onChange={setCurrentPin} placeholder="현재 암호 입력" />
+                  <label className="text-[13px] font-semibold text-kb-text">{isFinCert ? '현재 PIN' : '현재 인증서 암호'}</label>
+                  <PwInput value={currentPin} onChange={isFinCert ? (v) => setCurrentPin(v.replace(/\D/g, '').slice(0, 6)) : setCurrentPin} placeholder={isFinCert ? '현재 PIN 입력' : '현재 암호 입력'} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[13px] font-semibold text-kb-text">새 인증서 암호</label>
-                  <PwInput value={newPin} onChange={setNewPin} placeholder="영문/숫자/특수문자 조합(8자 이상)" />
+                  <label className="text-[13px] font-semibold text-kb-text">{isFinCert ? '새 PIN' : '새 인증서 암호'}</label>
+                  <PwInput value={newPin} onChange={isFinCert ? (v) => setNewPin(v.replace(/\D/g, '').slice(0, 6)) : setNewPin} placeholder={isFinCert ? '숫자 6자리' : '영문/숫자/특수문자 조합(8자 이상)'} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[13px] font-semibold text-kb-text">새 인증서 암호 확인</label>
-                  <PwInput value={newPinConfirm} onChange={setNewPinConfirm} placeholder="새 암호 재입력" />
+                  <label className="text-[13px] font-semibold text-kb-text">{isFinCert ? '새 PIN 확인' : '새 인증서 암호 확인'}</label>
+                  <PwInput value={newPinConfirm} onChange={isFinCert ? (v) => setNewPinConfirm(v.replace(/\D/g, '').slice(0, 6)) : setNewPinConfirm} placeholder={isFinCert ? '새 PIN 재입력' : '새 암호 재입력'} />
                   {newPinConfirm && newPin !== newPinConfirm && (
                     <p className="text-[11px] text-red-500">암호가 일치하지 않습니다.</p>
                   )}
-                  {newPinConfirm && newPin === newPinConfirm && newPin.length >= 8 && (
+                  {newPinConfirm && newPin === newPinConfirm && (isFinCert ? newPin.length === 6 : newPin.length >= 8) && (
                     <p className="text-[11px] font-semibold" style={{ color: KB_PRIMARY }}>✓ 일치합니다.</p>
                   )}
                 </div>

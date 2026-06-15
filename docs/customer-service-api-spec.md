@@ -324,6 +324,36 @@ JWT 검증은 **api-gateway** 가 수행하고, 검증된 사용자 정보를 `X
 | `accessToken` | `String` |  |
 | `refreshToken` | `String` |  |
 
+#### AccountRecoveryController
+
+비로그인 ID 조회·사용자암호 재설정. 게이트웨이가 `/api/v1/auth/**` 를 public 처리하므로 토큰 없이 호출되며, 본인확인은 휴대폰 본인확인 결과(`verificationId`) 기반.
+
+##### `POST` `/api/v1/auth/find-id`
+
+**요청 본문**: `FindIdRequest`
+
+| 필드 | 타입 | 제약 |
+|---|---|---|
+| `verificationId` | `Long` | 휴대폰 본인확인 ID |
+
+**응답 data**: `FindIdResponse`
+
+| 필드 | 타입 | 제약 |
+|---|---|---|
+| `loginId` | `String` |  |
+| `customerName` | `String` |  |
+
+##### `POST` `/api/v1/auth/reset-password`
+
+**요청 본문**: `ResetPasswordRequest`
+
+| 필드 | 타입 | 제약 |
+|---|---|---|
+| `verificationId` | `Long` | 휴대폰 본인확인 ID |
+| `newPassword` | `String` | 새 사용자암호 |
+
+**응답 data**: `Void`
+
 ### 인증서(공동인증서)
 
 #### CertIssueController
@@ -869,6 +899,42 @@ PIN 등록
 | 필드 | 타입 | 제약 |
 |---|---|---|
 | `currentPassword` | `String` |  |
+
+**응답 data**: `Void`
+
+##### `POST` `/api/v1/customers/me/internet-banking/cancel`
+
+인터넷뱅킹 해지. 고객 해지(`withdraw`)와 구분되며, 본인확인용 현재 비밀번호만 받는다.
+
+**요청 본문**: `InternetBankingCancelRequest`
+
+| 필드 | 타입 | 제약 |
+|---|---|---|
+| `currentPassword` | `String` | 본인확인용 현재 사용자암호 |
+
+**응답 data**: `Void`
+
+#### TransferLimitController
+
+고객당 인터넷뱅킹 이체한도 조회·감액. (계좌당 출금한도는 deposit-service 소관)
+
+##### `GET` `/api/v1/customers/me/transfer-limit`
+
+**응답 data**: `TransferLimitResponse`
+
+| 필드 | 타입 | 제약 |
+|---|---|---|
+| `dailyLimit` | `long` | 1일 한도(원) |
+| `onceLimit` | `long` | 1회 한도(원) |
+
+##### `PATCH` `/api/v1/customers/me/transfer-limit`
+
+**요청 본문**: `ReduceTransferLimitRequest`
+
+| 필드 | 타입 | 제약 |
+|---|---|---|
+| `dailyLimit` | `long` | 새 1일 한도(원) — 현재보다 작거나 같아야 함(감액만) |
+| `onceLimit` | `long` | 새 1회 한도(원) — 현재보다 작거나 같아야 함(감액만) |
 
 **응답 data**: `Void`
 

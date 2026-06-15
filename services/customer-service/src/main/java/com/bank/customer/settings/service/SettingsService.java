@@ -1,6 +1,10 @@
 package com.bank.customer.settings.service;
 
 import com.bank.common.web.BusinessException;
+import com.bank.customer.cert.domain.AuthMethod;
+import com.bank.customer.cert.domain.Certificate;
+import com.bank.customer.cert.repository.AuthMethodRepository;
+import com.bank.customer.cert.repository.CertificateRepository;
 import com.bank.customer.customer.domain.Credential;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.customer.domain.CustomerStatusHistory;
@@ -14,6 +18,7 @@ import com.bank.customer.history.repository.PasswordHistoryRepository;
 import com.bank.customer.party.domain.Party;
 import com.bank.customer.party.repository.PartyRepository;
 import com.bank.customer.settings.dto.ChangePasswordRequest;
+import com.bank.customer.settings.dto.InternetBankingCancelRequest;
 import com.bank.customer.settings.dto.SettingsResponse;
 import com.bank.customer.settings.dto.UpdateNotificationRequest;
 import com.bank.customer.settings.dto.UpdateProfileRequest;
@@ -38,6 +43,8 @@ public class SettingsService {
     private final CustomerRepository               customerRepository;
     private final PartyRepository                  partyRepository;
     private final CredentialRepository             credentialRepository;
+    private final CertificateRepository            certificateRepository;
+    private final AuthMethodRepository             authMethodRepository;
     private final CustomerStatusHistoryRepository  customerStatusHistoryRepository;
     private final PasswordHistoryRepository        passwordHistoryRepository;
     private final PasswordEncoder                  passwordEncoder;
@@ -139,6 +146,40 @@ public class SettingsService {
                         CustomerStatusHistory.REASON_CUST_REQ,
                         "고객 자발적 해지",
                         now, false, null));  // 고객 본인 해지 — 직원 행위자 없음
+    }
+
+    /**
+     * 인터넷뱅킹 해지 — 고객/계좌는 유지하고 인터넷뱅킹 접근만 차단한다(고객 해지(withdraw)와 구분).
+     * 비밀번호 검증 → 활성 인증서 전부 폐기 → credential 비활성화(로그인 차단) → refresh 토큰 무효화.
+     */
+    @Transactional
+    public void cancelInternetBanking(Long customerId, InternetBankingCancelRequest req) {
+        findActiveCustomer(customerId); // 고객 존재·활성 확인 (고객 상태 자체는 변경하지 않음)
+
+        Credential credential = credentialRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_002));
+
+        if (!passwordEncoder.matches(req.currentPassword(), credential.getPasswordHash())) {
+            throw new BusinessException(CustomerErrorCode.CUST_020);
+        }
+
+        // 금융·공동 등 활성 인증서 전부 폐기 (해지 안내 고지사항)
+        certificateRepository.findByCustomerIdAndDeletedAtIsNull(customerId).stream()
+                .filter(Certificate::isActive)
+                .forEach(c -> c.revoke("IB_CANCEL"));
+
+        // 인증서 기반 인증수단(auth_method)도 비활성화 — 폐기된 인증서가 활성 인증수단으로 남지 않게
+        authMethodRepository
+                .findByCustomerIdAndAuthMethodStatusCodeAndDeletedAtIsNull(customerId, AuthMethod.STATUS_ACTIVE)
+                .forEach(AuthMethod::deactivate);
+
+        // credential 비활성화 → 해당 ID 로 인터넷뱅킹 로그인 차단 (고객·계좌는 유지)
+        credential.close();
+
+        // refresh 토큰 무효화 → 기존 세션 즉시 종료
+        redisTemplate.delete(RT_KEY_PREFIX + customerId);
+
+        log.info("internet-banking cancelled: customerId={}", customerId);
     }
 
     private Customer findActiveCustomer(Long customerId) {

@@ -1,13 +1,19 @@
 # Deposit Service
 
 작성자: 정혜영  
-수정일: 2026-06-08
+수정일: 2026-06-12
 
 Deposit Service는 예금, 적금, 입출금, 청약 상품과 예금 계좌, 계약, 거래 내역을 담당하는 백엔드 서비스입니다. 프론트엔드의 예금 상품 조회, 상품 상세, 계좌이체, 이체 결과 조회, 거래내역 조회 화면과 연동됩니다.
 
 ## 수정 요약
 
 이번 수정은 deposit 담당 범위만 포함합니다.
+
+| 구분 | 변경 내용 |
+| --- | --- |
+| **payment-service 연동 API (v1)** | `docs/deposit-payment-api-spec.md` 명세에 따라 payment-service가 호출하는 `/api/v1/` 엔드포인트 신규 구현 |
+| **출금 가능 잔액 체크 수정** | `Account.withdraw()` 잔액 검증 시 `holdAmount`(지급 보류액)를 차감한 출금 가능 잔액 기준으로 변경 |
+| **fraud_flag · hold_amount 컬럼 추가 (V17)** | `deposit_accounts` 테이블에 사기계좌 플래그(`fraud_flag`)와 지급보류금액(`hold_amount`) 컬럼 추가 |
 
 | 구분 | 변경 내용 |
 | --- | --- |
@@ -400,6 +406,7 @@ deposit-service 기동
 | V11 | 예약이체 스케줄 테이블 |
 | **V12** | **chatbot·consultation 테이블 DROP (consultation-service 소유권 이관)** |
 | **V13** | **`deposit_transactions.idempotency_key` 컬럼 추가 및 부분 UNIQUE 인덱스** |
+| **V17** | **`deposit_accounts`에 `fraud_flag`, `hold_amount` 컬럼 추가** |
 
 ---
 
@@ -450,6 +457,128 @@ const idempotencyKey = crypto.randomUUID(); // 처음 시도 시 생성, session
 | `src/main/java/com/bank/deposit/dto/request/TransferRequest.java` | `idempotencyKey` 필드 추가 |
 | `src/main/java/com/bank/deposit/controller/TransactionController.java` | `req.idempotencyKey()` 서비스로 전달 |
 | `src/main/java/com/bank/deposit/service/TransactionService.java` | 이체 시작 시 멱등성 키 조회, OUT 거래 저장 시 키 포함 |
+
+---
+
+---
+
+## payment-service 연동 API (v1)
+
+`docs/deposit-payment-api-spec.md` 명세를 기준으로 payment-service가 deposit-service를 직접 호출하는 서비스간 내부 API를 구현합니다.
+
+### 추가된 엔드포인트
+
+| Method | Path | 명세 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/v1/accounts/{accountNo}` | A-1 | 계좌 상태·사기계좌 플래그 조회 |
+| `GET` | `/api/v1/accounts/{accountNo}/holder` | A-2 | 예금주명·사망 여부 조회 |
+| `GET` | `/api/v1/balances/{accountNo}` | B-1 | 출금 가능 잔액 조회 |
+| `GET` | `/api/v1/limits/{accountNo}` | B-2 | 1회·일·월 이체 한도 조회 |
+| `POST` | `/api/v1/balances/withdraw` | B-3 | 출금 처리 (멱등성 키 지원) |
+| `POST` | `/api/v1/balances/deposit` | B-4 | 입금 처리 — 자행 이체 수신 시만 호출 (멱등성 키 지원) |
+| `POST` | `/api/v1/balances/withdraw/cancel` | B-5 | 출금 취소 — Saga 보상 트랜잭션 (멱등성 키 지원) |
+
+### 호출 흐름 예시 (자행 이체)
+
+```
+payment-service
+  → GET  /api/v1/accounts/{fromAccountNo}   // A-1: ACTIVE 여부, fraudFlag 확인
+  → GET  /api/v1/accounts/{toAccountNo}     // A-1: 수신 계좌 상태 확인
+  → GET  /api/v1/accounts/{toAccountNo}/holder  // A-2: 예금주명 일치 확인
+  → GET  /api/v1/balances/{fromAccountNo}   // B-1: availableBalance 확인
+  → GET  /api/v1/limits/{fromAccountNo}     // B-2: 한도 확인
+  → POST /api/v1/balances/withdraw          // B-3: 출금
+  → POST /api/v1/balances/deposit           // B-4: 입금
+       실패 시 →
+  → POST /api/v1/balances/withdraw/cancel   // B-5: 출금 보상
+```
+
+### BalanceResponse — availableBalance 계산
+
+```
+availableBalance = balance - holdAmount
+```
+
+`holdAmount`는 지급 보류 중인 금액으로, 출금 가능 잔액 계산 시 반드시 차감합니다.
+
+payment-service는 `availableBalance < 이체금액`이면 `INSUFFICIENT_BALANCE`로 처리합니다.
+
+### 출금 가능 잔액 검증 수정 (Account.withdraw)
+
+기존 `Account.withdraw()`는 `balance`만 비교해 `holdAmount`가 있어도 전액 출금이 가능했습니다.
+
+```java
+// 수정 전 — holdAmount 무시
+if (this.balance.compareTo(amount) < 0) { throw ... }
+
+// 수정 후 — holdAmount 차감 후 비교
+BigDecimal available = this.balance.subtract(holdAmount);
+if (available.compareTo(amount) < 0) { throw ... }
+```
+
+예시: balance 100만원, holdAmount 50만원인 계좌에서 80만원 출금 시도
+
+| | 수정 전 | 수정 후 |
+|---|---|---|
+| 검증 통과 여부 | ✅ 통과 (100 ≥ 80) | ❌ 차단 (50 < 80) |
+| 출금 후 availableBalance | -30만원 (버그) | — |
+
+### DB 마이그레이션 (V17)
+
+```sql
+ALTER TABLE deposit_accounts
+    ADD COLUMN IF NOT EXISTS fraud_flag  BOOLEAN        NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS hold_amount NUMERIC(18, 2) NOT NULL DEFAULT 0.00;
+```
+
+- `fraud_flag`: payment-service A-1 명세의 사기계좌 여부 필드. 기본값 `false`.
+- `hold_amount`: 지급 보류 금액. 출금 가능 잔액 계산에 사용. 기본값 `0`.
+
+### 관련 파일
+
+| 파일 | 내용 |
+|---|---|
+| `src/main/java/com/bank/deposit/controller/v1/AccountV1Controller.java` | A-1, A-2 엔드포인트 |
+| `src/main/java/com/bank/deposit/controller/v1/BalanceV1Controller.java` | B-1 ~ B-5 엔드포인트 |
+| `src/main/java/com/bank/deposit/service/DepositV1Service.java` | v1 API 비즈니스 로직, 멱등성 처리 |
+| `src/main/java/com/bank/deposit/dto/interservice/` | 요청·응답 DTO 10개 |
+| `src/main/java/com/bank/deposit/domain/entity/Account.java` | `fraudFlag`, `holdAmount` 필드 추가 및 `withdraw()` 잔액 검증 수정 |
+| `src/main/resources/db/migration/V17__add_fraud_flag_and_hold_amount.sql` | `fraud_flag`, `hold_amount` 컬럼 추가 |
+
+---
+
+## CORS 허용 출처 확장 (127.0.0.1 추가)
+
+### 변경 배경
+
+브라우저에서 `http://127.0.0.1:3001`로 웹 앱에 접속하면 deposit-service의 `/api/products/{id}` 호출이 **403 Forbidden**으로 차단되었습니다.
+
+원인: `CorsConfig`의 `allowedOrigins`에 `localhost`만 허용하고 `127.0.0.1`은 누락되어 있었기 때문입니다. 브라우저는 `localhost`와 `127.0.0.1`을 별도 Origin으로 구분합니다.
+
+### 증상
+
+챗봇이 상품을 추천한 뒤 **가입하기** 버튼을 누르면 가입 페이지의 `fetchDepositProduct(productId)`가 CORS로 실패 → 상품 이름이 기본값(`AXful 정기예금`)으로 고정되는 버그가 발생했습니다.
+
+### 변경 내용
+
+`127.0.0.1:3000`, `127.0.0.1:3001`을 허용 출처로 추가했습니다.
+
+```java
+// 변경 전
+.allowedOrigins("http://localhost:3000", "http://localhost:3001")
+
+// 변경 후
+.allowedOrigins(
+    "http://localhost:3000", "http://localhost:3001",
+    "http://127.0.0.1:3000", "http://127.0.0.1:3001"
+)
+```
+
+### 관련 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `src/main/java/com/bank/deposit/config/CorsConfig.java` | `127.0.0.1:3000`, `127.0.0.1:3001` 허용 출처 추가 |
 
 ---
 

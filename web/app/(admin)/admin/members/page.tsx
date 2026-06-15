@@ -34,13 +34,15 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (pageNo: number) => {
+  // override 가 주어지면(초기화 등) 그 값으로 조회한다. setState 는 비동기라
+  // 같은 핸들러에서 비운 search/statusFilter 가 즉시 반영되지 않으므로 명시 전달이 필요.
+  const load = useCallback(async (pageNo: number, override?: { keyword?: string; status?: string }) => {
     setLoading(true)
     setError(null)
     try {
       const res = await searchCustomers({
-        keyword: search.trim() || undefined,
-        status: statusFilter === '전체' ? undefined : STATUS_CODE[statusFilter],
+        keyword: override ? override.keyword : (search.trim() || undefined),
+        status: override ? override.status : (statusFilter === '전체' ? undefined : STATUS_CODE[statusFilter]),
         page: pageNo,
         size: PAGE_SIZE,
       })
@@ -89,7 +91,7 @@ export default function MembersPage() {
             <button onClick={() => load(0)} disabled={loading} className="ml-auto px-3 py-1.5 bg-kb-yellow text-white text-xs font-bold rounded hover:bg-kb-yellow-dark transition-colors disabled:opacity-50">
               {loading ? '조회 중…' : '조회'}
             </button>
-            <button onClick={() => { setSearch(''); setStatusFilter('전체') }} className="text-xs border border-gray-300 px-3 py-1.5 rounded text-gray-600">초기화</button>
+            <button onClick={() => { setSearch(''); setStatusFilter('전체'); setPage(0); load(0, {}) }} className="text-xs border border-gray-300 px-3 py-1.5 rounded text-gray-600">초기화</button>
           </div>
 
           <div className="flex items-center justify-between mb-2">

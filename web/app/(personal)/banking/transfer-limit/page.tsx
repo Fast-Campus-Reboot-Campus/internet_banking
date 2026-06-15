@@ -2,12 +2,11 @@
 import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG } from '@/lib/theme'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '@/lib/api'
 
-const DAILY_LIMIT  = 1_000_000
-const ONCE_LIMIT   = 1_000_000
-const USED_TODAY   = 50
-const REMAIN_TODAY = DAILY_LIMIT - USED_TODAY
+// 당일 이체금액 합계는 결제계(이체 이력) 소관 — 한도 설정 화면에서는 0으로 표시한다.
+const USED_TODAY = 0
 
 function formatN(n: number) { return n.toLocaleString('ko-KR') }
 
@@ -47,13 +46,42 @@ export default function TransferLimitPage() {
   const [dailyInput, setDailyInput] = useState('')
   const [onceInput, setOnceInput]   = useState('')
   const [done, setDone]             = useState(false)
+  const [daily,   setDaily]   = useState(0)
+  const [once,    setOnce]    = useState(0)
+  const [error,   setError]   = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const remainToday = Math.max(daily - USED_TODAY, 0)
 
   const now = new Date(2026, 4, 25, 1, 45, 45)
   const datetime = `${now.getFullYear()}. ${String(now.getMonth()+1).padStart(2,'0')}. ${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
 
-  function handleReduce() {
-    if (!dailyInput && !onceInput) return
-    setDone(true)
+  async function loadLimit() {
+    try {
+      const { data } = await api.get('/api/v1/customers/me/transfer-limit')
+      setDaily(data.data.dailyLimit)
+      setOnce(data.data.onceLimit)
+    } catch { /* 비로그인/오류 시 0 유지 */ }
+  }
+  useEffect(() => { loadLimit() }, [])
+
+  async function handleReduce() {
+    const newDaily = dailyInput ? Number(dailyInput) : daily
+    const newOnce  = onceInput  ? Number(onceInput)  : once
+    if (newDaily <= 0 || newOnce <= 0) { setError('이체한도는 0보다 큰 금액으로 입력해주세요.'); return }
+    if (newOnce > newDaily) { setError('1회 이체한도는 1일 이체한도를 초과할 수 없습니다.'); return }
+    if (newDaily > daily || newOnce > once) { setError('이체한도는 감액만 가능합니다. 증액은 영업점 방문 또는 본인인증이 필요합니다.'); return }
+    setError(''); setLoading(true)
+    try {
+      await api.patch('/api/v1/customers/me/transfer-limit', { dailyLimit: newDaily, onceLimit: newOnce })
+      await loadLimit()
+      setDone(true)
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } }
+      setError(e.response?.data?.message ?? '이체한도 변경에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -77,10 +105,10 @@ export default function TransferLimitPage() {
             <table className="w-full text-[14px]">
               <tbody>
                 {[
-                  { label: '1일 이체한도',      value: `${formatN(DAILY_LIMIT)}원` },
-                  { label: '1회 이체한도',      value: `${formatN(ONCE_LIMIT)}원` },
+                  { label: '1일 이체한도',      value: `${formatN(daily)}원` },
+                  { label: '1회 이체한도',      value: `${formatN(once)}원` },
                   { label: '당일 이체금액 합계', value: `${formatN(USED_TODAY)}원` },
-                  { label: '당일 이체 잔여한도', value: `${formatN(REMAIN_TODAY)}원` },
+                  { label: '당일 이체 잔여한도', value: `${formatN(remainToday)}원` },
                 ].map((row, i, arr) => (
                   <tr key={row.label} className={i < arr.length - 1 ? 'border-b border-kb-border' : ''}>
                     <td className="px-5 py-3.5 font-semibold text-kb-text w-48 whitespace-nowrap"
@@ -127,8 +155,8 @@ export default function TransferLimitPage() {
               </thead>
               <tbody>
                 {[
-                  { label: '1일 이체한도', current: DAILY_LIMIT, input: dailyInput, onChange: (v: string) => setDailyInput(v.replace(/[^0-9]/g, '')) },
-                  { label: '1회 이체한도', current: ONCE_LIMIT,  input: onceInput,  onChange: (v: string) => setOnceInput(v.replace(/[^0-9]/g, '')) },
+                  { label: '1일 이체한도', current: daily, input: dailyInput, onChange: (v: string) => setDailyInput(v.replace(/[^0-9]/g, '')) },
+                  { label: '1회 이체한도', current: once,  input: onceInput,  onChange: (v: string) => setOnceInput(v.replace(/[^0-9]/g, '')) },
                 ].map((row, i, arr) => (
                   <tr key={row.label} className={i < arr.length - 1 ? 'border-b border-kb-border' : ''}>
                     <td className="px-5 py-3.5 font-semibold text-kb-text whitespace-nowrap"
@@ -165,17 +193,20 @@ export default function TransferLimitPage() {
               </button>
             </div>
           ) : (
-            <div className="flex gap-3">
-              <button onClick={() => setView('inquiry')}
-                className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
-                style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
-                이체한도 조회로 돌아가기
-              </button>
-              <button onClick={handleReduce}
-                className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85"
-                style={{ backgroundColor: KB_PRIMARY }}>
-                변경
-              </button>
+            <div className="space-y-3">
+              {error && <p className="text-[13px] text-red-500">{error}</p>}
+              <div className="flex gap-3">
+                <button onClick={() => { setView('inquiry'); setError('') }}
+                  className="px-6 py-2.5 text-[14px] font-semibold rounded-lg border-2 transition-colors hover:bg-kb-primary-bg"
+                  style={{ borderColor: KB_PRIMARY, color: KB_PRIMARY }}>
+                  이체한도 조회로 돌아가기
+                </button>
+                <button onClick={handleReduce} disabled={loading}
+                  className="px-8 py-2.5 text-[14px] font-bold text-white rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
+                  style={{ backgroundColor: KB_PRIMARY }}>
+                  {loading ? '처리 중...' : '변경'}
+                </button>
+              </div>
             </div>
           )}
 

@@ -1,5 +1,5 @@
 'use client'
-import { use, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import {
@@ -15,9 +15,8 @@ const STATUS_COLOR: Record<string, string> = {
   '탈퇴': 'bg-gray-100 text-gray-400',
 }
 
-export default function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const customerId = Number(id)
+export default function MemberDetailPage({ params }: { params: { id: string } }) {
+  const customerId = Number(params.id)
   const [m, setM] = useState<CustomerDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reason, setReason] = useState('')

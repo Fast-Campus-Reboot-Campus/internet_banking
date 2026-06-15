@@ -156,12 +156,13 @@ class ProposedAction(BaseModel):
 class Recommendation(BaseModel):
     """조사 종료 후 분석가에게 전달하는 권고 (§16-1 R 노드 산출)."""
 
-    scenario: AttackScenario          # 최종 우세 가설
+    scenario: AttackScenario          # 최종 우세 가설(경합 축). fail-closed 면 미확정이라 헤드라인 근거 아님
     status: RecommendationStatus      # 종료 유형 (§16-5)
     tags: list[Tag] = Field(default_factory=list)
     rationale_chain: list[str] = Field(default_factory=list)  # 근거 사슬
     liability_grade: LiabilityGrade
     actions: list[ProposedAction] = Field(default_factory=list)
+    decisive_fact: DecisiveFact | None = None  # 사망·후견 등 결정적 사실(fail-closed 헤드라인 근거)
 
 
 # --------------------------------------------------------------------------- #

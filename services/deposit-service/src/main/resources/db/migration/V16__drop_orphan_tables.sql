@@ -23,41 +23,6 @@ DROP TABLE IF EXISTS "인증토큰";
 DROP TABLE IF EXISTS deposit_account;
 DROP TABLE IF EXISTS deposit_contract;
 
--- ── 3. 홍길동(9001) 계좌 잔액 현실화 ────────────────────────────────────────
--- V15 INSERT ON CONFLICT DO NOTHING 으로 기존 50M×4 잔액이 유지된 것을 보정.
--- 현금흐름 채점 시나리오: 총 잔액 6,200,000원, 월 잉여자금 1,640,000원
--- → total_balance(6.2M) < monthly_surplus*12(19.68M) → 저축 성장형(is_accumulate=True)
-
-UPDATE deposit_accounts SET balance = 5000000.00  WHERE account_id = 2001 AND customer_id = '9001';
-UPDATE deposit_accounts SET balance = 1200000.00  WHERE account_id = 2002 AND customer_id = '9001';
-UPDATE deposit_accounts SET balance = 0.00        WHERE account_id = 2003 AND customer_id = '9001';
-UPDATE deposit_accounts SET balance = 0.00        WHERE account_id = 2004 AND customer_id = '9001';
-
--- ── 4. 홍길동(9001) 거래 날짜 재조정 ────────────────────────────────────────
--- V15 심을 당시 NOW()-89d 로 설정했으나 migration 실행 후 시간이 지나면서
--- 90일 cutoff 밖으로 밀려 1건(3.3M)이 집계에서 누락됨.
--- → 3개월을 80/60/30일 기준으로 재설정하여 모두 집계 범위 내 유지.
-
-UPDATE deposit_transactions
-   SET transaction_at = NOW() - INTERVAL '80 days'
- WHERE transaction_number = 'TX-9001-M3-IN-01';
-
-UPDATE deposit_transactions
-   SET transaction_at = NOW() - INTERVAL '75 days'
- WHERE transaction_number = 'TX-9001-M3-OUT-01';
-
-UPDATE deposit_transactions
-   SET transaction_at = NOW() - INTERVAL '55 days'
- WHERE transaction_number = 'TX-9001-M2-IN-01';
-
-UPDATE deposit_transactions
-   SET transaction_at = NOW() - INTERVAL '45 days'
- WHERE transaction_number = 'TX-9001-M2-OUT-01';
-
-UPDATE deposit_transactions
-   SET transaction_at = NOW() - INTERVAL '25 days'
- WHERE transaction_number = 'TX-9001-M1-IN-01';
-
-UPDATE deposit_transactions
-   SET transaction_at = NOW() - INTERVAL '15 days'
- WHERE transaction_number = 'TX-9001-M1-OUT-01';
+-- ── 3 & 4. 홍길동(9001) 잔액 보정 및 거래 날짜 재조정은 LocalDataSeeder로 이전 ────
+-- NOW() 기반 UPDATE는 Flyway 최초 실행 시각에 동결되어 시간 경과 후 90일 cutoff를
+-- 벗어나므로, 매 부팅마다 실행되는 LocalDataSeeder.refreshHongKildongDemoData()에서 처리한다.

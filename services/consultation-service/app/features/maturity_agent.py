@@ -24,29 +24,26 @@ class MaturityManagementAgent(FeatureExecutorBase):
 
     def execute(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no:
-            return self._auth_required(
-                FEATURE_CODE,
-                "만기관리 추천에는 고객번호와 본인 인증이 필요합니다.",
-            )
-
-        targets = self._maturity_targets(request.customer_no)
+            return self._auth_required(FEATURE_CODE, "재투자 추천에는 고객번호와 본인 인증이 필요합니다.")
+        customer_no = request.customer_no
+        targets = self._maturity_targets(customer_no)
         if not targets:
             return self._data_response(
                 FEATURE_CODE,
                 [],
                 "",
                 "조회된 만기 예정 예금/적금 계약이 없습니다.",
-                requires_auth=True,
             )
 
-        cash_flow = self._analyze_customer_cash_flow_compatible(request.customer_no)
+        cash_flow = self._analyze_customer_cash_flow_compatible(customer_no)
         products = self._selling_products()
         rows = [self._recommend_for_target(target, cash_flow, products) for target in targets]
+        display_rows = rows[:3]
 
         return ChatbotFeatureExecuteResponse(
             feature_code=FEATURE_CODE,
             status="OK",
-            message=self._format_message(rows, cash_flow),
+            message=self._format_message(display_rows, cash_flow),
             data=[
                 {
                     "row_type": "cash_flow_summary",
@@ -55,9 +52,8 @@ class MaturityManagementAgent(FeatureExecutorBase):
                     "monthly_tx_count": cash_flow["monthly_tx_count"],
                     "has_data": cash_flow["has_data"],
                 },
-                *rows,
+                *display_rows,
             ],
-            requires_auth=True,
         )
 
     def _maturity_targets(self, customer_no: str) -> list[MaturityTarget]:
@@ -132,14 +128,22 @@ class MaturityManagementAgent(FeatureExecutorBase):
             action = "TERMINATE_OR_KEEP_LIQUID"
             target_product = None
             reason = "최근 현금흐름이 부족해 만기자금을 유동성 자금으로 보유하는 방안이 우선입니다."
+        elif amount < 100_000:
+            action = "TERMINATE_OR_KEEP_LIQUID"
+            target_product = None
+            reason = "소액은 재예치보다 입출금 통장에 두고 필요 시 활용하는 것이 유리합니다."
         elif product_type in ("SAVINGS", "SUBSCRIPTION") and monthly_surplus >= 500_000:
             action = "SWITCH_PRODUCT"
-            target_product = self._best_product(products, amount, preferred_types=("SAVINGS", "SUBSCRIPTION"))
-            reason = "월 잉여자금이 있어 납입형 상품으로 전환하면 저축 흐름을 이어가기 좋습니다."
+            target_product = self._best_product(products, amount, preferred_types=("SAVINGS", "SUBSCRIPTION"), exclude_product_id=contract.get("product_id"))
+            reason = "월 잉여자금이 충분하므로 납입형 적금으로 전환해 저축 흐름을 이어가기 좋습니다."
+        elif amount >= 1_000_000:
+            action = "REDEPOSIT"
+            target_product = self._best_product(products, amount, preferred_types=("DEPOSIT",), exclude_product_id=contract.get("product_id"))
+            reason = "목돈은 기간을 나누어 정기예금으로 재예치하면 금리와 유동성을 함께 관리할 수 있습니다."
         else:
             action = "REDEPOSIT"
-            target_product = self._best_product(products, amount, preferred_types=("DEPOSIT",))
-            reason = "목돈 성격의 만기자금은 기간을 짧게 나누어 재예치하면 금리와 유동성을 함께 관리할 수 있습니다."
+            target_product = self._best_product(products, amount, preferred_types=("DEPOSIT", "SAVINGS"), exclude_product_id=contract.get("product_id"))
+            reason = "만기 후 다른 상품으로 재가입하면 더 유리한 금리 혜택을 받을 수 있습니다."
 
         period_month = self._recommended_period_month(target, monthly_surplus)
         product_name = target_product.get("product_name") if target_product else None
@@ -163,19 +167,27 @@ class MaturityManagementAgent(FeatureExecutorBase):
             "reason": reason,
         }
 
+    _RESTRICTED_PRODUCTS = ("장병내일준비적금", "청년도약계좌", "청년 주택드림", "주택청약종합저축")
+
     def _best_product(
         self,
         products: list[dict[str, Any]],
         amount: float,
         preferred_types: tuple[str, ...],
+        exclude_product_id: Any = None,
     ) -> dict[str, Any] | None:
+        general = [
+            p for p in products
+            if not any(r in (p.get("product_name") or "") for r in self._RESTRICTED_PRODUCTS)
+            and (exclude_product_id is None or p.get("product_id") != exclude_product_id)
+        ]
         eligible = [
-            product for product in products
-            if (product.get("product_type") in preferred_types)
-            and self._amount_eligible(product, amount)
+            p for p in general
+            if (p.get("product_type") in preferred_types)
+            and self._amount_eligible(p, amount)
         ]
         if not eligible:
-            eligible = [product for product in products if self._amount_eligible(product, amount)]
+            eligible = [p for p in general if self._amount_eligible(p, amount)]
         return max(eligible, key=self._product_score, default=None)
 
     def _product_score(self, product: dict[str, Any]) -> float:
@@ -191,6 +203,9 @@ class MaturityManagementAgent(FeatureExecutorBase):
         return amount >= min_amount and (max_amount == 0 or amount <= max_amount)
 
     def _recommended_period_month(self, target: MaturityTarget, monthly_surplus: float) -> int:
+        # 만기 임박(45일 이내)이면 현금흐름과 무관하게 단기 6개월로 고정
+        # — _recommend_for_target에서 이미 TERMINATE_OR_KEEP_LIQUID를 권고하므로
+        #   이 period 값은 REDEPOSIT/SWITCH_PRODUCT 경로에서만 실질 사용됨
         if target.days_to_maturity <= 45:
             return 6
         if monthly_surplus < 0:
@@ -237,26 +252,43 @@ class MaturityManagementAgent(FeatureExecutorBase):
             pass
         return None
 
+    @staticmethod
+    def _josa(word: str, josa_pair: tuple[str, str]) -> str:
+        if not word:
+            return josa_pair[0]
+        code = ord(word[-1])
+        if 0xAC00 <= code <= 0xD7A3:
+            has_batchim = (code - 0xAC00) % 28 != 0
+            batchim_idx = (code - 0xAC00) % 28
+            if josa_pair == ("으로", "로"):
+                return "로" if (not has_batchim or batchim_idx == 8) else "으로"
+            return josa_pair[0] if has_batchim else josa_pair[1]
+        return josa_pair[0]
+
     def _format_message(self, rows: list[dict[str, Any]], cash_flow: dict[str, Any]) -> str:
-        lines = ["[만기관리 추천]"]
+        lines = ["[재투자 추천]"]
         if cash_flow.get("has_data"):
             lines.append(f"최근 월평균 잉여자금은 {float(cash_flow.get('monthly_surplus') or 0):,.0f}원입니다.")
         else:
             lines.append("거래 데이터가 부족해 보수적인 만기 운용 전략으로 안내합니다.")
 
-        for row in rows[:3]:
+        for row in rows:
             amount = float(row.get("join_amount") or 0)
             product_name = row.get("product_name") or "만기 상품"
             period = row.get("recommended_period_month")
-            target_name = row.get("target_product_name") or "입출금/단기 유동성"
-            action_label = {
-                "REDEPOSIT": "재예치",
-                "SWITCH_PRODUCT": "상품 전환",
-                "TERMINATE_OR_KEEP_LIQUID": "해지 후 유동성 보유",
-            }.get(row.get("recommended_action"), "운용")
-            lines.append(
-                f"- {product_name} {amount:,.0f}원은 {period}개월 {target_name}으로 {action_label}을 추천합니다."
-            )
+            target_name = row.get("target_product_name") or ""
+            action = row.get("recommended_action", "REDEPOSIT")
+
+            if action == "TERMINATE_OR_KEEP_LIQUID":
+                lines.append(f"- {product_name} {amount:,.0f}원은 만기 후 입출금 통장에 유동성으로 보유하시길 권장합니다.")
+            else:
+                action_label = "재예치" if action == "REDEPOSIT" else "상품 전환"
+                display_name = target_name or "정기예금"
+                euro = self._josa(display_name, ("으로", "로"))
+                eul_reul = self._josa(action_label, ("을", "를"))
+                lines.append(
+                    f"- {product_name} {amount:,.0f}원은 {period}개월 {display_name}{euro} {action_label}{eul_reul} 추천합니다."
+                )
             lines.append(f"  사유: {row.get('reason')}")
 
         return "\n".join(lines)

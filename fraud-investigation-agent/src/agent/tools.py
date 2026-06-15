@@ -141,7 +141,13 @@ def get_customer(case: Case, customer_id: str) -> ToolResult:
 def get_auth_events(case: Case, customer_id: str) -> ToolResult:
     # 실연결 가능(Stage 7): GET /api/v1/internal/auth/{customerId}/events (customer-service)
     if _tool_is_real("get_auth_events"):
-        data = _fetch_auth_events_real(customer_id)
+        try:
+            data = _fetch_auth_events_real(customer_id)
+        except Exception as exc:  # noqa: BLE001 — 실 백엔드 장애는 조사를 죽이지 않는다
+            # fail-soft(원칙 4): 실호출 실패 시 조사 전체를 500 내지 않고 목으로 폴백.
+            data = _resp(case, "get_auth_events")
+            data["_source"] = "mock_fallback"
+            data["_real_error"] = type(exc).__name__
     else:
         data = _resp(case, "get_auth_events")
     cert_fail = data.get("recent_cert_fail", 0)

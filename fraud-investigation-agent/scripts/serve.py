@@ -23,6 +23,24 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 
+def _load_dotenv(path: Path) -> None:
+    """의존성 없이 .env 를 읽어 os.environ 에 주입(이미 설정된 OS env 는 보존).
+
+    TRIAGE_REAL_TOOLS 등 실연결 토글을 .env 로 관리하기 위함. python-dotenv 미사용.
+    """
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        os.environ.setdefault(key.strip(), val.strip())
+
+
+_load_dotenv(ROOT / ".env")
+
+
 def main() -> None:
     import uvicorn
 

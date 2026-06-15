@@ -100,12 +100,15 @@ def build_recommendation(state: AgentState, rationale_text: str = "") -> Recomme
     chain = _rationale_chain(state, rationale_text)
     tags: list[Tag] = [t for t, on in state.tags.items() if on]
 
-    # 1. fail-closed: 확정 사실은 LLM 가설과 무관하게 L4 + 지급정지 제안
+    # 1. fail-closed: 확정 사실은 LLM 가설과 무관하게 L4 + 지급정지 제안.
+    #    경합 가설(top)은 미확정이라 헤드라인 근거가 아니다 — decisive_fact 를 따로 실어
+    #    소비자(프론트)가 "사망/후견"을 헤드라인으로 쓰게 한다.
     if status == RecommendationStatus.FAIL_CLOSED:
         return Recommendation(
             scenario=top,
             status=status,
             tags=tags,
+            decisive_fact=state.decisive_fact,
             rationale_chain=chain
             + [f"결정적 사실: {state.decisive_fact.kind.value} (fail-closed, 예산 무관)"],
             liability_grade=LiabilityGrade.L4,

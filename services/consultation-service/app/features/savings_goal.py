@@ -29,7 +29,8 @@ def _normalize_korean_amount(text: str) -> str:
         ("구십", "90"), ("팔십", "80"), ("칠십", "70"), ("육십", "60"),
         ("오십", "50"), ("사십", "40"), ("삼십", "30"), ("이십", "20"), ("일십", "10"), ("십", "10"),
         ("구천만", "9000만"), ("팔천만", "8000만"), ("칠천만", "7000만"), ("육천만", "6000만"),
-        ("오천만", "5000만"), ("사천만", "4000만"), ("삼천만", "3000만"), ("이천만", "2000만"), ("천만", "1000만"),
+        ("오천만", "5000만"), ("사천만", "4000만"), ("삼천만", "3000만"), ("이천만", "2000만"),
+        ("일천만", "1000만"), ("천만", "1000만"),
         ("구만", "9만"), ("팔만", "8만"), ("칠만", "7만"), ("육만", "6만"),
         ("오만", "5만"), ("사만", "4만"), ("삼만", "3만"), ("이만", "2만"), ("일만", "1만"),
         ("구천", "9천"), ("팔천", "8천"), ("칠천", "7천"), ("육천", "6천"),
@@ -253,19 +254,24 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
         query = (request.query or "").strip()
         session = self._get_session(cid) if cid else None
 
+        # ── 새 요청 여부 먼저 판단: 금액+기간이 모두 있으면 새 목표로 인식 ──────
+        _fresh_amount = _parse_amount(query)
+        _fresh_months = _parse_months(query)
+        _is_new_goal = (_fresh_amount is not None and _fresh_months is not None)
+
         # ── 진행 중인 세션: 추가 질문 답변 수신 ──────────────────────────────
-        if session and session.get("stage") == "ASKED_MONTHLY":
+        if session and session.get("stage") == "ASKED_MONTHLY" and not _is_new_goal:
             return self._handle_payment_answer(cid, query, session)
 
         # ── 결과 표시 후 후속 금액 입력 처리 ─────────────────────────────────
-        if session and session.get("stage") == "RESULT_SHOWN":
+        if session and session.get("stage") == "RESULT_SHOWN" and not _is_new_goal:
             amount = _parse_amount(query)
             if amount is not None:
                 return self._handle_payment_answer(cid, query, session)
 
         # ── 새 요청: 목표 파싱 ────────────────────────────────────────────────
-        goal_amount = _parse_amount(query)
-        goal_months = _parse_months(query)
+        goal_amount = _fresh_amount
+        goal_months = _fresh_months
 
         missing = []
         if goal_amount is None:

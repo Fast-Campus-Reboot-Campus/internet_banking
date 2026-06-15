@@ -91,6 +91,14 @@ public class Account extends BaseEntity {
     @Column(name = "atm_withdraw_limit", precision = 18, scale = 2)
     private BigDecimal atmWithdrawLimit;
 
+    @Column(name = "fraud_flag", nullable = false)
+    @Builder.Default
+    private Boolean fraudFlag = false;
+
+    @Column(name = "hold_amount", precision = 18, scale = 2, nullable = false)
+    @Builder.Default
+    private BigDecimal holdAmount = BigDecimal.ZERO;
+
     @Column(name = "is_withdrawable", nullable = false)
     @Builder.Default
     private Boolean isWithdrawable = true;
@@ -154,7 +162,8 @@ public class Account extends BaseEntity {
     }
 
     public void withdraw(BigDecimal amount) {
-        if (this.balance.compareTo(amount) < 0) {
+        BigDecimal available = this.balance.subtract(this.holdAmount != null ? this.holdAmount : BigDecimal.ZERO);
+        if (available.compareTo(amount) < 0) {
             throw new com.bank.deposit.exception.BusinessException(
                     com.bank.deposit.exception.ErrorCode.INSUFFICIENT_BALANCE);
         }
@@ -163,7 +172,8 @@ public class Account extends BaseEntity {
     }
 
     public void withdraw(BigDecimal amount, Clock clock) {
-        if (this.balance.compareTo(amount) < 0) {
+        BigDecimal available = this.balance.subtract(this.holdAmount != null ? this.holdAmount : BigDecimal.ZERO);
+        if (available.compareTo(amount) < 0) {
             throw new com.bank.deposit.exception.BusinessException(
                     com.bank.deposit.exception.ErrorCode.INSUFFICIENT_BALANCE);
         }

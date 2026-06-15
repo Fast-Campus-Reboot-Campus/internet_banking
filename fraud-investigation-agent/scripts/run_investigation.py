@@ -16,12 +16,29 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 # scripts/ 에서 바로 실행 가능하도록 src 를 경로에 추가
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+
+
+def _load_dotenv(path: Path) -> None:
+    """serve.py 와 동일 — 의존성 없이 .env 를 os.environ 에 주입(이미 설정된 OS env 보존).
+    CLI 러너도 실연결 토글(TRIAGE_REAL_TOOLS 등)을 .env 로 읽게 한다."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        os.environ.setdefault(key.strip(), val.strip())
+
+
+_load_dotenv(ROOT / ".env")
 
 try:  # Windows 콘솔(cp949)에서 한글/막대 출력 안전
     sys.stdout.reconfigure(encoding="utf-8")
@@ -141,9 +158,23 @@ def run_case(case: Case, console: Console, step: bool = False, render: bool = Tr
     return state
 
 
+_DECISIVE_LABEL = {
+    "DEATH": "사망계좌 · 권리자 적격성(L4)",
+    "GUARDIANSHIP": "성년후견 · 단독거래 무효(L4)",
+}
+
+
+def _headline(rec) -> str:
+    """fail-closed 면 경합 1위(미확정) 대신 결정적 사실을 헤드라인으로 (프론트와 동일)."""
+    if rec.status.value == "FAIL_CLOSED" and rec.decisive_fact:
+        k = rec.decisive_fact.kind.value
+        return _DECISIVE_LABEL.get(k, k)
+    return rec.scenario.value
+
+
 def _render_recommendation(console: Console, rec) -> None:
     lines = [
-        f"[bold]최종 가설[/]: [green]{rec.scenario.value}[/]",
+        f"[bold]최종 가설[/]: [green]{_headline(rec)}[/]",
         f"[bold]종료 유형[/]: {rec.status.value}",
         f"[bold]태그[/]: {', '.join(t.value for t in rec.tags) or '—'}",
         f"[bold]책임 등급[/]: [magenta]{rec.liability_grade.value}[/]  (§12)",

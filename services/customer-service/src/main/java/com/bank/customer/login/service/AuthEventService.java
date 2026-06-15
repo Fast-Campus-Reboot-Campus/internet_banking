@@ -8,6 +8,7 @@ import com.bank.common.web.BusinessException;
 import com.bank.customer.customer.domain.Customer;
 import com.bank.customer.fds.domain.FdsDetection;
 import com.bank.customer.fds.service.FdsService;
+import com.bank.customer.metrics.AuthMetrics;
 import com.bank.customer.login.domain.LoginAttempt;
 import com.bank.customer.login.dto.LoginResponse;
 import com.bank.customer.login.repository.LoginAttemptRepository;
@@ -54,6 +55,7 @@ public class AuthEventService {
     private final JwtProperties            jwtProperties;
     private final StringRedisTemplate      redisTemplate;
     private final EmployeeDirectoryService employeeDirectory;
+    private final AuthMetrics              authMetrics;
 
     /**
      * 로그인 성공 후처리. 호출자 트랜잭션에 참여한다.
@@ -92,9 +94,28 @@ public class AuthEventService {
     public void onLoginFailure(String loginId, Long customerId, String ip, String userAgent,
                                String channel, String failureCode, boolean evaluateFds) {
         LoginAttempt attempt = saveAttempt(loginId, customerId, ip, userAgent, channel, false, failureCode);
+        authMetrics.loginFailure(loginFailureReason(failureCode));
         if (evaluateFds && customerId != null) {
             fdsService.evaluate(customerId, FdsDetection.EVENT_LOGIN_ATTEMPT, attempt.getLoginAttemptId());
         }
+    }
+
+    /**
+     * 로그인 실패 에러코드를 알림 집계용 저카디널리티 reason 라벨로 매핑한다.
+     * {@code bad_credentials} 는 alerts.yml 의 BruteForceLoginDetected 가 집계하는 대상.
+     */
+    private static String loginFailureReason(String failureCode) {
+        if (failureCode == null) return "unknown";
+        return switch (failureCode) {
+            case "CUST_010" -> "bad_credentials";   // 아이디/비밀번호 불일치
+            case "CUST_011" -> "locked";            // 계정 잠금
+            case "CUST_012" -> "inactive";          // 탈퇴·비활성
+            case "CUST_013" -> "password_expired";  // 비밀번호 만료
+            case "CUST_082" -> "bad_pin";           // PIN 불일치
+            case "CUST_083" -> "pin_locked";        // PIN 잠금
+            case "CUST_060" -> "fds_blocked";       // FDS 차단
+            default         -> "other";
+        };
     }
 
     /**

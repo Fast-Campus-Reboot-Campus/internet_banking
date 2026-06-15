@@ -168,6 +168,10 @@ const CHECKING_PRODUCT_SLUGS = new Set([
   'axful-youth-account',
   'axful-sok',
   'monimo-daily',
+  // join/[id]/page.tsx CHECKING_IDS와 동기화
+  'axful-living',
+  'axful-gs',
+  'election',
 ])
 
 const SAVING_TYPE_BY_SLUG: Record<string, SavingType> = {
@@ -353,8 +357,7 @@ function accountTypeLabel(account: DepositAccount, product?: DepositProduct): Ac
   if (product && CHECKING_PRODUCT_SLUGS.has(getDepositSlugByProductId(product.productId))) return '입출금'
   if (product?.productName?.includes('통장')) return '입출금'
   if (account.accountAlias?.includes('통장')) return '입출금'
-  // product 정보가 없을 때만 isWithdrawable fallback 사용 (기본값 true이므로 product 있으면 사용 안 함)
-  if (!product && (account.isWithdrawable ?? account.withdrawable)) return '입출금'
+  if (account.isWithdrawable ?? account.withdrawable) return '입출금'
   return '예금'
 }
 

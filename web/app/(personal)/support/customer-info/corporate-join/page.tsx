@@ -46,12 +46,16 @@ export default function CorporateJoinPage() {
   }
 
   function handleStep1() {
-    if (!corpName || !corpEnglishName) return alert('법인명을 입력해주세요.')
+    if (!corpName) return alert('법인명을 입력해주세요.')
+    if (!/^[A-Za-z0-9 .,&()'\-]+$/.test(corpEnglishName)) return alert('영문 법인명을 영문으로 입력해주세요.')
     if (!/^\d{6}-\d{7}$/.test(corpRegNo)) return alert('법인등록번호를 형식(123456-1234567)에 맞게 입력해주세요.')
     if (!/^\d{3}-\d{2}-\d{5}$/.test(bizRegNo)) return alert('사업자등록번호를 형식(123-45-67890)에 맞게 입력해주세요.')
     if (!tradeName) return alert('상호명을 입력해주세요.')
-    if (!/^\d{8}$/.test(openingDate)) return alert('개업일자를 YYYYMMDD 8자리로 입력해주세요.')
-    if (!ntsIndustryCode || !ksicCode || !bizItemCode) return alert('업종/업태 코드를 모두 입력해주세요.')
+    if (!/^\d{8}$/.test(openingDate) || isNaN(Date.parse(`${openingDate.slice(0, 4)}-${openingDate.slice(4, 6)}-${openingDate.slice(6, 8)}`)))
+      return alert('개업일자를 정확히 입력해주세요. (YYYYMMDD)')
+    if (!/^\d{6}$/.test(ntsIndustryCode)) return alert('국세청 업종코드 6자리를 입력해주세요.')
+    if (!/^\d{5}$/.test(ksicCode)) return alert('표준산업분류(KSIC) 5자리 숫자를 입력해주세요.')
+    if (!bizItemCode) return alert('업태/종목을 입력해주세요.')
     setStep(2)
   }
 

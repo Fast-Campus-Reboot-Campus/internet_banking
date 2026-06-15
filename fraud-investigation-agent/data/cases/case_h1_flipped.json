@@ -1,6 +1,6 @@
 {
   "name": "case_h1_flipped",
-  "description": "case_h1 과 동일하나 device 결과만 '낯선 기기'로 뒤집음 — 경로가 수취망(H1)에서 인증(H2)으로 갈리는지 확인용.",
+  "description": "case_h1 에서 device='낯선 기기' + 인증실패(CERT_FAIL_BLOCK)를 더해 계정탈취(H2)로 뒤집음 — 수취망(H1)이 아니라 인증이 진단을 가른다(corpus §16-6 line 569·650). device 는 H1↔H2 경로만 가르고, 최종 H2 확정은 auth_events(CERT_FAIL_BLOCK).",
   "alert": {
     "id": "ALT-H1-FLIP",
     "account": "110-111-1001",
@@ -16,7 +16,7 @@
   "tool_responses": {
     "get_party": { "life_status": "ALIVE", "guardianship": "NONE", "name_match": true },
     "get_customer": { "avg_tx_amount": 300000, "usual_channel": "MOBILE", "tenure_years": 9 },
-    "get_auth_events": { "recent_cert_fail": 0, "password_changed_recently": false, "events": [] },
+    "get_auth_events": { "recent_cert_fail": 5, "password_changed_recently": true, "events": ["CERT_FAIL_BLOCK x5", "PASSWORD_CHANGE 직전"] },
     "get_device_fingerprint": { "known_device": false, "device_id": "DEV-NEW-77", "first_seen_days": 0 },
     "get_fds_history": { "past_detections": 1, "last_pattern": "none" },
     "get_str_history": { "past_str_reports": 4, "last_report": "2026-03-01" },
