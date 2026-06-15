@@ -399,37 +399,8 @@ services:
       kafka:
         condition: service_healthy
 
-  gateway-service:
-    image: ghcr.io/${GITHUB_OWNER}/gateway-service:${GATEWAY_IMAGE_TAG:-latest}
-    container_name: ib-gateway-service
-    <<: *default-restart
-    logging: *default-logging
-    env_file: ../../.env.prod
-    environment:
-      GATEWAY_APP_PORT: 8080
-      REDIS_HOST: redis
-      JWT_SECRET: ${JWT_SECRET}
-      CUSTOMER_SERVICE_HOST: customer-service
-      CUSTOMER_APP_PORT: 8081
-      DEPOSIT_SERVICE_HOST: deposit-service
-      DEPOSIT_APP_PORT: 8082
-      LOAN_SERVICE_HOST: loan-service
-      LOAN_APP_PORT: 8083
-      PAYMENT_SERVICE_HOST: payment-service
-      PAYMENT_APP_PORT: 8084
-      MASTER_SERVICE_HOST: master-service
-      MASTER_APP_PORT: 8085
-      AI_SERVICE_HOST: auto-loan-review
-      AI_SERVICE_PORT: ${AUTO_LOAN_REVIEW_APP_PORT:-8089}
-    ports:
-      - "${GATEWAY_PUBLIC_PORT:-8080}:8080"   # 외부 노출 (Oracle 방화벽 룰 필요)
-    mem_limit: 512m
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  # api-gateway 는 gateway-service 와 동일하게 8080 사용 → 내부 8079 로 격리.
-  # 운영에서 둘 다 띄울 필요 있는지 사용자 확정 후 결정 (현재 둘 다 등록).
+  # 주 진입점(8080). gateway-service(레거시·소스 삭제) → api-gateway 컷오버 완료.
+  # 외부 노출 포트는 8080 그대로 재사용(Oracle 방화벽 룰 변경 없음).
   api-gateway:
     image: ghcr.io/${GITHUB_OWNER}/api-gateway:${API_GATEWAY_IMAGE_TAG:-latest}
     container_name: ib-api-gateway
@@ -437,10 +408,30 @@ services:
     logging: *default-logging
     env_file: ../../.env.prod
     environment:
-      GATEWAY_PORT: 8079
+      GATEWAY_PORT: 8080
       JWT_SECRET: ${JWT_SECRET}
+      # 라우팅 대상 — api-gateway 변수명은 *_SERVICE_HOST / *_SERVICE_PORT (레거시의 *_APP_PORT 아님)
+      CUSTOMER_SERVICE_HOST: customer-service
+      CUSTOMER_SERVICE_PORT: 8081
+      DEPOSIT_SERVICE_HOST: deposit-service
+      DEPOSIT_SERVICE_PORT: 8082
+      LOAN_SERVICE_HOST: loan-service
+      LOAN_SERVICE_PORT: 8083
+      PAYMENT_SERVICE_HOST: payment-service
+      PAYMENT_SERVICE_PORT: 8084
+      MASTER_SERVICE_HOST: master-service
+      MASTER_SERVICE_PORT: 8085
+      # AI(auto-loan-review)·상담은 게이트웨이 미경유 구조 → 라우트 없음(의도적).
+      # redis 는 api-gateway 가 사용하지 않음 → 미설정.
+    ports:
+      - "${GATEWAY_PUBLIC_PORT:-8080}:8080"   # 외부 노출 (Oracle 방화벽 룰 — 포트 8080 그대로 재사용)
     mem_limit: 512m
-    profiles: ["alt-gateway"]   # 기본 비활성. 필요시 --profile alt-gateway 로 활성화
+    depends_on:
+      - customer-service
+      - deposit-service
+      - loan-service
+      - payment-service
+      - master-service
 
   consultation-service:
     image: ghcr.io/${GITHUB_OWNER}/consultation-service:${CONSULTATION_IMAGE_TAG:-latest}

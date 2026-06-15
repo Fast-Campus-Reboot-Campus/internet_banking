@@ -85,7 +85,7 @@ sudo systemctl enable --now ib-stack
 
 # 상태 확인
 docker compose -f infra/docker/docker-compose.prod.yml ps
-docker compose -f infra/docker/docker-compose.prod.yml logs -f gateway-service
+docker compose -f infra/docker/docker-compose.prod.yml logs -f api-gateway
 ```
 
 ## 8. GitHub Actions secrets 등록
