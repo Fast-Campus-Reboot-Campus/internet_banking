@@ -52,10 +52,10 @@ jobs:
             # compose 설정 변경분 적용. 컨테이너 정의가 바뀐 것만 재생성.
             if [ "${{ github.event.inputs.restart-all }}" = "true" ]; then
               docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod down
-              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d
+              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
             else
               docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod pull
-              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d
+              docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d --remove-orphans
             fi
 
             docker image prune -f
