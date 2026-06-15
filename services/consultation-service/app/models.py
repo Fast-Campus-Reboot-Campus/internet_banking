@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -131,6 +131,23 @@ class ChatbotConsultation(AuditMixin, Base):
     end_type_code_id: Mapped[int | None] = mapped_column(BigInteger)
     error_occurred_yn: Mapped[str] = mapped_column(String(1), default="N", nullable=False)
     consultation: Mapped[Consultation] = relationship()
+
+
+class ChatbotGoalSession(Base):
+    """저축목표 에이전트 멀티턴 세션 상태 (DB 영속화, 재시작 후에도 유지)."""
+    __tablename__ = "chatbot_goal_session"
+
+    chatbot_consultation_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("chatbot_consultation.chatbot_consultation_id"), primary_key=True
+    )
+    stage: Mapped[str] = mapped_column(String(20), nullable=False)
+    goal_amount: Mapped[float] = mapped_column(Float, nullable=False)
+    goal_months: Mapped[int] = mapped_column(Integer, nullable=False)
+    customer_no: Mapped[str | None] = mapped_column(String(30))
+    monthly_surplus: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class ChatConsultation(AuditMixin, Base):

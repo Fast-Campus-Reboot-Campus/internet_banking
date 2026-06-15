@@ -178,7 +178,7 @@ class ChatbotService:
 
             # 진행 중인 SAVINGS_GOAL 세션이 있으면 분류 전에 강제 라우팅
             # 2턴 답변("월 30만원요", "목돈 300만원")은 키워드 미매칭이므로 세션으로 판단
-            from app.features.savings_goal import _SESSION as _SAVINGS_SESSION
+            from app.models import ChatbotGoalSession
             import re as _re
             def _is_savings_goal(text: str) -> bool:
                 t = text.replace(" ", "")
@@ -186,7 +186,7 @@ class ChatbotService:
                 has_period = bool(_re.search(r"\d+개월|\d+달|\d+년|[일이삼사오육칠팔구]개월|[일이삼사오육칠팔구]년", t))
                 has_goal   = bool(_re.search(r"모으|모아|목표|저축|저금|적금|모을|쌓", t))
                 return has_amount and (has_period or has_goal)
-            if chatbot.chatbot_consultation_id in _SAVINGS_SESSION:
+            if self.db.get(ChatbotGoalSession, chatbot.chatbot_consultation_id):
                 intent_name = "SAVINGS_GOAL"
             elif _is_savings_goal(classify_text):
                 intent_name = "SAVINGS_GOAL"
