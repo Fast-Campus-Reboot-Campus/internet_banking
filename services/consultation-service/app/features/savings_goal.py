@@ -7,12 +7,6 @@
   3. 답변 수신 → 상품 필터링 + 이자 계산
   4. 여러 상품 비교 + 추천 근거 생성 (GPT 또는 룰 기반)
   5. 결과 제시 + 월별 납입 계획표 데이터
-
-한계:
-  - 세션 상태는 프로세스 메모리(_SESSION dict)에 저장됨.
-  - 서버 재시작 시 진행 중인 모든 저축 목표 세션이 초기화됨.
-  - 멀티 워커(uvicorn --workers N) 환경에서는 워커 간 세션 공유 불가.
-    프로덕션 전환 시 Redis 등 외부 저장소로 교체 필요.
 """
 from __future__ import annotations
 
@@ -20,19 +14,8 @@ import re
 from typing import Any
 
 from app.features.base import FeatureExecutorBase
+from app.models import ChatbotGoalSession
 from app.schemas import ChatbotFeatureExecuteRequest, ChatbotFeatureExecuteResponse
-
-# ── 세션 상태 저장소 (프로세스 내 메모리) ─────────────────────────────────────
-# key: chatbot_consultation_id (int)
-# value: {
-#   "stage": "ASKED_MONTHLY" | "DONE",
-#   "goal_amount": float,
-#   "goal_months": int,
-#   "customer_no": str | None,
-#   "monthly_surplus": float | None,  # 실제 고객 월 잉여자금
-# }
-# 주의: 서버 재시작 시 세션 초기화됨. 멀티 워커 환경 미지원.
-_SESSION: dict[int, dict[str, Any]] = {}
 
 
 # ── 파서 ────────────────────────────────────────────────────────────────────
@@ -236,12 +219,36 @@ def _gpt_recommend(
 
 class SavingsGoalFeatureExecutor(FeatureExecutorBase):
 
+    def _get_session(self, cid: int) -> dict[str, Any] | None:
+        row = self.db.get(ChatbotGoalSession, cid)
+        if row is None:
+            return None
+        return {
+            "stage": row.stage,
+            "goal_amount": row.goal_amount,
+            "goal_months": row.goal_months,
+            "customer_no": row.customer_no,
+            "monthly_surplus": row.monthly_surplus,
+        }
+
+    def _save_session(self, cid: int, data: dict[str, Any]) -> None:
+        row = self.db.get(ChatbotGoalSession, cid)
+        if row is None:
+            row = ChatbotGoalSession(chatbot_consultation_id=cid)
+            self.db.add(row)
+        row.stage = data["stage"]
+        row.goal_amount = data["goal_amount"]
+        row.goal_months = data["goal_months"]
+        row.customer_no = data.get("customer_no")
+        row.monthly_surplus = data.get("monthly_surplus")
+        self.db.flush()
+
     def execute_savings_goal(
         self, request: ChatbotFeatureExecuteRequest
     ) -> ChatbotFeatureExecuteResponse:
         cid = request.chatbot_consultation_id
         query = (request.query or "").strip()
-        session = _SESSION.get(cid) if cid else None
+        session = self._get_session(cid) if cid else None
 
         # ── 진행 중인 세션: 추가 질문 답변 수신 ──────────────────────────────
         if session and session.get("stage") == "ASKED_MONTHLY":
@@ -289,13 +296,13 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
 
         # ── 금액·기간 확인 → 세션 저장 후 추가 질문 ─────────────────────────
         if cid:
-            _SESSION[cid] = {
+            self._save_session(cid, {
                 "stage": "ASKED_MONTHLY",
                 "goal_amount": goal_amount,
                 "goal_months": goal_months,
                 "customer_no": customer_no or None,
                 "monthly_surplus": monthly_surplus,
-            }
+            })
 
         # 월 잉여자금이 있으면 자동 제안
         if monthly_surplus and monthly_surplus > 0:
@@ -365,7 +372,7 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
 
         # 세션을 RESULT_SHOWN 단계로 유지 (후속 금액 재시도 지원)
         if cid:
-            _SESSION[cid] = {**session, "stage": "RESULT_SHOWN"}
+            self._save_session(cid, {**session, "stage": "RESULT_SHOWN"})
 
         return self._recommend(
             goal_amount=goal_amount,
