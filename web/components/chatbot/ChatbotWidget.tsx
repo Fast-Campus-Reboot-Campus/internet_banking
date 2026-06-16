@@ -649,15 +649,6 @@ export default function ChatbotWidget() {
       const accounts = await fetchDepositAccountViewModels(params.customerId)
       totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
     } catch {}
-    try {
-      const txs = await fetchTransactions({ customerId: params.customerId })
-      const now = new Date()
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-      const recent = txs.filter(t => new Date(t.transactionAt ?? '') >= threeMonthsAgo)
-      monthlyIncome  = recent.filter(t => t.directionType === 'IN').reduce((s, t) => s + Number(t.amount), 0) / 3
-      monthlyExpense = recent.filter(t => t.directionType === 'OUT').reduce((s, t) => s + Number(t.amount), 0) / 3
-      txFrequency    = recent.length / 3
-    } catch {}
 
     const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpense)
     const isLowFrequency = txFrequency < 10
