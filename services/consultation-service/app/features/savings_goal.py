@@ -246,6 +246,7 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
         row.customer_no = data.get("customer_no")
         row.monthly_surplus = data.get("monthly_surplus")
         self.db.flush()
+        self.db.commit()
 
     def execute_savings_goal(
         self, request: ChatbotFeatureExecuteRequest
