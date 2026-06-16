@@ -13,6 +13,7 @@ _INTENT_PRIORITY: list[str] = [
     "SPENDING_PATTERN",
     "MY_ACCOUNTS",
     "INTEREST_HISTORY",
+    "PRODUCT_SEARCH",
     "RATE_GUIDE",
     "JOIN_CONDITION",
     "PRODUCT_COMPARE",
@@ -68,6 +69,13 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
         "이자 내역", "이자내역", "이자 조회", "이자 확인", "이자 얼마 받",
         "이자 받은", "이자 지급", "이자 내역 보여", "이자 내역 알려",
         "이번 달 이자", "이자 내역 조회",
+    ],
+    "PRODUCT_SEARCH": [
+        "이상 상품", "이하 상품", "% 이상", "% 이하",
+        "금리 높은 상품", "높은 금리 상품", "금리 낮은 상품", "낮은 금리 상품",
+        "금리 3", "금리 2", "금리 4", "금리 5",
+        "상품 검색", "상품 찾아", "조건 맞는 상품", "조건에 맞는 상품",
+        "이상인 상품", "이하인 상품", "넘는 상품", "초과하는 상품",
     ],
     "RATE_GUIDE": [
         "금리 목록", "금리 보여", "금리 알려줘", "이자율 알려", "금리 현황",
