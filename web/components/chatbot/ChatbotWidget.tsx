@@ -641,8 +641,7 @@ export default function ChatbotWidget() {
   }) {
     // ── 1. 고객 재정 데이터 수집 ──
     let totalBalance = 0
-    let monthlyIncome = 0
-    let monthlyExpense = 0
+    let monthlySurplus = 0
     let txFrequency = 0
 
     try {
@@ -650,7 +649,15 @@ export default function ChatbotWidget() {
       totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
     } catch {}
 
-    const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpense)
+    try {
+      const rec = await fetchDepositRecommendAgent(params.customerId, 3)
+      const cf = rec.cashFlow
+      if (cf) {
+        monthlySurplus = Math.max(0, Number(cf.estimatedSavingsAmount ?? cf.netCashFlow ?? 0))
+        if (cf.totalInflow != null || cf.totalOutflow != null) txFrequency = 20
+      }
+    } catch {}
+
     const isLowFrequency = txFrequency < 10
     const investAmount = params.amount ?? ((params.purpose === 'monthly' ? monthlySurplus : totalBalance * 0.7) || 1_000_000)
     const investPeriod = params.period ?? 12
