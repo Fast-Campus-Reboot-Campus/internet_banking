@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     # 내부 서비스 인증 키. 설정 시 X-Internal-Token 헤더로 검증. 빈 값이면 인증 비활성화(개발 전용).
     api_key: str = ""
+    # 만기 알림 및 재투자 추천 에이전트 활성화 여부 (기본 비활성화)
+    maturity_agent_enabled: bool = False
+    # 지출 패턴 관리 에이전트 활성화 여부 (기본 비활성화)
+    spending_agent_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

@@ -9,6 +9,8 @@ from app.database import get_db
 from app.registry import TABLES
 from app import services
 from app import agent_maturity
+from app import agent_maturity_chat
+from app import agent_spending_chat
 from app import agent_goal_planner
 from app import agent_goal_chat
 from app.utils import clean_payload, model_to_dict
@@ -215,6 +217,80 @@ def maturity_recommendations(contract_id: int, db: Session = Depends(get_db)) ->
 def maturity_process(contract_id: int, payload: dict, db: Session = Depends(get_db)) -> dict:
     """만기 시나리오 실행 (AUTO_RENEWAL / REINVEST_NEW / WITHDRAW_ALL / PARTIAL_REINVEST)."""
     return agent_maturity.process_maturity_scenario(db, contract_id, payload)
+
+
+@app.post("/agent/maturity/chat")
+def maturity_chat(payload: dict, db: Session = Depends(get_db)) -> dict:
+    """
+    Tool Calling 기반 만기 알림 및 재투자 추천 에이전트.
+    MATURITY_AGENT_ENABLED=true 환경변수가 설정된 경우에만 LLM 에이전트가 활성화됩니다.
+    비활성화 시 룰 기반 fallback으로 동작합니다.
+
+    body:
+        customer_id : str
+        message     : str  (사용자 메시지, 예: "만기 예정 계약 확인해줘")
+    """
+    customer_id = payload.get("customer_id")
+    message = payload.get("message", "만기 예정 계약을 확인하고 재투자 추천을 해주세요.")
+
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="customer_id is required")
+
+    if not settings.maturity_agent_enabled:
+        # 룰 기반 fallback
+        maturities = agent_maturity.get_upcoming_maturities(db, days=30)
+        customer_maturities = [m for m in maturities if str(m.get("customer_id", "")) == str(customer_id)]
+        if not customer_maturities:
+            return {
+                "agent_type": "MATURITY_RULE_BASED_FALLBACK",
+                "maturing_contracts": [],
+                "message": "30일 이내 만기 예정인 계약이 없습니다.",
+            }
+        target = customer_maturities[0]
+        recommendations = agent_maturity.get_reinvestment_recommendations(db, target["contract_id"])
+        return {
+            "agent_type": "MATURITY_RULE_BASED_FALLBACK",
+            "maturing_contracts": customer_maturities,
+            "recommendations": recommendations,
+        }
+
+    return agent_maturity_chat.run_maturity_agent(
+        db,
+        customer_id=str(customer_id),
+        message=str(message),
+    )
+
+
+@app.post("/agent/spending/chat")
+def spending_chat(payload: dict, db: Session = Depends(get_db)) -> dict:
+    """
+    Tool Calling 기반 지출 패턴 관리 에이전트.
+    SPENDING_AGENT_ENABLED=true 환경변수가 설정된 경우에만 LLM 에이전트가 활성화됩니다.
+    비활성화 시 룰 기반 fallback으로 동작합니다.
+
+    body:
+        customer_id : str
+        message     : str  (사용자 메시지, 예: "지출 패턴 분석해줘")
+    """
+    customer_id = payload.get("customer_id")
+    message = payload.get("message", "지출 패턴을 분석하고 개선 방안을 알려주세요.")
+
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="customer_id is required")
+
+    if not settings.spending_agent_enabled:
+        # SPENDING_AGENT_ENABLED=false: Mock 플래너로 fallback (LLM API 불필요)
+        return agent_spending_chat.run_spending_agent_mock(
+            db,
+            customer_id=str(customer_id),
+            message=str(message),
+        )
+
+    return agent_spending_chat.run_spending_agent(
+        db,
+        customer_id=str(customer_id),
+        message=str(message),
+    )
 
 
 # ───────────────────────────────────────────────────────────────────────────

@@ -21,6 +21,30 @@ from app.utils import new_number, today_text
 
 
 # ──────────────────────────────────────────────
+# 날짜 호환 헬퍼
+# ──────────────────────────────────────────────
+
+def _to_date(value) -> date | None:
+    """DB date 객체, 'YYYY-MM-DD' 문자열, 'YYYYMMDD' 문자열 모두 date로 변환."""
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    text = str(value)
+    if "-" in text:
+        return datetime.strptime(text, "%Y-%m-%d").date()
+    return datetime.strptime(text, "%Y%m%d").date()
+
+
+def _date_to_str(value) -> str | None:
+    """date 객체 또는 YYYYMMDD 문자열을 YYYYMMDD 문자열로 반환."""
+    if value is None:
+        return None
+    d = _to_date(value)
+    return d.strftime("%Y%m%d") if d else None
+
+
+# ──────────────────────────────────────────────
 # 상수
 # ──────────────────────────────────────────────
 
@@ -47,21 +71,17 @@ def get_upcoming_maturities(db: Session, days: int = DEFAULT_LOOKAHEAD_DAYS) -> 
     today = date.today()
     deadline = today + timedelta(days=days)
 
-    # maturity_at 은 CHAR(8) 'YYYYMMDD' 형식
-    today_str = today.strftime("%Y%m%d")
-    deadline_str = deadline.strftime("%Y%m%d")
-
     contracts = db.scalars(
         select(models.Contract).where(
             models.Contract.contract_status == models.ContractStatus.ACTIVE,
-            models.Contract.maturity_at >= today_str,
-            models.Contract.maturity_at <= deadline_str,
+            models.Contract.maturity_at >= today,
+            models.Contract.maturity_at <= deadline,
         )
     ).all()
 
     result = []
     for c in contracts:
-        maturity_date = datetime.strptime(c.maturity_at, "%Y%m%d").date()
+        maturity_date = _to_date(c.maturity_at)
         days_left = (maturity_date - today).days
 
         account = db.scalar(
@@ -78,7 +98,7 @@ def get_upcoming_maturities(db: Session, days: int = DEFAULT_LOOKAHEAD_DAYS) -> 
             "product_type": product.deposit_product_type if product else None,
             "final_interest_rate": float(c.final_interest_rate),
             "contract_period_month": c.contract_period_month,
-            "maturity_at": c.maturity_at,
+            "maturity_at": _date_to_str(c.maturity_at),
             "days_until_maturity": days_left,
             "current_balance": float(account.balance) if account else 0,
             "account_id": account.account_id if account else None,
@@ -162,7 +182,7 @@ def get_reinvestment_recommendations(db: Session, contract_id: int) -> dict:
 
     recommendations.sort(key=lambda x: x["recommendation_score"], reverse=True)
 
-    maturity_date = datetime.strptime(contract.maturity_at, "%Y%m%d").date()
+    maturity_date = _to_date(contract.maturity_at)
     days_left = (maturity_date - date.today()).days
 
     # 예상 이자 계산 (단리 기준)
@@ -175,7 +195,7 @@ def get_reinvestment_recommendations(db: Session, contract_id: int) -> dict:
         "current_product_name": current_product.deposit_product_name if current_product else None,
         "current_balance": float(balance),
         "current_rate": float(current_rate),
-        "maturity_at": contract.maturity_at,
+        "maturity_at": _date_to_str(contract.maturity_at),
         "days_until_maturity": days_left,
         "estimated_maturity_interest": float(estimated_interest),
         "estimated_maturity_total": float(balance + estimated_interest),
