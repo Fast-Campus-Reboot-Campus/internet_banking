@@ -1,5 +1,6 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,6 +23,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def verify_internal_token(request: Request, call_next):
+    """내부 서비스 인증. api_key 가 설정된 경우에만 X-Internal-Token 헤더를 검증한다."""
+    if settings.api_key and request.url.path != "/health":
+        token = request.headers.get("X-Internal-Token", "")
+        if token != settings.api_key:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
 
 
 @app.get("/health")

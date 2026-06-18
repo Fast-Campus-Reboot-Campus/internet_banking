@@ -8,11 +8,9 @@
   4. 여러 상품 비교 + 추천 근거 생성 (GPT 또는 룰 기반)
   5. 결과 제시 + 월별 납입 계획표 데이터
 
-한계:
-  - 세션 상태는 프로세스 메모리(_SESSION dict)에 저장됨.
-  - 서버 재시작 시 진행 중인 모든 저축 목표 세션이 초기화됨.
-  - 멀티 워커(uvicorn --workers N) 환경에서는 워커 간 세션 공유 불가.
-    프로덕션 전환 시 Redis 등 외부 저장소로 교체 필요.
+참고:
+  - 세션 상태는 chatbot_goal_session 테이블(DB)에 영속화됨.
+  - 서버 재시작, 멀티 워커, 다중 레플리카 환경에서도 세션 유지됨.
 """
 from __future__ import annotations
 
@@ -21,18 +19,6 @@ from typing import Any
 
 from app.features.base import FeatureExecutorBase
 from app.schemas import ChatbotFeatureExecuteRequest, ChatbotFeatureExecuteResponse
-
-# ── 세션 상태 저장소 (프로세스 내 메모리) ─────────────────────────────────────
-# key: chatbot_consultation_id (int)
-# value: {
-#   "stage": "ASKED_MONTHLY" | "DONE",
-#   "goal_amount": float,
-#   "goal_months": int,
-#   "customer_no": str | None,
-#   "monthly_surplus": float | None,  # 실제 고객 월 잉여자금
-# }
-# 주의: 서버 재시작 시 세션 초기화됨. 멀티 워커 환경 미지원.
-_SESSION: dict[int, dict[str, Any]] = {}
 
 
 # ── 파서 ────────────────────────────────────────────────────────────────────
@@ -272,12 +258,53 @@ def _gpt_recommend(
 
 class SavingsGoalFeatureExecutor(FeatureExecutorBase):
 
+    def _get_session(self, cid: int | None) -> "dict[str, Any] | None":
+        if not cid:
+            return None
+        from app.models import ChatbotGoalSession
+        obj = self.db.get(ChatbotGoalSession, cid)
+        if not obj:
+            return None
+        return {
+            "stage": obj.stage,
+            "goal_amount": obj.goal_amount,
+            "goal_months": obj.goal_months,
+            "customer_no": obj.customer_no,
+            "monthly_surplus": obj.monthly_surplus,
+            "monthly_payment": obj.monthly_payment,
+        }
+
+    def _save_session(self, cid: int | None, data: "dict[str, Any]") -> None:
+        if not cid:
+            return
+        from app.models import ChatbotGoalSession
+        obj = self.db.get(ChatbotGoalSession, cid)
+        if obj:
+            obj.stage = data.get("stage", obj.stage)
+            obj.goal_amount = data.get("goal_amount") or obj.goal_amount
+            obj.goal_months = data.get("goal_months") or obj.goal_months
+            obj.customer_no = data.get("customer_no", obj.customer_no)
+            obj.monthly_surplus = data.get("monthly_surplus")
+            obj.monthly_payment = data.get("monthly_payment")
+        else:
+            obj = ChatbotGoalSession(
+                chatbot_consultation_id=cid,
+                stage=data["stage"],
+                goal_amount=data.get("goal_amount") or 0,
+                goal_months=data.get("goal_months") or 0,
+                customer_no=data.get("customer_no"),
+                monthly_surplus=data.get("monthly_surplus"),
+                monthly_payment=data.get("monthly_payment"),
+            )
+            self.db.add(obj)
+        self.db.flush()
+
     def execute_savings_goal(
         self, request: ChatbotFeatureExecuteRequest
     ) -> ChatbotFeatureExecuteResponse:
         cid = request.chatbot_consultation_id
         query = (request.query or "").strip()
-        session = _SESSION.get(cid) if cid else None
+        session = self._get_session(cid)
 
         # ── 진행 중인 세션: 추가 질문 답변 수신 ──────────────────────────────
         if session and session.get("stage") == "ASKED_MONTHLY":
@@ -300,9 +327,9 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
             if merged_amount and merged_months:
                 # 두 필드 모두 확보 → ASKED_MONTHLY 단계로 진행
                 if cid:
-                    _SESSION[cid] = {**session, "stage": "ASKED_MONTHLY",
-                                     "goal_amount": merged_amount, "goal_months": merged_months}
-                session = _SESSION[cid]
+                    self._save_session(cid, {**session, "stage": "ASKED_MONTHLY",
+                                             "goal_amount": merged_amount, "goal_months": merged_months})
+                session = self._get_session(cid)
                 # 아래 고객 현금흐름 조회로 fall-through 하도록 goal_amount/goal_months 설정
                 goal_amount, goal_months = merged_amount, merged_months
                 # 고객 현금흐름 조회 (로그인 시)
@@ -315,14 +342,14 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
                     except Exception:
                         pass
                 if cid:
-                    _SESSION[cid] = {
+                    self._save_session(cid, {
                         "stage": "ASKED_MONTHLY",
                         "goal_amount": goal_amount,
                         "goal_months": goal_months,
                         "customer_no": customer_no or None,
                         "monthly_surplus": monthly_surplus,
                         "monthly_payment": None,
-                    }
+                    })
                 surplus_msg = (
                     f"월 잉여자금이 약 {monthly_surplus:,.0f}원으로 파악됩니다. 이 금액 기준으로 납입 가능하신가요?\n"
                     f"다른 금액이라면 알려주세요."
@@ -340,7 +367,7 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
                 )
             # 아직 부족 → 세션 업데이트 후 재질문
             if cid:
-                _SESSION[cid] = {**session, "goal_amount": merged_amount, "goal_months": merged_months}
+                self._save_session(cid, {**session, "goal_amount": merged_amount, "goal_months": merged_months})
             still_missing = []
             if not merged_amount:
                 still_missing.append("목표 금액이 얼마인지 알려주세요. (예: 500만원)")
@@ -371,14 +398,14 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
             ask = " 그리고 ".join(questions[k] for k in missing)
             # 부분 정보라도 세션에 저장해 다음 턴에서 누락 필드만 보완
             if cid:
-                _SESSION[cid] = {
+                self._save_session(cid, {
                     "stage": "ASKING_GOAL",
                     "goal_amount": goal_amount,
                     "goal_months": goal_months,
                     "customer_no": (request.customer_no or "").strip() or None,
                     "monthly_surplus": None,
                     "monthly_payment": None,
-                }
+                })
             return ChatbotFeatureExecuteResponse(
                 feature_code="SAVINGS_GOAL",
                 status="NEED_INFO",
@@ -399,13 +426,14 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
 
         # ── 금액·기간 확인 → 세션 저장 후 추가 질문 ─────────────────────────
         if cid:
-            _SESSION[cid] = {
+            self._save_session(cid, {
                 "stage": "ASKED_MONTHLY",
                 "goal_amount": goal_amount,
                 "goal_months": goal_months,
                 "customer_no": customer_no or None,
                 "monthly_surplus": monthly_surplus,
-            }
+                "monthly_payment": None,
+            })
 
         # 월 잉여자금이 있으면 자동 제안
         if monthly_surplus and monthly_surplus > 0:
@@ -489,11 +517,11 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
 
         # 세션을 RESULT_SHOWN 단계로 유지 (후속 질문 재시도 지원)
         if cid:
-            _SESSION[cid] = {
+            self._save_session(cid, {
                 **session,
                 "stage": "RESULT_SHOWN",
                 "monthly_payment": None if is_lump else amount,
-            }
+            })
 
         return self._recommend(
             goal_amount=goal_amount,

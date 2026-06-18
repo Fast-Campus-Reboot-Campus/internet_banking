@@ -178,7 +178,7 @@ class ChatbotService:
 
             # 진행 중인 SAVINGS_GOAL 세션이 있으면 분류 전에 강제 라우팅
             # 2턴 답변("월 30만원요", "목돈 300만원")은 키워드 미매칭이므로 세션으로 판단
-            from app.features.savings_goal import _SESSION as _SAVINGS_SESSION
+            from app.models import ChatbotGoalSession as _ChatbotGoalSession
             import re as _re
             import os as _os
             import logging as _log
@@ -198,9 +198,9 @@ class ChatbotService:
                 return has_amount and (has_period or has_goal)
 
             cid = chatbot.chatbot_consultation_id
-            existing_session = _SAVINGS_SESSION.get(cid)
-            current_stage = existing_session.get("stage") if existing_session else None
-            forced_by_session = cid in _SAVINGS_SESSION
+            existing_session_obj = self.db.get(_ChatbotGoalSession, cid) if cid else None
+            current_stage = existing_session_obj.stage if existing_session_obj else None
+            forced_by_session = existing_session_obj is not None
 
             if forced_by_session:
                 intent_name = "SAVINGS_GOAL"
@@ -2781,26 +2781,32 @@ class ChatbotService:
     ):
         """
         Goal Agent(/agent/goal/chat)를 HTTP로 호출한다.
-        응답 후 _SESSION에 세션을 저장하여 다음 턴이 savings_goal.py로 처리될 수 있게 한다.
+        응답 후 DB 세션을 저장하여 다음 턴이 savings_goal.py로 처리될 수 있게 한다.
         실패 시 기존 savings_goal.py 로 fallback.
         """
         import os as _os
         import logging as _log
         from app.schemas import ChatbotFeatureExecuteResponse
-        from app.features.savings_goal import _SESSION, _parse_amount, _parse_months
+        from app.features.savings_goal import _parse_amount, _parse_months
+        from app.models import ChatbotGoalSession as _GoalSession
 
         _agent_log = _log.getLogger("savings_goal.routing")
         goal_agent_url = _os.getenv("GOAL_AGENT_URL", "http://host.docker.internal:8000")
+        goal_agent_api_key = _os.getenv("GOAL_AGENT_API_KEY", "")
         endpoint = f"{goal_agent_url}/agent/goal/chat"
 
         try:
             import httpx as _httpx
+            _headers = {}
+            if goal_agent_api_key:
+                _headers["X-Internal-Token"] = goal_agent_api_key
             resp = _httpx.post(
                 endpoint,
                 json={
                     "customer_id": customer_no or "ANONYMOUS",
                     "message": message,
                 },
+                headers=_headers,
                 timeout=30.0,
             )
             resp.raise_for_status()
@@ -2814,35 +2820,39 @@ class ChatbotService:
                 reply = data.get("message") or ""
                 status = "OK"
 
-            # 다음 턴 세션 연속성을 위해 _SESSION 저장
+            # 다음 턴 세션 연속성을 위해 DB 세션 저장
             # savings_goal.py가 다음 "백만원" 같은 답변을 ASKED_MONTHLY로 처리할 수 있게 함
             if chatbot_consultation_id:
                 goal_amount = _parse_amount(message)
                 goal_months = _parse_months(message)
+
+                def _upsert_goal_session(cid: int, stage: str, ga, gm) -> None:
+                    obj = self.db.get(_GoalSession, cid)
+                    if obj:
+                        obj.stage = stage
+                        obj.goal_amount = ga or obj.goal_amount
+                        obj.goal_months = gm or obj.goal_months
+                        obj.customer_no = customer_no or None
+                        obj.monthly_surplus = None
+                        obj.monthly_payment = None
+                    else:
+                        self.db.add(_GoalSession(
+                            chatbot_consultation_id=cid, stage=stage,
+                            goal_amount=ga or 0, goal_months=gm or 0,
+                            customer_no=customer_no or None,
+                        ))
+                    self.db.flush()
+
                 if not need_more and goal_amount and goal_months:
                     # 목표 확인 완료 → 다음 턴은 월납입 질문 답변
-                    _SESSION[chatbot_consultation_id] = {
-                        "stage": "ASKED_MONTHLY",
-                        "goal_amount": goal_amount,
-                        "goal_months": goal_months,
-                        "customer_no": customer_no or None,
-                        "monthly_surplus": None,
-                        "monthly_payment": None,
-                    }
+                    _upsert_goal_session(chatbot_consultation_id, "ASKED_MONTHLY", goal_amount, goal_months)
                     _agent_log.info(
                         "[SAVINGS_GOAL] agent_session_saved cid=%s stage=ASKED_MONTHLY goal=%s months=%s",
                         chatbot_consultation_id, goal_amount, goal_months,
                     )
                 elif need_more:
                     # 아직 목표 수집 중 → ASKING_GOAL 저장
-                    _SESSION[chatbot_consultation_id] = {
-                        "stage": "ASKING_GOAL",
-                        "goal_amount": _parse_amount(message),
-                        "goal_months": _parse_months(message),
-                        "customer_no": customer_no or None,
-                        "monthly_surplus": None,
-                        "monthly_payment": None,
-                    }
+                    _upsert_goal_session(chatbot_consultation_id, "ASKING_GOAL", _parse_amount(message), _parse_months(message))
                     _agent_log.info(
                         "[SAVINGS_GOAL] agent_session_saved cid=%s stage=ASKING_GOAL",
                         chatbot_consultation_id,

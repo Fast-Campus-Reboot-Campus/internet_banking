@@ -500,10 +500,10 @@ services:
       CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       GOAL_AGENT_ENABLED: ${GOAL_AGENT_ENABLED:-true}
       GOAL_AGENT_URL: ${GOAL_AGENT_URL:-http://host.docker.internal:8000}
+      GOAL_AGENT_API_KEY: ${GOAL_AGENT_API_KEY:-}
       LOG_DIR: /logs
     volumes:
       - C:/logs/internet-banking:/logs
-      - ./services/consultation-service/app:/app/app
     depends_on:
       deposit-db:
         condition: service_healthy
