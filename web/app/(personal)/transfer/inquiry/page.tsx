@@ -4,13 +4,34 @@ import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE }
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { formatNumber } from '@/lib/mock-data'
-import { fetchDepositAccountViewModels, fetchTransactions, getCurrentDepositCustomerId, type DepositViewAccount } from '@/lib/deposit-api'
+import { fetchDepositAccountViewModels, fetchTransactions, getCurrentDepositCustomerId, type DepositViewAccount, type DepositTransaction } from '@/lib/deposit-api'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 
 const TABS = ['즉시이체 결과조회', '예약이체 조회', '연락이체 조회', '지연이체 조회']
 
 type ResultRow = { id: string; datetime: string; bank: string; account: string; receiver: string; amount: number; memo: string; status?: string }
 type InquiryAccount = Pick<DepositViewAccount, 'id' | 'apiAccountId' | 'number' | 'name'>
+
+// 이체결과조회를 거래내역과 동일한 소스로 통일한다.
+// 자행이체(INTERNAL)는 deposit에 TRANSFER로 기록되지만, 타행이체(EXTERNAL)는 payment 경유로
+// deposit에 WITHDRAW로 기록되어(메모 "P-{piId}|…") transactionType='TRANSFER' 필터만으로는 누락된다.
+// → 이체성 출금(WITHDRAW with payment 마커)까지 포함해 거래내역과 누락 없이 일치시킨다.
+function isTransferOut(t: DepositTransaction): boolean {
+  if (t.directionType !== 'OUT') return false
+  if (t.transactionType === 'TRANSFER') return true
+  if (t.transactionType === 'WITHDRAW') {
+    const memo = t.transactionMemo ?? ''
+    return memo.startsWith('P-') || memo.includes('이체')
+  }
+  return false
+}
+
+// "P-{piId}|인터넷 이체" → "인터넷 이체" (payment 식별자 프리픽스 제거)
+function cleanTransferMemo(memo?: string): string {
+  if (!memo) return ''
+  const sep = memo.indexOf('|')
+  return memo.startsWith('P-') && sep >= 0 ? memo.slice(sep + 1).trim() : memo
+}
 
 export default function TransferInquiryPage() {
   const [activeTab, setActiveTab] = useState('즉시이체 결과조회')
@@ -43,7 +64,7 @@ export default function TransferInquiryPage() {
         )
         const txs = txResults.flatMap(result => result.status === 'fulfilled' ? result.value : [])
         const rows: ResultRow[] = txs
-          .filter(t => t.transactionType === 'TRANSFER' && t.directionType === 'OUT')
+          .filter(isTransferOut)
           .map(t => ({
             id: String(t.transactionId),
             datetime: t.transactionAt?.replace('T', '\n').slice(0, 19) || '',
@@ -51,7 +72,7 @@ export default function TransferInquiryPage() {
             account: t.counterpartyAccountNo || '-',
             receiver: t.counterpartyName || t.transactionSummary || '-',
             amount: Number(t.amount),
-            memo: t.transactionMemo || '',
+            memo: cleanTransferMemo(t.transactionMemo),
             status: t.status,
           }))
         setApiResults(rows)
