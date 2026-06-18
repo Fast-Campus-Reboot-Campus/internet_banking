@@ -1,0 +1,45 @@
+# =============================================================================
+# Web CI — 프론트(web) Vitest 단위테스트 검증
+#
+# web/** 변경이 포함된 PR(대상 브랜치 무관) 및 main push 에서 vitest 를 돌려
+# fail-fast. 변환 파이프라인은 Vite/esbuild 가 담당하므로 별도 빌드 단계 없이
+# npm ci → npm test 만으로 검증한다.
+# =============================================================================
+name: Web CI
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-ci.yml'
+
+jobs:
+  test:
+    name: Test web (Vitest)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
