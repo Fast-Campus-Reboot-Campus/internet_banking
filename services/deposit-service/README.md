@@ -547,6 +547,41 @@ ALTER TABLE deposit_accounts
 
 ---
 
+## CORS 허용 출처 확장 (127.0.0.1 추가)
+
+### 변경 배경
+
+브라우저에서 `http://127.0.0.1:3001`로 웹 앱에 접속하면 deposit-service의 `/api/products/{id}` 호출이 **403 Forbidden**으로 차단되었습니다.
+
+원인: `CorsConfig`의 `allowedOrigins`에 `localhost`만 허용하고 `127.0.0.1`은 누락되어 있었기 때문입니다. 브라우저는 `localhost`와 `127.0.0.1`을 별도 Origin으로 구분합니다.
+
+### 증상
+
+챗봇이 상품을 추천한 뒤 **가입하기** 버튼을 누르면 가입 페이지의 `fetchDepositProduct(productId)`가 CORS로 실패 → 상품 이름이 기본값(`AXful 정기예금`)으로 고정되는 버그가 발생했습니다.
+
+### 변경 내용
+
+`127.0.0.1:3000`, `127.0.0.1:3001`을 허용 출처로 추가했습니다.
+
+```java
+// 변경 전
+.allowedOrigins("http://localhost:3000", "http://localhost:3001")
+
+// 변경 후
+.allowedOrigins(
+    "http://localhost:3000", "http://localhost:3001",
+    "http://127.0.0.1:3000", "http://127.0.0.1:3001"
+)
+```
+
+### 관련 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `src/main/java/com/bank/deposit/config/CorsConfig.java` | `127.0.0.1:3000`, `127.0.0.1:3001` 허용 출처 추가 |
+
+---
+
 ## 담당 범위 확인
 
 이번 커밋에는 customer-service 변경을 포함하지 않습니다. 인증, 고객 서비스 담당 영역의 파일은 제외하고 deposit-service와 deposit 프론트 연동 파일만 포함합니다.

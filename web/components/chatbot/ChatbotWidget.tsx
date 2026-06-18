@@ -323,6 +323,7 @@ export default function ChatbotWidget() {
   const [chatbotConsultationId, setChatbotConsultationId] = useState<number | null>(null)
   const [expandedRow, setExpandedRow] = useState<ExpandedRow | null>(null)
   const [dataPages, setDataPages] = useState<Record<string, number>>({})
+  const [feedback, setFeedback] = useState<Record<string, 'like' | 'dislike'>>({})
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const [transferState, setTransferState] = useState<TransferState | null>(null)
   const [terminateState, setTerminateState] = useState<TerminateState | null>(null)
@@ -640,25 +641,23 @@ export default function ChatbotWidget() {
   }) {
     // ── 1. 고객 재정 데이터 수집 ──
     let totalBalance = 0
-    let monthlyIncome = 0
-    let monthlyExpense = 0
+    let monthlySurplus = 0
     let txFrequency = 0
 
     try {
       const accounts = await fetchDepositAccountViewModels(params.customerId)
       totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
     } catch {}
+
     try {
-      const txs = await fetchTransactions({ customerId: params.customerId })
-      const now = new Date()
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-      const recent = txs.filter(t => new Date(t.transactionAt ?? '') >= threeMonthsAgo)
-      monthlyIncome  = recent.filter(t => t.directionType === 'IN').reduce((s, t) => s + Number(t.amount), 0) / 3
-      monthlyExpense = recent.filter(t => t.directionType === 'OUT').reduce((s, t) => s + Number(t.amount), 0) / 3
-      txFrequency    = recent.length / 3
+      const rec = await fetchDepositRecommendAgent(params.customerId, 3)
+      const cf = rec.cashFlow
+      if (cf) {
+        monthlySurplus = Math.max(0, Number(cf.estimatedSavingsAmount ?? cf.netCashFlow ?? 0))
+        if (cf.totalInflow != null || cf.totalOutflow != null) txFrequency = 20
+      }
     } catch {}
 
-    const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpense)
     const isLowFrequency = txFrequency < 10
     const investAmount = params.amount ?? ((params.purpose === 'monthly' ? monthlySurplus : totalBalance * 0.7) || 1_000_000)
     const investPeriod = params.period ?? 12
@@ -917,7 +916,7 @@ export default function ChatbotWidget() {
 
     const normalized = text.replace(/\s+/g, '').toLowerCase()
     const hasCompareIntent = ['비교', '차이', '뭐가더', '어느쪽', 'compare', 'difference'].some(keyword => normalized.includes(keyword))
-    const hasMeaningIntent = ['뜻', '의미', '뭐야', '뭔가요', '뭔지', '설명', '알려줘', '개념'].some(keyword => normalized.includes(keyword))
+    const hasMeaningIntent = ['뜻', '의미', '뭐야', '뭔가요', '뭔지', '설명', '개념'].some(keyword => normalized.includes(keyword))
     const hasFitIntent = ['맞아', '적합', '나한테', '나에게', '내게', '저한테', 'forme'].some(keyword => normalized.includes(keyword))
     const hasProductContext = ['상품', '예금', '적금', '청약', 'product'].some(keyword => normalized.includes(keyword))
     const isCompare = hasCompareIntent || hasMeaningIntent || (hasFitIntent && hasProductContext)
@@ -1178,7 +1177,7 @@ export default function ChatbotWidget() {
       setMessages([{ id: messageId('user'), role: 'user', text }])
       try {
         const cid = customerNo.trim() || getCurrentDepositCustomerId()
-        const answer = await answerDepositSavingsFit(cid)
+        const answer = await answerCashflowRecommend(cid, trimmed)
         setMessages((current) => [...current, { id: messageId('bot'), role: 'bot', text: answer }])
       } catch {
         setMessages((current) => [...current, {
@@ -1230,7 +1229,8 @@ export default function ChatbotWidget() {
       return
     }
 
-    const compareAnswer = answerProductCompare(trimmed)
+    const isMatureQuery = ['만기', '재투자', '재예치', '재가입'].some(w => trimmed.includes(w))
+    const compareAnswer = isMatureQuery ? null : answerProductCompare(trimmed)
     if (compareAnswer) {
       setExpandedRow(null)
       setDataPages({})
@@ -1479,14 +1479,7 @@ export default function ChatbotWidget() {
         product_type: (featureCode as string) === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
-      if (featureCode === 'CASH_FLOW_RECOMMEND') {
-        saveRecommendContext(result)
-        setMessages(prev => [
-          ...prev.filter(m => m.featureCode !== 'CASH_FLOW_RECOMMEND'),
-          addFeatureResult(result),
-        ])
-        window.setTimeout(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }, 50)
-      } else if (replaceMessages) {
+      if (replaceMessages) {
         setMessages((current) => [...current, addFeatureResult(result)])
       } else {
         pushMessages([addFeatureResult(result)])
@@ -2610,7 +2603,7 @@ export default function ChatbotWidget() {
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#FBFAF7] px-4 py-4">
               {messages.map((message) => (
-                <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+                <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start'}>
                   <div
                     className={`max-w-[88%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                       message.role === 'user'
@@ -2719,7 +2712,7 @@ export default function ChatbotWidget() {
                                     </span>
                                     <p className="font-bold text-kb-text flex-1 text-[11px]">{String(row.product_name ?? '')}</p>
                                     {Number(row.product_id) > 0 && (
-                                      <a href={`/products/deposit/join/${row.product_id}`} target="_blank" rel="noopener noreferrer"
+                                      <a href={`/products/deposit/join/product-${row.product_id}`} target="_blank" rel="noopener noreferrer"
                                         className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]">
                                         가입하기
                                       </a>
@@ -2727,13 +2720,13 @@ export default function ChatbotWidget() {
                                   </div>
                                   {/* 핵심 수치 */}
                                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-                                    <span>금리 <span className="font-bold text-[#2D6A4F]">{row.base_interest_rate}%</span></span>
+                                    <span>금리 <span className="font-bold text-[#2D6A4F]">{String(row.base_interest_rate)}%</span></span>
                                     <span>만기수령 <span className="font-bold text-kb-text">{Number(row.maturity_amount).toLocaleString()}원</span></span>
                                     <span>이자 <span className="font-bold text-[#2D6A4F]">+{Number(row.interest_amount).toLocaleString()}원</span></span>
                                     {row.required_monthly != null && (
                                       <span>월납입 <span className="font-bold text-kb-text">{Number(row.required_monthly).toLocaleString()}원</span></span>
                                     )}
-                                    <span>기간 <span className="font-bold text-kb-text">{row.goal_months}개월</span></span>
+                                    <span>기간 <span className="font-bold text-kb-text">{String(row.goal_months)}개월</span></span>
                                   </div>
                                   {/* 1위 상품에만 납입 계획표 */}
                                   {index === 0 && midPlan.length > 0 && (
@@ -2771,7 +2764,7 @@ export default function ChatbotWidget() {
                                 <div key={i} className="rounded bg-[#1a3a5c] p-2 text-center text-[10px] font-bold text-white">
                                   <p>{String(p.product_name ?? '')}</p>
                                   {Number(p.product_id) > 0 && (
-                                    <a href={`/products/deposit/join/${p.product_id}`} target="_blank" rel="noopener noreferrer"
+                                    <a href={`/products/deposit/join/product-${p.product_id}`} target="_blank" rel="noopener noreferrer"
                                       className="mt-1 inline-block rounded bg-white px-2 py-0.5 text-[9px] font-bold text-[#1a3a5c] hover:bg-gray-100">
                                       가입하기
                                     </a>
@@ -2816,7 +2809,7 @@ export default function ChatbotWidget() {
                                 <p className="font-bold text-kb-text flex-1">{String(row.deposit_product_name ?? row.product_name ?? '')}</p>
                                 {row.product_id != null && Number(row.product_id) > 0 && (
                                   <a
-                                    href={`/products/deposit/join/${row.product_id}`}
+                                    href={`/products/deposit/join/product-${row.product_id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex-shrink-0 rounded bg-[#1a5fa8] px-2 py-0.5 text-[10px] font-bold text-white hover:bg-[#164d8a]"
@@ -2994,6 +2987,28 @@ export default function ChatbotWidget() {
                           <ArrowLeftRight className="h-3 w-3" />
                           {message.link.text}
                         </a>
+                      </div>
+                    )}
+                    {message.role === 'bot' && !message.loginForm && (
+                      <div className="flex gap-1.5 mt-2 pt-2 border-t border-kb-border">
+                        <button
+                          onClick={() => setFeedback(prev => {
+                            if (prev[message.id] === 'like') { const n = {...prev}; delete n[message.id]; return n }
+                            return { ...prev, [message.id]: 'like' }
+                          })}
+                          className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${feedback[message.id] === 'like' ? 'bg-green-100 text-green-600 font-bold' : 'text-kb-text-muted hover:text-green-500'}`}
+                        >
+                          👍 {feedback[message.id] === 'like' ? '도움됐어요' : '좋아요'}
+                        </button>
+                        <button
+                          onClick={() => setFeedback(prev => {
+                            if (prev[message.id] === 'dislike') { const n = {...prev}; delete n[message.id]; return n }
+                            return { ...prev, [message.id]: 'dislike' }
+                          })}
+                          className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${feedback[message.id] === 'dislike' ? 'bg-red-100 text-red-500 font-bold' : 'text-kb-text-muted hover:text-red-400'}`}
+                        >
+                          👎 {feedback[message.id] === 'dislike' ? '별로예요' : '싫어요'}
+                        </button>
                       </div>
                     )}
                     {message.loginForm && !isLoggedIn && (

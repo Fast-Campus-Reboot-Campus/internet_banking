@@ -178,30 +178,69 @@ class ChatbotService:
 
             # 진행 중인 SAVINGS_GOAL 세션이 있으면 분류 전에 강제 라우팅
             # 2턴 답변("월 30만원요", "목돈 300만원")은 키워드 미매칭이므로 세션으로 판단
-            from app.features.savings_goal import _SESSION as _SAVINGS_SESSION
+            from app.models import ChatbotGoalSession as _ChatbotGoalSession
             import re as _re
+            import os as _os
+            import logging as _log
+            _savings_log = _log.getLogger("savings_goal.routing")
+            if not _savings_log.handlers:
+                _h = _log.StreamHandler()
+                _h.setFormatter(_log.Formatter("[%(name)s] %(message)s"))
+                _savings_log.addHandler(_h)
+            _savings_log.setLevel(_log.DEBUG)
+            _savings_log.propagate = False
+
             def _is_savings_goal(text: str) -> bool:
                 t = text.replace(" ", "")
-                has_amount = bool(_re.search(r"\d+만|\d+억|\d+천만|[일이삼사오육칠팔구백]만", t))
+                has_amount = bool(_re.search(r"\d+만|\d+억|\d+천만|[일이삼사오육칠팔구]천만|천만|[일이삼사오육칠팔구백]만", t))
                 has_period = bool(_re.search(r"\d+개월|\d+달|\d+년|[일이삼사오육칠팔구]개월|[일이삼사오육칠팔구]년", t))
                 has_goal   = bool(_re.search(r"모으|모아|목표|저축|저금|적금|모을|쌓", t))
                 return has_amount and (has_period or has_goal)
-            if chatbot.chatbot_consultation_id in _SAVINGS_SESSION:
+
+            cid = chatbot.chatbot_consultation_id
+            existing_session_obj = self.db.get(_ChatbotGoalSession, cid) if cid else None
+            current_stage = existing_session_obj.stage if existing_session_obj else None
+            forced_by_session = existing_session_obj is not None
+
+            if forced_by_session:
                 intent_name = "SAVINGS_GOAL"
             elif _is_savings_goal(classify_text):
                 intent_name = "SAVINGS_GOAL"
             else:
                 intent_name = self._classifier.classify(classify_text)
+
+            _savings_log.info(
+                "[SAVINGS_GOAL] incoming_message=%r current_session_stage=%s forced_savings_goal_route=%s",
+                message, current_stage, forced_by_session,
+            )
+
             intent_record = self._get_intent(chatbot.scenario_id, intent_name) if intent_name else None
             if intent_name:
                 customer_no = self._get_customer_no(chatbot)
-                feat_result = self._run_feature_for_intent_full(
-                    intent_name,
-                    message,
-                    customer_no=customer_no,
-                    chatbot_consultation_id=chatbot.chatbot_consultation_id,
+
+                # ── Goal Agent 연결 (GOAL_AGENT_ENABLED=true 시 활성화) ──────────
+                # 세션이 이미 존재하면 savings_goal.py가 멀티턴 상태를 관리하므로 항상 savings_goal.py 사용
+                # 세션이 없는 첫 턴에만 Goal Agent 호출
+                use_agent = (
+                    intent_name == "SAVINGS_GOAL"
+                    and _os.getenv("GOAL_AGENT_ENABLED") == "true"
+                    and not forced_by_session
                 )
-                if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL"):
+                if use_agent:
+                    feat_result = self._call_goal_agent(
+                        message=message,
+                        customer_no=customer_no,
+                        chatbot_consultation_id=cid,
+                    )
+                else:
+                    feat_result = self._run_feature_for_intent_full(
+                        intent_name,
+                        message,
+                        customer_no=customer_no,
+                        chatbot_consultation_id=cid,
+                    )
+
+                if feat_result.message and intent_name in ("CASH_FLOW_RECOMMEND", "PRODUCT_COMPARE", "SAVINGS_GOAL", "MATURITY_MANAGEMENT", "MATURITY_SCHEDULE", "REINVESTMENT_RECOMMEND", "SPENDING_PATTERN"):
                     response_message = feat_result.message
                     if feat_result.status == "OK" and feat_result.data and intent_name in ("SAVINGS_GOAL", "PRODUCT_COMPARE"):
                         response_feature_code = intent_name
@@ -493,6 +532,8 @@ class ChatbotService:
                 req, "CONTRACT_STATUS", "계약 상태 조회를 완료했습니다.", "조회된 계약 상태가 없습니다."
             ),
             "MATURITY_SCHEDULE": self._execute_maturity_schedule,
+            "MATURITY_MANAGEMENT": self._execute_maturity_management,
+            "REINVESTMENT_RECOMMEND": self._execute_reinvestment_recommend,
             "INTEREST_HISTORY": self._execute_interest_history,
             "MY_CASH_FLOW": self._execute_my_cash_flow,
             "MY_TRANSFERS": self._execute_my_transfers,
@@ -511,6 +552,7 @@ class ChatbotService:
             "STAFF_CONSULTATION_HISTORY": self._execute_staff_consultation_history,
             "PRODUCT_SEARCH": self._execute_product_search,
             "SAVINGS_GOAL": self._execute_savings_goal,
+            "SPENDING_PATTERN": self._execute_spending_pattern,
         }
         handler = handlers.get(feature_code)
         if not handler:
@@ -965,10 +1007,101 @@ class ChatbotService:
     def _execute_maturity_schedule(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no:
             return self._auth_required("MATURITY_SCHEDULE", "만기 예정 조회에는 고객번호와 본인 인증이 필요합니다.")
-        rows = self._contract_rows(request.customer_no)
-        return self._data_response(
-            "MATURITY_SCHEDULE", rows, "만기 예정 조회를 완료했습니다.", "조회된 만기 예정 계약이 없습니다.", requires_auth=True
+        customer_no = request.customer_no
+        rows = self._contract_rows(customer_no)
+        if not rows:
+            return ChatbotFeatureExecuteResponse(
+                feature_code="MATURITY_SCHEDULE", status="OK",
+                message="조회된 만기 예정 계약이 없습니다.",
+            )
+        return ChatbotFeatureExecuteResponse(
+            feature_code="MATURITY_SCHEDULE", status="OK",
+            message=self._format_maturity_schedule(rows),
         )
+
+    def _format_maturity_schedule(self, rows: list) -> str:
+        from datetime import date, datetime
+        today = date.today()
+        lines = ["[만기 예정 조회]"]
+        for row in rows[:5]:
+            name = row.get("product_name") or "상품"
+            amount = float(row.get("join_amount") or 0)
+            maturity_raw = row.get("maturity_at")
+            if maturity_raw is None:
+                continue
+            if isinstance(maturity_raw, (date, datetime)):
+                mat_date = maturity_raw if isinstance(maturity_raw, date) else maturity_raw.date()
+            else:
+                try:
+                    mat_date = datetime.strptime(str(maturity_raw)[:10], "%Y-%m-%d").date()
+                except Exception:
+                    continue
+            days = (mat_date - today).days
+            if days < 0:
+                timing = f"{mat_date} (이미 만기)"
+            elif days == 0:
+                timing = f"{mat_date} (오늘 만기!)"
+            elif days <= 30:
+                timing = f"{mat_date} ({days}일 후)"
+            else:
+                timing = f"{mat_date} (약 {days // 30}개월 후)"
+            rate = row.get("contract_interest_rate") or row.get("base_interest_rate")
+            rate_str = f" · 연 {rate}%" if rate else ""
+            lines.append(f"- {name} {amount:,.0f}원{rate_str}\n  만기: {timing}")
+        lines.append("\n재투자 추천이 필요하시면 '만기 상품 어떻게 해'라고 입력해 주세요.")
+        return "\n".join(lines)
+
+    def _execute_maturity_management(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        if not request.customer_no:
+            return self._auth_required("MATURITY_MANAGEMENT", "만기 운용 전략 조회에는 고객번호와 본인 인증이 필요합니다.")
+        customer_no = request.customer_no
+        rows = self._contract_rows(customer_no)
+        if not rows:
+            return ChatbotFeatureExecuteResponse(
+                feature_code="MATURITY_MANAGEMENT", status="OK",
+                message="조회된 만기 예정 계약이 없습니다.",
+            )
+        return ChatbotFeatureExecuteResponse(
+            feature_code="MATURITY_MANAGEMENT", status="OK",
+            message=self._format_maturity_strategy(rows),
+        )
+
+    def _format_maturity_strategy(self, rows: list) -> str:
+        from datetime import date, datetime
+        today = date.today()
+        lines = ["[만기 운용 전략 안내]"]
+        lines.append("만기 후 선택할 수 있는 방법은 크게 세 가지입니다.\n")
+        lines.append("① 재예치 — 목돈은 정기예금으로 재가입해 금리를 유지")
+        lines.append("② 상품 전환 — 더 높은 금리나 조건이 좋은 다른 상품으로 이동")
+        lines.append("③ 유동성 보유 — 당장 쓸 돈이 있거나 현금흐름이 불안정할 때 입출금 통장에 보관")
+        if rows:
+            lines.append("\n현재 만기 예정 상품:")
+            for row in rows[:3]:
+                name = row.get("product_name") or "상품"
+                amount = float(row.get("join_amount") or 0)
+                maturity_raw = row.get("maturity_at")
+                if maturity_raw is None:
+                    continue
+                if isinstance(maturity_raw, (date, datetime)):
+                    mat_date = maturity_raw if isinstance(maturity_raw, date) else maturity_raw.date()
+                else:
+                    try:
+                        mat_date = datetime.strptime(str(maturity_raw)[:10], "%Y-%m-%d").date()
+                    except Exception:
+                        continue
+                days = (mat_date - today).days
+                timing = f"{days}일 후" if days <= 30 else f"약 {days // 30}개월 후"
+                lines.append(f"  - {name} {amount:,.0f}원 ({timing} 만기)")
+        lines.append("\n구체적인 상품 추천이 필요하시면 '재투자 추천해줘'라고 입력해 주세요.")
+        return "\n".join(lines)
+
+    def _execute_reinvestment_recommend(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        from app.features.maturity_agent import MaturityManagementAgent
+        return MaturityManagementAgent(db=self.db).execute(request)
+
+    def _execute_spending_pattern(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
+        from app.features.spending_pattern_agent import SpendingPatternAgent
+        return SpendingPatternAgent(db=self.db).execute(request)
 
     def _execute_interest_history(self, request: ChatbotFeatureExecuteRequest) -> ChatbotFeatureExecuteResponse:
         if not request.customer_no:
@@ -2640,6 +2773,107 @@ class ChatbotService:
             feature_code, message, customer_no, chatbot_consultation_id
         ).data or []
 
+    def _call_goal_agent(
+        self,
+        message: str,
+        customer_no: str | None,
+        chatbot_consultation_id: int | None,
+    ):
+        """
+        Goal Agent(/agent/goal/chat)를 HTTP로 호출한다.
+        응답 후 DB 세션을 저장하여 다음 턴이 savings_goal.py로 처리될 수 있게 한다.
+        실패 시 기존 savings_goal.py 로 fallback.
+        """
+        import os as _os
+        import logging as _log
+        from app.schemas import ChatbotFeatureExecuteResponse
+        from app.features.savings_goal import _parse_amount, _parse_months
+        from app.models import ChatbotGoalSession as _GoalSession
+
+        _agent_log = _log.getLogger("savings_goal.routing")
+        goal_agent_url = _os.getenv("GOAL_AGENT_URL", "http://host.docker.internal:8000")
+        goal_agent_api_key = _os.getenv("GOAL_AGENT_API_KEY", "")
+        endpoint = f"{goal_agent_url}/agent/goal/chat"
+
+        try:
+            import httpx as _httpx
+            _headers = {}
+            if goal_agent_api_key:
+                _headers["X-Internal-Token"] = goal_agent_api_key
+            resp = _httpx.post(
+                endpoint,
+                json={
+                    "customer_id": customer_no or "ANONYMOUS",
+                    "message": message,
+                },
+                headers=_headers,
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            need_more = data.get("need_more_info", False)
+            if need_more:
+                reply = data.get("follow_up_question") or data.get("message") or ""
+                status = "NEED_INFO"
+            else:
+                reply = data.get("message") or ""
+                status = "OK"
+
+            # 다음 턴 세션 연속성을 위해 DB 세션 저장
+            # savings_goal.py가 다음 "백만원" 같은 답변을 ASKED_MONTHLY로 처리할 수 있게 함
+            if chatbot_consultation_id:
+                goal_amount = _parse_amount(message)
+                goal_months = _parse_months(message)
+
+                def _upsert_goal_session(cid: int, stage: str, ga, gm) -> None:
+                    obj = self.db.get(_GoalSession, cid)
+                    if obj:
+                        obj.stage = stage
+                        obj.goal_amount = ga or obj.goal_amount
+                        obj.goal_months = gm or obj.goal_months
+                        obj.customer_no = customer_no or None
+                        obj.monthly_surplus = None
+                        obj.monthly_payment = None
+                    else:
+                        self.db.add(_GoalSession(
+                            chatbot_consultation_id=cid, stage=stage,
+                            goal_amount=ga or 0, goal_months=gm or 0,
+                            customer_no=customer_no or None,
+                        ))
+                    self.db.flush()
+
+                if not need_more and goal_amount and goal_months:
+                    # 목표 확인 완료 → 다음 턴은 월납입 질문 답변
+                    _upsert_goal_session(chatbot_consultation_id, "ASKED_MONTHLY", goal_amount, goal_months)
+                    _agent_log.info(
+                        "[SAVINGS_GOAL] agent_session_saved cid=%s stage=ASKED_MONTHLY goal=%s months=%s",
+                        chatbot_consultation_id, goal_amount, goal_months,
+                    )
+                elif need_more:
+                    # 아직 목표 수집 중 → ASKING_GOAL 저장
+                    _upsert_goal_session(chatbot_consultation_id, "ASKING_GOAL", _parse_amount(message), _parse_months(message))
+                    _agent_log.info(
+                        "[SAVINGS_GOAL] agent_session_saved cid=%s stage=ASKING_GOAL",
+                        chatbot_consultation_id,
+                    )
+
+            return ChatbotFeatureExecuteResponse(
+                feature_code="SAVINGS_GOAL",
+                status=status,
+                message=reply,
+                data=[],
+            )
+        except Exception as _exc:
+            # fallback: 기존 savings_goal.py
+            _log.getLogger(__name__).warning("Goal Agent 호출 실패, fallback: %s", _exc)
+            return self._run_feature_for_intent_full(
+                "SAVINGS_GOAL",
+                message,
+                customer_no=customer_no,
+                chatbot_consultation_id=chatbot_consultation_id,
+            )
+
     def _run_feature_for_intent_full(
         self,
         feature_code: str,
@@ -2713,6 +2947,10 @@ class ChatbotService:
             {"intent_name": "TERMS_RAG",        "intent_desc": "약관/중도해지 안내",       "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 4},
             {"intent_name": "PRODUCT_GUIDE",       "intent_desc": "상품 목록/추천 안내",        "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 5},
             {"intent_name": "FAQ",               "intent_desc": "자주 묻는 질문",             "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 6},
+            {"intent_name": "MATURITY_MANAGEMENT",   "intent_desc": "만기 운용 전략 안내",        "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
+            {"intent_name": "MATURITY_SCHEDULE",     "intent_desc": "만기 예정 일정 조회",        "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
+            {"intent_name": "REINVESTMENT_RECOMMEND","intent_desc": "만기 재투자 상품 추천",       "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
+            {"intent_name": "SPENDING_PATTERN",      "intent_desc": "지출 패턴 이상 감지 및 경고", "process_method_code_id": CODE_PROCESS_SCENARIO, "priority": 7},
             {"intent_name": "CASH_FLOW_RECOMMEND","intent_desc": "현금흐름 기반 상품 추천",    "process_method_code_id": CODE_PROCESS_LLM,      "priority": 7},
             {"intent_name": "LLM_FALLBACK",      "intent_desc": "LLM 자유 응답",              "process_method_code_id": CODE_PROCESS_LLM,      "priority": 8},
             {"intent_name": "STAFF_REQUEST",     "intent_desc": "상담사 이관",                "process_method_code_id": CODE_PROCESS_LLM,      "priority": 9},

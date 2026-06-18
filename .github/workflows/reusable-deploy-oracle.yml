@@ -31,6 +31,11 @@ on:
         required: false
         type: string
         default: ''
+      remove-orphans:
+        description: 'up 에 --remove-orphans 추가 (compose 에서 제거된 서비스의 잔존 컨테이너 정리; 게이트웨이 컷오버용)'
+        required: false
+        type: boolean
+        default: false
     secrets:
       ORACLE_SSH_HOST:
         required: true
@@ -63,7 +68,7 @@ jobs:
             # 단순화: 기본은 :latest 갱신 후 pull. SHA 핀이 필요하면 별도 처리.
 
             docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod pull "$SERVICE"
-            docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d --no-deps "$SERVICE"
+            docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d --no-deps ${{ inputs.remove-orphans && '--remove-orphans' || '' }} "$SERVICE"
 
             # 죽은 이미지 정리 (디스크 절약)
             docker image prune -f

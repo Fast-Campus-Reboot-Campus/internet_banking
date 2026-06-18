@@ -82,10 +82,28 @@ export interface LoanApplication {
 
 export interface LoanJourney {
   application: LoanApplication;
-  prescreening?: { resultCd: string; maxAmount: number; rateBps: number };
-  creditEvaluation?: { resultCd: string; creditScore: number; rateBps: number };
-  dsr?: { dsrRatio: number; resultCd: string };
-  review?: { resultCd: string; reviewerComment: string };
+  prescreening?: {
+    prescResultCd: string;
+    estimatedLimitAmt: number | null;
+    estimatedRateBps: number | null;
+    estimatedScore: number | null;
+    estimatedGrade: string | null;
+    rejectReasonCd: string | null;
+  };
+  creditEvaluation?: {
+    cevalDecisionCd: string;
+    cevalScore: number | null;
+    cevalGrade: string | null;
+    pdBps: number | null;
+    evalLimitAmount: number | null;
+    evalRateBps: number | null;
+  };
+  dsr?: {
+    dsrStatusCd: string;
+    dsrRatioBps: number | null;
+    dsrLimitBps: number | null;
+  };
+  review?: { revResultCd: string; reviewerComment: string };
 }
 
 export interface LoanContract {

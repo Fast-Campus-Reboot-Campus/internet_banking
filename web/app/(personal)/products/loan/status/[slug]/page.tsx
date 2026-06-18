@@ -2,8 +2,8 @@
 import { KB_PRIMARY } from '@/lib/theme'
 
 import Link from 'next/link'
-import { use, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useSearchParams, useParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { loanApplicationApi, loanContractApi } from '@/lib/loan-api'
@@ -285,8 +285,8 @@ function StatusSlugContent({ slug }: { slug: string }) {
   )
 }
 
-export default function StatusSlugPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params)
+export default function StatusSlugPage() {
+  const { slug } = useParams<{ slug: string }>()
   return (
     <Suspense fallback={<div className="max-w-kb-container mx-auto px-6 py-16 text-center text-kb-text-muted">로딩 중...</div>}>
       <StatusSlugContent slug={slug} />

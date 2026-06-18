@@ -1,7 +1,7 @@
 name: Deploy api-gateway
 
-# 주의: docker-compose.prod.yml 에서 api-gateway 는 profiles: [alt-gateway] 로
-# 기본 비활성. 이미지는 항상 push 하되, 배포는 사용자가 수동 활성화 필요.
+# api-gateway 는 prod 주 진입점(8080). 이미지 빌드·push 후 Oracle 에 배포한다.
+# (컷오버 완료 — 레거시 gateway-service 제거. 배포 시 --remove-orphans 로 잔존 컨테이너 정리.)
 on:
   push:
     branches: [main]
@@ -36,5 +36,14 @@ jobs:
     uses: ./.github/workflows/reusable-docker-publish.yml
     with:
       service-name: api-gateway
-  # 배포 단계 생략: profile 비활성 상태에서 deploy 호출시 compose 가 무시함.
-  # 활성화 결정 후 deploy 잡 추가.
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: publish
+    permissions: {}
+    uses: ./.github/workflows/reusable-deploy-oracle.yml
+    with:
+      service-name: api-gateway
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+      remove-orphans: true   # 레거시 gateway-service 잔존 컨테이너 정리(컷오버 — 8080 포트 충돌 방지)
+    secrets: inherit

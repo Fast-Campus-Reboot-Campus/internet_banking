@@ -58,19 +58,24 @@ export function getAdminGatewayHeaders(): Record<string, string> {
 }
 
 /**
- * 현재 어드민 목업 세션의 loan 역할(ROLE_*)을 반환한다.
+ * 현재 어드민 세션의 loan 역할(ROLE_*)을 반환한다.
  * 어드민 화면 버튼 노출 제어(UX)용 — 서버 인가는 loan-service SecurityConfig가 담당한다.
- * admin_user 세션이 없으면(또는 SSR) 빈 문자열을 반환해 버튼을 숨긴다(최소권한 기본값).
+ *
+ * 역할은 로그인 시 JWT에서 추출해 admin_roles(BankRole[])에 저장된다. admin_user에는
+ * 역할 필드가 없으므로(표시용 신원만 보관) admin_roles를 단일 출처로 읽는다.
+ * loan 관련 역할이 없으면(또는 SSR) 빈 문자열을 반환해 버튼을 숨긴다(최소권한 기본값).
  */
+const LOAN_ROLE_PRIORITY = [
+  'ROLE_OPS', 'ROLE_DEPUTY_MANAGER', 'ROLE_BRANCH_MANAGER', 'ROLE_HQ_REVIEWER', 'ROLE_COMPLIANCE',
+]
 export function getAdminLoanRole(): string {
   if (typeof window === 'undefined') return ''
 
-  const adminUserJson = localStorage.getItem('admin_user')
-  if (!adminUserJson) return ''
-
   try {
-    const adminUser = JSON.parse(adminUserJson) as { role?: string }
-    return (ADMIN_ROLE_MAP[adminUser.role ?? ''] ?? FALLBACK).loanRole
+    const raw = localStorage.getItem('admin_roles')
+    const roles: string[] = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(roles)) return ''
+    return LOAN_ROLE_PRIORITY.find((r) => roles.includes(r)) ?? ''
   } catch {
     return ''
   }
