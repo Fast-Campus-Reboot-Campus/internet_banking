@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { maskPhone } from '@/lib/format'
+import { maskPhone, maskEmail } from '@/lib/format'
 
 describe('maskPhone — 고객 휴대폰 PII 마스킹', () => {
   it('대시 포함 휴대폰 가운데를 가린다', () => {
@@ -17,5 +17,18 @@ describe('maskPhone — 고객 휴대폰 PII 마스킹', () => {
   })
   it('휴대폰 형식이 아니면 원문 유지', () => {
     expect(maskPhone('정보없음')).toBe('정보없음')
+  })
+})
+
+describe('maskEmail — 고객 이메일 마스킹', () => {
+  it('첫 글자만 남기고 도메인 유지', () => {
+    expect(maskEmail('hong@axful.com')).toBe('h****@axful.com')
+  })
+  it('null/빈 문자열은 - 로 표시', () => {
+    expect(maskEmail(null)).toBe('-')
+    expect(maskEmail('')).toBe('-')
+  })
+  it('@ 없는 값은 원문 유지', () => {
+    expect(maskEmail('not-an-email')).toBe('not-an-email')
   })
 })

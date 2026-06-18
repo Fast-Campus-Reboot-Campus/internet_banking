@@ -6,9 +6,7 @@ import AdminSidebar from '@/components/admin/AdminSidebar'
 import { useAdminRoles } from '@/components/admin/RoleGate'
 import { isMaskingRole, requiresReason, primaryRoleLabel } from '@/lib/admin-auth'
 import { searchCustomers, recordAccess, CustomerSummary, STATUS_LABEL, errMsg } from '@/lib/admin-customer-api'
-import { maskPhone } from '@/lib/format'
-
-const maskEmail = (e: string | null) => (e ? e.replace(/^(.).*(@.*)$/, '$1****$2') : '-')
+import { maskPhone, maskEmail } from '@/lib/format'
 
 export default function CustomersPage() {
   const roles = useAdminRoles()
