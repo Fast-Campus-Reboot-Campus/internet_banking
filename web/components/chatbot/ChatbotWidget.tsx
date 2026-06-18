@@ -1020,6 +1020,25 @@ export default function ChatbotWidget() {
     return null
   }
 
+  function isMaturityQuery(text: string): boolean {
+    const normalized = text.replace(/\s+/g, '').toLowerCase()
+    const maturityKeywords = [
+      '만기',
+      '재투자',
+      '재예치',
+      '재가입',
+      '끝나는',
+      '끝나가는',
+      '끝남',
+      '만료',
+      '종료예정',
+      '곧끝',
+      '곧만료',
+      '곧종료',
+    ]
+    return maturityKeywords.some(keyword => normalized.includes(keyword))
+  }
+
   const BEST_KEYWORDS = ['제일 좋', '가장 좋', '최고', '1위', '1순위', '뭐가 좋', '어떤 게 좋', '어떤게 좋', '뭘 선택', '어떤 상품', '뭐 추천', '제일이', '제일을', '제일은', '어떤 걸', '골라줘', '골라 줘', '선택해줘', '선택해 줘', '추천해줘', '추천해 줘']
   const FOLLOWUP_KEYWORDS = ['어떤 면', '왜', '이유', '설명', '어떻게', '근거', '어떤 이유', '좋은 이유', '추천 이유', '더 알려', '구체적', '장점', '단점', '특징', '뭐가 좋', '왜 좋', '어떤 점', '말해봐', '말해 봐', '알려줘', '알려 줘', '뭔데', '어때', '괜찮', '어떤거야', '어떤 거야', '좋아', '좋은가', '괜찮아', '어떻게 돼', '금리가', '기간이', '조건이', '가입하면', '이거 왜', '이게 왜', '왜 이걸', '이게 좋']
   function tryAnswerFromRecommend(text: string): string | null {
@@ -1147,6 +1166,11 @@ export default function ChatbotWidget() {
     const trimmed = text.trim()
     const compactText = trimmed.replace(/\s+/g, '')
 
+    if (isMaturityQuery(trimmed)) {
+      await handleFeature('MATURITY_SCHEDULE', trimmed, true)
+      return
+    }
+
     if (['내상품', '내가입상품', '가입상품', '내계좌'].some((word) => compactText.includes(word))) {
       if (!isLoggedIn) {
         pendingLoginActionRef.current = 'my_products'
@@ -1229,7 +1253,7 @@ export default function ChatbotWidget() {
       return
     }
 
-    const isMatureQuery = ['만기', '재투자', '재예치', '재가입'].some(w => trimmed.includes(w))
+    const isMatureQuery = isMaturityQuery(trimmed)
     const compareAnswer = isMatureQuery ? null : answerProductCompare(trimmed)
     if (compareAnswer) {
       setExpandedRow(null)
@@ -1346,7 +1370,7 @@ export default function ChatbotWidget() {
       return
     }
 
-    if (hasKoreanProduct && hasKoreanGuide) {
+    if (hasKoreanProduct && hasKoreanGuide && !isMatureQuery) {
       await handleFeature('PRODUCT_GUIDE', trimmed, false)
       return
     }
@@ -1410,7 +1434,7 @@ export default function ChatbotWidget() {
     }
   }
 
-  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE', userText: string, replaceMessages = false) {
+  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE' | 'MATURITY_SCHEDULE', userText: string, replaceMessages = false) {
     setLoading(true)
     if (replaceMessages) {
       setExpandedRow(null)
