@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '@/lib/api'
 import MobileAuthField from '@/components/MobileAuthField'
+import { isValidLoginId } from '@/lib/validation'
 
 
 const STEPS = ['약관동의', '본인확인', '정보입력', '가입완료']
@@ -202,7 +203,7 @@ export default function OnlineJoinPage() {
   function handleIdCheck() {
     // 형식 검증: 6~12자리 영문/숫자(특수문자 제외), 영문 1자 이상.
     // 실제 중복 여부는 가입 제출(register) 시 서버가 검증·거부한다.
-    const formatOk = /^[A-Za-z0-9]{6,12}$/.test(userId) && /[A-Za-z]/.test(userId)
+    const formatOk = isValidLoginId(userId)
     if (!formatOk) {
       setIdOk(false)
       alert('아이디는 특수문자 제외 영문/숫자 조합 6~12자리로 입력해주세요. (영문 1자 이상)')

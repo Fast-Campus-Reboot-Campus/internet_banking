@@ -4,6 +4,7 @@ import { KB_MINT,KB_PRIMARY,KB_PRIMARY_BG,KB_PRIMARY_BORDER,KB_PRIMARY_SURFACE }
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { MOCK_BANKS, formatNumber } from '@/lib/mock-data'
+import { resolveTransferRouting } from '@/lib/transfer-routing'
 import TransferSidebar from '@/components/inquiry/TransferSidebar'
 import { fetchDepositAccountViewModels, getCurrentDepositCustomerId, DepositViewAccount, fetchTransactions, DepositTransaction } from '@/lib/deposit-api'
 
@@ -128,14 +129,12 @@ export default function TransferAccountPage() {
     // 매핑 안 된 은행명(최근이체 등 외부 출처)은 INTERNAL 로 폴백하지 않고 명시 차단 —
     // 외부 이체가 내부로 오분류돼 타행 자금이 잘못 라우팅되는 것을 방지한다.
     const targetAccount = accounts.find(acc => acc.number === toAccount)
-    const isOwnBank = toBank === 'AXful'
-    const matchedBank = MOCK_BANKS.find(b => b.name === toBank)
-    if (!isOwnBank && !matchedBank) {
+    const routing = resolveTransferRouting(toBank, MOCK_BANKS)
+    if (!routing.ok) {
       setValidationMessage('지원하지 않는 은행입니다. 기관을 다시 선택해 주세요.')
       return
     }
-    const toBankCode = isOwnBank ? 'KB' : matchedBank!.code
-    const transferType: 'INTERNAL' | 'EXTERNAL' = isOwnBank ? 'INTERNAL' : 'EXTERNAL'
+    const { toBankCode, transferType } = routing
     sessionStorage.setItem('pendingTransfer', JSON.stringify({
       fromAccountId: fromAcc?.apiAccountId,
       toAccountId: targetAccount?.apiAccountId,

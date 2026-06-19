@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { api } from '@/lib/api'
 import MobileAuthField from '@/components/MobileAuthField'
+import { validateUserPassword } from '@/lib/validation'
 
 type Step = 'verify' | 'id-result' | 'change' | 'done'
 
@@ -126,11 +127,13 @@ export default function IdPasswordPage() {
   // 본인확인(verificationId) → 사용자암호 재설정 (#47)
   async function handleChange() {
     // 정책: 영문/숫자/특수문자 조합 8~12자리 (숫자만·짧은 것 거부) — #48
-    if (newPw.length < 8 || newPw.length > 12) { setError('새 사용자암호는 8~12자리로 입력해주세요.'); return }
-    const hasLetter  = /[A-Za-z]/.test(newPw)
-    const hasDigit   = /[0-9]/.test(newPw)
-    const hasSpecial = /[^A-Za-z0-9]/.test(newPw)
-    if (!(hasLetter && hasDigit && hasSpecial)) { setError('새 사용자암호는 영문·숫자·특수문자를 모두 조합해야 합니다.'); return }
+    const pwCheck = validateUserPassword(newPw)
+    if (!pwCheck.ok) {
+      setError(pwCheck.reason === 'LENGTH'
+        ? '새 사용자암호는 8~12자리로 입력해주세요.'
+        : '새 사용자암호는 영문·숫자·특수문자를 모두 조합해야 합니다.')
+      return
+    }
     if (newPw !== newPwConfirm) { setError('사용자암호가 일치하지 않습니다.'); return }
     if (verificationId == null) { setError('휴대폰 본인인증이 만료되었습니다. 처음부터 다시 시도해주세요.'); return }
     setError(''); setLoading(true)

@@ -28,6 +28,15 @@ type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 const AUTH_PATHS = ["/auth/login", "/auth/cert-login", "/auth/cert/issue", "/auth/refresh"];
 const SILENT_PATHS = ["/customers/me"]; // 실패해도 로그인으로 안 보냄(배경 보조 호출)
 
+/** 인증 엔드포인트 자체의 401 — 토큰 갱신 대상이 아니다(입력 자격 오류 등). */
+export function isAuthPath(url: string): boolean {
+  return AUTH_PATHS.some((p) => url.includes(p));
+}
+/** 실패해도 로그인 페이지로 보내지 않는 배경 보조 호출. */
+export function isSilentPath(url: string): boolean {
+  return SILENT_PATHS.some((p) => url.includes(p));
+}
+
 function clearSession() {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("access_token");
@@ -63,48 +72,47 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-api.interceptors.response.use(
-  (res) => res,
-  async (err: AxiosError) => {
-    const config = (err.config ?? {}) as RetriableConfig;
-    const url = config.url ?? "";
-    const isSilent = SILENT_PATHS.some((p) => url.includes(p));
+// 응답 에러 처리 본체 — 단위테스트에서 직접 호출할 수 있도록 export 한다.
+export async function onResponseError(err: AxiosError) {
+  const config = (err.config ?? {}) as RetriableConfig;
+  const url = config.url ?? "";
 
-    if (err.response?.status !== 401 || typeof window === "undefined") {
-      return Promise.reject(err);
-    }
-
-    // 인증 엔드포인트 자체의 401은 갱신 대상이 아니다. refresh 가 401이면 세션 종료.
-    if (AUTH_PATHS.some((p) => url.includes(p))) {
-      if (url.includes("/auth/refresh")) {
-        clearSession();
-        window.location.href = "/login";
-      }
-      return Promise.reject(err);
-    }
-
-    // 이미 한 번 재시도한 요청이면 더 갱신하지 않는다(무한 루프 방지).
-    if (config._retry) {
-      clearSession();
-      if (!isSilent) window.location.href = "/login";
-      return Promise.reject(err);
-    }
-    config._retry = true;
-
-    if (!refreshPromise) {
-      refreshPromise = refreshAccessToken().finally(() => {
-        refreshPromise = null;
-      });
-    }
-    const newToken = await refreshPromise;
-
-    if (!newToken) {
-      clearSession();
-      if (!isSilent) window.location.href = "/login";
-      return Promise.reject(err);
-    }
-
-    // 새 액세스 토큰으로 원요청을 1회 재시도(요청 인터셉터가 새 토큰을 자동 첨부).
-    return api(config);
+  if (err.response?.status !== 401 || typeof window === "undefined") {
+    return Promise.reject(err);
   }
-);
+
+  // 인증 엔드포인트 자체의 401은 갱신 대상이 아니다. refresh 가 401이면 세션 종료.
+  if (isAuthPath(url)) {
+    if (url.includes("/auth/refresh")) {
+      clearSession();
+      window.location.href = "/login";
+    }
+    return Promise.reject(err);
+  }
+
+  // 이미 한 번 재시도한 요청이면 더 갱신하지 않는다(무한 루프 방지).
+  if (config._retry) {
+    clearSession();
+    if (!isSilentPath(url)) window.location.href = "/login";
+    return Promise.reject(err);
+  }
+  config._retry = true;
+
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  const newToken = await refreshPromise;
+
+  if (!newToken) {
+    clearSession();
+    if (!isSilentPath(url)) window.location.href = "/login";
+    return Promise.reject(err);
+  }
+
+  // 새 액세스 토큰으로 원요청을 1회 재시도(요청 인터셉터가 새 토큰을 자동 첨부).
+  return api(config);
+}
+
+api.interceptors.response.use((res) => res, onResponseError);
