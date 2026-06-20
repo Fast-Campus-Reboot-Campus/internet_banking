@@ -38,7 +38,7 @@ MAX_PERIOD_MONTHS = 120  # 기간 연장 상한
 # 1. 계좌 조회
 # ──────────────────────────────────────────────
 
-def _get_customer_accounts(db: Session, customer_id: str) -> list[models.Account]:
+def get_customer_accounts(db: Session, customer_id: str) -> list[models.Account]:
     return db.scalars(
         select(models.Account).where(
             models.Account.customer_id == customer_id,
@@ -47,7 +47,7 @@ def _get_customer_accounts(db: Session, customer_id: str) -> list[models.Account
     ).all()
 
 
-def _get_total_balance(accounts: list[models.Account]) -> Decimal:
+def get_total_balance(accounts: list[models.Account]) -> Decimal:
     return sum((Decimal(str(a.balance)) for a in accounts), Decimal("0"))
 
 
@@ -55,7 +55,7 @@ def _get_total_balance(accounts: list[models.Account]) -> Decimal:
 # 2. 거래내역 분석 (최근 N개월)
 # ──────────────────────────────────────────────
 
-def _get_recent_transactions(db: Session, account_ids: list[int], months: int) -> list[models.Transaction]:
+def get_recent_transactions(db: Session, account_ids: list[int], months: int) -> list[models.Transaction]:
     since = datetime.utcnow() - timedelta(days=months * 30)
     if not account_ids:
         return []
@@ -68,7 +68,7 @@ def _get_recent_transactions(db: Session, account_ids: list[int], months: int) -
     ).all()
 
 
-def _analyze_transactions(transactions: list[models.Transaction], months: int) -> dict:
+def analyze_transactions(transactions: list[models.Transaction], months: int) -> dict:
     """월 평균 입금/출금/잉여자금 계산."""
     total_in = Decimal("0")
     total_out = Decimal("0")
@@ -955,16 +955,16 @@ def analyze_goal(db: Session, customer_id: str, goal_amount: float, goal_months:
     goal = Decimal(str(goal_amount))
 
     # 1. 계좌 조회
-    accounts = _get_customer_accounts(db, customer_id)
+    accounts = get_customer_accounts(db, customer_id)
     if not accounts:
         raise HTTPException(status_code=404, detail="no active accounts found for customer")
 
     account_ids = [a.account_id for a in accounts]
-    current_balance = _get_total_balance(accounts)
+    current_balance = get_total_balance(accounts)
 
     # 2. 거래 내역 분석
-    txns = _get_recent_transactions(db, account_ids, ANALYSIS_MONTHS)
-    tx_analysis = _analyze_transactions(txns, ANALYSIS_MONTHS)
+    txns = get_recent_transactions(db, account_ids, ANALYSIS_MONTHS)
+    tx_analysis = analyze_transactions(txns, ANALYSIS_MONTHS)
     monthly_surplus = Decimal(str(tx_analysis["monthly_avg_surplus"]))
 
     # 3. 목표 달성 가능성 판단

@@ -214,8 +214,8 @@ def execute_tool(tool_name: str, tool_input: dict, db: Session, ctx: dict) -> di
         return {"need_more_info": True, "question": tool_input["question"]}
 
     elif tool_name == "get_customer_accounts":
-        accounts = planner._get_customer_accounts(db, customer_id)
-        balance = planner._get_total_balance(accounts)
+        accounts = planner.get_customer_accounts(db, customer_id)
+        balance = planner.get_total_balance(accounts)
         result = {
             "account_count": len(accounts),
             "total_balance": float(balance),
@@ -237,7 +237,7 @@ def execute_tool(tool_name: str, tool_input: dict, db: Session, ctx: dict) -> di
 
     elif tool_name == "get_recent_transactions":
         account_ids = ctx.get("account_ids", [])
-        txns = planner._get_recent_transactions(db, account_ids, planner.ANALYSIS_MONTHS)
+        txns = planner.get_recent_transactions(db, account_ids, planner.ANALYSIS_MONTHS)
         ctx["transactions"] = txns
         return {"transaction_count": len(txns), "analysis_months": planner.ANALYSIS_MONTHS}
 
@@ -253,7 +253,7 @@ def execute_tool(tool_name: str, tool_input: dict, db: Session, ctx: dict) -> di
 
     elif tool_name == "analyze_cash_flow":
         txns = ctx.get("transactions", [])
-        tx_analysis = planner._analyze_transactions(txns, planner.ANALYSIS_MONTHS)
+        tx_analysis = planner.analyze_transactions(txns, planner.ANALYSIS_MONTHS)
         ctx["tx_analysis"] = tx_analysis
         ctx["monthly_surplus"] = Decimal(str(tx_analysis["monthly_avg_surplus"]))
         return tx_analysis

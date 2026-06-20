@@ -254,12 +254,12 @@ def _planner_get_financial_state(db: Session, customer_id: str) -> dict:
     from datetime import date as _date
     from app import agent_goal_planner as _planner
 
-    accounts = _planner._get_customer_accounts(db, customer_id)
-    total_balance = _planner._get_total_balance(accounts)
+    accounts = _planner.get_customer_accounts(db, customer_id)
+    total_balance = _planner.get_total_balance(accounts)
     account_ids = [a.account_id for a in accounts]
 
-    txns = _planner._get_recent_transactions(db, account_ids, ANALYSIS_MONTHS)
-    tx_analysis = _planner._analyze_transactions(txns, ANALYSIS_MONTHS)
+    txns = _planner.get_recent_transactions(db, account_ids, ANALYSIS_MONTHS)
+    tx_analysis = _planner.analyze_transactions(txns, ANALYSIS_MONTHS)
 
     return {
         "total_balance": float(total_balance),
