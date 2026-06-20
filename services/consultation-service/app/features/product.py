@@ -50,6 +50,23 @@ class ProductFeatureExecutor(FeatureExecutorBase):
         elif exclude_demand:
             extra_where += " AND bdp.deposit_type IS DISTINCT FROM 'DEMAND'"
 
+        # 나이 기반 청년·군인 전용 상품 필터
+        customer_age = self._get_customer_age(request.customer_no)
+        if not self._is_youth_eligible(customer_age):
+            # 청년 전용(target_group_id=3) 상품 제외
+            extra_where += (
+                " AND p.banking_product_id NOT IN ("
+                "  SELECT banking_product_id FROM banking_deposit_product_target_groups"
+                "  WHERE target_group_id = 3"
+                ")"
+            )
+        # 군인 전용 상품은 상품명 키워드로 항상 제외 (나이만으로 판별 불가)
+        extra_where += (
+            " AND p.deposit_product_name NOT LIKE '%장병%'"
+            " AND p.deposit_product_name NOT LIKE '%군인%'"
+            " AND p.deposit_product_name NOT LIKE '%군무원%'"
+        )
+
         rows = self._rows(
             f"""
             SELECT p.banking_product_id        AS product_id,
@@ -70,7 +87,8 @@ class ProductFeatureExecutor(FeatureExecutorBase):
                            ', '
                        ),
                        '개인고객 (나이 제한 없음)'
-                   ) AS target_groups
+                   ) AS target_groups,
+                   COALESCE(rate_sum.max_rate, p.base_interest_rate) AS effective_rate
               FROM deposit_banking_products p
               LEFT JOIN banking_deposit_products bdp
                      ON bdp.banking_product_id = p.banking_product_id
@@ -78,13 +96,20 @@ class ProductFeatureExecutor(FeatureExecutorBase):
                      ON btg.banking_product_id = p.banking_product_id
               LEFT JOIN deposit_target_groups tg
                      ON tg.target_group_id = btg.target_group_id
+              LEFT JOIN (
+                   SELECT banking_product_id, SUM(rate) AS max_rate
+                     FROM banking_deposit_product_interest_rates
+                    WHERE rate_type IN ('BASE', 'PREFERENTIAL')
+                    GROUP BY banking_product_id
+              ) rate_sum ON rate_sum.banking_product_id = p.banking_product_id
              WHERE p.deposit_product_status = 'SELLING'
                    {extra_where}
              GROUP BY p.banking_product_id, p.deposit_product_name, p.deposit_product_type,
                       p.description, p.base_interest_rate, p.min_period_month, p.max_period_month,
                       p.min_join_amount, p.max_join_amount, p.is_early_termination_allowed,
-                      p.is_tax_benefit_available, p.is_auto_renewal_available
-             ORDER BY p.deposit_product_type, p.base_interest_rate DESC NULLS LAST
+                      p.is_tax_benefit_available, p.is_auto_renewal_available,
+                      rate_sum.max_rate
+             ORDER BY COALESCE(rate_sum.max_rate, p.base_interest_rate) DESC NULLS LAST
              LIMIT 20
             """,
         )
