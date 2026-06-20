@@ -91,7 +91,7 @@ services:
       CONSULTATION_LANGFUSE_ENABLED:               ${CONSULTATION_LANGFUSE_ENABLED:-false}
       CONSULTATION_LANGFUSE_SECRET_KEY:            ${LANGFUSE_SECRET_KEY:-}
       CONSULTATION_LANGFUSE_PUBLIC_KEY:            ${LANGFUSE_PUBLIC_KEY:-}
-      CONSULTATION_LANGFUSE_HOST:                  ${LANGFUSE_HOST:-http://localhost:3001}
+      CONSULTATION_LANGFUSE_HOST:                  ${LANGFUSE_HOST:-http://localhost:3002}
     volumes:
       - C:/logs/internet-banking:/logs
       - consultation_uploads:/app/uploads

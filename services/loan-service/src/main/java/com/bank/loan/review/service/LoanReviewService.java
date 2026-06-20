@@ -322,10 +322,11 @@ public class LoanReviewService {
             return false;
         }
 
-        // 같은 지점 지점장
+        // 지점장 — 같은 지점, 또는 지점 미배정(인터넷 채널 등 branch_id=null) 건.
+        // 최종 승인(approver-approve)이 지점장에게 지점 제약 없이 허용되므로, 조회도 같은 범위로 맞춘다.
         if (actor.hasRole(LoanRole.BRANCH_MANAGER)
-                && actor.branch() != null
-                && actor.branch().equals(application.getBranchId())) {
+                && (application.getBranchId() == null
+                        || application.getBranchId().equals(actor.branch()))) {
             return false;
         }
 

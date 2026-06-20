@@ -1,8 +1,8 @@
 ﻿'use client'
 import { KB_PRIMARY } from '@/lib/theme'
 
-import { use, useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams, useParams } from 'next/navigation'
 import LoanSidebar from '@/components/inquiry/LoanSidebar'
 import AutoBreadcrumb from '@/components/layout/AutoBreadcrumb'
 import { loanApplicationApi } from '@/lib/loan-api'
@@ -276,8 +276,8 @@ function FatiHistoryTable({ applId }: { applId: number | null }) {
 }
 
 /* ─── Page ─── */
-export default function CreditEvalPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params)
+export default function CreditEvalPage() {
+  const { slug } = useParams<{ slug: string }>()
   const searchParams = useSearchParams()
   const applIdRaw = searchParams.get('applId')
   const applId = applIdRaw ? parseInt(applIdRaw) : null

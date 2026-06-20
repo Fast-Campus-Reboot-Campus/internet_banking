@@ -179,45 +179,59 @@ function LoanResultContent() {
         <section className="mb-6">
           <h2 className="text-lg font-bold text-kb-text mb-5 pb-2 border-b border-kb-primary-border">심사 진행 현황</h2>
           <div className="grid grid-cols-3 gap-4">
-            {journey.prescreening && (
-              <div className={`border rounded-xl p-5 ${journey.prescreening.resultCd === 'PASS' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-                <p className="text-[12px] text-kb-text-muted font-medium mb-2">1단계 · 가심사</p>
-                <p className={`text-[16px] font-bold mb-2 ${journey.prescreening.resultCd === 'PASS' ? 'text-green-700' : 'text-red-700'}`}>
-                  {journey.prescreening.resultCd === 'PASS' ? '통과' : '미통과'}
-                </p>
-                {journey.prescreening.maxAmount > 0 && (
-                  <p className="text-[12px] text-kb-text-body">한도 {journey.prescreening.maxAmount.toLocaleString('ko-KR')}원</p>
-                )}
-                {journey.prescreening.rateBps > 0 && (
-                  <p className="text-[12px] text-kb-text-body">예상금리 연 {bpsToRate(journey.prescreening.rateBps)}%</p>
-                )}
-              </div>
-            )}
-            {journey.creditEvaluation && (
-              <div className={`border rounded-xl p-5 ${journey.creditEvaluation.resultCd === 'PASS' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-                <p className="text-[12px] text-kb-text-muted font-medium mb-2">2단계 · 신용평가</p>
-                <p className={`text-[16px] font-bold mb-2 ${journey.creditEvaluation.resultCd === 'PASS' ? 'text-green-700' : 'text-red-700'}`}>
-                  {journey.creditEvaluation.resultCd === 'PASS' ? '통과' : '미통과'}
-                </p>
-                {journey.creditEvaluation.creditScore > 0 && (
-                  <p className="text-[12px] text-kb-text-body">신용점수 {journey.creditEvaluation.creditScore}점</p>
-                )}
-                {journey.creditEvaluation.rateBps > 0 && (
-                  <p className="text-[12px] text-kb-text-body">적용금리 연 {bpsToRate(journey.creditEvaluation.rateBps)}%</p>
-                )}
-              </div>
-            )}
-            {journey.dsr && (
-              <div className={`border rounded-xl p-5 ${journey.dsr.resultCd === 'PASS' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-                <p className="text-[12px] text-kb-text-muted font-medium mb-2">3단계 · DSR 산정</p>
-                <p className={`text-[16px] font-bold mb-2 ${journey.dsr.resultCd === 'PASS' ? 'text-green-700' : 'text-red-700'}`}>
-                  {journey.dsr.resultCd === 'PASS' ? '통과' : '미통과'}
-                </p>
-                {journey.dsr.dsrRatio > 0 && (
-                  <p className="text-[12px] text-kb-text-body">DSR {(journey.dsr.dsrRatio * 100).toFixed(1)}%</p>
-                )}
-              </div>
-            )}
+            {journey.prescreening && (() => {
+              const pass = journey.prescreening.prescResultCd === 'PASS'
+              return (
+                <div className={`border rounded-xl p-5 ${pass ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                  <p className="text-[12px] text-kb-text-muted font-medium mb-2">1단계 · 가심사</p>
+                  <p className={`text-[16px] font-bold mb-2 ${pass ? 'text-green-700' : 'text-red-700'}`}>
+                    {pass ? '통과' : '미통과'}
+                  </p>
+                  {!!journey.prescreening.estimatedLimitAmt && (
+                    <p className="text-[12px] text-kb-text-body">한도 {journey.prescreening.estimatedLimitAmt.toLocaleString('ko-KR')}원</p>
+                  )}
+                  {!!journey.prescreening.estimatedRateBps && (
+                    <p className="text-[12px] text-kb-text-body">예상금리 연 {bpsToRate(journey.prescreening.estimatedRateBps)}%</p>
+                  )}
+                </div>
+              )
+            })()}
+            {journey.creditEvaluation && (() => {
+              const decision = journey.creditEvaluation.cevalDecisionCd
+              const isPass = decision === 'PASS' || decision === 'APPROVE'
+              const isReview = decision === 'REVIEW'
+              const boxCls = isPass ? 'border-green-300 bg-green-50'
+                : isReview ? 'border-amber-300 bg-amber-50'
+                : 'border-red-300 bg-red-50'
+              const textCls = isPass ? 'text-green-700' : isReview ? 'text-amber-700' : 'text-red-700'
+              const label = isPass ? '통과' : isReview ? '심사중' : '미통과'
+              return (
+                <div className={`border rounded-xl p-5 ${boxCls}`}>
+                  <p className="text-[12px] text-kb-text-muted font-medium mb-2">2단계 · 신용평가</p>
+                  <p className={`text-[16px] font-bold mb-2 ${textCls}`}>{label}</p>
+                  {!!journey.creditEvaluation.cevalScore && (
+                    <p className="text-[12px] text-kb-text-body">신용점수 {journey.creditEvaluation.cevalScore}점</p>
+                  )}
+                  {!!journey.creditEvaluation.evalRateBps && (
+                    <p className="text-[12px] text-kb-text-body">적용금리 연 {bpsToRate(journey.creditEvaluation.evalRateBps)}%</p>
+                  )}
+                </div>
+              )
+            })()}
+            {journey.dsr && (() => {
+              const pass = journey.dsr.dsrStatusCd === 'PASS'
+              return (
+                <div className={`border rounded-xl p-5 ${pass ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}`}>
+                  <p className="text-[12px] text-kb-text-muted font-medium mb-2">3단계 · DSR 산정</p>
+                  <p className={`text-[16px] font-bold mb-2 ${pass ? 'text-green-700' : 'text-red-700'}`}>
+                    {pass ? '통과' : '미통과'}
+                  </p>
+                  {!!journey.dsr.dsrRatioBps && (
+                    <p className="text-[12px] text-kb-text-body">DSR {(journey.dsr.dsrRatioBps / 100).toFixed(1)}%</p>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </section>
       )}
