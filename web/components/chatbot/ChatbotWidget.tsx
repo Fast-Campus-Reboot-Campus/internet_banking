@@ -429,18 +429,20 @@ export default function ChatbotWidget() {
     setDataPages((current) => ({ ...current, [messageIdValue]: page }))
   }
 
-  async function ensureStarted() {
+  async function ensureStarted(silent = false) {
     if (chatbotConsultationId) return chatbotConsultationId
     const started = await startChatbotConsultation(customerNo.trim() || DEFAULT_CUSTOMER_NO)
     setChatbotConsultationId(started.chatbot_consultation_id)
-    pushMessages([
-      {
-        id: messageId('start'),
-        role: 'bot',
-        text: started.message,
-        buttons: started.buttons,
-      },
-    ])
+    if (!silent) {
+      pushMessages([
+        {
+          id: messageId('start'),
+          role: 'bot',
+          text: started.message,
+          buttons: started.buttons,
+        },
+      ])
+    }
     return started.chatbot_consultation_id
   }
 
@@ -1160,11 +1162,22 @@ export default function ChatbotWidget() {
     '내 현금흐름', '현금흐름 분석', '거래내역 보고', '거래 내역 보고',
     '나한테 맞는 상품', '나에게 맞는 상품', '내 패턴', '내 거래 패턴',
   ]
+  const SPENDING_PATTERN_KEYWORDS = [
+    '배달', '배달앱', '배민', '요기요', '쿠팡이츠',
+    '카페', '스타벅스', '편의점', '쇼핑', '무신사',
+    '소비', '지출', '과소비', '많이 써', '많이 썼', '계속 써',
+    '썼는데', '썼어', '쓴 것', '쓴거', '결제했어', '샀어',
+  ]
 
   async function handleScenarioMessage(text: string, buttonValue?: string) {
     // 예금/적금/청약 목록 조회 → handleFeature로 라우팅 (상품 카드 표시)
     const trimmed = text.trim()
     const compactText = trimmed.replace(/\s+/g, '')
+
+    if (SPENDING_PATTERN_KEYWORDS.some(kw => trimmed.includes(kw))) {
+      await handleFeature('SPENDING_PATTERN', trimmed, true)
+      return
+    }
 
     if (isMaturityQuery(trimmed)) {
       await handleFeature('MATURITY_SCHEDULE', trimmed, true)
@@ -1224,7 +1237,7 @@ export default function ChatbotWidget() {
       setDataPages({})
       setMessages([{ id: messageId('user'), role: 'user', text }])
       try {
-        const consultationId = await ensureStarted()
+        const consultationId = await ensureStarted(true)
         const result = await executeChatbotFeature('PRODUCT_COMPARE', {
           customer_no: customerNo.trim() || getCurrentDepositCustomerId(),
           query: trimmed,
@@ -1411,7 +1424,7 @@ export default function ChatbotWidget() {
     setDataPages({})
 
     try {
-      const consultationId = await ensureStarted()
+      const consultationId = await ensureStarted(true)
       const messageWithCtx = lastRecommendCtx
         ? `${text}\n[직전 추천 상품: ${lastRecommendCtx}]`
         : text
@@ -1434,7 +1447,7 @@ export default function ChatbotWidget() {
     }
   }
 
-  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE' | 'MATURITY_SCHEDULE', userText: string, replaceMessages = false) {
+  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE' | 'MATURITY_SCHEDULE' | 'SPENDING_PATTERN', userText: string, replaceMessages = false) {
     setLoading(true)
     if (replaceMessages) {
       setExpandedRow(null)
@@ -1503,10 +1516,13 @@ export default function ChatbotWidget() {
         product_type: (featureCode as string) === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
+      const displayResult = featureCode === 'SPENDING_PATTERN'
+        ? { ...result, data: [] }
+        : result
       if (replaceMessages) {
-        setMessages((current) => [...current, addFeatureResult(result)])
+        setMessages((current) => [...current, addFeatureResult(displayResult)])
       } else {
-        pushMessages([addFeatureResult(result)])
+        pushMessages([addFeatureResult(displayResult)])
       }
     } catch {
       const errorMessage: ChatMessage = {

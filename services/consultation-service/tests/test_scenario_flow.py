@@ -91,6 +91,17 @@ class TestFreeTextIntentClassification:
 
         assert response.process_method == "FEATURE_RATE_GUIDE"
 
+    def test_delivery_app_message_routes_to_spending_pattern(self, service):
+        service.seed_default_scenario()
+        session = start(service)
+
+        response = send(service, session.chatbot_consultation_id, message="지금 요즘 배달앱만 계속 써")
+
+        assert response.process_method == "FEATURE_SPENDING_PATTERN"
+        assert response.agent_transfer_required is False
+        assert "배달" in response.message
+        assert "절약" in response.message
+
 
 class TestLlmFallback:
     def test_unclassified_message_uses_llm_when_adapter_exists(self, llm_service):

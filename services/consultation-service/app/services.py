@@ -190,18 +190,33 @@ class ChatbotService:
 
             # ── 금융 조회 하드 룰 키워드 (최우선 적용) ─────────────────────────
             # 이 키워드가 포함된 메시지는 goal session/flow를 완전히 우회하고 classifier로만 처리
+            # "이번 달" 단독 제거: 소비분석 질문("이번 달 편의점...")을 금융조회로 오분류하던 문제 수정
             _FINANCIAL_QUERY_KEYWORDS = [
                 "잔액", "계좌", "만기", "상품", "내역", "조회", "이자",
                 "얼마", "금리", "금액", "입금", "출금", "거래", "적금",
-                "예금", "통장", "이번달", "이번 달", "이체", "결제",
+                "예금", "통장", "이번달", "이체",
                 "이자율", "연이율", "우대금리", "사용 내역", "사용내역",
-                "입출금", "카드",
+                "입출금",
                 "계약", "계약 현황", "가입 상품",
                 "내 돈", "돈 어디", "묶여", "잠겨", "보유 자금",
             ]
 
+            # 소비분석 키워드: financial_query보다 우선 적용
+            _SPENDING_KEYWORDS = [
+                "편의점", "카페", "스타벅스", "배달", "배달앱",
+                "무신사", "쇼핑", "콘서트", "티켓",
+                "썼는데", "썼어", "쓴 것", "쓴거", "사용했어", "결제했어",
+                "샀는데", "샀어", "사버렸", "쓰고",
+                "이상한 거 있어", "이상한거 있어", "좀 많아", "좀 많긴",
+                "소비", "지출", "이번 달 소비", "이번달 소비", "이번 주 소비",
+                "패턴",
+            ]
+
             def _is_financial_query(text: str) -> bool:
                 return any(kw in text for kw in _FINANCIAL_QUERY_KEYWORDS)
+
+            def _is_spending_query(text: str) -> bool:
+                return any(kw in text for kw in _SPENDING_KEYWORDS)
 
             def _is_savings_goal(text: str) -> bool:
                 """명시적 저축/목표 의도가 있을 때만 True. 금액·기간만으로는 판정하지 않음."""
@@ -238,12 +253,21 @@ class ChatbotService:
                         return intent
                 return None
 
-            if is_financial:
+            is_spending = _is_spending_query(classify_text)
+
+            if is_spending:
+                # 소비분석 키워드 우선 — financial_query보다 먼저 검사
+                intent_name = "SPENDING_PATTERN"
+                forced_by_session = False
+                _savings_log.info("[router] spending keyword matched → SPENDING_PATTERN (override financial_query)")
+            elif is_financial:
                 # classifier로만 분류 — goal session은 건드리지 않고 이번 응답만 조회로 처리
                 intent_name = self._classifier.classify(classify_text)
+                _savings_log.info("[classifier] intent=%r (financial path)", intent_name)
                 # classifier 미매칭 시 best-effort로 intent 추론 (금융 도메인 clarification 금지)
                 if intent_name is None:
                     intent_name = _best_effort_financial_intent(classify_text)
+                    _savings_log.info("[classifier] best_effort=%r", intent_name)
                 forced_by_session = False
             elif existing_session_obj is not None:
                 # goal session 진행 중 + 금융 조회 아님 → session 유지
@@ -258,9 +282,10 @@ class ChatbotService:
 
             _savings_log.info(
                 "[SAVINGS_GOAL] incoming_message=%r current_session_stage=%s "
-                "forced_savings_goal_route=%s is_financial_query=%s",
-                message, current_stage, forced_by_session, is_financial,
+                "forced_savings_goal_route=%s is_financial_query=%s is_spending_query=%s",
+                message, current_stage, forced_by_session, is_financial, is_spending,
             )
+            _savings_log.info("[router] selected intent=%r", intent_name)
 
             intent_record = self._get_intent(chatbot.scenario_id, intent_name) if intent_name else None
             if intent_name:
@@ -282,6 +307,10 @@ class ChatbotService:
                     intent_name == "SPENDING_PATTERN"
                     and _os.getenv("SPENDING_AGENT_ENABLED") == "true"
                 )
+                _savings_log.info(
+                    "[router] use_spending_agent=%s SPENDING_AGENT_ENABLED=%r intent=%r",
+                    use_spending_agent, _os.getenv("SPENDING_AGENT_ENABLED"), intent_name,
+                )
                 if use_goal_agent:
                     feat_result = self._call_goal_agent(
                         message=message,
@@ -295,6 +324,7 @@ class ChatbotService:
                         chatbot_consultation_id=cid,
                     )
                 elif use_spending_agent:
+                    _savings_log.info("[spending-agent] entered → _call_spending_agent customer_no=%r", customer_no)
                     feat_result = self._call_spending_agent(
                         message=message,
                         customer_no=customer_no,
@@ -3144,7 +3174,7 @@ class ChatbotService:
                     "message": message,
                 },
                 headers=_headers,
-                timeout=30.0,
+                timeout=_httpx.Timeout(connect=2.0, read=30.0, write=5.0, pool=5.0),
             )
             resp.raise_for_status()
             data = resp.json()
