@@ -206,8 +206,7 @@ def _planner_fetch_transactions(db: Session, customer_id: str, analysis_months: 
     if not account_rows:
         return []
 
-    all_ids = {int(r["account_id"]) for r in account_rows}
-    id_list = ",".join(str(i) for i in all_ids)
+    all_ids = list({int(r["account_id"]) for r in account_rows})
 
     today = date.today()
     this_month_start = today.replace(day=1)
@@ -215,8 +214,9 @@ def _planner_fetch_transactions(db: Session, customer_id: str, analysis_months: 
     for _ in range(analysis_months - 1):
         cutoff = (cutoff - timedelta(days=1)).replace(day=1)
 
+    from sqlalchemy import bindparam
     rows = db.execute(
-        text(f"""
+        text("""
             SELECT t.transaction_type,
                    t.direction_type,
                    t.amount,
@@ -227,12 +227,12 @@ def _planner_fetch_transactions(db: Session, customer_id: str, analysis_months: 
                    t.counterparty_account_id,
                    t.status
               FROM deposit_transactions t
-             WHERE t.account_id IN ({id_list})
+             WHERE t.account_id IN :account_ids
                AND COALESCE(t.transaction_at, t.created_at) >= :cutoff
                AND t.direction_type = 'OUT'
              ORDER BY COALESCE(t.transaction_at, t.created_at)
-        """),
-        {"cutoff": cutoff.strftime("%Y-%m-%d")},
+        """).bindparams(bindparam("account_ids", expanding=True)),
+        {"account_ids": all_ids, "cutoff": cutoff.strftime("%Y-%m-%d")},
     ).mappings().all()
 
     filtered = []
@@ -630,7 +630,7 @@ def execute_tool(tool_name: str, tool_input: dict, db: Session, ctx: dict) -> di
 # 시스템 프롬프트
 # ──────────────────────────────────────────────
 
-MAX_AGENT_ITERATIONS = 20
+MAX_AGENT_ITERATIONS = 14  # 도구 수(7) × 2
 
 SYSTEM_PROMPT = """너는 사용자의 월간 지출 데이터를 분석하는 금융 소비 패턴 분석 AI이다.
 
@@ -726,7 +726,7 @@ def _run_spending_agent_claude(db: Session, customer_id: str, message: str) -> d
 
     for iteration in range(MAX_AGENT_ITERATIONS):
         response = client.messages.create(
-            model="claude-opus-4-8",
+            model=settings.llm_model,
             max_tokens=4096,
             thinking={"type": "adaptive"},
             system=SYSTEM_PROMPT,

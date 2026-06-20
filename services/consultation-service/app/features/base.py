@@ -252,7 +252,11 @@ class FeatureExecutorBase:
         return len(rows) > 0
 
     def _get_customer_age(self, customer_no: str | None) -> int | None:
-        """customer-service에서 생년월일을 조회해 만 나이를 반환. 실패 시 None."""
+        """customer-service에서 생년월일을 조회해 만 나이를 반환. 실패 시 None.
+
+        동기 httpx.Client 사용 — consultation-service route handler가 모두 def(동기)이므로
+        FastAPI가 threadpool에서 실행, 이벤트 루프 블로킹 없음.
+        """
         if not customer_no:
             return None
         from app.config import get_settings

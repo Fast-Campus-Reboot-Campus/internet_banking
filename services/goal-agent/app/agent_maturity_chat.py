@@ -23,6 +23,28 @@ from app import agent_maturity as maturity_rule
 
 
 # ──────────────────────────────────────────────
+# 날짜 변환 헬퍼 (agent_maturity 내부 함수 의존 제거)
+# ──────────────────────────────────────────────
+
+def _to_date(value) -> "date | None":
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    text = str(value)
+    if "-" in text:
+        return datetime.strptime(text, "%Y-%m-%d").date()
+    return datetime.strptime(text, "%Y%m%d").date()
+
+
+def _date_to_str(value) -> "str | None":
+    if value is None:
+        return None
+    d = _to_date(value)
+    return d.strftime("%Y%m%d") if d else None
+
+
+# ──────────────────────────────────────────────
 # Tool 정의 (JSON Schema)
 # ──────────────────────────────────────────────
 
@@ -211,7 +233,7 @@ def _planner_calculate_proceeds(db: Session, contract_id: int) -> dict:
     proceeds = _calc_proceeds(principal, interest, tax_rate)
     tax = (interest * tax_rate / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_DOWN)
 
-    maturity_date = maturity_rule._to_date(contract.maturity_at)
+    maturity_date = _to_date(contract.maturity_at)
     days_left = (maturity_date - date.today()).days
 
     return {
@@ -221,7 +243,7 @@ def _planner_calculate_proceeds(db: Session, contract_id: int) -> dict:
         "tax_amount": float(tax),
         "tax_rate": float(tax_rate),
         "net_proceeds": float(proceeds),
-        "maturity_at": maturity_rule._date_to_str(contract.maturity_at),
+        "maturity_at": _date_to_str(contract.maturity_at),
         "days_until_maturity": days_left,
         "contract_period_month": period,
         "final_interest_rate": float(rate),
@@ -471,7 +493,7 @@ def execute_tool(tool_name: str, tool_input: dict, db: Session, ctx: dict) -> di
 # 시스템 프롬프트
 # ──────────────────────────────────────────────
 
-MAX_AGENT_ITERATIONS = 20
+MAX_AGENT_ITERATIONS = 14  # 도구 수(7) × 2
 
 SYSTEM_PROMPT = """당신은 만기 알림 및 재투자 추천 에이전트입니다.
 
@@ -523,7 +545,7 @@ def _run_maturity_agent_claude(db: Session, customer_id: str, message: str) -> d
 
     for iteration in range(MAX_AGENT_ITERATIONS):
         response = client.messages.create(
-            model="claude-opus-4-8",
+            model=settings.llm_model,
             max_tokens=4096,
             thinking={"type": "adaptive"},
             system=SYSTEM_PROMPT,

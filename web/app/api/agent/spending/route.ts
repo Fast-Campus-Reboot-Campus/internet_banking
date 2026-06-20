@@ -5,12 +5,17 @@ const AI_API_URL =
 
 export async function POST(req: NextRequest) {
   try {
+    const customerId = req.headers.get('X-Customer-Id')
+    if (!customerId) {
+      return NextResponse.json({ error: '인증 정보가 없습니다.' }, { status: 401 })
+    }
+
     const body = await req.json()
 
     const upstream = await fetch(`${AI_API_URL}/agent/spending/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, customer_id: customerId }),
       cache: 'no-store',
     })
 

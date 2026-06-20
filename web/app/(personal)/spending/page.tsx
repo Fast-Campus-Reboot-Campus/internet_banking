@@ -146,38 +146,30 @@ export default function SpendingPage() {
     setError('')
     setCompletedSteps([])
 
-    const stored = localStorage.getItem('user')
-    if (!stored) { setError('로그인이 필요합니다.'); setLoading(false); return }
-    const { customer_id } = JSON.parse(stored)
-    if (!customer_id) { setError('고객 정보를 찾을 수 없습니다.'); setLoading(false); return }
+    const accessToken = localStorage.getItem('accessToken')
+    const customerId = localStorage.getItem('customerId')
+    if (!accessToken || !customerId) { setError('로그인이 필요합니다.'); setLoading(false); return }
 
     const finalMessage = message || userMessage || '지출 패턴을 분석하고 개선 방안을 알려주세요.'
 
-    let stepIdx = 0
-    const stepTimer = setInterval(() => {
-      if (stepIdx < STEPS.length) {
-        setCurrentStep(STEPS[stepIdx])
-        setCompletedSteps(STEPS.slice(0, stepIdx))
-        stepIdx++
-      } else {
-        clearInterval(stepTimer)
-      }
-    }, 700)
+    setCurrentStep('분석 중...')
 
     try {
       const res = await fetch('/api/agent/spending', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: String(customer_id), message: finalMessage }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Customer-Id': customerId,
+        },
+        body: JSON.stringify({ message: finalMessage }),
       })
       const data = await res.json()
-      clearInterval(stepTimer)
       setCompletedSteps(STEPS)
       setCurrentStep(null)
       if (data.error) { setError(data.error); return }
       setResult(data)
     } catch {
-      clearInterval(stepTimer)
       setError('분석 서버와 통신할 수 없습니다.')
     } finally {
       setLoading(false)

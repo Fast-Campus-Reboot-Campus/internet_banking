@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     maturity_agent_enabled: bool = False
     # 지출 패턴 관리 에이전트 활성화 여부 (기본 비활성화)
     spending_agent_enabled: bool = False
+    # Claude API 호출에 사용할 모델 ID
+    llm_model: str = "claude-opus-4-8"
+    # Tool Calling 에이전트 최대 반복 횟수 (도구 수 × 2)
+    max_agent_iterations: int = 14
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
