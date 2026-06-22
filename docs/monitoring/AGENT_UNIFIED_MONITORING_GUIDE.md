@@ -15,7 +15,7 @@
 - 서비스는 UP인데 폴백률이 급증해서 실제 심사를 못 하고 있다
 - 서비스는 UP인데 챗봇이 대부분 상담사에게 이관되고 있다
 
-이 가이드는 **에이전트 4종이 정상적으로 동작하는지** 한눈에 확인하는 방법을 설명합니다.
+이 가이드는 **에이전트 3종이 정상적으로 동작하는지** 한눈에 확인하는 방법을 설명합니다.
 
 ---
 
@@ -59,8 +59,6 @@
       → LLM 호출          (답변 생성)
 ```
 
-> **ai-service 제외 이유**: 코드는 존재하지만 메인 `docker-compose.yml`에 통합되지 않아 Prometheus가 메트릭을 수집할 수 없습니다. 담당 팀원이 docker-compose를 통합하면 대시보드 섹션을 추가할 수 있습니다.
-
 ---
 
 ## 3. 대시보드 구성
@@ -78,7 +76,7 @@
 
 ### 전체 요약
 
-에이전트 4종의 UP/DOWN 상태를 한눈에 확인합니다.
+에이전트 3종의 UP/DOWN 상태를 한눈에 확인합니다.
 
 | 색상 | 의미 |
 |------|------|
@@ -142,8 +140,6 @@
 
 ---
 
----
-
 ## 5. Alert 목록
 
 | Alert | 조건 | 심각도 | 의미 |
@@ -161,7 +157,7 @@
 
 ### 에이전트 폴백률 급증 시
 1. `http://localhost:9090/alerts` 에서 `AgentHighFallbackRate` 확인
-2. 공통 인프라 섹션에서 RAG 검색 지연 여부 확인
+2. auto-loan-review 실행 지연시간 p95 패널에서 처리 지연 여부 확인
 3. LLM 호출 오류 여부 확인 (`ai.agent.llm.calls.total` outcome=ERROR)
 4. `docker logs ib-auto-loan-review --tail 50` 로 로그 확인
 
@@ -169,11 +165,6 @@
 1. LLM 오류 패널 확인 — LLM 호출 자체가 실패하는지
 2. 폴백 패널 확인 — LlmHandoffAdapter로 대체되고 있는지
 3. `docker logs ib-consultation-service --tail 50` 로 로그 확인
-
-### RAG 검색 느려질 시
-1. `docker ps | Select-String "ai-service"` 로 컨테이너 상태 확인
-2. ai-service 로그 확인: `docker logs ib-ai-service --tail 50`
-3. auto-loan-review, review-ai-gateway 지연시간도 함께 확인 (연쇄 영향)
 
 ---
 
@@ -238,12 +229,8 @@ auto-loan-review는 loan-service에서 발생하는 심사 이벤트를 Kafka로
 1. docker compose up -d (메인 스택 기동)
 2. loan-service에 대출 신청 API 호출 → Kafka 이벤트 발생
 3. auto-loan-review가 이벤트를 수신해 에이전트 실행
-4. http://localhost:8086/actuator/prometheus 에서 ai_agent_* 메트릭 확인
+4. http://localhost:8089/actuator/prometheus 에서 ai_agent_* 메트릭 확인
 ```
-
-### 아직 해결되지 않은 구조적 제약
-
-**consultation-service**는 자체 docker-compose를 가지고 있어 메인 docker-compose와 포트 충돌이 발생할 수 있습니다. 담당 팀원과 협의 후 메인 docker-compose로 통합해야 합니다.
 
 ---
 

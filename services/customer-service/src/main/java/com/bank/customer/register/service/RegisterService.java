@@ -19,6 +19,7 @@ import com.bank.customer.party.repository.PartyRepository;
 import com.bank.customer.party.repository.PartyRoleRepository;
 import com.bank.customer.identity.domain.IdentityVerification;
 import com.bank.customer.identity.repository.IdentityVerificationRepository;
+import com.bank.customer.metrics.AuthMetrics;
 import com.bank.customer.register.dto.RegisterRequest;
 import com.bank.customer.register.dto.RegisterResponse;
 import com.bank.customer.support.CustomerErrorCode;
@@ -50,10 +51,12 @@ public class RegisterService {
     private final CustomerGradeHistoryRepository   customerGradeHistoryRepository;
     private final IdentityVerificationRepository   identityVerificationRepository;
     private final PasswordEncoder                  passwordEncoder;
+    private final AuthMetrics                      authMetrics;
 
     public RegisterResponse register(RegisterRequest request) {
 
         if (credentialRepository.existsByLoginIdAndDeletedAtIsNull(request.loginId())) {
+            authMetrics.registerFailure("duplicate_login_id");
             throw new BusinessException(CustomerErrorCode.CUST_001);
         }
 
@@ -77,16 +80,22 @@ public class RegisterService {
     /** verificationId 로 본인확인 이력을 읽고 유효성(목적·소비·만료)을 검사한다. */
     private IdentityVerification loadVerifiedIdentity(Long verificationId) {
         IdentityVerification identity = identityVerificationRepository.findById(verificationId)
-                .orElseThrow(() -> new BusinessException(CustomerErrorCode.CUST_094));
+                .orElseThrow(() -> {
+                    authMetrics.registerFailure("verification_not_found");
+                    return new BusinessException(CustomerErrorCode.CUST_094);
+                });
 
         if (!isSignupPurpose(identity.getIdentityVerificationPurposeCode())) {
+            authMetrics.registerFailure("invalid_purpose");
             throw new BusinessException(CustomerErrorCode.CUST_094);
         }
         if (identity.isConsumed()) {
+            authMetrics.registerFailure("verification_consumed");
             throw new BusinessException(CustomerErrorCode.CUST_096);
         }
         if (identity.getIdentityVerifiedAt().plusMinutes(VERIFICATION_VALIDITY_MINUTES)
                 .isBefore(OffsetDateTime.now())) {
+            authMetrics.registerFailure("verification_expired");
             throw new BusinessException(CustomerErrorCode.CUST_095);
         }
         return identity;
@@ -128,6 +137,7 @@ public class RegisterService {
                                                      OffsetDateTime now, String today) {
         if (customerRepository.existsByPartyIdAndCustomerStatusCodeNotAndDeletedAtIsNull(
                 partyId, Customer.STATUS_CLOSED)) {
+            authMetrics.registerFailure("duplicate_customer");
             throw new BusinessException(CustomerErrorCode.CUST_003);
         }
 
@@ -207,6 +217,7 @@ public class RegisterService {
         customerGradeHistoryRepository.save(
                 CustomerGradeHistory.ofInitial(customer.getCustomerId(), Customer.GRADE_NORMAL, today, now));
 
+        authMetrics.registerSuccess();
         return new RegisterResponse(customer.getCustomerId(), request.loginId());
     }
 }

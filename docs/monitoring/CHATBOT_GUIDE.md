@@ -199,18 +199,18 @@
 4. consultation-service 로그에서 timeout 에러 확인
 
 ### 상담사 이관이 급증했다
-1. **메시지 처리 방식 추이**에서 STAFF_ERROR_FALLBACK 비중 확인
+1. **메시지 처리 방식 추이**에서 STAFF_REQUEST 비중 확인
 2. **LLM 오류율** 확인 — LLM 실패로 인한 강제 이관 여부
 3. LLM 오류가 없으면: 고객이 직접 이관 요청하는 케이스 증가 (STAFF_REQUEST 비중 확인)
 
 ### Kafka 발행 에러가 발생했다
 1. Kafka 브로커 상태 확인: `docker ps --filter "name=kafka"`
-2. 토픽 존재 여부 확인: `docker exec payment-kftc-kafka kafka-topics.sh --list --bootstrap-server localhost:9092`
-3. 토픽이 없으면 생성: `docker exec payment-kftc-kafka kafka-topics.sh --create --topic <토픽명> --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1`
+2. 토픽 존재 여부 확인: `docker exec consultation-kafka kafka-topics.sh --list --bootstrap-server localhost:9092`
+3. 토픽이 없으면 생성: `docker exec consultation-kafka kafka-topics.sh --create --topic <토픽명> --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1`
 
 ### 만족도가 갑자기 낮아졌다
 1. **LLM 응답시간** 확인 — 응답이 너무 느리면 불만족 증가
-2. **STAFF_ERROR_FALLBACK 비중** 확인 — 오류 이관이 잦으면 불만족 증가
+2. **STAFF_REQUEST 비중** 확인 — 오류 이관이 잦으면 불만족 증가
 3. 챗봇 시나리오 또는 LLM 프롬프트 최근 변경 이력 확인
 
 ---
@@ -268,13 +268,13 @@ curl -X POST http://localhost:8087/chatbot/consultations/{ID}/messages \
 curl http://localhost:8087/chat/queue
 # → chat_consultation_id 값을 메모해둔다 (이하 {CHAT_ID})
 
-# 5. 상담 종료 + 만족도 입력 (session_ended_total, satisfaction_score 수집)
+# 5. 상담 종료 + 만족도 입력 (chatbot_session_ended_total, satisfaction_score 수집)
 curl -X POST http://localhost:8087/chat/consultations/{CHAT_ID}/end \
   -H "Content-Type: application/json" \
   -d '{"satisfaction_score": 4}'
 ```
 
-> **주의**: `session_ended_total`과 `satisfaction_score`는 상담사 이관 후 `/chat/consultations/{id}/end` 를 호출해야 기록된다. 이관 없이 창을 닫은 세션은 종료 카운트에 포함되지 않는다.
+> **주의**: `chatbot_session_ended_total`과 `satisfaction_score`는 상담사 이관 후 `/chat/consultations/{id}/end` 를 호출해야 기록된다. 이관 없이 창을 닫은 세션은 종료 카운트에 포함되지 않는다.
 
 ---
 
@@ -310,7 +310,7 @@ curl -X POST http://localhost:8087/chat/consultations/{CHAT_ID}/end \
 
 | 문서 | 내용 |
 |------|------|
-| [DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md) | Service Overview 대시보드 — HTTP, JVM, DB, 인증/보안 |
+| [INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md](INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md) | Service Overview 대시보드 — HTTP, JVM, DB, 인증/보안 |
 | [KAFKA_PAYMENT_GUIDE.md](KAFKA_PAYMENT_GUIDE.md) | Kafka Payment 대시보드 — Consumer Lag, Outbox, DLQ |
 | [ML_LOAN_REVIEW_GUIDE.md](ML_LOAN_REVIEW_GUIDE.md) | ML 대출 심사 모니터링 — 추론 성능, 드리프트 감지 |
-| [INFRA_VERSIONS.md](INFRA_VERSIONS.md) | 모니터링 인프라 버전 및 설정 파일 위치 |
+| [INFRA_PORTS.md](INFRA_PORTS.md) | 모니터링 인프라 포트 및 설정 파일 위치 |

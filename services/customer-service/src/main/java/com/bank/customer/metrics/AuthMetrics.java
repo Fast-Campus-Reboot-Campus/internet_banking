@@ -25,18 +25,35 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class AuthMetrics {
 
-    private static final String LOGIN_FAILURE_METRIC = "customer.login.failure";
-    private static final String JWT_INVALID_METRIC   = "customer.jwt.invalid";
+    private static final String LOGIN_FAILURE_METRIC   = "customer.login.failure";
+    private static final String JWT_INVALID_METRIC     = "customer.jwt.invalid";
+    private static final String LOGIN_SUCCESS_METRIC   = "customer.login.success";
+    private static final String ACCESS_DENIED_METRIC   = "customer.auth.access.denied";
+    private static final String REGISTER_SUCCESS_METRIC = "customer.register.success";
+    private static final String REGISTER_FAILURE_METRIC = "customer.register.failure";
 
     private final MeterRegistry registry;
     private final Counter jwtInvalid;
-    private final Map<String, Counter> loginFailureByReason = new ConcurrentHashMap<>();
+    private final Counter loginSuccess;
+    private final Counter accessDenied;
+    private final Counter registerSuccess;
+    private final Map<String, Counter> loginFailureByReason   = new ConcurrentHashMap<>();
+    private final Map<String, Counter> registerFailureByReason = new ConcurrentHashMap<>();
 
     public AuthMetrics(MeterRegistry registry) {
         this.registry = registry;
         // 첫 이벤트가 발생하기 전에도 알림 규칙이 평가 가능하도록, 대상 시계열을 기동 시 0 으로 사전 노출한다.
         this.jwtInvalid = Counter.builder(JWT_INVALID_METRIC)
                 .description("JWT 검증 실패 횟수 (리프레시 토큰 등 customer-service 직접 검증분)")
+                .register(registry);
+        this.loginSuccess = Counter.builder(LOGIN_SUCCESS_METRIC)
+                .description("로그인 성공 횟수")
+                .register(registry);
+        this.accessDenied = Counter.builder(ACCESS_DENIED_METRIC)
+                .description("내부 API 인가 거부 횟수")
+                .register(registry);
+        this.registerSuccess = Counter.builder(REGISTER_SUCCESS_METRIC)
+                .description("회원가입 성공 횟수")
                 .register(registry);
         loginFailureCounter("bad_credentials"); // 브루트포스 알림 대상 시계열 사전 등록
     }
@@ -49,6 +66,24 @@ public class AuthMetrics {
     /** JWT 검증 실패 1건 기록. */
     public void jwtInvalid() {
         jwtInvalid.increment();
+    }
+
+    /** 로그인 성공 1건 기록. */
+    public void loginSuccess()            { loginSuccess.increment(); }
+
+    /** 내부 API 인가 거부 1건 기록. */
+    public void accessDenied()            { accessDenied.increment(); }
+
+    /** 회원가입 성공 1건 기록. */
+    public void registerSuccess()         { registerSuccess.increment(); }
+
+    /** 회원가입 실패 1건 기록. */
+    public void registerFailure(String reason) {
+        registerFailureByReason.computeIfAbsent(reason, r ->
+                Counter.builder(REGISTER_FAILURE_METRIC)
+                        .tag("reason", r)
+                        .description("회원가입 실패 횟수")
+                        .register(registry)).increment();
     }
 
     private Counter loginFailureCounter(String reason) {

@@ -575,7 +575,7 @@ consultation-service 기동 시 아래 로그가 찍히면 정상 연결된 것�
 
 | 문서 | 내용 |
 |------|------|
-| [DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md) | Grafana 서비스 인프라 대시보드 |
+| [INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md](INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md) | Grafana 서비스 인프라 대시보드 |
 | [CHATBOT_GUIDE.md](CHATBOT_GUIDE.md) | 챗봇 상담 Grafana 대시보드 (Prometheus 메트릭) |
 | [ML_LOAN_REVIEW_GUIDE.md](ML_LOAN_REVIEW_GUIDE.md) | ML 대출 심사 모니터링 |
-| [INFRA_VERSIONS.md](INFRA_VERSIONS.md) | 모니터링 인프라 버전 및 설정 파일 위치 |
+| [INFRA_PORTS.md](INFRA_PORTS.md) | 모니터링 인프라 포트 및 설정 파일 위치 |

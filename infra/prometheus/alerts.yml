@@ -3,7 +3,7 @@ groups:
     interval: 30s
     rules:
       - alert: ServiceDown
-        expr: up{job!="windows-exporter"} == 0
+        expr: up{job!~"windows-exporter|node-exporter"} == 0
         for: 1m
         labels:
           severity: critical
@@ -274,7 +274,7 @@ groups:
         expr: |
           sum(rate(chatbot_llm_error_total[5m]))
           /
-          (sum(rate(chatbot_llm_error_total[5m])) + sum(rate(chatbot_message_total{process_method="BP003_GPT"}[5m])) + 0.001)
+          (sum(rate(chatbot_message_total[5m])) + 0.001)
           > 0.10
         for: 2m
         labels:

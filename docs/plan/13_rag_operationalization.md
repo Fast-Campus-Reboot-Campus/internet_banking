@@ -259,7 +259,7 @@ advisory 의 자체 RAG 코드        : Stage 7 에서 deprecate
 
 1. `feat(rag): RagMetrics 에 tool 별 호출 메트릭 추가` — `docs/monitoring/TOOL_METRICS_GUIDE.md` 참조
 2. `feat(rag): 임베딩 API 메트릭` — `rag.embedding.duration{model,status}`, `rag.embedding.calls{model,status}`
-3. `feat(rag): Grafana 대시보드 RAG 섹션` — `docs/monitoring/DASHBOARD_GUIDE.md` 갱신 (검색 QPS, p95, 실패율, 인용 청크 분포)
+3. `feat(rag): Grafana 대시보드 RAG 섹션` — `docs/monitoring/INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md` 갱신 (검색 QPS, p95, 실패율, 인용 청크 분포)
 4. `feat(rag): Prometheus alertmanager 룰` — 검색 실패율 > 5% 5분, 임베딩 latency p95 > 2s 5분
 
 **완료 조건:**

@@ -418,6 +418,6 @@ curl -s -X POST http://localhost:8089/api/ai/auto-review/evaluate \
 
 | 문서 | 내용 |
 |------|------|
-| [DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md) | Service Overview 대시보드 — HTTP, JVM, DB, 인증/보안 해석 |
+| [INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md](INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md) | Service Overview 대시보드 — HTTP, JVM, DB, 인증/보안 해석 |
 | [KAFKA_PAYMENT_GUIDE.md](KAFKA_PAYMENT_GUIDE.md) | Kafka Payment 대시보드 — Consumer Lag, Outbox, DLQ 해석 |
-| [INFRA_VERSIONS.md](INFRA_VERSIONS.md) | 모니터링 인프라 버전 및 설정 파일 위치 |
+| [INFRA_PORTS.md](INFRA_PORTS.md) | 모니터링 인프라 포트 및 설정 파일 위치 |

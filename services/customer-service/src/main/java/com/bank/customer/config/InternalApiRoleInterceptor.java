@@ -3,6 +3,7 @@ package com.bank.customer.config;
 import com.bank.common.security.BankRole;
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;
+import com.bank.customer.metrics.AuthMetrics;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,12 @@ public class InternalApiRoleInterceptor implements HandlerInterceptor {
     /** 직원 역할 화이트리스트 — SecurityConfig 와 동일한 단일 소스({@link BankRole#EMPLOYEE_ROLES}) */
     private static final Set<String> EMPLOYEE_ROLES = BankRole.employeeAuthorities();
 
+    private final AuthMetrics authMetrics;
+
+    public InternalApiRoleInterceptor(AuthMetrics authMetrics) {
+        this.authMetrics = authMetrics;
+    }
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String header = request.getHeader(ROLE_HEADER);
@@ -37,6 +44,7 @@ public class InternalApiRoleInterceptor implements HandlerInterceptor {
                 .anyMatch(EMPLOYEE_ROLES::contains);
 
         if (!isEmployee) {
+            authMetrics.accessDenied();
             throw new BusinessException(CommonErrorCode.COMMON_403);
         }
         return true;

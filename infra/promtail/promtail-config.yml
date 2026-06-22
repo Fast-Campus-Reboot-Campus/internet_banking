@@ -51,20 +51,6 @@ scrape_configs:
       - labels:
           level:
 
-  - job_name: ai-service
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: ai-service
-          application: ai-service
-          __path__: /logs/ai-service.log
-    pipeline_stages:
-      - regex:
-          expression: '.* \[.*\] (?P<level>INFO|WARN|ERROR|DEBUG) .*'
-      - labels:
-          level:
-
   - job_name: api-gateway
     static_configs:
       - targets:

@@ -320,7 +320,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
       "id": 104,
-      "title": "서버 자원 (Node Exporter)",
+      "title": "서버 자원 (windows_exporter / Node Exporter)",
       "type": "row"
     },
     {
@@ -333,15 +333,15 @@
       "id": 13,
       "targets": [
         {
-          "expr": "windows_logical_disk_size_bytes{volume=\"C:\"} - windows_logical_disk_free_bytes{volume=\"C:\"}",
+          "expr": "(windows_logical_disk_size_bytes{volume=\"C:\"} - windows_logical_disk_free_bytes{volume=\"C:\"}) or (node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"} - node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"})",
           "legendFormat": "사용 중"
         },
         {
-          "expr": "windows_logical_disk_size_bytes{volume=\"C:\"}",
+          "expr": "windows_logical_disk_size_bytes{volume=\"C:\"} or node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"}",
           "legendFormat": "전체"
         }
       ],
-      "title": "Disk 사용량 (C:)",
+      "title": "Disk 사용량 (C: / /)",
       "type": "timeseries"
     },
     {
@@ -354,12 +354,12 @@
       "id": 14,
       "targets": [
         {
-          "expr": "rate(windows_net_bytes_received_total[1m])",
-          "legendFormat": "수신 {{nic}}"
+          "expr": "rate(windows_net_bytes_received_total[1m]) or rate(node_network_receive_bytes_total{device!~\"lo|docker.*|br-.*|veth.*\"}[1m])",
+          "legendFormat": "수신 {{nic}}{{device}}"
         },
         {
-          "expr": "rate(windows_net_bytes_sent_total[1m])",
-          "legendFormat": "송신 {{nic}}"
+          "expr": "rate(windows_net_bytes_sent_total[1m]) or rate(node_network_transmit_bytes_total{device!~\"lo|docker.*|br-.*|veth.*\"}[1m])",
+          "legendFormat": "송신 {{nic}}{{device}}"
         }
       ],
       "title": "Network I/O",

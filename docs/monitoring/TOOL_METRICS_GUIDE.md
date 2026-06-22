@@ -141,7 +141,7 @@ metrics.recordTurnsUsed(req.analysisType(), loopResult.turnsUsed());
 
 ## 5. Grafana 패널 예시 PromQL
 
-대시보드 파일: `docs/monitoring/DASHBOARD_GUIDE.md` 참고 (기존 섹션에 패널 추가)
+대시보드 파일: `docs/monitoring/INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md` 참고 (기존 섹션에 패널 추가)
 
 ### tool 호출 수 (tool별)
 ```promql
