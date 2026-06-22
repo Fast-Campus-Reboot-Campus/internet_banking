@@ -30,11 +30,12 @@
 | JVM | Heap, GC, 스레드 | 애플리케이션 런타임 상태 |
 | 시스템 / DB | CPU, 커넥션 풀, 쿼리 지연 | 인프라 수준 상태 |
 | 인증 / 보안 | 로그인 성공/실패, JWT 실패, 회원가입 | 보안 이벤트 추적 |
-| 서버 자원 | Disk 사용량, Network I/O | 호스트 OS 수준 자원 (windows_exporter) |
+| 서버 자원 | Disk 사용량, Network I/O | 호스트 OS 수준 자원 (windows_exporter / Node Exporter) |
 | 로그 | 애플리케이션 로그, ERROR 로그 | Loki에서 수집한 실시간 로그 스트림 |
 
 상단 **서비스** 드롭다운으로 서비스를 전환한다.
-> 인증/보안 · 서버 자원 섹션은 `customer-service` 선택 시에만 의미 있는 데이터가 표시된다.
+> 인증/보안 섹션은 `customer-service` 선택 시에만 의미 있는 데이터가 표시된다.
+> 서버 자원 섹션은 드롭다운 선택에 관계없이 호스트 전체 자원을 표시한다.
 > 로그 섹션은 HTTP 에러율과 별개다. 내부 예외가 `try-catch`로 처리되면 HTTP 에러율은 0이어도 ERROR 로그가 남을 수 있다.
 
 ### 모니터링 대상 서비스
@@ -47,7 +48,6 @@
 | loan-service | 8083 | 대출 심사 및 관리 |
 | payment-service | 8084 | 이체 및 결제 처리 |
 | master-service | 8085 | 공통 마스터 데이터 |
-| consultation-service | 8087 | 챗봇 상담 AI 에이전트 |
 | auto-loan-review | 8089 | 자동 심사 AI 에이전트 |
 | review-ai-gateway | 8088 | 감사 분석 AI 게이트웨이 |
 
@@ -171,7 +171,7 @@
 ## 4-1. 인증 / 보안 섹션
 
 > `customer-service` 에 등록된 Micrometer 커스텀 카운터를 시각화한다.
-> 메트릭 소스: `LoginService`, `RegisterService`, `JwtAuthenticationFilter`, `SecurityConfig`
+> 메트릭 소스: `AuthEventService`, `LoginService`, `RegisterService`, `InternalApiRoleInterceptor`
 
 ### 로그인 성공 / 실패 (5분)
 - **설명**: 5분 구간 동안 발생한 로그인 결과를 reason 별로 집계.
