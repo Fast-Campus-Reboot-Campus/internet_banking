@@ -250,7 +250,7 @@ langfuse:
   enabled: ${LANGFUSE_ENABLED:false}
   secret-key: ${LANGFUSE_SECRET_KEY:}
   public-key: ${LANGFUSE_PUBLIC_KEY:}
-  host: ${LANGFUSE_HOST:http://localhost:3001}
+  host: ${LANGFUSE_HOST:http://localhost:3002}
 
 
 management:

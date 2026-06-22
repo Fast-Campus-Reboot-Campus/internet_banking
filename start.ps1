@@ -121,6 +121,16 @@ Start-Process cmd -ArgumentList "/k gradlew.bat :services:loan-service:bootRun" 
 Start-Sleep -Seconds 2
 Start-Process cmd -ArgumentList "/k gradlew.bat :services:payment-service:bootRun" -WorkingDirectory $root -WindowStyle Normal
 Start-Sleep -Seconds 2
+# payment-service-B (다온/타행 수신측, 8180) — 같은 모듈을 다른 env로 한 번 더 기동.
+#   BANK_CODE=B, mock 프로파일(자체 deposit-service 없음 → Mock 빈), payment_b DB(5441), 포트 8180.
+#   env는 'set "..." &&'로 이 cmd 창에만 적용 → A 인스턴스(8080)에 영향 없음.
+#   Kafka(localhost:9092)는 A와 동일 브로커 공유. P-029 bank_code 필터만으로는 부족하다:
+#   A·B가 같은 컨슈머 그룹(payment-kftc/bok/internal)을 쓰면 B로 가야 할 요청을 A가 먼저
+#   소비→필터로 버려 타행이체 수신이 안 된다. 그래서 B 전용 그룹(-B 접미사)으로 분리한다.
+#   또한 --no-daemon: gradle 데몬을 재사용하면 위 'set' env(mock·8180·그룹)가 무시되고
+#   A 데몬의 환경(local·8084)으로 떠 포트 충돌로 죽는다. 데몬 재사용 차단을 위해 필수.
+Start-Process cmd -ArgumentList '/k set "PAYMENT_APP_PORT=8180" && set "BANK_CODE=B" && set "SPRING_PROFILES_ACTIVE=mock" && set "PAYMENT_DB_PORT=5441" && set "PAYMENT_DB_NAME=payment_b" && set "KFTC_CONSUMER_GROUP=payment-kftc-B" && set "BOK_CONSUMER_GROUP=payment-bok-B" && set "INTERNAL_CONSUMER_GROUP=payment-internal-B" && gradlew.bat --no-daemon :services:payment-service:bootRun' -WorkingDirectory $root -WindowStyle Normal
+Start-Sleep -Seconds 2
 Start-Process cmd -ArgumentList "/k gradlew.bat :services:master-service:bootRun" -WorkingDirectory $root -WindowStyle Normal
 Start-Sleep -Seconds 2
 Start-Process cmd -ArgumentList "/k gradlew.bat :services:api-gateway:bootRun" -WorkingDirectory $root -WindowStyle Normal
@@ -148,7 +158,7 @@ Start-Process cmd -ArgumentList "/k npm run dev" -WorkingDirectory "$root\web" -
 
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " 11 service windows opened (ready in ~30-90s)"
+Write-Host " 12 service windows opened (ready in ~30-90s)"
 Write-Host ""
 Write-Host " Web UI      http://localhost:3001" -ForegroundColor Green
 Write-Host ""
@@ -157,6 +167,7 @@ Write-Host "   customer   http://localhost:8081/swagger-ui.html"
 Write-Host "   deposit    http://localhost:8082/swagger-ui.html"
 Write-Host "   loan       http://localhost:8083/swagger-ui.html"
 Write-Host "   payment    http://localhost:8084/swagger-ui.html"
+Write-Host "   payment-B  http://localhost:8180/swagger-ui.html  (다온/타행 수신측)"
 Write-Host "   master     http://localhost:8085/swagger-ui.html"
 Write-Host "   api-gw     http://localhost:8080/actuator/health"
 Write-Host "   auto-loan  http://localhost:8089/swagger-ui.html"

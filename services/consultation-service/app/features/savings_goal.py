@@ -8,6 +8,9 @@
   4. 여러 상품 비교 + 추천 근거 생성 (GPT 또는 룰 기반)
   5. 결과 제시 + 월별 납입 계획표 데이터
 
+참고:
+  - 세션 상태는 chatbot_goal_session 테이블(DB)에 영속화됨.
+  - 서버 재시작, 멀티 워커, 다중 레플리카 환경에서도 세션 유지됨.
 """
 from __future__ import annotations
 
@@ -15,7 +18,6 @@ import re
 from typing import Any
 
 from app.features.base import FeatureExecutorBase
-from app.models import ChatbotGoalSession
 from app.schemas import ChatbotFeatureExecuteRequest, ChatbotFeatureExecuteResponse
 
 
@@ -28,11 +30,11 @@ def _normalize_korean_amount(text: str) -> str:
         ("오백", "500"), ("사백", "400"), ("삼백", "300"), ("이백", "200"), ("일백", "100"), ("백", "100"),
         ("구십", "90"), ("팔십", "80"), ("칠십", "70"), ("육십", "60"),
         ("오십", "50"), ("사십", "40"), ("삼십", "30"), ("이십", "20"), ("일십", "10"), ("십", "10"),
+        ("구만", "9만"), ("팔만", "8만"), ("칠만", "7만"), ("육만", "6만"),
+        ("오만", "5만"), ("사만", "4만"), ("삼만", "3만"), ("이만", "2만"), ("일만", "1만"),
         ("구천만", "9000만"), ("팔천만", "8000만"), ("칠천만", "7000만"), ("육천만", "6000만"),
         ("오천만", "5000만"), ("사천만", "4000만"), ("삼천만", "3000만"), ("이천만", "2000만"),
         ("일천만", "1000만"), ("천만", "1000만"),
-        ("구만", "9만"), ("팔만", "8만"), ("칠만", "7만"), ("육만", "6만"),
-        ("오만", "5만"), ("사만", "4만"), ("삼만", "3만"), ("이만", "2만"), ("일만", "1만"),
         ("구천", "9천"), ("팔천", "8천"), ("칠천", "7천"), ("육천", "6천"),
         ("오천", "5천"), ("사천", "4천"), ("삼천", "3천"), ("이천", "2천"), ("일천", "1천"),
         ("구억", "9억"), ("팔억", "8억"), ("칠억", "7억"), ("육억", "6억"),
@@ -64,23 +66,56 @@ def _parse_amount(text: str) -> float | None:
     return None
 
 
+_KOR_YEAR_MAP = {
+    "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5,
+    "육": 6, "칠": 7, "팔": 8, "구": 9, "십": 10,
+}
+_KOR_MONTH_MAP = {
+    "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6,
+    "칠": 7, "팔": 8, "구": 9, "십": 10, "열": 10,
+    "열일": 11, "열이": 12,
+}
+
+
 def _parse_months(text: str) -> int | None:
-    """'1년', '6개월', '12개월', '3달' 등을 개월수(int)로 변환."""
+    """'1년', '일년', '6개월', '육개월', '12개월', '3달' 등을 개월수(int)로 변환."""
+    # 아라비아 숫자 + 년
     m = re.search(r"(\d+)\s*년", text)
     if m:
         return int(m.group(1)) * 12
+    # 한글 숫자 + 년 (일년, 이년, 삼년 … 십년)
+    m = re.search(r"([일이삼사오육칠팔구십])\s*년", text)
+    if m:
+        return _KOR_YEAR_MAP.get(m.group(1), None) and _KOR_YEAR_MAP[m.group(1)] * 12
+    # 아라비아 숫자 + 개월/달
     m = re.search(r"(\d+)\s*개월", text)
     if m:
         return int(m.group(1))
     m = re.search(r"(\d+)\s*달", text)
     if m:
         return int(m.group(1))
+    # 한글 숫자 + 개월 (육개월, 삼개월 …)
+    m = re.search(r"(열일|열이|열[일이삼사오육칠팔구]?|[일이삼사오육칠팔구십])\s*개월", text)
+    if m:
+        return _KOR_MONTH_MAP.get(m.group(1))
     return None
 
 
 def _has_lump_sum_intent(text: str) -> bool:
     """목돈을 한 번에 넣겠다는 의도 감지."""
     return any(k in text for k in ["목돈", "한 번에", "한번에", "일시", "예치", "넣어두"])
+
+
+def _is_followup_question(text: str) -> bool:
+    """목표 달성 관련 후속 질문 감지."""
+    _KEYWORDS = [
+        "어떻게", "달성", "가능해", "가능하", "대안", "방법",
+        "늘리", "늘려", "기간", "더 넣", "더넣", "납입", "올리",
+        "얼마나", "몇 개월", "몇개월", "몇 년", "몇년",
+        "부족", "모자", "안 되", "안되", "불가", "힘들",
+    ]
+    t = text.replace(" ", "")
+    return any(k.replace(" ", "") in t for k in _KEYWORDS)
 
 
 def _period_str(months: int) -> str:
@@ -223,56 +258,131 @@ def _gpt_recommend(
 
 class SavingsGoalFeatureExecutor(FeatureExecutorBase):
 
-    def _get_session(self, cid: int) -> dict[str, Any] | None:
-        row = self.db.get(ChatbotGoalSession, cid)
-        if row is None:
+    def _get_session(self, cid: int | None) -> "dict[str, Any] | None":
+        if not cid:
+            return None
+        from app.models import ChatbotGoalSession
+        obj = self.db.get(ChatbotGoalSession, cid)
+        if not obj:
             return None
         return {
-            "stage": row.stage,
-            "goal_amount": row.goal_amount,
-            "goal_months": row.goal_months,
-            "customer_no": row.customer_no,
-            "monthly_surplus": row.monthly_surplus,
+            "stage": obj.stage,
+            "goal_amount": obj.goal_amount,
+            "goal_months": obj.goal_months,
+            "customer_no": obj.customer_no,
+            "monthly_surplus": obj.monthly_surplus,
+            "monthly_payment": obj.monthly_payment,
         }
 
-    def _save_session(self, cid: int, data: dict[str, Any]) -> None:
-        row = self.db.get(ChatbotGoalSession, cid)
-        if row is None:
-            row = ChatbotGoalSession(chatbot_consultation_id=cid)
-            self.db.add(row)
-        row.stage = data["stage"]
-        row.goal_amount = data["goal_amount"]
-        row.goal_months = data["goal_months"]
-        row.customer_no = data.get("customer_no")
-        row.monthly_surplus = data.get("monthly_surplus")
+    def _save_session(self, cid: int | None, data: "dict[str, Any]") -> None:
+        if not cid:
+            return
+        from app.models import ChatbotGoalSession
+        obj = self.db.get(ChatbotGoalSession, cid)
+        if obj:
+            obj.stage = data.get("stage", obj.stage)
+            obj.goal_amount = data.get("goal_amount") or obj.goal_amount
+            obj.goal_months = data.get("goal_months") or obj.goal_months
+            obj.customer_no = data.get("customer_no", obj.customer_no)
+            obj.monthly_surplus = data.get("monthly_surplus")
+            obj.monthly_payment = data.get("monthly_payment")
+        else:
+            obj = ChatbotGoalSession(
+                chatbot_consultation_id=cid,
+                stage=data["stage"],
+                goal_amount=data.get("goal_amount") or 0,
+                goal_months=data.get("goal_months") or 0,
+                customer_no=data.get("customer_no"),
+                monthly_surplus=data.get("monthly_surplus"),
+                monthly_payment=data.get("monthly_payment"),
+            )
+            self.db.add(obj)
         self.db.flush()
-        self.db.commit()
 
     def execute_savings_goal(
         self, request: ChatbotFeatureExecuteRequest
     ) -> ChatbotFeatureExecuteResponse:
         cid = request.chatbot_consultation_id
         query = (request.query or "").strip()
-        session = self._get_session(cid) if cid else None
-
-        # ── 새 요청 여부 먼저 판단: 금액+기간이 모두 있으면 새 목표로 인식 ──────
-        _fresh_amount = _parse_amount(query)
-        _fresh_months = _parse_months(query)
-        _is_new_goal = (_fresh_amount is not None and _fresh_months is not None)
+        session = self._get_session(cid)
 
         # ── 진행 중인 세션: 추가 질문 답변 수신 ──────────────────────────────
-        if session and session.get("stage") == "ASKED_MONTHLY" and not _is_new_goal:
+        if session and session.get("stage") == "ASKED_MONTHLY":
             return self._handle_payment_answer(cid, query, session)
 
-        # ── 결과 표시 후 후속 금액 입력 처리 ─────────────────────────────────
-        if session and session.get("stage") == "RESULT_SHOWN" and not _is_new_goal:
+        # ── 결과 표시 후 후속 질문/금액 입력 처리 ────────────────────────────
+        if session and session.get("stage") == "RESULT_SHOWN":
+            if _is_followup_question(query):
+                return self._handle_followup_question(cid, query, session)
             amount = _parse_amount(query)
             if amount is not None:
                 return self._handle_payment_answer(cid, query, session)
 
+        # ── ASKING_GOAL 세션: 이전에 금액/기간 일부만 받고 다시 물어본 경우 ──────
+        if session and session.get("stage") == "ASKING_GOAL":
+            fresh_amount = _parse_amount(query)
+            fresh_months = _parse_months(query)
+            merged_amount = fresh_amount if fresh_amount is not None else session.get("goal_amount")
+            merged_months = fresh_months if fresh_months is not None else session.get("goal_months")
+            if merged_amount and merged_months:
+                # 두 필드 모두 확보 → ASKED_MONTHLY 단계로 진행
+                if cid:
+                    self._save_session(cid, {**session, "stage": "ASKED_MONTHLY",
+                                             "goal_amount": merged_amount, "goal_months": merged_months})
+                session = self._get_session(cid)
+                # 아래 고객 현금흐름 조회로 fall-through 하도록 goal_amount/goal_months 설정
+                goal_amount, goal_months = merged_amount, merged_months
+                # 고객 현금흐름 조회 (로그인 시)
+                customer_no = (request.customer_no or "").strip()
+                monthly_surplus: float | None = None
+                if customer_no:
+                    try:
+                        cf = self._analyze_customer_cash_flow(customer_no)
+                        monthly_surplus = cf.get("monthly_surplus")
+                    except Exception:
+                        pass
+                if cid:
+                    self._save_session(cid, {
+                        "stage": "ASKED_MONTHLY",
+                        "goal_amount": goal_amount,
+                        "goal_months": goal_months,
+                        "customer_no": customer_no or None,
+                        "monthly_surplus": monthly_surplus,
+                        "monthly_payment": None,
+                    })
+                surplus_msg = (
+                    f"월 잉여자금이 약 {monthly_surplus:,.0f}원으로 파악됩니다. 이 금액 기준으로 납입 가능하신가요?\n"
+                    f"다른 금액이라면 알려주세요."
+                    if monthly_surplus
+                    else (
+                        f"납입 가능한 금액을 알려주시면 달성 가능한 상품을 찾아드릴게요.\n"
+                        f"(목돈을 한 번에 넣으실 계획이라면 '목돈 ○○○만원' 처럼 알려주세요.)"
+                    )
+                )
+                return ChatbotFeatureExecuteResponse(
+                    feature_code="SAVINGS_GOAL",
+                    status="NEED_INFO",
+                    message=f"{_period_str(goal_months)} 동안 {goal_amount:,.0f}원을 모으는 목표군요! 😊\n\n{surplus_msg}",
+                    data=[],
+                )
+            # 아직 부족 → 세션 업데이트 후 재질문
+            if cid:
+                self._save_session(cid, {**session, "goal_amount": merged_amount, "goal_months": merged_months})
+            still_missing = []
+            if not merged_amount:
+                still_missing.append("목표 금액이 얼마인지 알려주세요. (예: 500만원)")
+            if not merged_months:
+                still_missing.append("기간은 얼마나 생각하고 계세요? (예: 1년, 6개월)")
+            return ChatbotFeatureExecuteResponse(
+                feature_code="SAVINGS_GOAL",
+                status="NEED_INFO",
+                message=" 그리고 ".join(still_missing),
+                data=[],
+            )
+
         # ── 새 요청: 목표 파싱 ────────────────────────────────────────────────
-        goal_amount = _fresh_amount
-        goal_months = _fresh_months
+        goal_amount = _parse_amount(query)
+        goal_months = _parse_months(query)
 
         missing = []
         if goal_amount is None:
@@ -286,6 +396,16 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
                 "기간": "기간은 얼마나 생각하고 계세요? (예: 1년, 6개월)",
             }
             ask = " 그리고 ".join(questions[k] for k in missing)
+            # 부분 정보라도 세션에 저장해 다음 턴에서 누락 필드만 보완
+            if cid:
+                self._save_session(cid, {
+                    "stage": "ASKING_GOAL",
+                    "goal_amount": goal_amount,
+                    "goal_months": goal_months,
+                    "customer_no": (request.customer_no or "").strip() or None,
+                    "monthly_surplus": None,
+                    "monthly_payment": None,
+                })
             return ChatbotFeatureExecuteResponse(
                 feature_code="SAVINGS_GOAL",
                 status="NEED_INFO",
@@ -312,6 +432,7 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
                 "goal_months": goal_months,
                 "customer_no": customer_no or None,
                 "monthly_surplus": monthly_surplus,
+                "monthly_payment": None,
             })
 
         # 월 잉여자금이 있으면 자동 제안
@@ -356,12 +477,26 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
         self, cid: int | None, query: str, session: dict
     ) -> ChatbotFeatureExecuteResponse:
         """월 납입액 또는 목돈 답변 처리."""
+        import logging as _log
+        _pay_log = _log.getLogger("savings_goal.routing")
+        _pay_log.setLevel(_log.DEBUG)
+        if not _pay_log.handlers:
+            _h = _log.StreamHandler()
+            _h.setFormatter(_log.Formatter("[%(name)s] %(message)s"))
+            _pay_log.addHandler(_h)
+        _pay_log.propagate = False
+
         goal_amount = session["goal_amount"]
         goal_months = session["goal_months"]
         monthly_surplus: float | None = session.get("monthly_surplus")
 
         is_lump = _has_lump_sum_intent(query)
         amount = _parse_amount(query)
+
+        _pay_log.info(
+            "[SAVINGS_GOAL] _handle_payment_answer query=%r parsed_monthly_payment=%s is_lump=%s",
+            query, amount, is_lump,
+        )
 
         if amount is None:
             return ChatbotFeatureExecuteResponse(
@@ -380,9 +515,13 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
                 f"납입 부담이 생길 수 있으니 참고해 주세요."
             )
 
-        # 세션을 RESULT_SHOWN 단계로 유지 (후속 금액 재시도 지원)
+        # 세션을 RESULT_SHOWN 단계로 유지 (후속 질문 재시도 지원)
         if cid:
-            self._save_session(cid, {**session, "stage": "RESULT_SHOWN"})
+            self._save_session(cid, {
+                **session,
+                "stage": "RESULT_SHOWN",
+                "monthly_payment": None if is_lump else amount,
+            })
 
         return self._recommend(
             goal_amount=goal_amount,
@@ -391,6 +530,142 @@ class SavingsGoalFeatureExecutor(FeatureExecutorBase):
             lump_sum=amount if is_lump else None,
             monthly_surplus=monthly_surplus,
             warning=warning,
+        )
+
+    def _handle_followup_question(
+        self, cid: int | None, query: str, session: dict
+    ) -> ChatbotFeatureExecuteResponse:
+        """RESULT_SHOWN 이후 후속 질문 처리 (이전 목표 context 기반 대안 제시)."""
+        goal_amount: float = session["goal_amount"]
+        goal_months: int = session["goal_months"]
+        monthly_payment: float | None = session.get("monthly_payment")
+        monthly_surplus: float | None = session.get("monthly_surplus")
+
+        # ── 최고금리 적금 상품 조회 ──────────────────────────────────────────
+        best_products = self._rows(
+            """
+            SELECT deposit_product_name AS product_name,
+                   deposit_product_type AS product_type,
+                   base_interest_rate,
+                   min_period_month,
+                   max_period_month
+              FROM deposit_banking_products
+             WHERE deposit_product_status = 'SELLING'
+               AND deposit_product_type = 'SAVINGS'
+               AND (min_period_month IS NULL OR min_period_month <= :months)
+               AND (max_period_month IS NULL OR max_period_month >= :months)
+             ORDER BY base_interest_rate DESC NULLS LAST
+             LIMIT 3
+            """,
+            {"months": goal_months},
+        )
+        if not best_products:
+            best_products = self._rows(
+                """
+                SELECT deposit_product_name AS product_name,
+                       deposit_product_type AS product_type,
+                       base_interest_rate,
+                       min_period_month, max_period_month
+                  FROM deposit_banking_products
+                 WHERE deposit_product_status = 'SELLING'
+                   AND deposit_product_type = 'SAVINGS'
+                 ORDER BY base_interest_rate DESC NULLS LAST
+                 LIMIT 3
+                """
+            )
+
+        best_rate = float(best_products[0].get("base_interest_rate") or 0) if best_products else 0.0
+        best_name = best_products[0].get("product_name", "최고금리 적금") if best_products else "최고금리 적금"
+
+        # ── 최고금리 기준 필요 월 납입액 역산 ────────────────────────────────
+        def _required_monthly_for_goal(rate: float, months: int, goal: float) -> float:
+            if rate <= 0 or months <= 0:
+                return goal / months if months else goal
+            r = rate / 100 / 12
+            factor = ((1 + r) ** months - 1) / r * (1 + r)
+            return goal / factor if factor > 0 else goal / months
+
+        required_monthly = _required_monthly_for_goal(best_rate, goal_months, goal_amount)
+
+        # ── 현재 납입액으로 달성 가능한 기간 탐색 ──────────────────────────
+        needed_months: int | None = None
+        if monthly_payment and monthly_payment > 0:
+            for m in range(goal_months + 1, goal_months + 121):
+                if _calc_savings_maturity(monthly_payment, best_rate, m) >= goal_amount:
+                    needed_months = m
+                    break
+
+        # ── 현재 납입액으로 달성 가능한 상품 확인 ───────────────────────────
+        achievable_products = []
+        if monthly_payment:
+            for p in best_products:
+                rate = float(p.get("base_interest_rate") or 0)
+                mat = _calc_savings_maturity(monthly_payment, rate, goal_months)
+                if mat >= goal_amount:
+                    achievable_products.append({
+                        "product_name": p.get("product_name"),
+                        "rate": rate,
+                        "maturity": round(mat),
+                    })
+
+        # ── 메시지 생성 ──────────────────────────────────────────────────────
+        payment_str = f"월 {monthly_payment:,.0f}원" if monthly_payment else "현재 납입액"
+        lines = [
+            f"[저축 목표 달성 방법 분석]",
+            f"목표: {_period_str(goal_months)} 동안 {goal_amount:,.0f}원 / {payment_str}\n",
+        ]
+
+        if achievable_products:
+            lines.append("✅ 현재 납입액으로 목표 달성 가능한 상품:")
+            for ap in achievable_products[:2]:
+                lines.append(f"  • {ap['product_name']} (금리 {ap['rate']}%) → 만기 {ap['maturity']:,.0f}원")
+        else:
+            lines.append("⚠️ 현재 조건으로는 달성이 어렵습니다. 아래 방법을 고려해보세요.\n")
+
+            lines.append(f"💡 대안 1 — 월 납입액 증액")
+            lines.append(
+                f"  {best_name} (금리 {best_rate}%) 기준,\n"
+                f"  매달 {required_monthly:,.0f}원씩 납입하면 {_period_str(goal_months)} 후 목표 달성 가능"
+            )
+            if monthly_payment:
+                extra = required_monthly - monthly_payment
+                lines.append(f"  → 현재보다 {extra:,.0f}원 더 납입 필요")
+
+            if needed_months:
+                extra_m = needed_months - goal_months
+                lines.append(f"\n💡 대안 2 — 기간 연장")
+                lines.append(
+                    f"  {payment_str} 유지 시 {_period_str(needed_months)} ({extra_m}개월 연장)이면 달성 가능"
+                )
+            else:
+                lines.append(f"\n💡 대안 2 — 기간 연장")
+                lines.append(f"  납입액에 따라 기간을 늘리면 달성 가능합니다.")
+
+            if monthly_payment:
+                deposit_needed = goal_amount - _calc_savings_maturity(monthly_payment, best_rate, goal_months)
+                if deposit_needed > 0:
+                    lines.append(f"\n💡 대안 3 — 목돈 일시 예치 병행")
+                    lines.append(
+                        f"  현재 납입 유지 + 초기 목돈 {deposit_needed:,.0f}원 예치 시 달성 가능"
+                    )
+
+        lines.append("\n상담사 연결이 필요하시면 '상담사 연결'을 입력해 주세요.")
+        message = "\n".join(lines)
+
+        return ChatbotFeatureExecuteResponse(
+            feature_code="SAVINGS_GOAL",
+            status="OK",
+            message=message,
+            data=[{
+                "row_type": "goal_alternatives",
+                "goal_amount": goal_amount,
+                "goal_months": goal_months,
+                "monthly_payment": monthly_payment,
+                "required_monthly_for_best_product": round(required_monthly),
+                "best_product_name": best_name,
+                "best_product_rate": best_rate,
+                "needed_months_with_current_payment": needed_months,
+            }],
         )
 
     def _recommend(

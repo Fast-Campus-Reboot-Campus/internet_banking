@@ -323,6 +323,7 @@ export default function ChatbotWidget() {
   const [chatbotConsultationId, setChatbotConsultationId] = useState<number | null>(null)
   const [expandedRow, setExpandedRow] = useState<ExpandedRow | null>(null)
   const [dataPages, setDataPages] = useState<Record<string, number>>({})
+  const [feedback, setFeedback] = useState<Record<string, 'like' | 'dislike'>>({})
   const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
   const [transferState, setTransferState] = useState<TransferState | null>(null)
   const [terminateState, setTerminateState] = useState<TerminateState | null>(null)
@@ -428,18 +429,20 @@ export default function ChatbotWidget() {
     setDataPages((current) => ({ ...current, [messageIdValue]: page }))
   }
 
-  async function ensureStarted() {
+  async function ensureStarted(silent = false) {
     if (chatbotConsultationId) return chatbotConsultationId
     const started = await startChatbotConsultation(customerNo.trim() || DEFAULT_CUSTOMER_NO)
     setChatbotConsultationId(started.chatbot_consultation_id)
-    pushMessages([
-      {
-        id: messageId('start'),
-        role: 'bot',
-        text: started.message,
-        buttons: started.buttons,
-      },
-    ])
+    if (!silent) {
+      pushMessages([
+        {
+          id: messageId('start'),
+          role: 'bot',
+          text: started.message,
+          buttons: started.buttons,
+        },
+      ])
+    }
     return started.chatbot_consultation_id
   }
 
@@ -640,25 +643,23 @@ export default function ChatbotWidget() {
   }) {
     // ── 1. 고객 재정 데이터 수집 ──
     let totalBalance = 0
-    let monthlyIncome = 0
-    let monthlyExpense = 0
+    let monthlySurplus = 0
     let txFrequency = 0
 
     try {
       const accounts = await fetchDepositAccountViewModels(params.customerId)
       totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
     } catch {}
+
     try {
-      const txs = await fetchTransactions({ customerId: params.customerId })
-      const now = new Date()
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
-      const recent = txs.filter(t => new Date(t.transactionAt ?? '') >= threeMonthsAgo)
-      monthlyIncome  = recent.filter(t => t.directionType === 'IN').reduce((s, t) => s + Number(t.amount), 0) / 3
-      monthlyExpense = recent.filter(t => t.directionType === 'OUT').reduce((s, t) => s + Number(t.amount), 0) / 3
-      txFrequency    = recent.length / 3
+      const rec = await fetchDepositRecommendAgent(params.customerId, 3)
+      const cf = rec.cashFlow
+      if (cf) {
+        monthlySurplus = Math.max(0, Number(cf.estimatedSavingsAmount ?? cf.netCashFlow ?? 0))
+        if (cf.totalInflow != null || cf.totalOutflow != null) txFrequency = 20
+      }
     } catch {}
 
-    const monthlySurplus = Math.max(0, monthlyIncome - monthlyExpense)
     const isLowFrequency = txFrequency < 10
     const investAmount = params.amount ?? ((params.purpose === 'monthly' ? monthlySurplus : totalBalance * 0.7) || 1_000_000)
     const investPeriod = params.period ?? 12
@@ -917,7 +918,7 @@ export default function ChatbotWidget() {
 
     const normalized = text.replace(/\s+/g, '').toLowerCase()
     const hasCompareIntent = ['비교', '차이', '뭐가더', '어느쪽', 'compare', 'difference'].some(keyword => normalized.includes(keyword))
-    const hasMeaningIntent = ['뜻', '의미', '뭐야', '뭔가요', '뭔지', '설명', '알려줘', '개념'].some(keyword => normalized.includes(keyword))
+    const hasMeaningIntent = ['뜻', '의미', '뭐야', '뭔가요', '뭔지', '설명', '개념'].some(keyword => normalized.includes(keyword))
     const hasFitIntent = ['맞아', '적합', '나한테', '나에게', '내게', '저한테', 'forme'].some(keyword => normalized.includes(keyword))
     const hasProductContext = ['상품', '예금', '적금', '청약', 'product'].some(keyword => normalized.includes(keyword))
     const isCompare = hasCompareIntent || hasMeaningIntent || (hasFitIntent && hasProductContext)
@@ -1019,6 +1020,25 @@ export default function ChatbotWidget() {
     }
 
     return null
+  }
+
+  function isMaturityQuery(text: string): boolean {
+    const normalized = text.replace(/\s+/g, '').toLowerCase()
+    const maturityKeywords = [
+      '만기',
+      '재투자',
+      '재예치',
+      '재가입',
+      '끝나는',
+      '끝나가는',
+      '끝남',
+      '만료',
+      '종료예정',
+      '곧끝',
+      '곧만료',
+      '곧종료',
+    ]
+    return maturityKeywords.some(keyword => normalized.includes(keyword))
   }
 
   const BEST_KEYWORDS = ['제일 좋', '가장 좋', '최고', '1위', '1순위', '뭐가 좋', '어떤 게 좋', '어떤게 좋', '뭘 선택', '어떤 상품', '뭐 추천', '제일이', '제일을', '제일은', '어떤 걸', '골라줘', '골라 줘', '선택해줘', '선택해 줘', '추천해줘', '추천해 줘']
@@ -1142,11 +1162,27 @@ export default function ChatbotWidget() {
     '내 현금흐름', '현금흐름 분석', '거래내역 보고', '거래 내역 보고',
     '나한테 맞는 상품', '나에게 맞는 상품', '내 패턴', '내 거래 패턴',
   ]
+  const SPENDING_PATTERN_KEYWORDS = [
+    '배달', '배달앱', '배민', '요기요', '쿠팡이츠',
+    '카페', '스타벅스', '편의점', '쇼핑', '무신사',
+    '소비', '지출', '과소비', '많이 써', '많이 썼', '계속 써',
+    '썼는데', '썼어', '쓴 것', '쓴거', '결제했어', '샀어',
+  ]
 
   async function handleScenarioMessage(text: string, buttonValue?: string) {
     // 예금/적금/청약 목록 조회 → handleFeature로 라우팅 (상품 카드 표시)
     const trimmed = text.trim()
     const compactText = trimmed.replace(/\s+/g, '')
+
+    if (SPENDING_PATTERN_KEYWORDS.some(kw => trimmed.includes(kw))) {
+      await handleFeature('SPENDING_PATTERN', trimmed, true)
+      return
+    }
+
+    if (isMaturityQuery(trimmed)) {
+      await handleFeature('MATURITY_SCHEDULE', trimmed, true)
+      return
+    }
 
     if (['내상품', '내가입상품', '가입상품', '내계좌'].some((word) => compactText.includes(word))) {
       if (!isLoggedIn) {
@@ -1201,7 +1237,7 @@ export default function ChatbotWidget() {
       setDataPages({})
       setMessages([{ id: messageId('user'), role: 'user', text }])
       try {
-        const consultationId = await ensureStarted()
+        const consultationId = await ensureStarted(true)
         const result = await executeChatbotFeature('PRODUCT_COMPARE', {
           customer_no: customerNo.trim() || getCurrentDepositCustomerId(),
           query: trimmed,
@@ -1230,7 +1266,7 @@ export default function ChatbotWidget() {
       return
     }
 
-    const isMatureQuery = ['만기', '재투자', '재예치', '재가입'].some(w => trimmed.includes(w))
+    const isMatureQuery = isMaturityQuery(trimmed)
     const compareAnswer = isMatureQuery ? null : answerProductCompare(trimmed)
     if (compareAnswer) {
       setExpandedRow(null)
@@ -1347,7 +1383,7 @@ export default function ChatbotWidget() {
       return
     }
 
-    if (hasKoreanProduct && hasKoreanGuide) {
+    if (hasKoreanProduct && hasKoreanGuide && !isMatureQuery) {
       await handleFeature('PRODUCT_GUIDE', trimmed, false)
       return
     }
@@ -1388,7 +1424,7 @@ export default function ChatbotWidget() {
     setDataPages({})
 
     try {
-      const consultationId = await ensureStarted()
+      const consultationId = await ensureStarted(true)
       const messageWithCtx = lastRecommendCtx
         ? `${text}\n[직전 추천 상품: ${lastRecommendCtx}]`
         : text
@@ -1411,7 +1447,7 @@ export default function ChatbotWidget() {
     }
   }
 
-  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE', userText: string, replaceMessages = false) {
+  async function handleFeature(featureCode: 'MY_ACCOUNTS' | 'MY_PRODUCTS' | 'MY_CASH_FLOW' | 'CASH_FLOW_RECOMMEND' | 'PRODUCT_GUIDE' | 'MATURITY_SCHEDULE' | 'SPENDING_PATTERN', userText: string, replaceMessages = false) {
     setLoading(true)
     if (replaceMessages) {
       setExpandedRow(null)
@@ -1480,10 +1516,13 @@ export default function ChatbotWidget() {
         product_type: (featureCode as string) === 'PRODUCT_GUIDE' ? inferProductType(userText) : undefined,
         chatbot_consultation_id: consultationId ?? undefined,
       })
+      const displayResult = featureCode === 'SPENDING_PATTERN'
+        ? { ...result, data: [] }
+        : result
       if (replaceMessages) {
-        setMessages((current) => [...current, addFeatureResult(result)])
+        setMessages((current) => [...current, addFeatureResult(displayResult)])
       } else {
-        pushMessages([addFeatureResult(result)])
+        pushMessages([addFeatureResult(displayResult)])
       }
     } catch {
       const errorMessage: ChatMessage = {
@@ -2604,7 +2643,7 @@ export default function ChatbotWidget() {
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-[#FBFAF7] px-4 py-4">
               {messages.map((message) => (
-                <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+                <div key={message.id} className={message.role === 'user' ? 'flex justify-end' : 'flex flex-col items-start'}>
                   <div
                     className={`max-w-[88%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
                       message.role === 'user'
@@ -2988,6 +3027,28 @@ export default function ChatbotWidget() {
                           <ArrowLeftRight className="h-3 w-3" />
                           {message.link.text}
                         </a>
+                      </div>
+                    )}
+                    {message.role === 'bot' && !message.loginForm && (
+                      <div className="flex gap-1.5 mt-2 pt-2 border-t border-kb-border">
+                        <button
+                          onClick={() => setFeedback(prev => {
+                            if (prev[message.id] === 'like') { const n = {...prev}; delete n[message.id]; return n }
+                            return { ...prev, [message.id]: 'like' }
+                          })}
+                          className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${feedback[message.id] === 'like' ? 'bg-green-100 text-green-600 font-bold' : 'text-kb-text-muted hover:text-green-500'}`}
+                        >
+                          👍 {feedback[message.id] === 'like' ? '도움됐어요' : '좋아요'}
+                        </button>
+                        <button
+                          onClick={() => setFeedback(prev => {
+                            if (prev[message.id] === 'dislike') { const n = {...prev}; delete n[message.id]; return n }
+                            return { ...prev, [message.id]: 'dislike' }
+                          })}
+                          className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs transition-colors ${feedback[message.id] === 'dislike' ? 'bg-red-100 text-red-500 font-bold' : 'text-kb-text-muted hover:text-red-400'}`}
+                        >
+                          👎 {feedback[message.id] === 'dislike' ? '별로예요' : '싫어요'}
+                        </button>
                       </div>
                     )}
                     {message.loginForm && !isLoggedIn && (

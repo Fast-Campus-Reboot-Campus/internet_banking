@@ -5,9 +5,10 @@
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
@@ -135,7 +136,7 @@ class FeatureExecutorBase:
         tx_rows = self._rows(
             """
             SELECT transaction_type,
-                   transaction_status,
+                   status,
                    amount
               FROM deposit_transactions
              WHERE account_id IN :account_ids
@@ -147,7 +148,7 @@ class FeatureExecutorBase:
 
         tx_rows = [
             r for r in tx_rows
-            if str(r.get("transaction_status") or "").upper() in ("SUCCESS", "COMPLETED")
+            if str(r.get("status") or "").upper() in ("SUCCESS", "COMPLETED")
         ]
 
         if not tx_rows:
@@ -249,3 +250,33 @@ class FeatureExecutorBase:
             {"sid": staff_id},
         )
         return len(rows) > 0
+
+    def _get_customer_age(self, customer_no: str | None) -> int | None:
+        """customer-service에서 생년월일을 조회해 만 나이를 반환. 실패 시 None.
+
+        동기 httpx.Client 사용 — consultation-service route handler가 모두 def(동기)이므로
+        FastAPI가 threadpool에서 실행, 이벤트 루프 블로킹 없음.
+        """
+        if not customer_no:
+            return None
+        from app.config import get_settings
+        url = f"{get_settings().customer_service_url}/api/v1/customers/me"
+        try:
+            with httpx.Client(timeout=2.0) as client:
+                resp = client.get(url, headers={"X-Customer-Id": str(customer_no)})
+            if resp.status_code != 200:
+                return None
+            body = resp.json()
+            birth_str = (body.get("data") or body).get("birthDate")
+            if not birth_str:
+                return None
+            birth_str = birth_str.replace("-", "")
+            birth = date(int(birth_str[:4]), int(birth_str[4:6]), int(birth_str[6:8]))
+            today = date.today()
+            return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+        except Exception:
+            return None
+
+    def _is_youth_eligible(self, age: int | None) -> bool:
+        """청년 전용 상품 가입 가능 여부 (만 19~34세)."""
+        return age is not None and 19 <= age <= 34

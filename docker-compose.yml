@@ -498,6 +498,11 @@ services:
       CONSULTATION_KAFKA_ENABLED: "false"
       CONSULTATION_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      GOAL_AGENT_ENABLED: ${GOAL_AGENT_ENABLED:-true}
+      GOAL_AGENT_URL: ${GOAL_AGENT_URL:-http://host.docker.internal:8000}
+      GOAL_AGENT_API_KEY: ${GOAL_AGENT_API_KEY:-}
+      MATURITY_AGENT_ENABLED: ${MATURITY_AGENT_ENABLED:-false}
+      SPENDING_AGENT_ENABLED: ${SPENDING_AGENT_ENABLED:-false}
       LOG_DIR: /logs
     volumes:
       - C:/logs/internet-banking:/logs

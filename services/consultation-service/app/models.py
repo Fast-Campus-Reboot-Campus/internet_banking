@@ -145,6 +145,7 @@ class ChatbotGoalSession(Base):
     goal_months: Mapped[int] = mapped_column(Integer, nullable=False)
     customer_no: Mapped[str | None] = mapped_column(String(30))
     monthly_surplus: Mapped[float | None] = mapped_column(Float)
+    monthly_payment: Mapped[float | None] = mapped_column(Float)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

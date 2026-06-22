@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pdfjs worker — pdfjs-dist 패키지에서 빌드 시 복사
+public/pdf.worker.min.mjs

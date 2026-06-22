@@ -7,12 +7,14 @@
 # (더 구체적인 "내 패턴/현금흐름 분석 기반" 의도이므로)
 _INTENT_PRIORITY: list[str] = [
     "SAVINGS_GOAL",
+    "CONTRACT_STATUS",       # 개인 보유 상품 조회 — PRODUCT_GUIDE보다 최우선
     "REINVESTMENT_RECOMMEND",
     "MATURITY_MANAGEMENT",
     "MATURITY_SCHEDULE",
     "SPENDING_PATTERN",
     "MY_ACCOUNTS",
     "INTEREST_HISTORY",
+    "PRODUCT_SEARCH",
     "RATE_GUIDE",
     "JOIN_CONDITION",
     "PRODUCT_COMPARE",
@@ -30,6 +32,20 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
         "소비 현황", "지출 현황", "과소비", "지출이 늘", "지출 늘었",
         "많이 썼", "너무 썼", "지출 경고", "지출 알림",
         "지출", "소비",
+        # 거래·사용 내역 커버리지 추가
+        "거래 내역", "거래내역", "거래 조회", "이번달 거래", "이번 달 거래",
+        "사용 내역", "사용내역", "이번달 사용", "이번 달 사용",
+        "입출금 내역", "입출금내역", "입출금 조회",
+        "카드 내역", "결제 내역", "내역 조회", "내역 보여",
+        # 소비 장소·채널 키워드
+        "편의점", "카페", "스타벅스", "배달", "배달앱",
+        "무신사", "쇼핑", "콘서트", "티켓",
+        # 소비 행위 표현
+        "썼는데", "썼어", "쓴 것", "쓴거", "사용했어", "결제했어",
+        "샀는데", "샀어", "사버렸", "쓰고",
+        # 소비 이상 감지 표현
+        "이상한 거 있어", "이상한거 있어", "좀 많아", "좀 많긴", "많긴 해",
+        "패턴", "이번 주 소비", "이번 달 소비", "이번달 소비",
     ],
     "REINVESTMENT_RECOMMEND": [
         "재투자", "재예치", "재가입", "다시 가입",
@@ -47,6 +63,11 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
         "곧 만기", "다음 달 만기", "이번 달 만기", "만기 상품",
         "만기 알려", "만기 확인", "만기 조회", "만기 내역",
         "언제 만기", "만기 날짜", "만기 일정",
+        "만기 남은", "만기 빠른", "빨리 만기", "빨리 끝나는",
+        "만기 순서", "만기 정렬", "만기 가까운", "곧 끝나는",
+        "곧 끝남", "끝나가는", "끝나는 상품", "만기 다가오는", "만료 임박",
+        "일 남은", "개월 남은", "달 남은", "이내 만기",
+        "만기 이내", "만기 이하", "만기 이전",
     ],
     "SAVINGS_GOAL": [
         "모으고", "모으려", "모아야", "모을래", "모을게", "모아볼", "모아서",
@@ -59,15 +80,39 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
         "목표 달성", "목표로", "목표 세워", "목표를 세",
         "원 모으", "만원 모", "억 모",
     ],
+    "CONTRACT_STATUS": [
+        "계약 현황", "계약현황", "계약 조회", "계약조회", "계약 확인",
+        "가입 상품 조회", "가입상품조회", "내 계약", "내계약",
+        "가입 계약", "계약 목록", "계약 내역",
+        # 개인 보유 맥락
+        "가입한", "내가 가입한", "내 상품 뭐", "보유 상품",
+        "내가 가진", "내 금융 상품", "내 상품", "보유한 상품",
+        "내가 보유", "내가 가입", "가입한 상품",
+        # 자산/돈 상태 표현
+        "내 돈", "돈 어디", "자금 어디", "보유 자금",
+        "묶여", "잠겨", "잠김", "사용 못", "어디 묶",
+        "돈이 어디", "내 자금", "자금 현황",
+    ],
     "MY_ACCOUNTS": [
         "내 계좌", "내계좌", "계좌 보여", "계좌 조회", "계좌조회",
         "계좌 목록", "계좌 알려", "내 통장", "통장 보여", "잔액 조회",
         "잔액 보여", "잔액 알려", "내 잔액",
+        # 단독·짧은 표현 추가
+        "계좌 뭐", "계좌 어떤", "계좌 있", "계좌 알려줘", "계좌 보여줘",
+        "계좌 확인", "통장 알려", "통장 조회", "통장 확인", "통장 목록",
+        "내 통장 뭐", "잔액", "계좌",
     ],
     "INTEREST_HISTORY": [
         "이자 내역", "이자내역", "이자 조회", "이자 확인", "이자 얼마 받",
         "이자 받은", "이자 지급", "이자 내역 보여", "이자 내역 알려",
         "이번 달 이자", "이자 내역 조회",
+    ],
+    "PRODUCT_SEARCH": [
+        "이상 상품", "이하 상품", "% 이상", "% 이하",
+        "금리 높은 상품", "높은 금리 상품", "금리 낮은 상품", "낮은 금리 상품",
+        "금리 3", "금리 2", "금리 4", "금리 5",
+        "상품 검색", "상품 찾아", "조건 맞는 상품", "조건에 맞는 상품",
+        "이상인 상품", "이하인 상품", "넘는 상품", "초과하는 상품",
     ],
     "RATE_GUIDE": [
         "금리 목록", "금리 보여", "금리 알려줘", "이자율 알려", "금리 현황",
@@ -76,6 +121,9 @@ _INTENT_KEYWORDS: dict[str, list[str]] = {
         "모든 금리", "전체 금리", "상품 금리", "금리 보여줘",
         "금리 말해줘", "금리들", "금리 다", "금리 전부",
         "우대금리", "우대 금리", "우대금리 조건", "우대금리 알려",
+        # "금리가 뭐야", "금리란" 등 기본 질의 커버리지 추가
+        "금리가 뭐", "금리 뭐야", "금리란", "금리가 무슨", "금리 궁금",
+        "금리가", "이자율", "연이율", "연 이율",
     ],
     "JOIN_CONDITION": [
         "가입 조건", "가입조건", "가입 자격", "가입 대상",
@@ -139,7 +187,26 @@ class IntentClassifier:
         has_personal = any(w in msg for w in _PERSONAL_RECOMMEND_WORDS)
         has_recommend = any(w in msg for w in _RECOMMEND_WORDS)
 
-        # 1. 등록된 키워드 매칭 — 단, PRODUCT_COMPARE는 개인 추천 의도가 없을 때만
+        import re as _re
+
+        # 만기 날짜 필터 패턴 선처리
+        if _re.search(r"만기.{0,6}(이내|이하|이전|남은|까지)", msg) or _re.search(r"\d+[일달월].{0,4}(이내|이하|남은).{0,4}만기", msg):
+            return "MATURITY_SCHEDULE"
+
+        # 자산 상태 의미 기반 선처리 — "내/보유/가입" + "돈/자금/상품" 또는 "묶임/잠김" 포함
+        _OWNERSHIP = ["내", "내가", "보유", "가입"]
+        _ASSET = ["돈", "자금", "상품", "금액"]
+        _LOCKED = ["묶여", "잠겨", "잠김", "어디 있", "어디있", "어디 묶", "사용 못"]
+        if any(lk in msg for lk in _LOCKED):
+            return "CONTRACT_STATUS"
+        if any(ow in msg for ow in _OWNERSHIP) and any(at in msg for at in _ASSET):
+            return "CONTRACT_STATUS"
+
+        # 개인 소유 맥락 키워드 — PRODUCT_GUIDE 제외 판정에 사용
+        _PERSONAL_OWNERSHIP = ["내가 가입", "가입한", "보유 상품", "보유한", "내 상품", "내 금융", "내가 가진"]
+        has_personal_ownership = any(w in msg for w in _PERSONAL_OWNERSHIP)
+
+        # 1. 등록된 키워드 매칭 — 단, PRODUCT_COMPARE/PRODUCT_GUIDE는 개인 소유 맥락 제외
         for feature_code in _INTENT_PRIORITY:
             if any(kw in msg for kw in _INTENT_KEYWORDS[feature_code]):
                 # 비교 질문 + 개인 추천 의도: 명시적 비교 키워드("비교", "차이")가 있으면 PRODUCT_COMPARE 유지
@@ -147,6 +214,9 @@ class IntentClassifier:
                     has_explicit_compare = any(w in msg for w in ["비교", "차이", "다른 점", "다른점"])
                     if not has_explicit_compare:
                         return "CASH_FLOW_RECOMMEND"
+                # PRODUCT_GUIDE: 개인 소유 맥락("가입한", "보유", "내 상품") → CONTRACT_STATUS로 강제
+                if feature_code == "PRODUCT_GUIDE" and has_personal_ownership:
+                    return "CONTRACT_STATUS"
                 return feature_code
 
         has_product = any(p in msg for p in _PRODUCT_TYPES)
@@ -182,6 +252,44 @@ class IntentClassifier:
                for p in _PRODUCT_ONLY):
             return "PRODUCT_GUIDE"
 
+        # 6. 토큰 기반 파편 입력 처리 ─────────────────────────────────────────
+        # "돈 자산 가입", "계좌 상품" 등 단어 나열 형태를 토큰 단위로 분류
+        tokens = set(_re.split(r"[\s,./·\-]+", msg))
+        tokens.discard("")
+
+        # 토큰 → intent 우선순위 매핑 (CONTRACT_STATUS > MY_ACCOUNTS > 기타)
+        _TOKEN_INTENT: list[tuple[set[str], str]] = [
+            ({"묶여", "잠겨", "잠김"},                                              "CONTRACT_STATUS"),
+            ({"계약", "가입", "자산", "보유"},                                       "CONTRACT_STATUS"),
+            ({"돈", "자금"},                                                         "CONTRACT_STATUS"),
+            ({"계좌", "통장", "잔액"},                                               "MY_ACCOUNTS"),
+            ({"만기"},                                                               "MATURITY_SCHEDULE"),
+            ({"이자"},                                                               "INTEREST_HISTORY"),
+            ({"금리"},                                                               "RATE_GUIDE"),
+            ({"지출", "소비", "거래"},                                               "SPENDING_PATTERN"),
+            ({"상품", "예금", "적금"},                                               "PRODUCT_GUIDE"),
+        ]
+
+        # CONTRACT_STATUS 파편 입력 특별 처리:
+        # "자산", "가입", "보유", "계좌", "상품" 중 하나 + "돈"/"자금" 조합이면 CONTRACT_STATUS
+        _CONTRACT_TRIGGERS  = {"자산", "가입", "보유", "계약"}
+        _ASSET_TOKENS       = {"돈", "자금", "금액"}
+        _FALLBACK_BLOCK     = {"돈", "자산", "계좌", "가입", "상품", "보유"}  # fallback 금지 토큰
+
+        if tokens & _CONTRACT_TRIGGERS or (tokens & _ASSET_TOKENS and tokens & {"계좌", "상품", "가입", "보유"}):
+            return "CONTRACT_STATUS"
+
+        _MATURITY_TOKENS = {"만기", "끝나는", "끝나가는", "끝남", "만료", "만기일"}
+        for trigger_tokens, intent in _TOKEN_INTENT:
+            if tokens & trigger_tokens:
+                if intent == "PRODUCT_GUIDE" and tokens & _MATURITY_TOKENS:
+                    return "MATURITY_SCHEDULE"
+                return intent
+
+        # 7. fallback 방지: 금융 토큰이 하나라도 있으면 MY_ACCOUNTS로 best-effort
+        if tokens & _FALLBACK_BLOCK:
+            return "MY_ACCOUNTS"
+
         return None
 
 
@@ -194,95 +302,121 @@ class FeatureAnswerFormatter:
 
     def format(self, feature_code: str, data: list[dict]) -> str:
         if not data:
-            return "죄송합니다, 현재 해당 상품 정보를 찾을 수 없습니다. 상담사 연결을 원하시면 '상담사 연결'을 선택해 주세요."
+            return "조회된 정보가 없습니다."
 
         handlers = {
-            "RATE_GUIDE":      self._rate,
-            "PRODUCT_GUIDE":   self._products,
-            "JOIN_CONDITION":  self._join_condition,
-            "PRODUCT_COMPARE": self._compare,
-            "TERMS_RAG":       self._terms,
+            "RATE_GUIDE":        self._rate,
+            "PRODUCT_GUIDE":     self._products,
+            "JOIN_CONDITION":    self._join_condition,
+            "PRODUCT_COMPARE":   self._compare,
+            "TERMS_RAG":         self._terms,
+            "MY_ACCOUNTS":       self._my_accounts,
+            "INTEREST_HISTORY":  self._interest_history,
+            "CONTRACT_STATUS":   self._contract_status,
         }
         handler = handlers.get(feature_code)
         if handler:
             return handler(data)
-        return f"조회된 정보가 {len(data)}건 있습니다. 더 자세한 내용은 상담사 연결을 이용해 주세요."
+        # 등록되지 않은 feature는 데이터만 간단히 표시 (상담사 연결 유도 금지)
+        return self._generic_list(data)
+
+    _TYPE_KO = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}
+    _NA = "미표기"
+
+    def _product_row(self, name: str, rate: object, term: object, ptype: object) -> str:
+        """금리·만기·유형 3필드 강제 출력 공통 렌더러.
+
+        값이 없거나 None이면 _NA("미표기")로 채운다.
+        부분 출력 없이 항상 3필드 세트를 반환한다.
+        """
+        rate_str  = f"{rate}%" if rate not in (None, "", 0) else self._NA
+        term_str  = str(term)  if term not in (None, "")    else self._NA
+        type_str  = self._TYPE_KO.get(str(ptype), str(ptype)) if ptype not in (None, "") else self._NA
+        return (
+            f"  - 금리: {rate_str}\n"
+            f"  - 만기: {term_str}\n"
+            f"  - 계좌/상품 유형: {type_str}"
+        )
 
     def _rate(self, data: list[dict]) -> str:
-        lines = ["[상품별 금리 안내]\n"]
-        # 상품명 기준으로 그룹핑
         from collections import defaultdict
+        lines = ["[상품별 금리 안내]\n"]
         grouped: dict = defaultdict(list)
         for row in data:
-            grouped[row.get("product_name", "")].append(row)
+            grouped[row.get("product_name", self._NA)].append(row)
         for name, rows in grouped.items():
             base_rows = [r for r in rows if r.get("rate_type") == "BASE"]
             pref_rows = [r for r in rows if r.get("rate_type") != "BASE"]
-            base = base_rows[0] if base_rows else rows[0]
-            rate = base.get("interest_rate", "")
-            min_m = base.get("minimum_contract_period", "")
-            max_m = base.get("maximum_contract_period", "")
-            period_str = f" ({min_m}~{max_m}개월)" if min_m and max_m else ""
-            pref_str = ""
+            base  = base_rows[0] if base_rows else rows[0]
+            rate  = base.get("interest_rate") or base.get("base_interest_rate")
+            min_m = base.get("minimum_contract_period") or base.get("min_period_month")
+            max_m = base.get("maximum_contract_period") or base.get("max_period_month")
+            ptype = base.get("product_type") or base.get("deposit_product_type")
+            term  = f"{min_m}~{max_m}개월" if (min_m and max_m) else None
             if pref_rows:
-                pref_rates = [str(r.get("interest_rate","")) for r in pref_rows]
-                pref_str = f" / 우대금리 최대 {max(pref_rates)}%"
-            lines.append(f"- {name}: 기본금리 {rate}%{pref_str}{period_str}")
+                pref_rates = [r.get("interest_rate", 0) for r in pref_rows if r.get("interest_rate")]
+                pref_note  = f" (우대금리 최대 {max(str(x) for x in pref_rates)}%)" if pref_rates else ""
+            else:
+                pref_note = ""
+            lines.append(f"- {name}{pref_note}")
+            lines.append(self._product_row(name="", rate=rate, term=term, ptype=ptype))
         lines.append("\n상세 조건은 영업점 또는 앱에서 확인해 주세요.")
         return "\n".join(lines)
-
-    _TYPE_KO = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}
 
     def _products(self, data: list[dict]) -> str:
         is_personalized = any("match_score" in row for row in data)
         header = "[맞춤 상품 추천]\n" if is_personalized else "[판매 중인 상품 목록]\n"
         lines = [header]
-        for row in data:  # 전체 표시, 제한 없음
-            name   = row.get("product_name") or row.get("deposit_product_name", "")
-            ptype  = row.get("product_type") or row.get("deposit_product_type", "")
-            ptype_ko = self._TYPE_KO.get(ptype, ptype)
-            rate   = row.get("base_interest_rate", "")
+        for row in data:
+            name  = row.get("product_name") or row.get("deposit_product_name") or self._NA
+            ptype = row.get("product_type") or row.get("deposit_product_type")
+            rate  = row.get("base_interest_rate") or row.get("interest_rate")
+            min_m = row.get("min_period_month") or row.get("minimum_contract_period")
+            max_m = row.get("max_period_month") or row.get("maximum_contract_period")
+            term  = f"{min_m}~{max_m}개월" if (min_m and max_m) else None
             reason = row.get("recommend_reason", "")
             score  = row.get("match_score", "")
-            rate_str = f" · 기본금리 {rate}%" if rate else ""
+            lines.append(f"- {name}")
+            lines.append(self._product_row(name="", rate=rate, term=term, ptype=ptype))
             if is_personalized and reason:
-                lines.append(f"- [{ptype_ko}] {name}{rate_str}")
                 lines.append(f"  ✓ {reason} (적합도 {score}점)")
-            else:
-                lines.append(f"- [{ptype_ko}] {name}{rate_str}")
         lines.append("\n특정 상품에 대해 더 알고 싶으시면 질문해 주세요.")
         return "\n".join(lines)
 
     def _join_condition(self, data: list[dict]) -> str:
         lines = ["[가입 조건 안내]\n"]
         for row in data[:5]:
-            name      = row.get("product_name", "")
+            name      = row.get("product_name", self._NA)
             min_amt   = row.get("min_join_amount", "")
             max_amt   = row.get("max_join_amount", "")
             min_month = row.get("min_period_month", "")
             max_month = row.get("max_period_month", "")
+            ptype     = row.get("product_type") or row.get("deposit_product_type")
+            rate      = row.get("base_interest_rate") or row.get("interest_rate")
+            term      = f"{min_month}~{max_month}개월" if (min_month and max_month) else None
             early     = "가능" if row.get("is_early_termination_allowed") else "불가"
             tax       = "있음" if row.get("is_tax_benefit_available") else "없음"
-            lines.append(
-                f"- {name}: {min_amt:,}원~{max_amt:,}원 / "
-                f"{min_month}~{max_month}개월 / 중도해지 {early} / 세제혜택 {tax}"
+            amt_str   = (
+                f"{int(min_amt):,}원~{int(max_amt):,}원"
                 if isinstance(min_amt, int) else
-                f"- {name}: {min_amt}원~{max_amt}원 / {min_month}~{max_month}개월 / 중도해지 {early} / 세제혜택 {tax}"
-            )
+                f"{min_amt}원~{max_amt}원"
+            ) if min_amt else self._NA
+            lines.append(f"- {name}")
+            lines.append(self._product_row(name="", rate=rate, term=term, ptype=ptype))
+            lines.append(f"  - 가입금액: {amt_str} / 중도해지: {early} / 세제혜택: {tax}")
         return "\n".join(lines)
 
     def _compare(self, data: list[dict]) -> str:
         lines = ["[상품 비교]\n"]
-        header = f"{'상품명':<20} {'유형':<12} {'금리':>6} {'기간':>12}"
-        lines.append(header)
-        lines.append("-" * 55)
         for row in data[:5]:
-            name   = row.get("product_name", "")[:18]
-            ptype  = row.get("product_type", "")[:10]
-            rate   = str(row.get("base_interest_rate", ""))
-            min_m  = str(row.get("min_period_month", ""))
-            max_m  = str(row.get("max_period_month", ""))
-            lines.append(f"{name:<20} {ptype:<12} {rate:>5}% {min_m}~{max_m}개월")
+            name  = row.get("product_name", self._NA)
+            ptype = row.get("product_type") or row.get("deposit_product_type")
+            rate  = row.get("base_interest_rate") or row.get("interest_rate")
+            min_m = row.get("min_period_month") or row.get("minimum_contract_period")
+            max_m = row.get("max_period_month") or row.get("maximum_contract_period")
+            term  = f"{min_m}~{max_m}개월" if (min_m and max_m) else None
+            lines.append(f"- {name}")
+            lines.append(self._product_row(name="", rate=rate, term=term, ptype=ptype))
         return "\n".join(lines)
 
     def _terms(self, data: list[dict]) -> str:
@@ -294,6 +428,82 @@ class FeatureAnswerFormatter:
             if summary:
                 lines.append(f"  {summary}")
         lines.append("\n전체 약관은 상품 설명서를 참조해 주세요.")
+        return "\n".join(lines)
+
+    _ACCOUNT_TYPE_KO = {
+        "CHECKING": "입출금통장", "SAVINGS": "적금", "DEPOSIT": "정기예금",
+        "SUBSCRIPTION": "청약", "FOREIGN": "외화통장",
+    }
+
+    def _my_accounts(self, data: list[dict]) -> str:
+        lines = ["[내 계좌 목록]\n"]
+        show, rest = data[:5], data[5:]
+        for row in show:
+            num    = row.get("account_number", "")
+            atype  = self._ACCOUNT_TYPE_KO.get(row.get("account_type", ""), row.get("account_type", "계좌"))
+            alias  = row.get("account_alias") or ""
+            bal    = row.get("balance", 0)
+            status = row.get("account_status", "")
+            alias_str = f" ({alias})" if alias else ""
+            bal_str   = f"{int(bal):,}원" if bal is not None else "잔액 미제공"
+            status_str = " [해지]" if status in ("CLOSED", "INACTIVE") else ""
+            lines.append(f"- {num}{alias_str} / {atype} / 잔액 {bal_str}{status_str}")
+        if rest:
+            lines.append(f"\n+ {len(rest)}개 계좌가 더 있습니다. 전체 조회는 앱의 계좌 목록을 확인해 주세요.")
+        return "\n".join(lines)
+
+    def _interest_history(self, data: list[dict]) -> str:
+        lines = ["[이자 내역]\n"]
+        show, rest = data[:5], data[5:]
+        for row in show:
+            rate       = row.get("applied_interest_rate", "")
+            gross      = row.get("interest_amount", 0)
+            net        = row.get("interest_after_tax_amount", 0)
+            paid_at    = str(row.get("paid_at", ""))[:10]
+            gross_str  = f"{int(gross):,}원" if gross is not None else "-"
+            net_str    = f"{int(net):,}원" if net is not None else "-"
+            lines.append(f"- {paid_at} / 적용금리 {rate}% / 세전 {gross_str} / 세후 {net_str}")
+        if rest:
+            lines.append(f"\n+ {len(rest)}건이 더 있습니다. 전체 내역은 앱의 이자 내역을 확인해 주세요.")
+        return "\n".join(lines)
+
+    def _contract_status(self, data: list[dict]) -> str:
+        _STATUS_KO = {
+            "ACTIVE": "유지", "MATURED": "만기", "TERMINATED": "해지", "PENDING": "대기"
+        }
+        lines = ["[계약 현황]\n"]
+        show, rest = data[:5], data[5:]
+        for row in show:
+            no     = row.get("contract_no") or row.get("contract_id", "")
+            name   = row.get("product_name") or self._NA
+            ptype  = row.get("product_type") or row.get("deposit_product_type")
+            rate   = row.get("contract_interest_rate") or row.get("interest_rate")
+            mat    = str(row.get("maturity_at", "") or "")[:10] or None
+            status = _STATUS_KO.get(row.get("contract_status", ""), row.get("contract_status", ""))
+            amount = row.get("join_amount", 0)
+            amt_str = f"{int(amount):,}원" if amount else self._NA
+            lines.append(f"- {name}  [계약번호: {no} / 가입금액: {amt_str} / 상태: {status}]")
+            lines.append(self._product_row(name="", rate=rate, term=mat, ptype=ptype))
+        if rest:
+            lines.append(f"\n+ {len(rest)}건이 더 있습니다. 전체 계약은 앱의 계약 현황을 확인해 주세요.")
+        return "\n".join(lines)
+
+    def _generic_list(self, data: list[dict]) -> str:
+        """등록되지 않은 feature의 조회 결과를 key: value 형식으로 단순 표시."""
+        lines = [f"[조회 결과 {len(data)}건]\n"]
+        show, rest = data[:5], data[5:]
+        for row in show:
+            # 의미 있는 값만 추려서 표시 (None, 내부 ID 제외)
+            parts = []
+            for k, v in row.items():
+                if v is None or k.endswith("_id"):
+                    continue
+                if isinstance(v, float) and v == int(v):
+                    v = f"{int(v):,}"
+                parts.append(f"{k}: {v}")
+            lines.append("- " + " / ".join(parts[:5]))
+        if rest:
+            lines.append(f"\n+ {len(rest)}건이 더 있습니다.")
         return "\n".join(lines)
 
 

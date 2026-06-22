@@ -38,8 +38,9 @@ public class LoanApplicationController {
     @Operation(summary = "대출 신청 단건 조회")
     @GetMapping("/{applId}")
     public ApiResponse<LoanApplicationResponse> get(@PathVariable Long applId, Authentication auth) {
-        // ROLE_OPS(관리자)는 소유권 검사 없이 조회 가능
-        Long requestingCustomerId = isOps(auth) ? null : extractPrincipal(auth);
+        // 백오피스 직원(고객이 아닌 역할)은 소유권 검사 없이 조회 가능 — 본심사 승인 등 행위 권한과 조회를 일치시킨다.
+        // 세부 접근 통제는 review 조회의 checkScope 가 담당한다.
+        Long requestingCustomerId = isStaff(auth) ? null : extractPrincipal(auth);
         return ApiResponse.ok(service.get(applId, requestingCustomerId));
     }
 
@@ -87,6 +88,12 @@ public class LoanApplicationController {
     private Long extractPrincipal(Authentication auth) {
         if (auth != null && auth.getPrincipal() instanceof Long id) return id;
         return null;
+    }
+
+    /** 직원(고객이 아닌 역할 보유) 여부 — 백오피스 단건 조회는 소유권 검사를 건너뛴다. */
+    private boolean isStaff(Authentication auth) {
+        if (auth == null) return false;
+        return auth.getAuthorities().stream().anyMatch(a -> !"ROLE_CUSTOMER".equals(a.getAuthority()));
     }
 
     /** ROLE_OPS(운영/관리자) 여부. */
