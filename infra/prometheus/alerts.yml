@@ -469,3 +469,33 @@ groups:
         annotations:
           summary: "감사 분석 에이전트 턴 초과 폴백 발생"
           description: "review-ai-gateway 에이전트가 최대 턴(5턴)을 초과하여 INSUFFICIENT_DATA를 반환하고 있습니다."
+
+  - name: advisory-rag
+    interval: 30s
+    rules:
+      - alert: AdvisoryRagSearchFailRateHigh
+        expr: |
+          sum(rate(advisory_rag_search_duration_seconds_count{status="error"}[5m]))
+          /
+          (sum(rate(advisory_rag_search_duration_seconds_count[5m])) + 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: advisory-rag
+        annotations:
+          summary: "Advisory RAG 검색 실패율 급증"
+          description: "RAG 검색 실패율 {{ $value | humanizePercentage }} — advisory-service pgvector 또는 임베딩 API 상태 확인"
+
+      - alert: AdvisoryRagEmbeddingLatencySlow
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(advisory_rag_embedding_duration_seconds_bucket{status="success"}[5m])) by (model, le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: advisory-rag
+        annotations:
+          summary: "Advisory RAG 임베딩 지연 급증"
+          description: "임베딩({{ $labels.model }}) p95 응답시간 {{ $value | humanizeDuration }} — OpenAI API 상태 확인"

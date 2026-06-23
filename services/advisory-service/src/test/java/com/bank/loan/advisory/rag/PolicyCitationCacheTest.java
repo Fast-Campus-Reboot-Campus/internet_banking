@@ -1,5 +1,6 @@
 package com.bank.loan.advisory.rag;
 
+import com.bank.loan.advisory.dto.PolicyCitationResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,25 +39,25 @@ class PolicyCitationCacheTest {
     void setUp() {
         cache = new PolicyCitationCache(redis, objectMapper);
         ReflectionTestUtils.setField(cache, "ttlHours", 6L);
-        when(redis.opsForValue()).thenReturn(valueOps);
+        lenient().when(redis.opsForValue()).thenReturn(valueOps);
     }
 
     @Test
     void 캐시_미스_empty_반환() {
         when(valueOps.get(anyString())).thenReturn(null);
 
-        Optional<List<AiServiceRagClient.ChunkHit>> result = cache.get(RULE_CD, QUERY_TEXT, TOP_K);
+        Optional<List<PolicyCitationResponse.CitationItem>> result = cache.get(RULE_CD, QUERY_TEXT, TOP_K);
 
         assertThat(result).isEmpty();
     }
 
     @Test
     void 캐시_히트_역직렬화_반환() throws Exception {
-        List<AiServiceRagClient.ChunkHit> hits = sampleHits();
-        String json = objectMapper.writeValueAsString(hits);
+        List<PolicyCitationResponse.CitationItem> items = sampleItems();
+        String json = objectMapper.writeValueAsString(items);
         when(valueOps.get(anyString())).thenReturn(json);
 
-        Optional<List<AiServiceRagClient.ChunkHit>> result = cache.get(RULE_CD, QUERY_TEXT, TOP_K);
+        Optional<List<PolicyCitationResponse.CitationItem>> result = cache.get(RULE_CD, QUERY_TEXT, TOP_K);
 
         assertThat(result).isPresent();
         assertThat(result.get()).hasSize(1);
@@ -65,9 +66,9 @@ class PolicyCitationCacheTest {
 
     @Test
     void 저장_호출시_set_with_ttl() throws Exception {
-        List<AiServiceRagClient.ChunkHit> hits = sampleHits();
+        List<PolicyCitationResponse.CitationItem> items = sampleItems();
 
-        cache.put(RULE_CD, QUERY_TEXT, TOP_K, hits);
+        cache.put(RULE_CD, QUERY_TEXT, TOP_K, items);
 
         verify(valueOps).set(anyString(), anyString(), eq(Duration.ofHours(6)));
     }
@@ -86,24 +87,22 @@ class PolicyCitationCacheTest {
         cache.get(RULE_CD, QUERY_TEXT, TOP_K);
         cache.get(RULE_CD, QUERY_TEXT, TOP_K);
 
-        // 두 번 모두 같은 키로 조회
         verify(valueOps, times(2)).get(argThat((String k) ->
                 k.startsWith(PolicyCitationCache.KEY_PREFIX + RULE_CD + ":" + TOP_K + ":")));
     }
 
     @Test
     void 쿼리_달라지면_캐시키_다름() throws Exception {
-        List<AiServiceRagClient.ChunkHit> hits = sampleHits();
+        List<PolicyCitationResponse.CitationItem> items = sampleItems();
 
-        cache.put(RULE_CD, QUERY_TEXT, TOP_K, hits);
-        cache.put(RULE_CD, "다른 쿼리 텍스트", TOP_K, hits);
+        cache.put(RULE_CD, QUERY_TEXT, TOP_K, items);
+        cache.put(RULE_CD, "다른 쿼리 텍스트", TOP_K, items);
 
         verify(valueOps, times(2)).set(
                 argThat(k -> k.startsWith(PolicyCitationCache.KEY_PREFIX)),
                 anyString(),
                 any(Duration.class));
 
-        // 두 번 호출에서 서로 다른 키인지 검증
         var keys = mockingDetails(valueOps).getInvocations().stream()
                 .filter(i -> i.getMethod().getName().equals("set"))
                 .map(i -> (String) i.getArgument(0))
@@ -115,7 +114,7 @@ class PolicyCitationCacheTest {
     void Redis_오류_발생시_empty_반환_예외_미전파() {
         when(valueOps.get(anyString())).thenThrow(new RuntimeException("Redis 연결 실패"));
 
-        Optional<List<AiServiceRagClient.ChunkHit>> result = cache.get(RULE_CD, QUERY_TEXT, TOP_K);
+        Optional<List<PolicyCitationResponse.CitationItem>> result = cache.get(RULE_CD, QUERY_TEXT, TOP_K);
 
         assertThat(result).isEmpty();
     }
@@ -132,8 +131,8 @@ class PolicyCitationCacheTest {
         verify(redis).delete(keysToDelete);
     }
 
-    private List<AiServiceRagClient.ChunkHit> sampleHits() {
-        return List.of(new AiServiceRagClient.ChunkHit(
-                10L, 1L, "POLICY", "DSR 규정", "http://docs/dsr", 1, "DSR 비율은 40% 이하...", 0.92));
+    private List<PolicyCitationResponse.CitationItem> sampleItems() {
+        return List.of(new PolicyCitationResponse.CitationItem(
+                10L, 1L, "DSR_RULE_01", "DSR 규정", "char:0", "DSR 비율은 40% 이하...", 0.92));
     }
 }

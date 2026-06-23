@@ -7,6 +7,7 @@ import com.bank.loan.advisory.dto.DocumentRegisterResponse;
 import com.bank.loan.advisory.rag.CaseIndexBackfillService;
 import com.bank.loan.advisory.rag.CaseIndexingService;
 import com.bank.loan.advisory.rag.DocumentIngestionService;
+import com.bank.loan.advisory.repository.AdvisoryDocumentChunkRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -41,11 +42,31 @@ import java.util.List;
 @Validated
 public class InternalAdvisoryRagController {
 
-    private final DocumentIngestionService      ingestionService;
-    private final CaseIndexingService           caseIndexingService;
-    private final CaseIndexBackfillService      backfillService;
-    private final CurrentActorProvider          currentActor;
-    private final AdvisoryDocumentRepository    documentRepository;
+    private final DocumentIngestionService           ingestionService;
+    private final CaseIndexingService                caseIndexingService;
+    private final CaseIndexBackfillService           backfillService;
+    private final CurrentActorProvider               currentActor;
+    private final AdvisoryDocumentRepository         documentRepository;
+    private final AdvisoryDocumentChunkRepository    chunkRepository;
+
+    @Operation(summary = "정책문서 적재 통계", description = "전체/활성 문서 수와 embedding_model_cd 별 청크 건수를 반환.")
+    @GetMapping("/documents/stats")
+    public ApiResponse<DocumentStatsResponse> documentStats() {
+        long total  = documentRepository.countByDeletedAtIsNull();
+        long active = documentRepository.countByActiveYnAndDeletedAtIsNull("Y");
+        List<DocumentStatsResponse.ModelChunkCount> chunks = chunkRepository.countByEmbeddingModelCd()
+                .stream()
+                .map(s -> new DocumentStatsResponse.ModelChunkCount(s.getEmbeddingModelCd(), s.getCount()))
+                .toList();
+        return ApiResponse.ok(new DocumentStatsResponse(total, active, chunks));
+    }
+
+    public record DocumentStatsResponse(
+            long totalDocuments,
+            long activeDocuments,
+            List<ModelChunkCount> chunksByModel) {
+        public record ModelChunkCount(String embeddingModelCd, long count) {}
+    }
 
     @Operation(summary = "정책문서 목록 조회", description = "삭제되지 않은 전체 정책문서를 최신순으로 반환.")
     @GetMapping("/documents")

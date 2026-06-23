@@ -1,5 +1,6 @@
 package com.bank.loan.advisory.rag;
 
+import com.bank.loan.advisory.dto.PolicyCitationResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ public class PolicyCitationCache {
 
     static final String KEY_PREFIX = "rag:policy:";
 
-    private static final TypeReference<List<AiServiceRagClient.ChunkHit>> CHUNK_HIT_LIST_TYPE =
+    private static final TypeReference<List<PolicyCitationResponse.CitationItem>> CITATION_LIST_TYPE =
             new TypeReference<>() {};
 
     private final StringRedisTemplate redis;
@@ -41,23 +42,24 @@ public class PolicyCitationCache {
     @Value("${advisory.rag.cache.ttl-hours:6}")
     private long ttlHours;
 
-    public Optional<List<AiServiceRagClient.ChunkHit>> get(String ruleCd, String queryText, int topK) {
+    public Optional<List<PolicyCitationResponse.CitationItem>> get(String ruleCd, String queryText, int topK) {
         String key = buildKey(ruleCd, queryText, topK);
         try {
             String json = redis.opsForValue().get(key);
             if (json == null) return Optional.empty();
-            return Optional.of(objectMapper.readValue(json, CHUNK_HIT_LIST_TYPE));
+            return Optional.of(objectMapper.readValue(json, CITATION_LIST_TYPE));
         } catch (Exception e) {
             log.warn("[PolicyCitationCache] 캐시 조회 실패 (무시) key={}: {}", key, e.getMessage());
             return Optional.empty();
         }
     }
 
-    public void put(String ruleCd, String queryText, int topK, List<AiServiceRagClient.ChunkHit> hits) {
-        if (hits.isEmpty()) return;
+    public void put(String ruleCd, String queryText, int topK,
+                    List<PolicyCitationResponse.CitationItem> items) {
+        if (items.isEmpty()) return;
         String key = buildKey(ruleCd, queryText, topK);
         try {
-            String json = objectMapper.writeValueAsString(hits);
+            String json = objectMapper.writeValueAsString(items);
             redis.opsForValue().set(key, json, Duration.ofHours(ttlHours));
         } catch (Exception e) {
             log.warn("[PolicyCitationCache] 캐시 저장 실패 (무시) key={}: {}", key, e.getMessage());

@@ -1,8 +1,73 @@
 # LLM / RAG 모니터링 가이드
 
-> 대상 도구: **Langfuse**, **Arize Phoenix**
+> 대상 도구: **Langfuse**, **Arize Phoenix**, **Prometheus + Grafana** (advisory RAG)
 > 대상 독자: 개발팀 전원
 > 환경: 로컬 Docker Compose 기준
+
+---
+
+## Advisory RAG 메트릭 (Prometheus 직접 노출)
+
+advisory-service 는 pgvector 자체 검색이므로 Langfuse 없이 **Prometheus 메트릭**으로 관찰합니다.
+`http://localhost:8080/actuator/prometheus` 에서 확인 가능합니다.
+
+### 검색 메트릭
+
+| 메트릭 | 종류 | 태그 | 설명 |
+|--------|------|------|------|
+| `advisory_rag_search_duration_seconds` | Timer | `kind`, `status` | 코사인 검색 지연시간. kind = `POLICY_CITATION` \| `SIMILAR_CASE`, status = `success` \| `error` |
+| `advisory_rag_search_results` | DistributionSummary | `kind` | 검색 호출당 반환 결과 건수 분포 |
+
+**권장 PromQL:**
+```promql
+# p95 검색 지연시간
+histogram_quantile(0.95,
+  sum(rate(advisory_rag_search_duration_seconds_bucket{status="success"}[5m])) by (kind, le)
+)
+
+# 검색 실패율
+sum(rate(advisory_rag_search_duration_seconds_count{status="error"}[5m]))
+/ sum(rate(advisory_rag_search_duration_seconds_count[5m]))
+```
+
+### 임베딩 메트릭
+
+| 메트릭 | 종류 | 태그 | 설명 |
+|--------|------|------|------|
+| `advisory_rag_embedding_duration_seconds` | Timer | `model`, `status` | OpenAI 임베딩 API 호출 지연시간. model = `OPENAI_3S`, status = `success` \| `error` |
+| `advisory_rag_embedding_calls_total` | Counter | `model`, `status` | 임베딩 API 누적 호출 수 |
+
+**권장 PromQL:**
+```promql
+# 임베딩 p95 지연시간
+histogram_quantile(0.95,
+  sum(rate(advisory_rag_embedding_duration_seconds_bucket{status="success"}[5m])) by (model, le)
+)
+
+# 임베딩 오류율
+sum(rate(advisory_rag_embedding_calls_total{status="error"}[5m]))
+/ sum(rate(advisory_rag_embedding_calls_total[5m]))
+```
+
+### Prometheus Alert 규칙 (`infra/prometheus/alerts.yml`)
+
+| Alert | 조건 | 심각도 |
+|-------|------|--------|
+| `AdvisoryRagSearchFailRateHigh` | 검색 실패율 > 5% / 5분 지속 | critical |
+| `AdvisoryRagEmbeddingLatencySlow` | 임베딩 p95 > 2초 / 5분 지속 | warning |
+
+### Grafana 패널 구성 (권장)
+
+Grafana에서 **"Advisory RAG"** 섹션을 별도 Row로 구성할 것을 권장합니다.
+
+| 패널 | 시각화 | PromQL |
+|------|--------|--------|
+| 검색 지연시간 (p50/p95/p99) | Time series | `histogram_quantile(0.95, ...)` by kind |
+| 검색 실패율 | Stat / Time series | `rate(count{status="error"}) / rate(count)` |
+| 검색 결과 건수 평균 | Time series | `rate(advisory_rag_search_results_sum[5m]) / rate(advisory_rag_search_results_count[5m])` |
+| 임베딩 지연시간 (p95) | Time series | `histogram_quantile(0.95, ...)` by model |
+| 임베딩 오류율 | Stat | `rate(calls{status="error"}) / rate(calls)` |
+| 백필 처리 속도 | Time series | `rate(advisory_rag_backfill_processed_total[5m])` |
 
 ---
 
