@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from langfuse.decorators import observe
+
 from app.features.base import FeatureExecutorBase
 from app.schemas import ChatbotFeatureExecuteRequest, ChatbotFeatureExecuteResponse
 
@@ -141,6 +143,7 @@ def _fetch_products_by_ids(db: Any, product_ids: list[int]) -> list[dict]:
 
 # ── GPT 비교 분석 ─────────────────────────────────────────────────────────────
 
+@observe(name="llm-product-compare")
 def _gpt_compare(
     api_key: str,
     model: str,

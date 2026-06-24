@@ -4,8 +4,27 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import logging
+
 from app.config import settings
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
+
+
+def _setup_langfuse() -> None:
+    if not settings.langfuse_enabled:
+        return
+    from langfuse import Langfuse
+    Langfuse(
+        secret_key=settings.langfuse_secret_key,
+        public_key=settings.langfuse_public_key,
+        host=settings.langfuse_host,
+    )
+    logger.info("[Langfuse] LLM 추적 활성화 → %s", settings.langfuse_host)
+
+
+_setup_langfuse()
 from app.registry import TABLES
 from app import services
 from app import agent_maturity

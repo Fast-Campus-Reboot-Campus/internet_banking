@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     llm_model: str = "claude-opus-4-8"
     # Tool Calling 에이전트 최대 반복 횟수 (도구 수 × 2)
     max_agent_iterations: int = 14
+    langfuse_enabled: bool = False
+    langfuse_secret_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_host: str = "http://localhost:3001"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

@@ -17,6 +17,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from langfuse.decorators import observe
+
 from app.features.base import FeatureExecutorBase
 from app.schemas import ChatbotFeatureExecuteRequest, ChatbotFeatureExecuteResponse
 
@@ -197,6 +199,7 @@ def _monthly_plan(
 
 # ── GPT 추천 메시지 생성 ──────────────────────────────────────────────────────
 
+@observe(name="llm-savings-recommend")
 def _gpt_recommend(
     api_key: str,
     model: str,

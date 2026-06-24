@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_DOWN
 
 import anthropic
+from langfuse.decorators import langfuse_context, observe
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -529,8 +530,13 @@ SYSTEM_PROMPT = """당신은 만기 알림 및 재투자 추천 에이전트입�
 # 메인 에이전트 루프
 # ──────────────────────────────────────────────
 
+@observe(name="maturity-agent", capture_input=False)
 def _run_maturity_agent_claude(db: Session, customer_id: str, message: str) -> dict:
     """Tool Calling 기반 만기 재투자 에이전트 메인 함수."""
+    langfuse_context.update_current_observation(
+        input={"customer_id": customer_id, "message": message},
+        metadata={"model": "claude-opus-4-8"},
+    )
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
     ctx: dict = {"customer_id": customer_id}

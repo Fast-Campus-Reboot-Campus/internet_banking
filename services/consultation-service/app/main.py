@@ -91,6 +91,21 @@ settings = get_settings()
 static_dir = Path(__file__).resolve().parents[1] / "static"
 
 
+def _setup_langfuse() -> None:
+    if not settings.langfuse_enabled:
+        return
+    from langfuse import Langfuse
+    Langfuse(
+        secret_key=settings.langfuse_secret_key,
+        public_key=settings.langfuse_public_key,
+        host=settings.langfuse_host,
+    )
+    logger.info("[Langfuse] LLM 추적 활성화 → %s", settings.langfuse_host)
+
+
+_setup_langfuse()
+
+
 async def _handle_contract_created(payload: dict) -> None:
     """deposit-api 에서 ContractCreated 이벤트 수신 시 처리. RAG 인덱스 재빌드."""
     logger.info(

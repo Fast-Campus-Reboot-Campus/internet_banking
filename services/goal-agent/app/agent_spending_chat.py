@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_DOWN
 
 import anthropic
+from langfuse.decorators import langfuse_context, observe
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -710,8 +711,13 @@ SYSTEM_PROMPT = """너는 사용자의 월간 지출 데이터를 분석하는 �
 # 메인 에이전트 루프
 # ──────────────────────────────────────────────
 
+@observe(name="spending-agent", capture_input=False)
 def _run_spending_agent_claude(db: Session, customer_id: str, message: str) -> dict:
     """Tool Calling 기반 지출 패턴 관리 에이전트 메인 함수."""
+    langfuse_context.update_current_observation(
+        input={"customer_id": customer_id, "message": message},
+        metadata={"model": "claude-opus-4-8"},
+    )
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
     ctx: dict = {"customer_id": customer_id}
