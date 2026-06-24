@@ -51,12 +51,13 @@ class RegisterServiceTest {
     @Mock private CustomerGradeHistoryRepository  customerGradeHistoryRepository;
     @Mock private IdentityVerificationRepository  identityVerificationRepository;
     @Mock private PasswordEncoder                 passwordEncoder;
+    @Mock private com.bank.customer.metrics.AuthMetrics authMetrics;
 
     private RegisterService service() {
         return new RegisterService(partyRepository, partyPersonRepository, partyRoleRepository,
                 complianceInfoRepository, customerRepository, credentialRepository,
                 customerStatusHistoryRepository, customerGradeHistoryRepository,
-                identityVerificationRepository, passwordEncoder);
+                identityVerificationRepository, passwordEncoder, authMetrics);
     }
 
     private IdentityVerification verified() {
