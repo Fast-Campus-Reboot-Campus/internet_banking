@@ -1,6 +1,8 @@
 package com.bank.loan.prescreening.client;
 
+import com.bank.common.web.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -44,13 +46,14 @@ public class AutoReviewEvaluateClient {
         }
         log.debug("auto-review evaluate 호출 productCode={} creditScore={}",
                 req.productCode(), req.creditScoreProxy());
-        AutoReviewEvaluateResult result = restClient.post()
+        ApiResponse<AutoReviewEvaluateResult> response = restClient.post()
                 .uri(EVALUATE_PATH)
                 .header("X-Internal-Token", props.internalToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(req)
                 .retrieve()
-                .body(AutoReviewEvaluateResult.class);
+                .body(new ParameterizedTypeReference<>() {});
+        AutoReviewEvaluateResult result = response != null ? response.data() : null;
         log.info("auto-review evaluate 완료 track={} pd={}", result != null ? result.track() : null,
                 result != null ? result.pd() : null);
         return result;
