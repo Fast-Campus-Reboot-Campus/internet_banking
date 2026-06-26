@@ -219,7 +219,8 @@ services:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 180s
 
   deposit-service:
     build:
