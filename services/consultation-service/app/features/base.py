@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Any
 
 import httpx
@@ -16,6 +17,33 @@ from app.schemas import ChatbotFeatureExecuteResponse
 
 # ChatMessageHistory 모델 임포트 (history context 조회용)
 CODE_SENDER_USER = 1
+
+
+@lru_cache(maxsize=512)
+def _fetch_customer_age_cached(customer_no: str) -> int | None:
+    """customer-service에서 생년월일을 조회해 만 나이를 반환한다.
+
+    프로세스 수준 LRU 캐시(최대 512명)를 사용해 상품 목록 조회마다
+    동기 HTTP 호출이 반복되는 것을 방지한다.
+    customer-service 미기동/장애 시 즉시 None 반환(청년 필터 미적용)으로 폴백.
+    """
+    from app.config import get_settings
+    url = f"{get_settings().customer_service_url}/api/v1/customers/me"
+    try:
+        with httpx.Client(timeout=1.0) as client:
+            resp = client.get(url, headers={"X-Customer-Id": customer_no})
+        if resp.status_code != 200:
+            return None
+        body = resp.json()
+        birth_str = (body.get("data") or body).get("birthDate")
+        if not birth_str:
+            return None
+        birth_str = birth_str.replace("-", "")
+        birth = date(int(birth_str[:4]), int(birth_str[4:6]), int(birth_str[6:8]))
+        today = date.today()
+        return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    except Exception:
+        return None
 
 
 def build_history_context(db: Session, chatbot_consultation_id: int, max_turns: int = 5) -> str:
@@ -242,8 +270,9 @@ class FeatureExecutorBase:
     def _validate_staff(self, staff_id: str) -> bool:
         """staff_id 가 employees 테이블에 실제로 존재하는 유효한 직원인지 확인한다.
 
-        TODO: JWT 토큰 기반 인증 미들웨어로 교체 시 이 메서드를 제거하고
-              엔드포인트 레벨에서 Depends(require_staff_role) 형태로 처리할 것.
+        ⚠️  보안 주의: staff_id 는 클라이언트가 전달하는 값이므로 타인 사칭이 가능하다.
+        운영 배포 전 반드시 JWT 미들웨어(Depends(require_staff_role))로 교체하고
+        이 메서드를 제거할 것. staff_id 는 검증된 토큰 클레임에서만 추출해야 한다.
         """
         rows = self._rows(
             "SELECT employee_id FROM employees WHERE employee_id = :sid AND status = 'ACTIVE'",
@@ -256,26 +285,12 @@ class FeatureExecutorBase:
 
         동기 httpx.Client 사용 — consultation-service route handler가 모두 def(동기)이므로
         FastAPI가 threadpool에서 실행, 이벤트 루프 블로킹 없음.
+        결과는 프로세스 수준 LRU 캐시로 보관해 상품 목록 조회마다 동기 HTTP 호출이
+        추가되는 것을 방지한다.
         """
         if not customer_no:
             return None
-        from app.config import get_settings
-        url = f"{get_settings().customer_service_url}/api/v1/customers/me"
-        try:
-            with httpx.Client(timeout=2.0) as client:
-                resp = client.get(url, headers={"X-Customer-Id": str(customer_no)})
-            if resp.status_code != 200:
-                return None
-            body = resp.json()
-            birth_str = (body.get("data") or body).get("birthDate")
-            if not birth_str:
-                return None
-            birth_str = birth_str.replace("-", "")
-            birth = date(int(birth_str[:4]), int(birth_str[4:6]), int(birth_str[6:8]))
-            today = date.today()
-            return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
-        except Exception:
-            return None
+        return _fetch_customer_age_cached(customer_no)
 
     def _is_youth_eligible(self, age: int | None) -> bool:
         """청년 전용 상품 가입 가능 여부 (만 19~34세)."""

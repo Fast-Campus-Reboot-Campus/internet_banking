@@ -17,12 +17,35 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
       setAuthorized(true)
       return
     }
-    // 직원 역할(BankRole, CUSTOMER 제외)이 있어야 콘솔 접근 허용
+
+    // 1차: 클라이언트 localStorage 역할 확인 (빠른 UX 리다이렉트용)
     if (!isEmployee(getAdminRoles())) {
       router.replace('/admin/login')
-    } else {
-      setAuthorized(true)
+      return
     }
+
+    // 2차: 서버사이드 토큰 유효성 검증
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('access_token')
+    if (!token) {
+      router.replace('/admin/login')
+      return
+    }
+    fetch('/api/v1/auth/verify', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('admin_roles')
+          localStorage.removeItem('admin_user')
+          router.replace('/admin/login')
+        } else {
+          setAuthorized(true)
+        }
+      })
+      .catch(() => setAuthorized(true)) // 검증 서버 미응답 시 UX 유지 (클라이언트 검증으로 fallback)
   }, [pathname, isPublic, router])
 
   if (!authorized) return null

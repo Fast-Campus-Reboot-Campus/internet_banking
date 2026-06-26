@@ -1,8 +1,30 @@
+import base64
+import json as _json
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+
+def _extract_customer_id(auth_header: str) -> str | None:
+    """Authorization: Bearer 헤더에서 customer_id를 추출한다.
+
+    서명 검증은 API Gateway(Java)에서 담당하므로 여기서는 페이로드 디코딩만 수행.
+    """
+    if not auth_header.startswith("Bearer "):
+        return None
+    parts = auth_header[7:].split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        padding = "=" * (-len(parts[1]) % 4)
+        payload = _json.loads(base64.b64decode(parts[1] + padding).decode())
+        cid = payload.get("customer_id") or payload.get("customerId") or payload.get("sub")
+        return str(cid) if cid is not None else None
+    except Exception:
+        return None
 
 from app.config import settings
 from app.database import get_db
@@ -27,10 +49,20 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def _require_api_key() -> None:
+    """GOAL_AGENT_API_KEY 미설정 시 서비스 기동을 거부한다."""
+    if not settings.api_key:
+        raise RuntimeError(
+            "GOAL_AGENT_API_KEY environment variable must be set. "
+            "Refusing to start without authentication."
+        )
+
+
 @app.middleware("http")
 async def verify_internal_token(request: Request, call_next):
-    """내부 서비스 인증. api_key 가 설정된 경우에만 X-Internal-Token 헤더를 검증한다."""
-    if settings.api_key and request.url.path != "/health":
+    """내부 서비스 인증. /health 를 제외한 모든 요청에 X-Internal-Token 헤더를 검증한다."""
+    if request.url.path != "/health":
         token = request.headers.get("X-Internal-Token", "")
         if token != settings.api_key:
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
@@ -262,17 +294,19 @@ def maturity_chat(payload: dict, db: Session = Depends(get_db)) -> dict:
 
 
 @app.post("/agent/spending/chat")
-def spending_chat(payload: dict, db: Session = Depends(get_db)) -> dict:
+def spending_chat(request: Request, payload: dict, db: Session = Depends(get_db)) -> dict:
     """
     Tool Calling 기반 지출 패턴 관리 에이전트.
     SPENDING_AGENT_ENABLED=true 환경변수가 설정된 경우에만 LLM 에이전트가 활성화됩니다.
     비활성화 시 룰 기반 fallback으로 동작합니다.
 
     body:
-        customer_id : str
+        customer_id : str  (없으면 Authorization 헤더 토큰에서 추출)
         message     : str  (사용자 메시지, 예: "지출 패턴 분석해줘")
     """
-    customer_id = payload.get("customer_id")
+    customer_id = payload.get("customer_id") or _extract_customer_id(
+        request.headers.get("Authorization", "")
+    )
     message = payload.get("message", "지출 패턴을 분석하고 개선 방안을 알려주세요.")
 
     if not customer_id:
