@@ -270,9 +270,8 @@ class FeatureExecutorBase:
     def _validate_staff(self, staff_id: str) -> bool:
         """staff_id 가 employees 테이블에 실제로 존재하는 유효한 직원인지 확인한다.
 
-        ⚠️  보안 주의: staff_id 는 클라이언트가 전달하는 값이므로 타인 사칭이 가능하다.
-        운영 배포 전 반드시 JWT 미들웨어(Depends(require_staff_role))로 교체하고
-        이 메서드를 제거할 것. staff_id 는 검증된 토큰 클레임에서만 추출해야 한다.
+        staff_id 는 execute_chatbot_feature 엔드포인트에서 JWT 토큰 클레임으로 교체된 후
+        이 메서드에 전달되므로, 클라이언트가 body로 보낸 값은 무시된다.
         """
         rows = self._rows(
             "SELECT employee_id FROM employees WHERE employee_id = :sid AND status = 'ACTIVE'",

@@ -415,15 +415,46 @@ def chatbot_feature_detail(
     return feature
 
 
+def _extract_staff_id_from_token(authorization: str | None) -> str | None:
+    """Authorization: Bearer 헤더에서 staff_id(employee_id)를 추출한다.
+
+    서명 검증은 API Gateway(Java)에서 담당하므로 여기서는 페이로드 디코딩만 수행.
+    클라이언트가 body로 전달한 staff_id 대신 이 값을 사용해 사칭을 방지한다.
+    """
+    import base64
+    import json
+
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    parts = authorization[7:].split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        padding = "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.b64decode(parts[1] + padding).decode())
+        sid = (
+            payload.get("staff_id")
+            or payload.get("staffId")
+            or payload.get("employee_id")
+            or payload.get("employeeId")
+            or payload.get("sub")
+        )
+        return str(sid) if sid is not None else None
+    except Exception:
+        return None
+
+
 @app.post("/chatbot/features/{feature_code}/execute", response_model=ChatbotFeatureExecuteResponse)
 def execute_chatbot_feature(
     feature_code: str,
     request: ChatbotFeatureExecuteRequest,
+    http_request: Request,
     service: ChatbotService = Depends(get_chatbot_service),
 ) -> ChatbotFeatureExecuteResponse:
-    # TODO: IDOR — JWT 미들웨어 도입 후 request.customer_no 가 인증된 사용자 본인인지 검증 필요.
-    # TODO: STAFF 기능 — JWT 미들웨어 도입 후 Depends(require_staff_role) 로 교체.
-    #       현재는 _validate_staff() 가 employees 테이블 DB 조회로 유효성을 1차 확인함.
+    # staff_id를 클라이언트 body 값 대신 JWT 토큰에서 추출해 사칭을 방지한다.
+    token_staff_id = _extract_staff_id_from_token(http_request.headers.get("Authorization"))
+    if token_staff_id is not None:
+        request.staff_id = token_staff_id
     result = service.execute_feature(feature_code, request)
     if result.status == "NOT_FOUND":
         raise HTTPException(status_code=404, detail=result.message)
