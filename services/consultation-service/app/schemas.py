@@ -182,3 +182,43 @@ class DocumentUploadResponse(BaseModel):
     doc_type: str
     status: str
     message: str
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 상담사 인증
+# ──────────────────────────────────────────────────────────────────────────────
+
+class AgentLoginRequest(BaseModel):
+    login_id: str
+    password: str
+
+
+class AgentLoginResponse(BaseModel):
+    employee_id: int
+    login_id: str
+    name: str
+    role: str
+
+
+class ChatHistoryItem(BaseModel):
+    chat_consultation_id: int
+    consultation_id: int
+    customer_no: str
+    employee_id: int | None = None
+    status: str
+    agent_requested_at: datetime | None = None
+    agent_connected_at: datetime | None = None
+    chat_ended_at: datetime | None = None
+    satisfaction_score: int | None = None
+    message_count: int = 0
+
+
+class ChatRequestSchema(BaseModel):
+    customer_no: str
+
+
+class ChatRequestResponse(BaseModel):
+    chat_consultation_id: int
+    consultation_id: int
+    status: str
+    agent_requested_at: str | None

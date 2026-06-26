@@ -68,6 +68,10 @@ const NAV: NavSection[] = [
     bankRoles: AUDIT_VIEW,
     items: [
       { label: '고객 조회', href: '/admin/consultation/customer' },
+      { label: '상담원 채팅', href: '/admin/consultation/chat' },
+      { label: '상담 이력 조회', href: '/admin/consultation/history' },
+      { label: '만족도/통계', href: '/admin/consultation/stats' },
+      { label: '상담원 계정 관리', href: '/admin/consultation/agents', bankRoles: ['ROLE_ADMIN'] },
     ],
   },
 
@@ -157,7 +161,7 @@ export default function AdminSidebar() {
     .filter((g) => g.items.length > 0)
 
   return (
-    <aside className="w-52 flex-shrink-0 flex flex-col min-h-screen" style={{ backgroundColor: '#1B3A6B' }}>
+    <aside className="w-52 flex-shrink-0 flex flex-col h-screen sticky top-0 overflow-hidden" style={{ backgroundColor: '#1B3A6B' }}>
 
       {/* 로고 */}
       <div className="flex items-stretch gap-2.5 px-4 py-4" style={{ backgroundColor: '#122550', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -264,10 +268,10 @@ export default function AdminSidebar() {
       <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <button
           onClick={logout}
-          className="w-full text-left text-[11px] transition-colors"
-          style={{ color: 'rgba(255,255,255,0.35)' }}
+          className="w-full text-left text-[12px] font-medium transition-colors"
+          style={{ color: 'rgba(255,255,255,0.7)' }}
           onMouseEnter={(e) => (e.currentTarget.style.color = '#FCA5A5')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.7)')}
         >
           ← 로그아웃
         </button>

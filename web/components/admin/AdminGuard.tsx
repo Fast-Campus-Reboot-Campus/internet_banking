@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { getAdminRoles, isEmployee } from '@/lib/admin-auth'
 
-const PUBLIC_ADMIN_PATHS = ['/admin/login']
+const PUBLIC_ADMIN_PATHS = ['/admin/login', '/admin/consultation']
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

@@ -320,6 +320,10 @@ export default function Header() {
         {/* 우측: 사용자 영역 */}
         {!isLoginPage && (
           <div className="flex items-center gap-2 text-[14px]">
+            <Link href="/admin/login"
+              className="px-3 py-1 text-[12px] font-semibold rounded-full border border-gray-300 text-gray-400 transition-colors hover:bg-gray-50">
+              관리자
+            </Link>
             {authed ? (
               <>
                 <span className="text-kb-text-muted font-medium">{user?.name ?? '고객'}님</span>

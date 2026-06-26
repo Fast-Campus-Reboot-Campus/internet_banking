@@ -3406,6 +3406,92 @@ class ChatService:
             ).all()
         )
 
+    def get_history(self, limit: int = 50, customer_no: str | None = None) -> list[dict]:
+        from sqlalchemy import func as _func
+        q = (
+            select(
+                ChatConsultation.chat_consultation_id,
+                ChatConsultation.consultation_id,
+                Consultation.customer_no,
+                ChatConsultation.employee_id,
+                ChatConsultation.agent_requested_at,
+                ChatConsultation.agent_connected_at,
+                ChatConsultation.chat_ended_at,
+                ChatConsultation.satisfaction_score,
+                _func.count(ChatMessageHistory.chat_message_history_id).label("message_count"),
+            )
+            .join(Consultation, Consultation.consultation_id == ChatConsultation.consultation_id)
+            .outerjoin(
+                ChatMessageHistory,
+                ChatMessageHistory.chat_consultation_id == ChatConsultation.chat_consultation_id,
+            )
+            .group_by(
+                ChatConsultation.chat_consultation_id,
+                ChatConsultation.consultation_id,
+                Consultation.customer_no,
+                ChatConsultation.employee_id,
+                ChatConsultation.agent_requested_at,
+                ChatConsultation.agent_connected_at,
+                ChatConsultation.chat_ended_at,
+                ChatConsultation.satisfaction_score,
+            )
+            .order_by(ChatConsultation.chat_consultation_id.desc())
+            .limit(limit)
+        )
+        if customer_no:
+            q = q.where(Consultation.customer_no == customer_no)
+
+        rows = self.db.execute(q).mappings().all()
+        result = []
+        for r in rows:
+            if r["chat_ended_at"]:
+                status = "ENDED"
+            elif r["agent_connected_at"]:
+                status = "CONNECTED"
+            elif r["agent_requested_at"]:
+                status = "WAITING"
+            else:
+                status = "UNKNOWN"
+            result.append({**dict(r), "status": status})
+        return result
+
+    def request_agent_chat(self, customer_no: str) -> ChatConsultation:
+        """고객이 직접 상담사 채팅을 요청한다. 이미 활성 요청이 있으면 그것을 반환한다."""
+        from app.models import Consultation as _Consultation
+
+        # 이미 WAITING(미연결) 상태인 요청이 있으면 재사용
+        existing = self.db.scalars(
+            select(ChatConsultation)
+            .join(Consultation, Consultation.consultation_id == ChatConsultation.consultation_id)
+            .where(
+                Consultation.customer_no == customer_no,
+                ChatConsultation.active_yn == "Y",
+                ChatConsultation.agent_connected_at.is_(None),
+                ChatConsultation.chat_ended_at.is_(None),
+            )
+            .order_by(ChatConsultation.chat_consultation_id.desc())
+        ).first()
+        if existing:
+            return existing
+
+        consultation = _Consultation(customer_no=customer_no)
+        self.db.add(consultation)
+        self.db.flush()
+
+        now = datetime.now(timezone.utc)
+        chat = ChatConsultation(
+            consultation_id=consultation.consultation_id,
+            chatbot_consultation_id=None,
+            employee_id=None,
+            agent_requested_at=now,
+            agent_connected_at=None,
+            active_yn="Y",
+        )
+        self.db.add(chat)
+        self.db.commit()
+        self.db.refresh(chat)
+        return chat
+
     # ── 상태 변경 ────────────────────────────────────────────────────────────
 
     async def connect_agent(self, chat_consultation_id: int, employee_id: int) -> ChatConsultation:
@@ -3502,6 +3588,11 @@ class ChatService:
         """
         chat = self.get_consultation(chat_consultation_id)
         if chat.active_yn == "N":
+            # 이미 종료된 상담이라도 만족도 점수만 업데이트 허용
+            if satisfaction_score is not None:
+                chat.satisfaction_score = satisfaction_score
+                self.db.commit()
+                return chat
             raise ValueError("이미 종료된 상담입니다.")
 
         now = datetime.now(timezone.utc)

@@ -17,6 +17,7 @@ export type DemoAccount = {
 }
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
+  { loginId: 'super01',    name: '슈퍼관리자', desc: '상담 관리자 (상담 이력·통계 조회)' },
   { loginId: 'audit01',    name: '김감사',   desc: '컴플라이언스/감사 (본사)' },
   { loginId: 'review01',   name: '이심사',   desc: '본사 심사' },
   { loginId: 'risk01',     name: '박리스크', desc: '리스크관리 (PII 마스킹)' },

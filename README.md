@@ -618,11 +618,69 @@ ChatbotWidget
 - 유효: 정상 진입
 - 만료/없음: localStorage의 `accessToken`, `access_token`, `customerId`, `user` 일괄 초기화 → 로그인 유도
 
+### 상담원/관리자 로그인 분리
+
+상담 서비스는 역할에 따라 진입 경로가 다르다.
+
+| 역할 | 진입 경로 | 허용 계정 |
+|---|---|---|
+| 상담원 (AGENT) | `/admin/consultation/chat` | agent01, agent02 |
+| 슈퍼바이저 / 관리자 | `/admin/login` | super01 (SUPERVISOR), admin01 (ADMIN) |
+
+- 챗봇 헤더 **관리자** 버튼 → `/admin/login`, **상담원** 버튼 → `/admin/consultation/chat`
+- 사이트 상단 헤더 **관리자** 버튼 → `/admin/login`
+- `/admin/login`에서 AGENT 계정으로 로그인 시도 시 거부 (SUPERVISOR·ADMIN만 허용)
+
+#### 상담원 계정 (consultation-service DB)
+
+| 계정 | 역할 | 비밀번호 |
+|---|---|---|
+| agent01 | AGENT | 1234 |
+| agent02 | AGENT | 1234 |
+| super01 | SUPERVISOR | 1234 |
+| admin01 | ADMIN | 1234 |
+
+### 상담원 채팅 페이지 (`/admin/consultation/chat`)
+
+- 로그인 후 대기 중인 상담 목록 자동 폴링 (5초 간격)
+- 상담 수락 → 고객과 실시간 메시지 교환
+- 상담 종료 버튼으로 채팅 종료
+- 헤더에서 **상담 이력** / **통계** / **계정 관리**(SUPERVISOR·ADMIN만) 바로가기 제공
+- 로그아웃 시 세션 초기화 후 로그인 폼으로 복귀 (관리자 로그인 페이지로 이동하지 않음)
+- 오래된 WAITING 상태(10분 초과) 일괄 정리 버튼 제공
+
+### 상담 이력 조회 (`/admin/consultation/history`)
+
+- 종료된 상담 목록 조회
+- 고객별 채팅 내역 확인
+- 상담원·관리자 모두 접근 가능
+
+### 만족도 / 통계 대시보드 (`/admin/consultation/stats`)
+
+- 전체 KPI: 총 상담 수·종료 완료·상담중·대기중·평균 만족도
+- 최근 7일 상담 건수 바 차트
+- **상담사별 카드**: 종료 건수·평균 만족도·평균 소요시간·평균 대기시간·만족도 분포 막대
+
+### 상담원 계정 관리 (`/admin/consultation/agents`)
+
+- 직원 목록 조회·상태 관리
+- **SUPERVISOR·ADMIN만 접근 가능** (AGENT는 메뉴 미노출)
+
+### 고객 챗봇 상담원 연결
+
+- 챗봇에서 **상담원 연결** 버튼 클릭 → 대기열 등록 (WAITING)
+- 상담원 수락 시 실시간 채팅 화면으로 전환 (CONNECTED)
+- 채팅 종료 후 별점(1~5) 만족도 평가 화면 표시
+- 별점 선택 후 **평가 제출** 클릭 시에만 "소중한 평가 감사합니다!" 표시
+- 고객 채팅 상태를 sessionStorage에 저장해 페이지 이동 후에도 채팅 유지
+- 새 채팅 시작 시 이전 만족도 상태 자동 초기화
+
 ### 상담사 실시간 채팅
 
 - 챗봇 → 상담사 핸드오프 흐름 (상담 접수·메시지 이력·채팅 종료)
 - 상담사 대기열 조회 및 연결 수락
 - 만족도 점수 기록
+- **WAITING 상태 누적 방지**: `chat_ended_at` → `agent_connected_at` → `agent_requested_at` 순서로 상태 판정해 종료된 상담이 WAITING으로 남지 않도록 처리
 
 ### Kafka 연동
 
@@ -829,12 +887,15 @@ $env:CRYPTO_KEY_BASE64="bG9hbi1zZXJ2aWNlLWRldi1hZXMta2V5LTMyYnl0ZXM="
 
 ### 데모 계정
 
-| 역할 | 로그인 ID | 비밀번호 |
-|------|-----------|----------|
-| 고객 (홍길동) | 금융인증서 로그인 | 인증서 PIN |
-| 고객 (테스트) | user01 / user02 / user03 | Employee1234! |
-| 직원 | employee01 | Employee1234! |
-| 관리자 | admin01 | Employee1234! |
+| 역할 | 로그인 ID | 비밀번호 | 진입 경로 |
+|------|-----------|----------|-----------|
+| 고객 (홍길동) | 금융인증서 로그인 | 인증서 PIN | `/login` |
+| 고객 (테스트) | user01 / user02 / user03 | Employee1234! | `/login` |
+| 직원 | employee01 | Employee1234! | `/admin/login` |
+| 관리자 (BankRole) | admin01 | Employee1234! | `/admin/login` |
+| 상담원 | agent01 / agent02 | 1234 | `/admin/consultation/chat` |
+| 슈퍼바이저 | super01 | 1234 | `/admin/login` |
+| 상담 관리자 | admin01 | 1234 | `/admin/login` |
 
 ### 프런트엔드 실행
 

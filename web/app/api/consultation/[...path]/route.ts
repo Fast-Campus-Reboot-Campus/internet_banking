@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const CONSULTATION_API_URL = process.env.CONSULTATION_API_URL || 'http://localhost:8087'
+const CONSULTATION_API_URL = process.env.CONSULTATION_API_URL || 'http://localhost:8011'
 
 type RouteContext = {
   params: {
@@ -14,6 +14,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const targetUrl = `${CONSULTATION_API_URL}/${path}${search}`
   const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text()
 
+  console.log('[consultation proxy]', request.method, targetUrl, body)
   try {
     const response = await fetch(targetUrl, {
       method: request.method,

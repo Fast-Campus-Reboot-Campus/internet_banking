@@ -53,34 +53,39 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await api.post('/api/v1/auth/login', { loginId: id, password })
-      const token = data.data.accessToken
-      localStorage.setItem('accessToken',  token)
-      localStorage.setItem('access_token', token)
-      if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken)
-      if (data.data.customerId != null) localStorage.setItem('customerId', String(data.data.customerId))
+      // consultation service DB로 인증
+      const res = await fetch('/api/consultation/auth/agent/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login_id: id, password }),
+      })
+      if (!res.ok) {
+        setError('아이디 또는 비밀번호가 올바르지 않습니다.')
+        setLoading(false)
+        return
+      }
+      const agent = await res.json()
 
-      const { roles, branch } = decodePayload(token)
-      // 직원 역할이 없는 고객 토큰은 관리자 콘솔 접근 차단
-      if (!roles.some((r) => r !== 'ROLE_CUSTOMER')) {
-        setError('관리자 콘솔 접근 권한이 없는 계정입니다.')
+      // 관리자/슈퍼바이저만 이 페이지로 접근 허용
+      if (agent.role !== 'ADMIN' && agent.role !== 'SUPERVISOR') {
+        setError('관리자 또는 슈퍼바이저 계정만 로그인할 수 있습니다.')
         setLoading(false)
         return
       }
 
-      // 데모 계정이면 표시 이름을 큐레이션에서 가져온다. 칩 로드 전 직접 타이핑 케이스 대비 보강 로드.
-      let name: string | undefined
-      if (DEMO_MODE) {
-        const accounts = demoAccounts.length ? demoAccounts : (await import('@/lib/admin-demo-accounts')).DEMO_ACCOUNTS
-        name = accounts.find((a) => a.loginId === id)?.name
+      const roleMap: Record<string, string[]> = {
+        ADMIN: ['ROLE_ADMIN'],
+        SUPERVISOR: ['ROLE_ADMIN'],
       }
-
+      const roles = roleMap[agent.role] ?? []
+      const token = 'mock.' + btoa(unescape(encodeURIComponent(JSON.stringify({ name: agent.name, roles })))) + '.' + Date.now()
+      localStorage.setItem('accessToken', token)
+      localStorage.setItem('access_token', token)
       localStorage.setItem('admin_roles', JSON.stringify(roles))
-      localStorage.setItem('admin_user',  JSON.stringify(buildAdminUser(id, branch, name)))
-      router.push('/admin/dashboard')
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } }
-      setError(e.response?.data?.message ?? '로그인에 실패했습니다. 아이디·비밀번호를 확인하세요.')
+      localStorage.setItem('admin_user', JSON.stringify(buildAdminUser(id, undefined, agent.name)))
+      router.push('/admin/consultation/history')
+    } catch {
+      setError('로그인에 실패했습니다. 아이디·비밀번호를 확인하세요.')
       setLoading(false)
     }
   }

@@ -20,6 +20,18 @@ import {
   executeChatbotTransfer,
   sendChatbotMessage,
   startChatbotConsultation,
+  agentLogin,
+  getAgentQueue,
+  connectAgent,
+  sendChatMessage as sendAgentChatMessage,
+  getChatMessages as getAgentChatMessages,
+  endChat as endAgentChat,
+  requestAgentChat,
+  getChatConsultation,
+  type AgentLoginResponse,
+  type AgentQueueItem,
+  type ChatConsultation,
+  type ChatMessage as AgentChatMessage,
 } from '@/lib/consultation-api'
 import {
   getCurrentDepositCustomerId,
@@ -347,7 +359,159 @@ export default function ChatbotWidget() {
     },
   ])
 
+  // ── 상담원 모드 state ──────────────────────────────────────────────────────
+  const [agentMode, setAgentMode] = useState(false)
+  const [agentInfo, setAgentInfo] = useState<AgentLoginResponse | null>(null)
+  const [agentLoginId, setAgentLoginId] = useState('')
+  const [agentPassword, setAgentPassword] = useState('')
+  const [agentLoginErr, setAgentLoginErr] = useState('')
+  const [agentLoginLoading, setAgentLoginLoading] = useState(false)
+  const [agentQueue, setAgentQueue] = useState<AgentQueueItem[]>([])
+  const [agentQueueLoading, setAgentQueueLoading] = useState(false)
+  const [agentConsultation, setAgentConsultation] = useState<ChatConsultation | null>(null)
+  const [agentMessages, setAgentMessages] = useState<AgentChatMessage[]>([])
+  const [agentInput, setAgentInput] = useState('')
+  const [agentSending, setAgentSending] = useState(false)
+  const agentBottomRef = useRef<HTMLDivElement>(null)
+
   const hasStarted = chatbotConsultationId !== null
+
+  // ── 고객 채팅(상담사 연결) state ──────────────────────────────────────────
+  const [customerChatId, setCustomerChatIdState] = useState<number | null>(null)
+  const [customerChatStatus, setCustomerChatStatusState] = useState<'WAITING' | 'CONNECTED' | 'ENDED' | null>(null)
+
+  const setCustomerChatId = (id: number | null) => {
+    setCustomerChatIdState(id)
+    if (id == null) sessionStorage.removeItem('customerChatId')
+    else sessionStorage.setItem('customerChatId', String(id))
+  }
+  const setCustomerChatStatus = (s: 'WAITING' | 'CONNECTED' | 'ENDED' | null) => {
+    setCustomerChatStatusState(s)
+    if (s == null) sessionStorage.removeItem('customerChatStatus')
+    else sessionStorage.setItem('customerChatStatus', s)
+  }
+  const [customerChatMessages, setCustomerChatMessages] = useState<AgentChatMessage[]>([])
+  const [customerChatInput, setCustomerChatInput] = useState('')
+  const [customerChatSending, setCustomerChatSending] = useState(false)
+  const [satisfactionScore, setSatisfactionScore] = useState<number | null>(null)
+  const [satisfactionSubmitted, setSatisfactionSubmitted] = useState(false)
+  const customerChatBottomRef = useRef<HTMLDivElement>(null)
+
+  // ── 상담원 모드 함수 ──────────────────────────────────────────────────────
+  async function handleAgentLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setAgentLoginErr('')
+    setAgentLoginLoading(true)
+    try {
+      const info = await agentLogin(agentLoginId.trim(), agentPassword.trim())
+      setAgentInfo(info)
+    } catch (err: unknown) {
+      const e = err as { response?: { status?: number; data?: { detail?: string } }; message?: string }
+      if (e?.response?.status === 401) {
+        setAgentLoginErr('아이디 또는 비밀번호가 올바르지 않습니다.')
+      } else {
+        setAgentLoginErr(`오류: ${e?.response?.data?.detail ?? e?.message ?? String(err)}`)
+      }
+    } finally {
+      setAgentLoginLoading(false)
+    }
+  }
+
+  async function loadAgentQueue() {
+    setAgentQueueLoading(true)
+    try { setAgentQueue(await getAgentQueue()) } catch { /* ignore */ } finally { setAgentQueueLoading(false) }
+  }
+
+  async function handleAgentAccept(item: AgentQueueItem) {
+    if (!agentInfo) return
+    try {
+      const chat = await connectAgent(item.chat_consultation_id, agentInfo.employee_id)
+      setAgentConsultation(chat)
+      setAgentMessages(await getAgentChatMessages(chat.chat_consultation_id))
+    } catch { /* ignore */ }
+  }
+
+  async function handleAgentSend() {
+    if (!agentInput.trim() || !agentConsultation) return
+    setAgentSending(true)
+    try {
+      const msg = await sendAgentChatMessage(agentConsultation.chat_consultation_id, agentInput.trim(), 'AGENT')
+      setAgentMessages(prev => [...prev, msg])
+      setAgentInput('')
+    } catch { /* ignore */ } finally { setAgentSending(false) }
+  }
+
+  async function handleAgentEnd() {
+    if (!agentConsultation) return
+    const updated = await endAgentChat(agentConsultation.chat_consultation_id)
+    setAgentConsultation(updated)
+  }
+
+  useEffect(() => {
+    if (!agentInfo || !agentMode) return
+    loadAgentQueue()
+    const id = setInterval(loadAgentQueue, 5000)
+    return () => clearInterval(id)
+  }, [agentInfo, agentMode])
+
+  // sessionStorage에서 고객 채팅 상태 복원
+  useEffect(() => {
+    const savedId = sessionStorage.getItem('customerChatId')
+    const savedStatus = sessionStorage.getItem('customerChatStatus')
+    if (savedId && savedStatus && savedStatus !== 'ENDED') {
+      setCustomerChatIdState(Number(savedId))
+      setCustomerChatStatusState(savedStatus as 'WAITING' | 'CONNECTED')
+    }
+  }, [])
+
+  // 새 채팅 시작 시 만족도 상태 초기화
+  useEffect(() => {
+    setSatisfactionSubmitted(false)
+    setSatisfactionScore(null)
+  }, [customerChatId])
+
+  useEffect(() => {
+    if (!agentConsultation || agentConsultation.status === 'ENDED') return
+    const id = setInterval(async () => {
+      try { setAgentMessages(await getAgentChatMessages(agentConsultation.chat_consultation_id)) } catch { /* ignore */ }
+    }, 3000)
+    return () => clearInterval(id)
+  }, [agentConsultation])
+
+  useEffect(() => {
+    agentBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [agentMessages])
+
+  // 고객 채팅 폴링: WAITING → CONNECTED 감지 + 메시지 갱신
+  useEffect(() => {
+    if (!customerChatId || customerChatStatus === 'ENDED') return
+    const poll = async () => {
+      try {
+        const chat = await getChatConsultation(customerChatId)
+        setCustomerChatStatus(chat.status)
+        if (chat.status === 'CONNECTED' || chat.status === 'ENDED') {
+          setCustomerChatMessages(await getAgentChatMessages(customerChatId))
+        }
+      } catch { /* ignore */ }
+    }
+    poll()
+    const id = setInterval(poll, 3000)
+    return () => clearInterval(id)
+  }, [customerChatId, customerChatStatus])
+
+  useEffect(() => {
+    customerChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [customerChatMessages])
+
+  async function handleCustomerChatSend() {
+    if (!customerChatInput.trim() || !customerChatId || customerChatStatus !== 'CONNECTED') return
+    setCustomerChatSending(true)
+    try {
+      const msg = await sendAgentChatMessage(customerChatId, customerChatInput.trim(), 'USER')
+      setCustomerChatMessages(prev => [...prev, msg])
+      setCustomerChatInput('')
+    } catch { /* ignore */ } finally { setCustomerChatSending(false) }
+  }
 
   const quickActions = useMemo(
     () => [
@@ -1599,7 +1763,36 @@ export default function ChatbotWidget() {
     }
 
     if (action.type === 'consult') {
-      setShowConsult(true)
+      if (!isLoggedIn) {
+        setMessages([{ id: messageId('auth'), role: 'bot', text: '상담원 연결은 로그인 후 이용하실 수 있습니다.', loginForm: true }])
+        return
+      }
+      const rawCno = localStorage.getItem('customerNo') || customerNo.trim() || getCurrentDepositCustomerId()
+      // customerId(숫자)가 들어온 경우 customerNo 형식으로 변환
+      const cno = rawCno && /^\d+$/.test(rawCno)
+        ? `CUST${String(rawCno).padStart(3, '0')}`
+        : rawCno
+      if (!cno) {
+        setMessages([{ id: messageId('auth'), role: 'bot', text: '상담원 연결은 로그인 후 이용하실 수 있습니다.', loginForm: true }])
+        return
+      }
+      setLoading(true)
+      pushMessages([{ id: messageId('user'), role: 'user', text: '상담원 연결' }])
+      try {
+        const result = await requestAgentChat(cno)
+        setCustomerChatId(result.chat_consultation_id)
+        setCustomerChatStatus('WAITING')
+        setCustomerChatMessages([])
+        pushMessages([{
+          id: messageId('bot'),
+          role: 'bot',
+          text: `상담원 연결 요청이 접수되었습니다.\n상담원이 연결되면 채팅 창이 열립니다. 잠시만 기다려 주세요.`,
+        }])
+      } catch {
+        pushMessages([{ id: messageId('bot'), role: 'bot', text: '상담원 연결 요청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.' }])
+      } finally {
+        setLoading(false)
+      }
       return
     }
     if (action.type === 'recommend') {
@@ -1922,7 +2115,23 @@ export default function ChatbotWidget() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {isLoggedIn && (
+                {/* 관리자 페이지 진입 */}
+                <a
+                  href="/admin/login"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="flex h-8 items-center gap-1 rounded-full px-2 text-[11px] font-bold hover:bg-white/15 text-white/80 transition flex-shrink-0"
+                >
+                  관리자
+                </a>
+                {/* 상담원 페이지 진입 */}
+                <a
+                  href="/admin/consultation/chat"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="flex h-8 items-center gap-1 rounded-full px-2 text-[11px] font-bold hover:bg-white/15 text-white/80 transition flex-shrink-0"
+                >
+                  상담원
+                </a>
+                {isLoggedIn && !agentMode && (
                   <button
                     type="button"
                     onPointerDown={(e) => e.stopPropagation()}
@@ -1959,8 +2168,212 @@ export default function ChatbotWidget() {
               </div>
             </header>
 
+            {/* ── 상담원 모드 패널 ─────────────────────────────────────── */}
+            {agentMode && (<>
+              {!agentInfo ? (
+                /* 상담원 로그인 폼 */
+                <div className="flex flex-1 items-center justify-center p-6">
+                  <form onSubmit={handleAgentLogin} className="w-full max-w-xs space-y-3">
+                    <div className="mb-4 text-center">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#2D6A4F]/10 mb-2">
+                        <ArrowLeftRight className="h-5 w-5 text-[#2D6A4F]" />
+                      </div>
+                      <p className="text-sm font-bold text-gray-800">상담원 로그인</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">테스트: agent01 / 1234</p>
+                    </div>
+                    <input
+                      type="text"
+                      value={agentLoginId}
+                      onChange={e => setAgentLoginId(e.target.value)}
+                      placeholder="아이디"
+                      required
+                      className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F]"
+                    />
+                    <input
+                      type="password"
+                      value={agentPassword}
+                      onChange={e => setAgentPassword(e.target.value)}
+                      placeholder="비밀번호"
+                      required
+                      onKeyDown={e => e.key === 'Enter' && handleAgentLogin(e as unknown as React.FormEvent)}
+                      className="w-full rounded border border-kb-border px-3 py-2 text-sm outline-none focus:border-[#2D6A4F]"
+                    />
+                    {agentLoginErr && <p className="text-[11px] text-red-500">{agentLoginErr}</p>}
+                    <button
+                      type="submit"
+                      disabled={agentLoginLoading}
+                      className="w-full rounded bg-[#2D6A4F] py-2 text-sm font-bold text-white hover:bg-[#24563F] disabled:opacity-60"
+                    >
+                      {agentLoginLoading ? '로그인 중…' : '로그인'}
+                    </button>
+                  </form>
+                </div>
+              ) : agentConsultation ? (
+                /* 활성 상담 채팅 */
+                <>
+                  <div className="flex items-center justify-between border-b border-kb-border px-4 py-2 bg-[#EAF4EF]">
+                    <button onClick={() => { setAgentConsultation(null); setAgentMessages([]) }} className="text-[11px] text-[#2D6A4F] hover:underline">← 목록</button>
+                    <span className="text-xs font-bold text-gray-700">{agentConsultation.consultation_id ? `상담 #${agentConsultation.chat_consultation_id}` : ''}</span>
+                    {agentConsultation.status !== 'ENDED' && (
+                      <button onClick={handleAgentEnd} className="text-[11px] text-red-500 hover:underline border border-red-300 rounded px-2 py-0.5">종료</button>
+                    )}
+                    {agentConsultation.status === 'ENDED' && <span className="text-[11px] text-gray-400">종료됨</span>}
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+                    {agentMessages.map(m => {
+                      const isAgent = m.sender_type === 'AGENT'
+                      return (
+                        <div key={m.message_id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}>
+                          {!isAgent && <span className="mr-1 mt-1 text-[9px] text-gray-400 self-start">{m.sender_type === 'BOT' ? 'BOT' : '고객'}</span>}
+                          <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${isAgent ? 'bg-[#2D6A4F] text-white rounded-br-sm' : 'bg-white border border-kb-border text-gray-800 rounded-bl-sm'}`}>
+                            {m.message}
+                            <div className={`text-[9px] mt-0.5 ${isAgent ? 'text-white/60' : 'text-gray-400'}`}>{m.sent_at ? m.sent_at.slice(11, 16) : ''}</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div ref={agentBottomRef} />
+                  </div>
+                  <div className="border-t border-kb-border px-3 py-2 flex gap-2">
+                    <input
+                      value={agentInput}
+                      onChange={e => setAgentInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAgentSend() } }}
+                      disabled={agentConsultation.status === 'ENDED' || agentSending}
+                      placeholder={agentConsultation.status === 'ENDED' ? '상담 종료됨' : '메시지 입력 (Enter 전송)'}
+                      className="flex-1 h-9 rounded border border-kb-border px-2 text-xs outline-none focus:border-[#2D6A4F] disabled:bg-gray-50"
+                    />
+                    <button
+                      onClick={handleAgentSend}
+                      disabled={agentConsultation.status === 'ENDED' || agentSending || !agentInput.trim()}
+                      className="h-9 px-3 rounded bg-[#2D6A4F] text-white text-xs disabled:opacity-40"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* 대기 목록 */
+                <>
+                  <div className="flex items-center justify-between border-b border-kb-border px-4 py-2 bg-[#EAF4EF]">
+                    <span className="text-xs font-bold text-gray-700">{agentInfo.name} <span className="text-[10px] text-gray-400">({agentInfo.role})</span></span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={loadAgentQueue} disabled={agentQueueLoading} className="text-[11px] text-[#2D6A4F] hover:underline disabled:opacity-40">{agentQueueLoading ? '…' : '새로고침'}</button>
+                      <button onClick={() => { setAgentInfo(null); setAgentLoginId(''); setAgentPassword('') }} className="text-[11px] text-gray-400 hover:text-red-500">로그아웃</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    {agentQueue.length === 0 && !agentQueueLoading && (
+                      <p className="px-4 py-8 text-center text-xs text-gray-400">대기 중인 상담이 없습니다.</p>
+                    )}
+                    {agentQueue.map(item => (
+                      <div key={item.chat_consultation_id} className="flex items-center justify-between px-4 py-3 border-b border-kb-border hover:bg-[#F7F5EF]">
+                        <div>
+                          <p className="text-[13px] font-medium text-gray-800">{item.customer_no}</p>
+                          <p className="text-[10px] text-gray-400">대기 #{item.chat_consultation_id}</p>
+                        </div>
+                        <button
+                          onClick={() => handleAgentAccept(item)}
+                          className="text-xs bg-[#2D6A4F] text-white px-3 py-1.5 rounded hover:bg-[#24563F]"
+                        >
+                          수락
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>)}
 
-            {transferState ? (<>
+            {/* ── 고객 상담사 채팅 패널 ─────────────────────────────── */}
+            {!agentMode && customerChatId && customerChatStatus !== null && (<>
+              <div className="flex items-center justify-between border-b border-kb-border px-4 py-2 bg-[#EAF4EF]">
+                <span className="text-xs font-bold text-[#2D6A4F]">
+                  {customerChatStatus === 'WAITING' ? '⏳ 상담원 연결 대기 중...' : customerChatStatus === 'CONNECTED' ? '✅ 상담원 연결됨' : '상담 종료'}
+                </span>
+                {customerChatStatus === 'ENDED' && (
+                  <button onClick={() => { setCustomerChatId(null); setCustomerChatStatus(null); setCustomerChatMessages([]); setSatisfactionScore(null); setSatisfactionSubmitted(false) }} className="text-[11px] text-gray-400 hover:underline">닫기</button>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+                {customerChatStatus === 'WAITING' && (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-xs text-gray-400">상담원이 곧 연결됩니다...</p>
+                  </div>
+                )}
+                {customerChatMessages.map(m => {
+                  const isUser = m.sender_type === 'USER'
+                  return (
+                    <div key={m.message_id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                      {!isUser && <span className="mr-1 mt-1 text-[9px] text-gray-400 self-start">{m.sender_type === 'BOT' ? 'BOT' : '상담원'}</span>}
+                      <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${isUser ? 'bg-[#2D6A4F] text-white rounded-br-sm' : 'bg-white border border-kb-border text-gray-800 rounded-bl-sm'}`}>
+                        {m.message}
+                        <div className={`text-[9px] mt-0.5 ${isUser ? 'text-white/60' : 'text-gray-400'}`}>{m.sent_at ? m.sent_at.slice(11, 16) : ''}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div ref={customerChatBottomRef} />
+
+                {/* 상담 종료 후 만족도 평가 */}
+                {customerChatStatus === 'ENDED' && (
+                  <div className="mt-3 mx-1 rounded-xl border border-kb-border bg-[#F8FFFE] px-4 py-3 text-center">
+                    {satisfactionSubmitted ? (
+                      <p className="text-xs text-[#2D6A4F] font-medium">⭐ 소중한 평가 감사합니다!</p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-600 mb-2 font-medium">상담은 어떠셨나요?</p>
+                        <div className="flex justify-center gap-1 mb-3">
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <button
+                              key={s}
+                              onClick={() => setSatisfactionScore(s)}
+                              className={`text-2xl transition-transform hover:scale-110 ${satisfactionScore && satisfactionScore >= s ? 'text-amber-400' : 'text-gray-300'}`}
+                            >★</button>
+                          ))}
+                        </div>
+                        <button
+                          disabled={!satisfactionScore}
+                          onClick={async () => {
+                            if (!customerChatId || !satisfactionScore) return
+                            try {
+                              await endAgentChat(customerChatId, satisfactionScore)
+                              setSatisfactionSubmitted(true)
+                            } catch {
+                              // 실패 시 다시 시도할 수 있도록 그냥 넘김
+                            }
+                          }}
+                          className="px-4 py-1.5 text-xs font-medium rounded-full bg-[#2D6A4F] text-white disabled:opacity-30 hover:opacity-90"
+                        >
+                          평가 제출
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              {customerChatStatus === 'CONNECTED' && (
+                <div className="border-t border-kb-border px-3 py-2 flex gap-2">
+                  <input
+                    value={customerChatInput}
+                    onChange={e => setCustomerChatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCustomerChatSend() } }}
+                    disabled={customerChatSending}
+                    placeholder="메시지 입력 (Enter 전송)"
+                    className="flex-1 h-9 rounded border border-kb-border px-2 text-xs outline-none focus:border-[#2D6A4F]"
+                  />
+                  <button
+                    onClick={handleCustomerChatSend}
+                    disabled={customerChatSending || !customerChatInput.trim()}
+                    className="h-9 px-3 rounded bg-[#2D6A4F] text-white text-xs disabled:opacity-40"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </>)}
+
+            {!agentMode && customerChatStatus !== 'CONNECTED' && (transferState ? (<>
                 <div className="flex items-center justify-between border-b border-kb-border bg-white px-4 py-3">
                   <button
                     type="button"
@@ -3207,7 +3620,7 @@ export default function ChatbotWidget() {
                 </button>
               </form>
             </div>
-            </>)}
+            </>))}
 
           </section>
 
@@ -3219,7 +3632,7 @@ export default function ChatbotWidget() {
   return (
     <>
       {showConsult && <ConsultModal onClose={() => setShowConsult(false)} />}
-      <button
+<button
         type="button"
         onClick={() => {
           setPanelOffset({ x: 0, y: 0 })
@@ -3237,7 +3650,7 @@ export default function ChatbotWidget() {
 }
 
 function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
-  const [tab, setTab] = useState<'cert' | 'id'>('cert')
+  const [tab, setTab] = useState<'cert' | 'id'>('id')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -3271,6 +3684,7 @@ function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
         localStorage.setItem('accessToken', data.access_token)
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('customerId', String(data.user.customer_id))
+        localStorage.setItem('customerNo', data.user.customerNo || data.user.customer_no || '')
         localStorage.setItem('user', JSON.stringify(data.user))
         onSuccess()
       } else {
@@ -3288,20 +3702,21 @@ function InlineLoginForm({ onSuccess }: { onSuccess: () => void }) {
     setError('')
     setLoading(true)
     try {
-      const { data } = await api.post('/api/v1/auth/login', { loginId, password })
-      localStorage.setItem('accessToken', data.data.accessToken)
-      localStorage.setItem('access_token', data.data.accessToken)
-      localStorage.setItem('customerId', String(data.data.customerId))
-      try {
-        const me = await api.get('/api/v1/customers/me')
-        localStorage.setItem('user', JSON.stringify({ name: me.data.data.name, customerId: data.data.customerId }))
-      } catch {
-        localStorage.setItem('user', JSON.stringify({ customerId: data.data.customerId }))
-      }
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ loginId, password }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.message ?? '로그인에 실패했습니다.'); return }
+      const d = json.data
+      localStorage.setItem('accessToken', d.accessToken)
+      localStorage.setItem('access_token', d.accessToken)
+      localStorage.setItem('customerId', String(d.customerId))
+      localStorage.setItem('user', JSON.stringify({ name: d.name, customerId: d.customerId }))
       onSuccess()
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } } }
-      setError(e.response?.data?.message ?? '로그인에 실패했습니다.')
+    } catch {
+      setError('네트워크 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }

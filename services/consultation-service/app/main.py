@@ -32,7 +32,12 @@ from app.metrics import (
 )
 from app.schemas import (
     AgentConnectRequest,
+    AgentLoginRequest,
+    AgentLoginResponse,
     AgentQueueResponse,
+    ChatHistoryItem,
+    ChatRequestResponse,
+    ChatRequestSchema,
     ChatbotCategoryResponse,
     ChatbotFeatureExecuteRequest,
     ChatbotFeatureExecuteResponse,
@@ -61,7 +66,7 @@ from app.services import (
     _SENDER_LABEL,
 )
 from app.llm import OpenAIDocumentAnalyzer
-from app.models import ChatbotDocument
+from app.models import ChatbotDocument, Employee
 from app.rag import OpenAIEmbeddingProvider, ProductRagEngine
 
 logger = logging.getLogger(__name__)
@@ -271,6 +276,106 @@ def health() -> dict[str, str]:
     return {"status": "UP"}
 
 
+# ── 상담사 인증 ──────────────────────────────────────────────────────────────
+
+@app.post(
+    "/auth/agent/login",
+    response_model=AgentLoginResponse,
+    summary="상담사 로그인",
+    description="login_id + password 로 상담사 인증을 수행합니다.",
+)
+def agent_login(
+    request: AgentLoginRequest,
+    db: Session = Depends(get_db),
+) -> AgentLoginResponse:
+    import bcrypt as _bcrypt
+    from sqlalchemy import select
+
+    employee = db.scalars(
+        select(Employee)
+        .where(Employee.login_id == request.login_id)
+        .where(Employee.status == "ACTIVE")
+    ).first()
+
+    if not employee or not _bcrypt.checkpw(request.password.encode(), employee.password_hash.encode()):
+        raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
+
+    return AgentLoginResponse(
+        employee_id=employee.employee_id,
+        login_id=employee.login_id,
+        name=employee.name,
+        role=employee.role,
+    )
+
+
+# ── 상담원 계정 관리 ──────────────────────────────────────────────────────────
+
+from app.models import Employee as _Employee
+from sqlalchemy import select as _select
+
+@app.get("/agents", summary="상담원 목록 조회")
+def list_agents(db: Session = Depends(get_db)) -> list[dict]:
+    rows = db.scalars(_select(_Employee).order_by(_Employee.employee_id)).all()
+    return [
+        {
+            "employee_id": r.employee_id,
+            "login_id": r.login_id,
+            "name": r.name,
+            "role": r.role,
+            "status": r.status,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
+
+
+@app.post("/agents", status_code=201, summary="상담원 계정 생성")
+def create_agent(body: dict, db: Session = Depends(get_db)) -> dict:
+    import bcrypt as _bcrypt2
+    if db.scalars(_select(_Employee).where(_Employee.login_id == body["login_id"])).first():
+        raise HTTPException(status_code=409, detail="이미 존재하는 login_id입니다.")
+    pw_hash = _bcrypt2.hashpw(body["password"].encode(), _bcrypt2.gensalt()).decode()
+    emp = _Employee(
+        login_id=body["login_id"],
+        password_hash=pw_hash,
+        name=body["name"],
+        role=body.get("role", "AGENT"),
+        status="ACTIVE",
+    )
+    db.add(emp)
+    db.commit()
+    db.refresh(emp)
+    return {"employee_id": emp.employee_id, "login_id": emp.login_id, "name": emp.name, "role": emp.role, "status": emp.status}
+
+
+@app.patch("/agents/{employee_id}", summary="상담원 정보/비밀번호 수정")
+def update_agent(employee_id: int, body: dict, db: Session = Depends(get_db)) -> dict:
+    import bcrypt as _bcrypt2
+    emp = db.get(_Employee, employee_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="상담원을 찾을 수 없습니다.")
+    if "name" in body:
+        emp.name = body["name"]
+    if "role" in body:
+        emp.role = body["role"]
+    if "status" in body:
+        emp.status = body["status"]
+    if "password" in body and body["password"]:
+        emp.password_hash = _bcrypt2.hashpw(body["password"].encode(), _bcrypt2.gensalt()).decode()
+    db.commit()
+    db.refresh(emp)
+    return {"employee_id": emp.employee_id, "login_id": emp.login_id, "name": emp.name, "role": emp.role, "status": emp.status}
+
+
+@app.delete("/agents/{employee_id}", status_code=204, summary="상담원 계정 비활성화")
+def deactivate_agent(employee_id: int, db: Session = Depends(get_db)) -> None:
+    emp = db.get(_Employee, employee_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="상담원을 찾을 수 없습니다.")
+    emp.status = "INACTIVE"
+    db.commit()
+
+
 @app.get("/chat")
 def chat_page() -> FileResponse:
     index = static_dir / "index.html"
@@ -392,6 +497,39 @@ def _to_chat_response(chat) -> ChatConsultationResponse:
 
 
 @app.get(
+    "/chat/history",
+    response_model=list[ChatHistoryItem],
+    summary="상담 이력 조회",
+    description="종료/진행 중인 채팅 상담 이력을 반환합니다.",
+)
+def get_chat_history(
+    limit: int = 50,
+    customer_no: str | None = None,
+    service: ChatService = Depends(get_chat_service),
+) -> list[ChatHistoryItem]:
+    return service.get_history(limit=limit, customer_no=customer_no)
+
+
+@app.post(
+    "/chat/request",
+    response_model=ChatRequestResponse,
+    summary="고객 상담사 연결 요청",
+    description="고객이 상담사와의 실시간 채팅을 요청합니다. WAITING 상태의 ChatConsultation을 생성합니다.",
+)
+def request_agent_chat(
+    request: ChatRequestSchema,
+    service: ChatService = Depends(get_chat_service),
+) -> ChatRequestResponse:
+    chat = service.request_agent_chat(request.customer_no)
+    return ChatRequestResponse(
+        chat_consultation_id=chat.chat_consultation_id,
+        consultation_id=chat.consultation_id,
+        status="WAITING",
+        agent_requested_at=chat.agent_requested_at.isoformat() if chat.agent_requested_at else None,
+    )
+
+
+@app.get(
     "/chat/queue",
     response_model=list[AgentQueueResponse],
     summary="상담사 대기열 조회",
@@ -399,6 +537,22 @@ def _to_chat_response(chat) -> ChatConsultationResponse:
 )
 def get_agent_queue(service: ChatService = Depends(get_chat_service)) -> list[AgentQueueResponse]:
     return service.get_waiting_queue()
+
+
+@app.get(
+    "/chat/consultations/{chat_consultation_id}",
+    response_model=ChatConsultationResponse,
+    summary="채팅 상담 상태 조회",
+)
+def get_chat_consultation(
+    chat_consultation_id: int,
+    service: ChatService = Depends(get_chat_service),
+) -> ChatConsultationResponse:
+    try:
+        chat = service.get_consultation(chat_consultation_id)
+        return _to_chat_response(chat)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.post(

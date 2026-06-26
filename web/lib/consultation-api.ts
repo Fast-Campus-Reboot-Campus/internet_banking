@@ -112,6 +112,11 @@ export type ChatConsultation = {
   satisfaction_score: number | null
 }
 
+export async function getChatConsultation(chatConsultationId: number): Promise<ChatConsultation> {
+  const { data } = await consultationApi.get<ChatConsultation>(`/chat/consultations/${chatConsultationId}`)
+  return data
+}
+
 export async function getAgentQueue(): Promise<AgentQueueItem[]> {
   const { data } = await consultationApi.get<AgentQueueItem[]>('/chat/queue')
   return data
@@ -166,11 +171,95 @@ export async function executeChatbotTransfer(payload: {
   return data
 }
 
+// ── 상담사 인증 ──────────────────────────────────────────────────────────────
+
+export type AgentLoginResponse = {
+  employee_id: number
+  login_id: string
+  name: string
+  role: string
+}
+
+export async function agentLogin(loginId: string, password: string): Promise<AgentLoginResponse> {
+  const { data } = await consultationApi.post<AgentLoginResponse>('/auth/agent/login', {
+    login_id: loginId,
+    password,
+  })
+  return data
+}
+
+export type ChatRequestResult = {
+  chat_consultation_id: number
+  consultation_id: number
+  status: string
+  agent_requested_at: string | null
+}
+
+export async function requestAgentChat(customerNo: string): Promise<ChatRequestResult> {
+  const { data } = await consultationApi.post<ChatRequestResult>('/chat/request', {
+    customer_no: customerNo,
+  })
+  return data
+}
+
 export async function endChat(chatConsultationId: number, satisfactionScore?: number): Promise<ChatConsultation> {
   const { data } = await consultationApi.post<ChatConsultation>(
     `/chat/consultations/${chatConsultationId}/end`,
     { satisfaction_score: satisfactionScore ?? null },
   )
+  return data
+}
+
+// ── 상담원 계정 관리 ────────────────────────────────────────────────────────────
+
+export type AgentAccount = {
+  employee_id: number
+  login_id: string
+  name: string
+  role: string
+  status: string
+  created_at: string | null
+}
+
+export async function listAgents(): Promise<AgentAccount[]> {
+  const { data } = await consultationApi.get<AgentAccount[]>('/agents')
+  return data
+}
+
+export async function createAgent(payload: { login_id: string; password: string; name: string; role: string }): Promise<AgentAccount> {
+  const { data } = await consultationApi.post<AgentAccount>('/agents', payload)
+  return data
+}
+
+export async function updateAgent(employeeId: number, payload: { name?: string; role?: string; status?: string; password?: string }): Promise<AgentAccount> {
+  const { data } = await consultationApi.patch<AgentAccount>(`/agents/${employeeId}`, payload)
+  return data
+}
+
+export async function deactivateAgent(employeeId: number): Promise<void> {
+  await consultationApi.delete(`/agents/${employeeId}`)
+}
+
+// ── 상담 이력 조회 ──────────────────────────────────────────────────────────────
+
+export type ChatHistoryItem = {
+  chat_consultation_id: number
+  consultation_id: number
+  customer_no: string
+  employee_id: number | null
+  status: string
+  agent_requested_at: string | null
+  agent_connected_at: string | null
+  chat_ended_at: string | null
+  satisfaction_score: number | null
+  message_count: number
+}
+
+export async function getChatHistory(params?: { limit?: number; customer_no?: string }): Promise<ChatHistoryItem[]> {
+  const query = new URLSearchParams()
+  if (params?.limit) query.set('limit', String(params.limit))
+  if (params?.customer_no) query.set('customer_no', params.customer_no)
+  const { data } = await consultationApi.get<ChatHistoryItem[]>(`/chat/history?${query}`)
   return data
 }
 
