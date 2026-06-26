@@ -6,11 +6,9 @@ const MOCK_CUSTOMERS = [
   { loginId: 'user03', password: 'Test1234', customerId: 3, customerNo: 'CUST003', name: '박고객' },
 ]
 
-const MOCK_EMPLOYEES = [
-  { loginId: 'super01', password: '1234', name: 'super01', roles: ['ROLE_ADMIN'] },
-  { loginId: 'agent01', password: '1234', name: 'agent01', roles: ['ROLE_TELLER'] },
-  { loginId: 'agent02', password: '1234', name: 'agent02', roles: ['ROLE_TELLER'] },
-]
+// 상담 서비스 계정(agent01·agent02·super01·admin01)은 consultation-service /auth/agent/login 에서 인증
+// 이 mock은 은행 어드민 콘솔 데모 전용이며 운영 배포 전 customer-service JWT 인증으로 교체 필요
+const MOCK_EMPLOYEES: { loginId: string; password: string; name: string; roles: string[] }[] = []
 
 export async function POST(req: NextRequest) {
   const { loginId, password } = await req.json()

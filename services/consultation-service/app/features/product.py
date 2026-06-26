@@ -41,12 +41,14 @@ class ProductFeatureExecutor(FeatureExecutorBase):
         elif has_청약 and not has_예금 and not has_적금:
             type_filter, exclude_demand = "SUBSCRIPTION", False
 
-        # 값이 내부 상수에서만 나오므로 f-string 직접 임베드 (SQL 인젝션 위험 없음)
         extra_where = ""
+        extra_params: dict[str, Any] = {}
         if type_filter:
-            extra_where += f" AND p.deposit_product_type = '{type_filter}'"
+            extra_where += " AND p.deposit_product_type = :type_filter"
+            extra_params["type_filter"] = type_filter
         if subtype_filter:
-            extra_where += f" AND bdp.deposit_type = '{subtype_filter}'"
+            extra_where += " AND bdp.deposit_type = :subtype_filter"
+            extra_params["subtype_filter"] = subtype_filter
         elif exclude_demand:
             extra_where += " AND bdp.deposit_type IS DISTINCT FROM 'DEMAND'"
 
@@ -67,8 +69,7 @@ class ProductFeatureExecutor(FeatureExecutorBase):
             " AND p.deposit_product_name NOT LIKE '%군무원%'"
         )
 
-        rows = self._rows(
-            f"""
+        sql = """
             SELECT p.banking_product_id        AS product_id,
                    p.deposit_product_name      AS product_name,
                    p.deposit_product_type      AS product_type,
@@ -103,7 +104,7 @@ class ProductFeatureExecutor(FeatureExecutorBase):
                     GROUP BY banking_product_id
               ) rate_sum ON rate_sum.banking_product_id = p.banking_product_id
              WHERE p.deposit_product_status = 'SELLING'
-                   {extra_where}
+        """ + extra_where + """
              GROUP BY p.banking_product_id, p.deposit_product_name, p.deposit_product_type,
                       p.description, p.base_interest_rate, p.min_period_month, p.max_period_month,
                       p.min_join_amount, p.max_join_amount, p.is_early_termination_allowed,
@@ -111,8 +112,8 @@ class ProductFeatureExecutor(FeatureExecutorBase):
                       rate_sum.max_rate
              ORDER BY COALESCE(rate_sum.max_rate, p.base_interest_rate) DESC NULLS LAST
              LIMIT 20
-            """,
-        )
+        """
+        rows = self._rows(sql, extra_params or None)
 
         _LABEL = {"DEPOSIT": "예금", "SAVINGS": "적금", "SUBSCRIPTION": "청약"}
         label = _LABEL.get(type_filter or "", "수신 상품")
