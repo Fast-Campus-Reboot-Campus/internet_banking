@@ -277,6 +277,7 @@ services:
       REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       CRYPTO_KEY_BASE64: ${CRYPTO_KEY_BASE64:-aW50ZXJuZXQtYmFuay1kZXYta2V5LTMyYnl0ZXMhISE=}
+      AUTO_REVIEW_BASE_URL: http://auto-loan-review:8089
       LOG_DIR: /app/logs
     volumes:
       - /app/logs:/app/logs
@@ -310,9 +311,13 @@ services:
       PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
       PAYMENT_DB_USER: ${PAYMENT_DB_USER:-payment}
       PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment}
-      KFTC_KAFKA_BOOTSTRAP: kafka:29092
-      BOK_KAFKA_BOOTSTRAP: kafka:29092
-      INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
+      KFTC_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
+      BOK_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
+      INTERNAL_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
+      BANK_CODE: "A"
+      KFTC_CONSUMER_GROUP: payment-kftc-a
+      BOK_CONSUMER_GROUP: payment-bok-a
+      INTERNAL_CONSUMER_GROUP: payment-internal-a
       SPRING_KAFKA_LISTENER_MISSING_TOPICS_FATAL: "false"
       LOG_DIR: /app/logs
       DEPOSIT_ACCOUNT_URL: http://deposit-service:${DEPOSIT_APP_PORT:-8082}
@@ -434,6 +439,11 @@ services:
       AI_LLM_MODEL: ${GEMINI_LOAN_MODEL:-stub-v1}
       GEMINI_BASE_URL: ${GEMINI_LOAN_BASE_URL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LANGFUSE_ENABLED: "true"
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_HOST: http://langfuse:3000
+      LOAN_SERVICE_BASE_URL: http://loan-service:8083
     volumes:
       - /app/logs:/app/logs
     depends_on:
@@ -499,9 +509,9 @@ services:
       PAYMENT_DB_NAME: payment_b
       PAYMENT_DB_USER: payment
       PAYMENT_DB_PASSWORD: payment
-      KFTC_KAFKA_BOOTSTRAP: kafka:29092
-      BOK_KAFKA_BOOTSTRAP: kafka:29092
-      INTERNAL_KAFKA_BOOTSTRAP: kafka:29092
+      KFTC_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
+      BOK_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
+      INTERNAL_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
       KFTC_CONSUMER_GROUP: payment-kftc-b
       BOK_CONSUMER_GROUP: payment-bok-b
       INTERNAL_CONSUMER_GROUP: payment-internal-b
@@ -533,9 +543,16 @@ services:
     environment:
       CONSULTATION_DATABASE_URL: postgresql+psycopg://${DEPOSIT_DB_USER:-deposit}:${DEPOSIT_DB_PASSWORD:-deposit}@deposit-db:5432/${DEPOSIT_DB_NAME:-deposit_db}
       CONSULTATION_KAFKA_ENABLED: "false"
-      CONSULTATION_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      CONSULTATION_OPENAI_API_KEY: ${CONSULTATION_OPENAI_API_KEY:-}
       CONSULTATION_OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       ALLOWED_ORIGINS: "https://axfulbank.store,http://localhost:3000,http://localhost:3001"
+      CONSULTATION_LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-false}
+      CONSULTATION_LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      CONSULTATION_LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      CONSULTATION_LANGFUSE_HOST: http://langfuse:3000
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_HOST: http://langfuse:3000
       LOG_DIR: /logs
     volumes:
       - /app/logs:/logs
@@ -544,6 +561,30 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8087/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  goal-agent:
+    build:
+      context: services/goal-agent
+      dockerfile: Dockerfile
+    container_name: ib-goal-agent
+    ports:
+      - "8090:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${DEPOSIT_DB_USER:-deposit}:${DEPOSIT_DB_PASSWORD:-deposit}@deposit-db:5432/${DEPOSIT_DB_NAME:-deposit_db}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-false}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_HOST: http://langfuse:3000
+    depends_on:
+      deposit-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -697,6 +738,20 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: ib-node-exporter
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
 
   # =============================================================
   # Monitoring — Logging (Loki + Promtail)

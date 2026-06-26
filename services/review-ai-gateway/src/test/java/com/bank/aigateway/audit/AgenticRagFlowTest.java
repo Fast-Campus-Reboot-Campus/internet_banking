@@ -10,7 +10,6 @@ import com.bank.aigateway.llm.agentic.ToolDefinition;
 import com.bank.aigateway.observability.GatewayMetrics;
 import com.bank.aigateway.parser.AuditResponseParser;
 import com.bank.aigateway.tool.AdvisoryHttpClient;
-import com.bank.aigateway.tool.AiServiceHttpClient;
 import com.bank.aigateway.tool.ToolRegistry;
 import com.bank.aigateway.tool.executor.CohortStatsToolExecutor;
 import com.bank.aigateway.tool.executor.PolicyCitationToolExecutor;
@@ -44,20 +43,21 @@ import static org.mockito.Mockito.*;
  *   - tool executor 가 올바른 경로로 호출되었는지
  *   - AuditAnalysisResponse.citedChunkIds 에 [77, 88] 포함
  *   - AuditAnalysisResponse.conclusion == VIOLATION_SUSPECTED
+ *
+ * Path C: 모든 4 tool executor 가 advisory-service 를 직접 호출한다.
  */
 class AgenticRagFlowTest {
 
-    ObjectMapper        objectMapper    = new ObjectMapper();
-    ToolAwareLlmClient  llmClient       = mock(ToolAwareLlmClient.class);
-    AiServiceHttpClient aiServiceClient = mock(AiServiceHttpClient.class);
-    AdvisoryHttpClient  advisoryClient  = mock(AdvisoryHttpClient.class);
-    GatewayMetrics      metrics         = mock(GatewayMetrics.class);
+    ObjectMapper        objectMapper   = new ObjectMapper();
+    ToolAwareLlmClient  llmClient      = mock(ToolAwareLlmClient.class);
+    AdvisoryHttpClient  advisoryClient = mock(AdvisoryHttpClient.class);
+    GatewayMetrics      metrics        = mock(GatewayMetrics.class);
 
     AgenticAuditAnalysisService service;
 
     @BeforeEach
     void setUp() {
-        PolicyCitationToolExecutor  policyExec  = new PolicyCitationToolExecutor(aiServiceClient, objectMapper);
+        PolicyCitationToolExecutor  policyExec  = new PolicyCitationToolExecutor(advisoryClient, objectMapper);
         SimilarCasesToolExecutor    similarExec = new SimilarCasesToolExecutor(advisoryClient, objectMapper);
         ReviewerHistoryToolExecutor historyExec = new ReviewerHistoryToolExecutor(advisoryClient, objectMapper);
         CohortStatsToolExecutor     cohortExec  = new CohortStatsToolExecutor(advisoryClient, objectMapper);
@@ -81,8 +81,8 @@ class AgenticRagFlowTest {
                 .thenReturn(toolUseResponse(policyCall, 120, 60))
                 .thenReturn(endTurnWithCitations(200, 90));
 
-        // executor → ai-service mock 응답 (PolicyCitation은 AiServiceHttpClient.post)
-        when(aiServiceClient.post(eq("/rag/search"), any()))
+        // executor → advisory-service mock 응답 (Path C: 모든 tool 이 advisory 직접 호출)
+        when(advisoryClient.get(contains("/api/internal/advisory/policy-citations")))
                 .thenReturn(Optional.of("""
                         {"totalCount":2,"citations":[
                           {"chunkId":77,"docCd":"FAIR_LENDING_001","score":0.91,"chunkText":"DSR 기준"},
@@ -99,7 +99,7 @@ class AgenticRagFlowTest {
         assertThat(resp.citedChunkIds()).containsExactlyInAnyOrder(77L, 88L);
         assertThat(resp.inputTokens()).isEqualTo(320);
         assertThat(resp.outputTokens()).isEqualTo(150);
-        verify(aiServiceClient).post(eq("/rag/search"), any());
+        verify(advisoryClient).get(contains("/api/internal/advisory/policy-citations"));
     }
 
     @Test
@@ -136,8 +136,8 @@ class AgenticRagFlowTest {
                 .thenReturn(toolUseResponse(call, 80, 40))
                 .thenReturn(endTurnNoCitations(100, 50));
 
-        // ai-service 호출 실패 → executor 빈 문자열 반환
-        when(aiServiceClient.post(any(), any())).thenReturn(Optional.empty());
+        // advisory 호출 실패 → executor 빈 문자열 반환
+        when(advisoryClient.get(contains("policy-citations"))).thenReturn(Optional.empty());
 
         AuditAnalysisResponse resp = service.analyze(
                 new AuditAnalysisRequest("BIAS_DETECTION", 5003L, 303L, null, List.of(), List.of()));

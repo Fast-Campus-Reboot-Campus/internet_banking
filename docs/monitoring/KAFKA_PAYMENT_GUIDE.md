@@ -82,11 +82,14 @@ Kafka에 쌓인 미처리 메시지 수를 보여줍니다. **이 숫자가 0에
 
 ### Consumer Group 구성
 
-| 그룹 | 역할 |
-|------|------|
-| `payment-kftc` | KFTC(금융결제원)에서 온 응답 처리 |
-| `payment-bok` | BOK(한국은행)에서 온 응답 처리 |
-| `payment-internal` | 서비스 내부 이벤트 처리 |
+| 그룹 | 은행 | 역할 |
+|------|------|------|
+| `payment-kftc` | A은행 | KFTC(금융결제원)에서 온 응답 처리 |
+| `payment-bok` | A은행 | BOK(한국은행)에서 온 응답 처리 |
+| `payment-internal` | A은행 | 서비스 내부 이벤트 처리 |
+| `payment-kftc-b` | B은행 | KFTC(금융결제원)에서 온 응답 처리 |
+| `payment-bok-b` | B은행 | BOK(한국은행)에서 온 응답 처리 |
+| `payment-internal-b` | B은행 | 서비스 내부 이벤트 처리 |
 
 ### 정상 기준
 
@@ -94,7 +97,7 @@ Kafka에 쌓인 미처리 메시지 수를 보여줍니다. **이 숫자가 0에
 |------|---------|
 | 정상 | 0 ~ 10 |
 | 주의 | 10 ~ 500 |
-| 위험 | 500 이상 (알림 발생) |
+| 위험 | 500 초과 (알림 발생) |
 
 ### Lag이 증가하는 주요 원인은 무엇인가요?
 
@@ -114,6 +117,10 @@ Kafka에 쌓인 미처리 메시지 수를 보여줍니다. **이 숫자가 0에
 ### 토픽 메시지 처리율 (msg/s)
 - 초당 처리되는 메시지 수입니다.
 - **이 값이 0이면**: 이체 요청이 없거나 Outbox 워커가 멈춘 것입니다.
+
+### Consumer 처리 건수 (5분)
+- payment-service가 각 Kafka 토픽에서 5분간 소비한 메시지 수입니다. 토픽별로 구분되어 표시됩니다.
+- 메시지가 Kafka에 발행은 됐는데 이 값이 증가하지 않으면 Consumer가 멈춘 것입니다.
 
 ### Outbox 발행 성공 / 실패 (5분)
 - DB에서 Kafka로 메시지를 보낸 결과입니다.
@@ -159,7 +166,7 @@ Kafka에 쌓인 미처리 메시지 수를 보여줍니다. **이 숫자가 0에
 | 주의 | 20 ~ 100 | — |
 | 위험 | 100 초과 (5분 지속) | ⚠️ warning 알림 |
 
-> KFTC 응답 대기 최대 5분, BOK 응답 대기 최대 30초. 이 시간이 지나면 자동으로 보상 처리됩니다.
+> KFTC 응답 대기 최대 5분, BOK 응답 대기 최대 30초. 이 시간이 지나면 타임아웃이 감지되어 로그에 기록됩니다 (자동 보상 없음 — 운영자 직접 확인 필요).
 
 ### 두 지표를 함께 보는 방법
 - **두 지표가 함께 오름**: 전체 파이프라인이 막힌 것
@@ -211,19 +218,21 @@ Kafka에 쌓인 미처리 메시지 수를 보여줍니다. **이 숫자가 0에
 ## 8. 장애 / 보상 트랜잭션 화면
 
 **용어:**
-- **보상 트랜잭션** — 이체가 외부망에서 거절됐을 때 이미 출금된 금액을 다시 돌려주는 처리. 정상적인 비즈니스 흐름이지만 너무 많으면 외부망 장애 신호.
+- **보상 트랜잭션** — KFTC/BOK 거절·정산오류 또는 Kafka 발행 실패로 이미 출금된 금액을 다시 돌려주는 처리. 정상적인 비즈니스 흐름이지만 너무 많으면 외부망·인프라 장애 신호.
 - **DLQ (Dead Letter Queue)** — 여러 번 재시도했는데도 처리 실패한 메시지를 따로 모아두는 큐. 여기에 메시지가 쌓이면 즉시 확인 필요.
 
 장애 신호를 감지하는 화면입니다.
 
 ### 보상 트랜잭션 발생 (5분)
-- KFTC/BOK가 이체를 거절해서 출금을 다시 돌려준 건수입니다.
-- 보상 자체는 정상적인 비즈니스 흐름이지만, **5분간 5건을 넘으면 외부망 장애 가능성**이 있습니다.
+- KFTC/BOK 거절 또는 Kafka 발행 실패로 출금을 다시 돌려준 건수입니다.
+- 보상 자체는 정상적인 비즈니스 흐름이지만, **5분간 5건을 넘으면 외부망·인프라 장애 가능성**이 있습니다.
 
 | 표시값 | 의미 |
 |--------|------|
 | `F2_KFTC` | KFTC가 이체를 거절해서 출금 취소 처리한 건수 |
 | `F3_BOK` | BOK가 이체를 거절해서 출금 취소 처리한 건수 |
+| `F4_KFTC` | KFTC 요청 메시지 Kafka 발행 실패로 출금 취소 처리한 건수 |
+| `F4_BOK` | BOK 요청 메시지 Kafka 발행 실패로 출금 취소 처리한 건수 |
 | `F7_KFTC` | KFTC 정산 중 오류로 보상 처리한 건수 |
 | `F7_BOK` | BOK 정산 중 오류로 보상 처리한 건수 |
 
@@ -242,6 +251,11 @@ DLQ에 메시지가 쌓이는 주요 원인은 다음과 같습니다.
 - 동일한 요청이 중복으로 들어온 횟수입니다.
 - 재시도 로직으로 인한 간헐적 발생은 정상입니다.
 - 급증하면 클라이언트 오류 또는 비정상 접근을 의심해야 합니다.
+
+### KFTC 마감배치 정산 실패 (최근 24h)
+- KFTC 일일 마감배치에서 건별 격리·재시도 후에도 끝내 정산에 실패한 누적 건수입니다.
+- **정상이라면 0이어야 합니다. 1건이라도 발생하면 출금은 됐으나 KFTC 정산이 안 된 거래가 있다는 뜻으로 운영자가 직접 확인해야 합니다.**
+- 마감배치는 매일 오전 11시(KST)에 실행됩니다. 이 시각 이후에 값이 변화하며, 그 외 시간에는 변화가 없습니다.
 
 ---
 
@@ -270,13 +284,13 @@ Kafka 서버 자체의 상태를 보여줍니다.
 ## 10. 이상 징후 발생 시 확인 순서
 
 ### Consumer Lag이 계속 증가한다
-1. **Consumer Group 멤버 수** 확인 → 0이면 payment-service 재기동
+1. **Consumer Group 멤버 수** 확인 → A은행 그룹(`payment-kftc` 등)이 0이면 `ib-payment-service` 재기동, B은행 그룹(`payment-kftc-b` 등)이 0이면 `ib-payment-service-b` 재기동
 2. **미완료 거래 수** 확인 → 함께 증가하면 DB 처리 지연 가능성
 3. **DB 커넥션 풀** 확인 (Service Overview 대시보드)
-4. `docker logs payment-service-a` 로 오류 로그 확인
+4. `docker logs ib-payment-service` 또는 `docker logs ib-payment-service-b` 로 오류 로그 확인
 
 ### 이체 성공률이 갑자기 떨어졌다
-1. **보상 트랜잭션** 급증 여부 확인 — F2/F3 값 확인
+1. **보상 트랜잭션** 급증 여부 확인 — F2/F3(외부망 거절), F7(정산오류), F4(Kafka 발행 실패) 순으로 확인
 2. **DLQ 유입** 여부 확인
 3. 외부망(KFTC/BOK) 장애 가능성 → 운영팀 확인
 4. 테스트 환경이라면 Mock Responder의 SUCCESS_RATE 설정 확인
@@ -284,7 +298,7 @@ Kafka 서버 자체의 상태를 보여줍니다.
 ### Outbox가 계속 쌓인다
 1. **Outbox 발행 실패** 패널 확인 — failure 값이 있으면 Kafka 연결 문제
 2. **활성 Broker 수** 확인 → 0이면 해당 클러스터 재기동
-3. `docker logs payment-service-a` 에서 OutboxPublisher 오류 확인
+3. `docker logs ib-payment-service` 에서 OutboxPublisher 오류 확인
 
 ### DLQ에 메시지가 유입됐다
 1. DLQ 토픽 메시지 내용 확인 (`kftc.network.response.dlq` 또는 `bok.network.response.dlq`)
@@ -304,7 +318,7 @@ Kafka 서버 자체의 상태를 보여줍니다.
 
 이상 상황이 되면 자동으로 감지하는 규칙입니다. 알림 상태는 `http://localhost:9090/alerts` 에서 확인할 수 있습니다.
 
-> Slack 알림 연동은 실제 배포 환경 구성 시 추가 예정입니다. 현재는 Prometheus UI에서만 확인 가능합니다.
+> Slack 알림은 `infra/alertmanager/alertmanager.yml` 설정 완료 시 자동으로 발송됩니다. 초기 설정 방법은 통합 모니터링 가이드(`UNIFIED_MONITORING_GUIDE.md`)를 참고하세요.
 
 | 알림 이름 | 조건 | 언제 발동 | 심각도 |
 |-----------|------|----------|--------|
@@ -325,31 +339,17 @@ Kafka 서버 자체의 상태를 보여줍니다.
 
 알림이 실제로 잘 동작하는지 확인하고 싶을 때 사용합니다.
 
+1. `.env` 파일에서 `SUCCESS_RATE=0.0` 으로 수정
+2. mock-responder 재시작
 ```bash
-# 1. Mock Responder를 전부 실패로 설정 (기존 컨테이너 제거 후 재기동)
-docker rm -f payment-mock-responder
-docker run -d --name payment-mock-responder \
-  --network internet-banking_default \
-  -e KFTC_BOOTSTRAP=kafka:29092 -e BOK_BOOTSTRAP=kafka:29092 \
-  -e SUCCESS_RATE=0.0 -e DELAY_MS=300 \
-  -v "<프로젝트경로>/services/payment-service/mock:/app:ro" \
-  python:3.12-alpine \
-  sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
-
-# 2. 이체 요청 6건 이상 전송 (Swagger: http://localhost:8084/swagger-ui.html)
-# X-Auth-Token-Id는 20자 이내로 설정해야 함 (VARCHAR(20) 제약)
-
-# 3. http://localhost:9090/alerts 에서 CompensationRateHigh FIRING 확인
-
-# 4. 테스트 완료 후 정상으로 복구
-docker rm -f payment-mock-responder
-docker run -d --name payment-mock-responder \
-  --network internet-banking_default \
-  -e KFTC_BOOTSTRAP=kafka:29092 -e BOK_BOOTSTRAP=kafka:29092 \
-  -e SUCCESS_RATE=1.0 -e DELAY_MS=300 \
-  -v "<프로젝트경로>/services/payment-service/mock:/app:ro" \
-  python:3.12-alpine \
-  sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
+docker compose --profile mock up -d mock-responder
+```
+3. 이체 요청 6건 이상 전송 (Swagger: `http://localhost:8084/swagger-ui.html`)
+   - `X-Auth-Token-Id` 헤더는 20자 이내로 설정 (VARCHAR(20) 제약)
+4. `http://localhost:9090/alerts` 에서 `CompensationRateHigh` FIRING 확인
+5. 테스트 완료 후 `.env`에서 `SUCCESS_RATE=1.0` 으로 원복 후 재시작
+```bash
+docker compose --profile mock up -d mock-responder
 ```
 
 ---
@@ -373,7 +373,7 @@ docker ps | grep kafka-exporter
 # bucket 지표가 있는지 확인
 curl http://localhost:8084/actuator/prometheus | grep duration_seconds_bucket
 ```
-- 결과가 없으면 서비스 재기동 필요
+- 결과가 없으면 이체 요청이 한 건도 처리된 적 없는 것입니다. Timer 메트릭은 첫 번째 이체를 처리한 후에야 `/actuator/prometheus`에 나타납니다. 모의 이체를 한 건 실행한 후 다시 확인하세요.
 
 ### Consumer Lag이 음수로 표시된다 (-6, -12 등)
 - 실제 문제가 아닙니다. kafka-exporter가 `committed offset - latest offset` 계산 시 consumer가 `auto.offset.reset=latest`로 시작하면 음수가 나올 수 있습니다.
@@ -390,14 +390,9 @@ curl http://localhost:8084/actuator/prometheus | grep duration_seconds_bucket
 # 1. 전체 스택 기동 (프로젝트 루트에서)
 docker compose up -d
 
-# 2. Mock Responder 기동 (이체 테스트 시 별도 실행 필요 — docker-compose 미통합)
-docker run -d --name payment-mock-responder \
-  --network internet-banking_default \
-  -e KFTC_BOOTSTRAP=kafka:29092 -e BOK_BOOTSTRAP=kafka:29092 \
-  -e SUCCESS_RATE=1.0 -e DELAY_MS=300 \
-  -v "<프로젝트경로>/services/payment-service/mock:/app:ro" \
-  python:3.12-alpine \
-  sh -c "pip install --quiet kafka-python-ng==2.2.3 && python /app/responder.py"
+# 2. Mock Responder 기동 (mock 프로파일)
+docker compose --profile mock up -d mock-responder
+# SUCCESS_RATE, DELAY_MS는 .env 파일에서 조정 (기본값: SUCCESS_RATE=1.0, DELAY_MS=300)
 ```
 
 > **주의**: payment-service는 내부적으로 8084 포트를 사용합니다 (Swagger: `http://localhost:8084/swagger-ui.html`).
@@ -413,15 +408,13 @@ docker run -d --name payment-mock-responder \
 
 ### DLQ 토픽 생성 확인
 
-payment-service 기동 전 DLQ 토픽이 있어야 합니다. 없으면 아래 명령으로 생성합니다.
+`docker compose up` 시 `payment-topic-init` 서비스가 자동으로 18개 토픽(DLQ 포함)을 생성하므로 수동 생성은 필요 없습니다.
+
+토픽이 정상 생성됐는지 확인하려면:
 
 ```bash
-docker exec ib-kafka bash -c "
-  /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 \
-    --create --topic kftc.network.response.dlq --partitions 3 --replication-factor 1
-  /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 \
-    --create --topic bok.network.response.dlq --partitions 3 --replication-factor 1
-"
+docker exec ib-kafka /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server kafka:29092 --list | grep dlq
 ```
 
 ---
@@ -453,5 +446,6 @@ docker exec ib-kafka bash -c "
 | `payment_kafka_dlq_total` | `dlq(cluster)` | `KftcKafkaConfig` recoverer, `BokKafkaConfig` recoverer |
 | `payment_compensation_total` | `compensation(type)` | `KftcNetworkResponseConsumer`, `BokNetworkResponseConsumer`, `OutboxPublisher` |
 | `payment_idempotency_duplicate_total` | `idempotencyDuplicate()` | `PaymentOrchestratorImpl` |
+| `payment_kftc_settlement_failed_total` | `kftcSettlementFailed()` | `KftcSettlementBatchWorker` (알림 미연결 — 대시보드 "KFTC 마감배치 정산 실패" 패널로 확인) |
 
 > **참고**: `paymentCompleted()` 는 자행 이체(즉시·예약)와 타행 이체(KFTC/BOK 정산) 모두에서 호출됩니다. `paymentFailed()` 역시 검증 실패·보상 트랜잭션 완료·KFTC/BOK 거절 등 모든 실패 경로를 커버합니다. 이를 통해 이체 성공률(`completed / (completed + failed)`)이 이체 유형에 관계없이 정확하게 계산됩니다.

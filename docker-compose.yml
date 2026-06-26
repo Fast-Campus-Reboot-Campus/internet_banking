@@ -471,6 +471,10 @@ services:
       AI_LLM_MODEL: ${GEMINI_LOAN_MODEL:-stub-v1}
       GEMINI_BASE_URL: ${GEMINI_LOAN_BASE_URL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LANGFUSE_ENABLED: "true"
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_HOST: http://langfuse:3000
     volumes:
       - C:/logs/internet-banking:/logs
     depends_on:
@@ -953,6 +957,10 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
       CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-4-7}
+      LANGFUSE_ENABLED: "true"
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_HOST: http://langfuse:3000
     volumes:
       - C:/logs/internet-banking:/logs
     depends_on:

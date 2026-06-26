@@ -2,6 +2,7 @@ package com.bank.customer.config;
 
 import com.bank.common.web.BusinessException;
 import com.bank.common.web.CommonErrorCode;
+import com.bank.customer.metrics.AuthMetrics;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -17,7 +18,7 @@ import static org.mockito.Mockito.when;
  */
 class InternalApiRoleInterceptorTest {
 
-    private final InternalApiRoleInterceptor interceptor = new InternalApiRoleInterceptor();
+    private final InternalApiRoleInterceptor interceptor = new InternalApiRoleInterceptor(mock(AuthMetrics.class));
     private final HttpServletResponse response = mock(HttpServletResponse.class);
 
     private HttpServletRequest requestWithRole(String roleHeader) {

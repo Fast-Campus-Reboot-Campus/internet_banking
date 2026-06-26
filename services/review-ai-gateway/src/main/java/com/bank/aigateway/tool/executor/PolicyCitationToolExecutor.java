@@ -1,7 +1,7 @@
 package com.bank.aigateway.tool.executor;
 
 import com.bank.aigateway.llm.agentic.ToolDefinition;
-import com.bank.aigateway.tool.AiServiceHttpClient;
+import com.bank.aigateway.tool.AdvisoryHttpClient;
 import com.bank.aigateway.tool.ToolExecutor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,9 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Component;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 /**
- * 정책 인용 검색 tool executor (시나리오 δ).
- * advisory-service 직접 호출 → ai-service POST /rag/search (profile=review) 로 전환.
+ * 정책 인용 검색 tool executor (Path C — advisory-service 직접 호출).
+ * advisory GET /api/internal/advisory/policy-citations?query=... 를 호출한다.
  */
 @Component
 @RequiredArgsConstructor
@@ -32,8 +35,8 @@ public class PolicyCitationToolExecutor implements ToolExecutor {
             }
             """;
 
-    private final AiServiceHttpClient aiServiceHttpClient;
-    private final ObjectMapper        objectMapper;
+    private final AdvisoryHttpClient advisoryHttpClient;
+    private final ObjectMapper       objectMapper;
 
     @Override
     public String toolName() { return TOOL_NAME; }
@@ -47,20 +50,11 @@ public class PolicyCitationToolExecutor implements ToolExecutor {
     }
 
     @Override
-    @SneakyThrows
     public String execute(JsonNode input) {
         String query = input.path("query").asText("");
         if (query.isBlank()) return "";
-        String body = objectMapper.writeValueAsString(
-                new RagSearchPayload(query, "review", null, null, 5));
-        return aiServiceHttpClient.post("/rag/search", body).orElse("");
+        String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
+        return advisoryHttpClient.get("/api/internal/advisory/policy-citations?query=" + encoded)
+                .orElse("");
     }
-
-    private record RagSearchPayload(
-            String query,
-            String profile,
-            String sensitivityCd,
-            String asOfDate,
-            Integer topK
-    ) {}
 }

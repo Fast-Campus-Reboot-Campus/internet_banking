@@ -7,6 +7,7 @@ import com.bank.loan.advisory.domain.ReviewAdvisoryRule;
 import com.bank.loan.advisory.engine.rules.DsrThresholdOverrideRule;
 import com.bank.loan.advisory.rag.EmbeddingClient;
 import com.bank.loan.advisory.rag.PiiMaskingUtil;
+import com.bank.loan.advisory.rag.StubEmbeddingClient;
 import com.bank.loan.advisory.repository.AdvisoryDocumentRepository;
 import com.bank.loan.advisory.repository.AdvisoryRetrievalLogRepository;
 import com.bank.loan.advisory.repository.ReviewAdvisoryReportRepository;
@@ -64,6 +65,15 @@ class AdvisoryRagFlowTest extends AbstractLoanIntegrationTest {
     private static Long advrId;
 
     // ============================================================
+    // 00) test 프로파일에서 StubEmbeddingClient 로드 확인
+    // ============================================================
+
+    @Test @Order(0)
+    void test_프로파일에서_Stub_임베딩_클라이언트_로드() {
+        assertThat(embeddingClient).isInstanceOf(StubEmbeddingClient.class);
+    }
+
+    // ============================================================
     // 10) 정책문서 등록 + 청크 인입
     // ============================================================
 
@@ -94,6 +104,43 @@ class AdvisoryRagFlowTest extends AbstractLoanIntegrationTest {
 
         AdvisoryDocument saved = docRepo.findByDocIdAndDeletedAtIsNull(docId).orElseThrow();
         assertThat(saved.isActive()).isTrue();
+    }
+
+    // ============================================================
+    // 11) 동일 doc_cd+version 재등록 → 409 (멱등성)
+    // ============================================================
+
+    @Test @Order(11)
+    void 동일_문서_재등록_시_중복_오류() throws Exception {
+        mockMvc.perform(post("/api/internal/advisory/documents")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "docCd":"DSR_POLICY_2070",
+                                  "docTitle":"재등록 시도",
+                                  "docCategoryCd":"CREDIT_POLICY",
+                                  "docVersion":"v1.0",
+                                  "effectiveStartDate":"20700101",
+                                  "effectiveEndDate":"20701231",
+                                  "content":"중복 등록 테스트"
+                                }
+                                """))
+                .andExpect(status().is4xxClientError());
+    }
+
+    // ============================================================
+    // 12) 적재 통계 endpoint
+    // ============================================================
+
+    @Test @Order(12)
+    void 적재_통계_엔드포인트_문서수와_청크수_반환() throws Exception {
+        mockMvc.perform(get("/api/internal/advisory/documents/stats")
+                        .header("X-Actor-Role", "ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalDocuments").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.data.activeDocuments").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.data.chunksByModel").isArray())
+                .andExpect(jsonPath("$.data.chunksByModel[0].count").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
     }
 
     // ============================================================
@@ -168,6 +215,34 @@ class AdvisoryRagFlowTest extends AbstractLoanIntegrationTest {
         assertThat(logs).isNotEmpty();
         assertThat(logs.get(0).getRetrievalKindCd()).isEqualTo(AdvisoryRetrievalLog.KIND_SIMILAR_CASE);
         assertThat(logs.get(0).getResultCount()).isGreaterThanOrEqualTo(0);
+    }
+
+    // ============================================================
+    // 35) 백필 신규 케이스 처리 + 재실행 멱등성
+    // ============================================================
+
+    @Test @Order(35)
+    void 백필_신규케이스_처리_및_재실행_멱등성() throws Exception {
+        // Order(30) 케이스는 이미 단건 인덱싱됨 → 백필 시 skipped
+        // 새 COMPLETED 심사 케이스 생성 → 아직 case_index 에 없으므로 backfill 이 처리
+        setupReviewApproved();
+
+        // 1차 백필: 신규 케이스 1건 이상 처리, Order(30) 케이스 건너뜀
+        MvcResult r1 = mockMvc.perform(post("/api/internal/advisory/rag/case-index/backfill"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.processed").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andReturn();
+
+        int processed1 = extractData(r1).get("processed").asInt();
+        int skipped1   = extractData(r1).get("skipped").asInt();
+        assertThat(extractData(r1).get("failed").asInt()).isEqualTo(0);
+
+        // 2차 백필: 모두 이미 인덱싱됨 → processed=0, skipped >= 1차 합계
+        mockMvc.perform(post("/api/internal/advisory/rag/case-index/backfill"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.processed").value(0))
+                .andExpect(jsonPath("$.data.skipped")
+                        .value(org.hamcrest.Matchers.greaterThanOrEqualTo(processed1 + skipped1)));
     }
 
     // ============================================================

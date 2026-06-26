@@ -8,12 +8,14 @@ import com.bank.aigateway.llm.ToolAwareLlmClient;
 import com.bank.aigateway.llm.agentic.ClaudeAgenticResponse;
 import com.bank.aigateway.llm.agentic.ToolCall;
 import com.bank.aigateway.llm.agentic.ToolDefinition;
+import com.bank.aigateway.observability.LangfuseService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -24,6 +26,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +42,9 @@ public class ClaudeLlmClient implements LlmClient, ToolAwareLlmClient {
 
     private final ClaudeProperties props;
     private final ObjectMapper objectMapper;
+
+    @Autowired(required = false)
+    private LangfuseService langfuse;
 
     @Override
     public LlmResponse complete(LlmRequest request) {
@@ -126,9 +132,24 @@ public class ClaudeLlmClient implements LlmClient, ToolAwareLlmClient {
         String body = buildBodyWithTools(systemPrompt, messages, tools);
         HttpClient client = buildHttpClient();
 
+        String traceId = langfuse != null ? langfuse.newTraceId() : null;
+        if (langfuse != null) {
+            langfuse.trace(traceId, "audit-analysis",
+                    java.util.Map.<String, Object>of("model", props.getModel()),
+                    java.util.List.of("review-ai-gateway"));
+        }
+
         for (int attempt = 1; attempt <= props.getMaxAttempts(); attempt++) {
             try {
-                return doRequestWithTools(client, body);
+                Instant start = Instant.now();
+                ClaudeAgenticResponse response = doRequestWithTools(client, body);
+                if (langfuse != null) {
+                    langfuse.generation(traceId, "completeWithTools", props.getModel(),
+                            messages.toString(), response.textContent(),
+                            response.inputTokens(), response.outputTokens(),
+                            start, Instant.now());
+                }
+                return response;
             } catch (LlmException e) {
                 if (attempt == props.getMaxAttempts()) throw e;
                 log.warn("Claude tool-use 호출 실패 — attempt={}/{}: {}", attempt, props.getMaxAttempts(), e.getMessage());

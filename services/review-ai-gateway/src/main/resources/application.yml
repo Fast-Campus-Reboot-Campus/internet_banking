@@ -66,6 +66,12 @@ aigateway:
   agent:
     max-turns: 5   # 근거: 정상종료 run turns p95 + run당 토큰예산 역산 중 min (docs/plan/agent-loop-limits-metrics-plan.md)
 
+langfuse:
+  enabled: ${LANGFUSE_ENABLED:false}
+  secret-key: ${LANGFUSE_SECRET_KEY:}
+  public-key: ${LANGFUSE_PUBLIC_KEY:}
+  host: ${LANGFUSE_HOST:http://localhost:3001}
+
 llm:
   provider: ${LLM_PROVIDER:mock}
   claude:

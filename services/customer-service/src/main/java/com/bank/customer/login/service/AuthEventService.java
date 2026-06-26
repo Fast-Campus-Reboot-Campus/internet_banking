@@ -80,6 +80,7 @@ public class AuthEventService {
 
         evaluateFdsSilently(customer.getCustomerId(), attempt.getLoginAttemptId());
 
+        authMetrics.loginSuccess();
         return new LoginResponse(customer.getCustomerId(), accessToken, refreshToken);
     }
 

@@ -62,7 +62,7 @@ public class PaymentMetrics {
         registry.counter("payment.kafka.consume", "topic", topic).increment();
     }
 
-    // 지표 9: 보상 트랜잭션 발생 (type = F4_KFTC | F4_BOK | F7_KFTC | F7_BOK)
+    // 지표 9: 보상 트랜잭션 발생 (type = F2_KFTC | F3_BOK | F4_KFTC | F4_BOK | F7_KFTC | F7_BOK)
     public void compensation(String type) {
         registry.counter("payment.compensation", "type", type).increment();
     }

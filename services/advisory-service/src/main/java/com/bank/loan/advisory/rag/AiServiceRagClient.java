@@ -15,11 +15,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ai-service RAG 검색 HTTP 클라이언트 (시나리오 δ).
+ * ai-service RAG 검색 HTTP 클라이언트 (시나리오 δ — 보류).
  *
- * POST {ai-service}/rag/search 를 호출해 청크 목록을 반환한다.
- * advisory-service 가 자체 JDBC 쿼리 대신 이 클라이언트를 사용하도록 전환.
+ * Path C 채택으로 advisory 가 자체 테이블을 직접 검색하므로 이 클라이언트는 사용하지 않는다.
+ * ai-service 가 실제 서비스로 구축될 때까지 데이터 보존 목적으로 잔존.
+ *
+ * @deprecated ai-service 통합 보류(Path C). 운영 경로에서 호출 금지.
+ *             재전환 계획은 docs/plan/13c_advisory_rag_path_c.md §8 참조.
  */
+@Deprecated
 @Slf4j
 @Component
 public class AiServiceRagClient {

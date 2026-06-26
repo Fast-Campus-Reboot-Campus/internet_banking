@@ -532,6 +532,9 @@ class LlmAdapter:
         raise RuntimeError("상품 추천은 규칙 기반 추천 엔진에서만 처리합니다.")
 
 
+from langfuse.decorators import observe
+
+
 class OpenAIDocumentAnalyzer:
     """업로드된 문서(PDF 텍스트)를 분석하는 어댑터.
 
@@ -566,6 +569,7 @@ class OpenAIDocumentAnalyzer:
                 pass
         return self._analyze_rule_based(text, analyze_type)
 
+    @observe(name="llm-document-analyze")
     def _analyze_with_openai(self, text: str, analyze_type: str) -> str:
         from openai import OpenAI
         system_prompt = self._SYSTEM_PROMPTS.get(analyze_type, self._SYSTEM_PROMPTS["TERMS"])
@@ -816,6 +820,7 @@ class RagAnswerGenerator:
             lines.append(line)
         return "\n\n".join(lines)
 
+    @observe(name="llm-rag-answer")
     def _answer_with_openai(self, query: str, context: str) -> str:
         from openai import OpenAI
         client = OpenAI(api_key=self._api_key)

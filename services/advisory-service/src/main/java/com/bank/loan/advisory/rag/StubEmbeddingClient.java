@@ -1,6 +1,6 @@
 package com.bank.loan.advisory.rag;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.Random;
@@ -8,12 +8,11 @@ import java.util.Random;
 /**
  * 결정론적 단위벡터를 생성하는 스텁 임베딩 클라이언트.
  *
- * 활성 조건: advisory.rag.embed.provider=stub (기본값 — 미설정 시 동작)
- * 테스트에서 동일 텍스트로 문서/사례를 적재하면 코사인 유사도 = 1.0 보장.
- * 운영 전환: .env 에 ADVISORY_RAG_EMBED_PROVIDER=openai 설정 시 비활성.
+ * test 프로파일 전용 — 동일 텍스트는 항상 동일 벡터(코사인 1.0) 보장.
+ * 운영에서는 AdvisoryOpenAiEmbeddingClient 가 로드됨(@Profile("!test")).
  */
 @Component
-@ConditionalOnProperty(name = "advisory.rag.embed.provider", havingValue = "stub", matchIfMissing = true)
+@Profile("test")
 public class StubEmbeddingClient implements EmbeddingClient {
 
     private static final String MODEL_CD  = "SBERT_KO_V1";

@@ -30,11 +30,12 @@
 | JVM | Heap, GC, 스레드 | 애플리케이션 런타임 상태 |
 | 시스템 / DB | CPU, 커넥션 풀, 쿼리 지연 | 인프라 수준 상태 |
 | 인증 / 보안 | 로그인 성공/실패, JWT 실패, 회원가입 | 보안 이벤트 추적 |
-| 서버 자원 | Disk 사용량, Network I/O | 호스트 OS 수준 자원 (windows_exporter) |
+| 서버 자원 | Disk 사용량, Network I/O | 호스트 OS 수준 자원 (windows_exporter / Node Exporter) |
 | 로그 | 애플리케이션 로그, ERROR 로그 | Loki에서 수집한 실시간 로그 스트림 |
 
 상단 **서비스** 드롭다운으로 서비스를 전환한다.
-> 인증/보안 · 서버 자원 섹션은 `customer-service` 선택 시에만 의미 있는 데이터가 표시된다.
+> 인증/보안 섹션은 `customer-service` 선택 시에만 의미 있는 데이터가 표시된다.
+> 서버 자원 섹션은 드롭다운 선택에 관계없이 호스트 전체 자원을 표시한다.
 > 로그 섹션은 HTTP 에러율과 별개다. 내부 예외가 `try-catch`로 처리되면 HTTP 에러율은 0이어도 ERROR 로그가 남을 수 있다.
 
 ### 모니터링 대상 서비스
@@ -170,7 +171,7 @@
 ## 4-1. 인증 / 보안 섹션
 
 > `customer-service` 에 등록된 Micrometer 커스텀 카운터를 시각화한다.
-> 메트릭 소스: `LoginService`, `RegisterService`, `JwtAuthenticationFilter`, `SecurityConfig`
+> 메트릭 소스: `AuthEventService`, `LoginService`, `RegisterService`, `InternalApiRoleInterceptor`
 
 ### 로그인 성공 / 실패 (5분)
 - **설명**: 5분 구간 동안 발생한 로그인 결과를 reason 별로 집계.
@@ -202,13 +203,23 @@
 
 ---
 
-## 4-2. 서버 자원 섹션 (windows_exporter)
+## 4-2. 서버 자원 섹션 (windows_exporter / Node Exporter)
 
-> `localhost:9182` 에서 수집하는 Windows 호스트 메트릭.
-> windows_exporter가 실행 중이지 않으면 이 섹션은 "No data"로 표시된다.
+호스트 OS 수준의 Disk·Network 메트릭을 표시한다. 로컬과 서버는 사용하는 exporter가 다르며, 대시보드 패널은 PromQL `or` 연산으로 두 환경을 모두 지원한다.
 
-### Disk 사용량 (C:)
-- C: 드라이브의 전체 용량 대비 사용 중인 용량.
+| 환경 | Exporter | 메트릭 접두사 | 포트 |
+|------|----------|-------------|------|
+| 로컬 (Windows) | windows_exporter | `windows_*` | 9182 |
+| 서버 (Linux) | Node Exporter | `node_*` | 9100 |
+
+각 환경에서 실행되지 않는 exporter의 패널은 "No data"로 표시되며, 이는 정상이다. ServiceDown alert는 `job!~"windows-exporter|node-exporter"` 조건으로 두 exporter를 모두 제외하고 있어 알림이 발생하지 않는다.
+
+> **로컬에서 windows_exporter 미설치 시**: [Prometheus Community windows_exporter releases](https://github.com/prometheus-community/windows_exporter/releases) 에서 다운로드 후 실행.
+> `windows_exporter.exe --telemetry.addr=:9182`
+
+### Disk 사용량 (C: / /)
+- 로컬: C: 드라이브 전체 용량 대비 사용 중인 용량.
+- 서버: `/` 마운트 포인트 전체 용량 대비 사용 중인 용량.
 
 | 등급 | 사용률 |
 |------|--------|
@@ -299,7 +310,7 @@
 - `http://localhost:3000/connections/datasources` → Loki datasource → **Save & test**
 - Loki datasource의 uid가 `loki`인지 확인 (`datasource.yml`에 명시됨)
 - Promtail이 해당 서비스의 로그 파일을 수집 중인지 확인: `http://localhost:3100/loki/api/v1/label/application/values`
-- 로그 수집 대상 서비스: api-gateway, customer-service, deposit-service, loan-service, payment-service, master-service, auto-loan-review, review-ai-gateway
+- 로그 수집 대상 서비스: api-gateway, customer-service, consultation-service, deposit-service, loan-service, payment-service, master-service, auto-loan-review, review-ai-gateway
 
 ---
 
@@ -322,7 +333,7 @@ Prometheus가 직접 평가하는 레코딩 규칙. `http://localhost:9090/alert
 
 | 그룹 | 알림명 | 조건 | 지연 | 심각도 |
 |------|--------|------|------|--------|
-| service-availability | ServiceDown | `up == 0` | 1m | critical |
+| service-availability | ServiceDown | `up{job!~"windows-exporter\|node-exporter"} == 0` | 1m | critical |
 | http-errors | HighErrorRate5xx | 5xx 비율 > 5% | 2m | critical |
 | http-errors | HighErrorRate4xx | 4xx 비율 > 20% | 5m | warning |
 | api-performance | SlowApiResponse | p95 응답시간 > 2초 | 5m | warning |
@@ -373,4 +384,4 @@ Grafana가 자체적으로 Prometheus를 쿼리하여 평가하는 알림 (Prome
 |------|------|
 | [KAFKA_PAYMENT_GUIDE.md](KAFKA_PAYMENT_GUIDE.md) | Kafka Payment 대시보드 — Consumer Lag, Outbox, 보상 트랜잭션, DLQ 해석 |
 | [CHATBOT_GUIDE.md](CHATBOT_GUIDE.md) | 챗봇 상담 모니터링 — 세션 현황, LLM 성능, Kafka 이벤트, 만족도 |
-| [INFRA_VERSIONS.md](INFRA_VERSIONS.md) | 모니터링 인프라 버전 및 설정 파일 위치 |
+| [INFRA_PORTS.md](INFRA_PORTS.md) | 모니터링 인프라 포트 및 설정 파일 위치 |

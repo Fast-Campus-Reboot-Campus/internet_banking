@@ -36,12 +36,23 @@
 
 ## 1. 접속 방법
 
+### 로컬 환경
+
 | 도구 | URL | 용도 |
 |------|-----|------|
 | Grafana | `http://localhost:3000` | 대시보드 |
 | Prometheus | `http://localhost:9090` | 메트릭 쿼리 / Alert 상태 |
 | Alertmanager | `http://localhost:9095` | Alert 라우팅 / 발송 현황 |
 | healthchecks.io | `https://healthchecks.io` | Prometheus 자체 다운 감지 |
+
+### 서버 환경 (axfulbank.store)
+
+| 도구 | URL | 계정 |
+|------|-----|------|
+| Grafana | `https://axfulbank.store/grafana/` | admin / admin |
+| Prometheus | `https://axfulbank.store/prometheus/` | 없음 |
+| Langfuse | `http://101.79.17.205:3001` | Langfuse UI에서 가입 |
+| Phoenix | `http://101.79.17.205:6006` | 없음 |
 
 대시보드 경로: **Dashboards → Monitoring Stack Overview**
 
@@ -318,7 +329,7 @@ healthchecks.io는 Slack integration도 지원합니다. 이를 추가하면 Ale
 
 | 문서 | 내용 |
 |------|------|
-| [DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md) | 전체 서비스 대시보드 해석 |
+| [INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md](INTERNET_BANKING_SERVICE_OVERVIEW_GUIDE.md) | 전체 서비스 대시보드 해석 |
 | [KAFKA_PAYMENT_GUIDE.md](KAFKA_PAYMENT_GUIDE.md) | Kafka 결제 모니터링 |
 | [LLM_RAG_MONITORING_GUIDE.md](LLM_RAG_MONITORING_GUIDE.md) | LLM/RAG 모니터링 (Langfuse + Phoenix) |
 | [ML_LOAN_REVIEW_GUIDE.md](ML_LOAN_REVIEW_GUIDE.md) | ML 대출 심사 모니터링 |

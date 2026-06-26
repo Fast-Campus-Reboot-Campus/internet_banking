@@ -1,7 +1,6 @@
 package com.bank.ai.review.dto;
 
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 
 /**
  * 자동심사 신청 입력.
@@ -16,7 +15,7 @@ public record AutoReviewRequest(
         Long revId,                         // Phase 1.6: DB 적재된 revId (비동기 콜백용)
         // ---- Layer 1: persona ----
         String sex,
-        @NotNull @Min(0) Integer age,
+        @Min(0) Integer age,
         String maritalStatus,
         String militaryStatus,
         String familyType,

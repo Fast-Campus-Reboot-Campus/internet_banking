@@ -7,27 +7,27 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-
-def _extract_customer_id(auth_header: str) -> str | None:
-    """Authorization: Bearer 헤더에서 customer_id를 추출한다.
-
-    서명 검증은 API Gateway(Java)에서 담당하므로 여기서는 페이로드 디코딩만 수행.
-    """
-    if not auth_header.startswith("Bearer "):
-        return None
-    parts = auth_header[7:].split(".")
-    if len(parts) < 2:
-        return None
-    try:
-        padding = "=" * (-len(parts[1]) % 4)
-        payload = _json.loads(base64.b64decode(parts[1] + padding).decode())
-        cid = payload.get("customer_id") or payload.get("customerId") or payload.get("sub")
-        return str(cid) if cid is not None else None
-    except Exception:
-        return None
+import logging
 
 from app.config import settings
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
+
+
+def _setup_langfuse() -> None:
+    if not settings.langfuse_enabled:
+        return
+    from langfuse import Langfuse
+    Langfuse(
+        secret_key=settings.langfuse_secret_key,
+        public_key=settings.langfuse_public_key,
+        host=settings.langfuse_host,
+    )
+    logger.info("[Langfuse] LLM 추적 활성화 → %s", settings.langfuse_host)
+
+
+_setup_langfuse()
 from app.registry import TABLES
 from app import services
 from app import agent_maturity
@@ -294,19 +294,17 @@ def maturity_chat(payload: dict, db: Session = Depends(get_db)) -> dict:
 
 
 @app.post("/agent/spending/chat")
-def spending_chat(request: Request, payload: dict, db: Session = Depends(get_db)) -> dict:
+def spending_chat(payload: dict, db: Session = Depends(get_db)) -> dict:
     """
     Tool Calling 기반 지출 패턴 관리 에이전트.
     SPENDING_AGENT_ENABLED=true 환경변수가 설정된 경우에만 LLM 에이전트가 활성화됩니다.
     비활성화 시 룰 기반 fallback으로 동작합니다.
 
     body:
-        customer_id : str  (없으면 Authorization 헤더 토큰에서 추출)
+        customer_id : str
         message     : str  (사용자 메시지, 예: "지출 패턴 분석해줘")
     """
-    customer_id = payload.get("customer_id") or _extract_customer_id(
-        request.headers.get("Authorization", "")
-    )
+    customer_id = payload.get("customer_id")
     message = payload.get("message", "지출 패턴을 분석하고 개선 방안을 알려주세요.")
 
     if not customer_id:

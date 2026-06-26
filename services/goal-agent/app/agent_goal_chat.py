@@ -13,6 +13,8 @@ import json
 import re
 from decimal import Decimal, ROUND_DOWN
 
+from langfuse.decorators import langfuse_context, observe
+
 import anthropic
 from sqlalchemy.orm import Session
 
@@ -367,11 +369,16 @@ SYSTEM_PROMPT = """당신은 금융 목표 달성 플래너 에이전트입니�
 # 메인 에이전트 루프
 # ──────────────────────────────────────────────
 
+@observe(name="goal-agent", capture_input=False)
 def _run_goal_agent_claude(db: Session, customer_id: str, message: str) -> dict:
     """
     Tool Calling 기반 Goal-Based Financial Agent 메인 함수.
     Claude가 사용자 메시지를 보고 필요한 도구를 선택·실행한다.
     """
+    langfuse_context.update_current_observation(
+        input={"customer_id": customer_id, "message": message},
+        metadata={"model": "claude-opus-4-8"},
+    )
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
     # 서버 사이드 context 누산기 (Claude는 이 dict를 직접 보지 못함)

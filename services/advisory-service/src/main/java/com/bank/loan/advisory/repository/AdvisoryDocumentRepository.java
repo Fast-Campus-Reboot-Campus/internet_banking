@@ -15,4 +15,8 @@ public interface AdvisoryDocumentRepository extends JpaRepository<AdvisoryDocume
     List<AdvisoryDocument> findByActiveYnAndDeletedAtIsNull(String activeYn);
 
     List<AdvisoryDocument> findAllByDeletedAtIsNullOrderByCreatedAtDesc();
+
+    long countByDeletedAtIsNull();
+
+    long countByActiveYnAndDeletedAtIsNull(String activeYn);
 }

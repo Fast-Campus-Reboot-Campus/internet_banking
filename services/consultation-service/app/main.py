@@ -96,6 +96,8 @@ settings = get_settings()
 static_dir = Path(__file__).resolve().parents[1] / "static"
 
 
+
+
 async def _handle_contract_created(payload: dict) -> None:
     """deposit-api 에서 ContractCreated 이벤트 수신 시 처리. RAG 인덱스 재빌드."""
     logger.info(
@@ -225,6 +227,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+
 
 _origins = [
     o.strip()
