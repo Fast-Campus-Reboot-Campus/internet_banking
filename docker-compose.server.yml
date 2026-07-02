@@ -157,6 +157,8 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
@@ -344,6 +346,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      payment-topic-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
@@ -546,6 +550,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      payment-topic-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
@@ -878,6 +884,7 @@ volumes:
   master-db-data:
   ai-db-data:
   redis-data:
+  kafka-data:
   prometheus-data:
   grafana-data:
   loki-data:
