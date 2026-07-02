@@ -19,6 +19,7 @@ services:
       POSTGRES_PASSWORD: ${CUSTOMER_DB_PASSWORD:-customer}
     volumes:
       - customer-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${CUSTOMER_DB_USER:-customer} -d ${CUSTOMER_DB_NAME:-customer_db}"]
       interval: 10s
@@ -34,6 +35,7 @@ services:
       POSTGRES_PASSWORD: ${DEPOSIT_DB_PASSWORD:-deposit}
     volumes:
       - deposit-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DEPOSIT_DB_USER:-deposit} -d ${DEPOSIT_DB_NAME:-deposit_db}"]
       interval: 10s
@@ -49,6 +51,7 @@ services:
       POSTGRES_PASSWORD: ${LOAN_DB_PASSWORD:-loan}
     volumes:
       - loan-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${LOAN_DB_USER:-loan} -d ${LOAN_DB_NAME:-loan_db}"]
       interval: 10s
@@ -64,6 +67,7 @@ services:
       POSTGRES_PASSWORD: ${COMMON_DB_PASSWORD:-common}
     volumes:
       - common-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${COMMON_DB_USER:-common} -d ${COMMON_DB_NAME:-common_db}"]
       interval: 10s
@@ -79,6 +83,7 @@ services:
       POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment}
     volumes:
       - payment-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PAYMENT_DB_USER:-payment} -d ${PAYMENT_DB_NAME:-payment_db}"]
       interval: 10s
@@ -94,6 +99,7 @@ services:
       POSTGRES_PASSWORD: ${MASTER_DB_PASSWORD:-master}
     volumes:
       - master-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${MASTER_DB_USER:-master} -d ${MASTER_DB_NAME:-master_db}"]
       interval: 10s
@@ -110,6 +116,7 @@ services:
     volumes:
       - ai-db-data:/var/lib/postgresql/data
       - ./infra/ai-db/init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER:-ai} -d ${AI_DB_NAME:-ai_db}"]
       interval: 10s
@@ -125,6 +132,7 @@ services:
     container_name: ib-redis
     volumes:
       - redis-data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -149,6 +157,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 10s
@@ -179,6 +188,7 @@ services:
       - "${PAYMENT_DB_B_PORT:-5441}:5432"
     volumes:
       - payment-db-b-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U payment -d payment_b"]
       interval: 10s
@@ -215,6 +225,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
       interval: 10s
@@ -248,12 +259,13 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8082/api/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   loan-service:
     build:
@@ -291,12 +303,13 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   payment-service:
     build:
@@ -312,9 +325,9 @@ services:
       PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
       PAYMENT_DB_USER: ${PAYMENT_DB_USER:-payment}
       PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment}
-      KFTC_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
-      BOK_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
-      INTERNAL_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
+      KFTC_KAFKA_BOOTSTRAP: "${KFTC_KAFKA_BOOTSTRAP:-kafka:29092}"
+      BOK_KAFKA_BOOTSTRAP: "${BOK_KAFKA_BOOTSTRAP:-kafka:29092}"
+      INTERNAL_KAFKA_BOOTSTRAP: "${INTERNAL_KAFKA_BOOTSTRAP:-kafka:29092}"
       BANK_CODE: "A"
       KFTC_CONSUMER_GROUP: payment-kftc-a
       BOK_CONSUMER_GROUP: payment-bok-a
@@ -330,6 +343,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
       interval: 10s
@@ -362,6 +376,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8085/actuator/health | grep -q UP"]
       interval: 10s
@@ -404,11 +419,12 @@ services:
       loan-service:
         condition: service_healthy
       payment-service:
-        condition: service_healthy
+        condition: service_started
       master-service:
         condition: service_healthy
       auto-loan-review:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
       interval: 10s
@@ -452,6 +468,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:${AUTO_LOAN_REVIEW_APP_PORT:-8089}/actuator/health | grep -q UP"]
       interval: 10s
@@ -486,6 +503,7 @@ services:
         condition: service_healthy
       auto-loan-review:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8088/actuator/health | grep -q UP"]
       interval: 10s
@@ -510,9 +528,9 @@ services:
       PAYMENT_DB_NAME: payment_b
       PAYMENT_DB_USER: payment
       PAYMENT_DB_PASSWORD: payment
-      KFTC_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
-      BOK_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
-      INTERNAL_KAFKA_BOOTSTRAP: "35.216.11.186:9094"
+      KFTC_KAFKA_BOOTSTRAP: "${KFTC_KAFKA_BOOTSTRAP:-kafka:29092}"
+      BOK_KAFKA_BOOTSTRAP: "${BOK_KAFKA_BOOTSTRAP:-kafka:29092}"
+      INTERNAL_KAFKA_BOOTSTRAP: "${INTERNAL_KAFKA_BOOTSTRAP:-kafka:29092}"
       KFTC_CONSUMER_GROUP: payment-kftc-b
       BOK_CONSUMER_GROUP: payment-bok-b
       INTERNAL_CONSUMER_GROUP: payment-internal-b
@@ -527,6 +545,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
       interval: 10s
@@ -560,6 +579,7 @@ services:
     depends_on:
       deposit-db:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8087/health')\""]
       interval: 10s
@@ -584,6 +604,7 @@ services:
     depends_on:
       deposit-db:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
       interval: 10s
@@ -614,6 +635,7 @@ services:
     depends_on:
       gateway-service:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
       interval: 10s
@@ -681,6 +703,7 @@ services:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
       interval: 15s
@@ -705,6 +728,7 @@ services:
     depends_on:
       prometheus:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 15s
@@ -720,6 +744,7 @@ services:
     command: --config.file=/etc/alertmanager/alertmanager.yml
     volumes:
       - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
       interval: 15s
@@ -734,6 +759,7 @@ services:
     command: --config.file=/etc/blackbox/blackbox.yml
     volumes:
       - ./infra/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9115/-/healthy || exit 1"]
       interval: 15s
@@ -767,6 +793,7 @@ services:
     volumes:
       - ./infra/loki/loki-config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
+    restart: unless-stopped
     healthcheck:
       disable: true
       timeout: 5s
@@ -783,6 +810,7 @@ services:
     depends_on:
       loki:
         condition: service_started
+    restart: unless-stopped
 
   # =============================================================
   # Monitoring — LLM Tracing (Langfuse + Phoenix)
@@ -797,6 +825,7 @@ services:
       POSTGRES_PASSWORD: ${LANGFUSE_DB_PASSWORD:-langfuse}
     volumes:
       - langfuse-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${LANGFUSE_DB_USER:-langfuse} -d ${LANGFUSE_DB_NAME:-langfuse_db}"]
       interval: 10s
@@ -818,8 +847,9 @@ services:
     depends_on:
       langfuse-db:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://$(hostname -i):3000/api/public/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://$(hostname -i | awk '{print $1}'):3000/api/public/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -835,6 +865,7 @@ services:
       PHOENIX_WORKING_DIR: /phoenix
     volumes:
       - phoenix-data:/phoenix
+    restart: unless-stopped
 
 volumes:
   customer-db-data:
