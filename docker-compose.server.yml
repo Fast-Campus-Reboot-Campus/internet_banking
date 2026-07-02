@@ -162,7 +162,8 @@ services:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 90s
 
   payment-topic-init:
     image: apache/kafka:3.8.0
@@ -349,7 +350,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   master-service:
     build:
@@ -382,7 +383,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   gateway-service:
     build:
@@ -430,7 +431,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   auto-loan-review:
     build:
@@ -474,7 +475,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   review-ai-gateway:
     build:
@@ -509,7 +510,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   payment-service-b:
     build:
@@ -551,7 +552,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 180s
 
   consultation-service:
     build:
