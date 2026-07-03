@@ -755,6 +755,8 @@ services:
       - /bin/sh
       - -c
       - |
+        : "$${SLACK_WEBHOOK_URL:?SLACK_WEBHOOK_URL이 .env에 설정되어 있지 않습니다}"
+        : "$${HEALTHCHECKS_PING_URL:?HEALTHCHECKS_PING_URL이 .env에 설정되어 있지 않습니다}"
         sed -e "s|__SLACK_WEBHOOK_URL__|$$SLACK_WEBHOOK_URL|g" \
             -e "s|__HEALTHCHECKS_PING_URL__|$$HEALTHCHECKS_PING_URL|g" \
             /etc/alertmanager/alertmanager.yml.template \
