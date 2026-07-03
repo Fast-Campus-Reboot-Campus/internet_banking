@@ -748,9 +748,22 @@ services:
     container_name: ib-alertmanager
     ports:
       - "${ALERTMANAGER_PORT:-9095}:9093"
-    command: --config.file=/etc/alertmanager/alertmanager.yml
+    environment:
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      HEALTHCHECKS_PING_URL: ${HEALTHCHECKS_PING_URL}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        : "$${SLACK_WEBHOOK_URL:?SLACK_WEBHOOK_URL이 .env에 설정되어 있지 않습니다}"
+        : "$${HEALTHCHECKS_PING_URL:?HEALTHCHECKS_PING_URL이 .env에 설정되어 있지 않습니다}"
+        sed -e "s|__SLACK_WEBHOOK_URL__|$$SLACK_WEBHOOK_URL|g" \
+            -e "s|__HEALTHCHECKS_PING_URL__|$$HEALTHCHECKS_PING_URL|g" \
+            /etc/alertmanager/alertmanager.yml.template \
+            > /tmp/alertmanager.yml && \
+        exec /bin/alertmanager --config.file=/tmp/alertmanager.yml
     volumes:
-      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml.template:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:9093/-/healthy || exit 1"]
